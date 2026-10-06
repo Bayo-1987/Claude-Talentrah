@@ -1,6 +1,6 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { CREDIT_COSTS } from "@/lib/credits/costs";
+import { farahMessageCharge } from "@/lib/credits/farah-message-charge";
 import { spendCredits, InsufficientCreditsError } from "@/lib/credits/spend";
 import { logCreditGateEvent } from "@/lib/credits/gate-events";
 import { checkPassCoverage, DAILY_CAP_MESSAGE } from "@/lib/passes/entitlement";
@@ -35,8 +35,9 @@ export { InsufficientCreditsError };
  * (0123) keeps one place answering "how many times has this user used this
  * gate, and how" instead of a second table nothing else needs.
  */
-export const FARAH_CHAT_FREE_ALLOWANCE = 3;
-const FARAH_CHAT_FREE_WINDOW_DAYS = 30;
+import { FARAH_CHAT_FREE_ALLOWANCE, FARAH_CHAT_FREE_WINDOW_DAYS, FARAH_FREE_CLAIM_HOLD_SECONDS, freeWindowStart, nextFreeMessageAt } from "@/lib/farah/free-allowance";
+import { MISSING_OBJECT_CODES } from "@/lib/farah/spend-ceiling";
+export { FARAH_CHAT_FREE_ALLOWANCE };
 const FARAH_CHAT_REASON = "farah_chat_message" as const;
 
 export interface FarahChatAllowanceResult {
@@ -55,6 +56,50 @@ export interface FarahChatAllowanceResult {
    * /api/farah/history's own null-for-pass-holder rule).
    */
   freeMessagesRemaining: number | null;
+  /**
+   * Set only when this free message holds a pending claim (migration 0236). The route must SETTLE it: commit it after a completed reply (commitFarahChatAllowance does) or release it
+   * (releaseFarahChatAllowance) after any other way out; a claim nobody settles expires by itself after FARAH_FREE_CLAIM_HOLD_SECONDS. Absent for a paid or Pass message, and for a free message
+   * on the old check-then-commit path (the claim function was missing).
+   */
+  freeClaimId?: string;
+}
+
+/**
+ * The free-message claim (0236), asked for BEFORE the model call and only when the count says a free message is left. `claimed`: this request holds the slot. `lost`: the slot went to someone else
+ * (or the claim could not be made: a failure closes, like a failed count), so the request is handled exactly as if the free messages were already used up. `legacy`: the function does not exist yet
+ * (the migration is not applied), so the old check-then-commit path is used rather than turning every free message into a paid one.
+ */
+type FreeClaim = { kind: "claimed"; id: string; usedAfter: number } | { kind: "lost" } | { kind: "legacy" };
+type ClaimRpc = (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: { message: string; code?: string } | null }>;
+// The generated Database types do not list the claim functions until they are regenerated after 0236.
+const rpcOf = (supabase: ReturnType<typeof createServiceRoleClient>): ClaimRpc => supabase.rpc.bind(supabase) as unknown as ClaimRpc;
+
+async function claimFreeMessage(userId: string): Promise<FreeClaim> {
+  // supabase-js's rpc() returns a thenable that is NOT a Promise (no .catch), so the call is awaited inside try/catch.
+  let data: unknown;
+  let error: { message: string; code?: string } | null;
+  try {
+    ({ data, error } = await rpcOf(createServiceRoleClient())("claim_farah_free_message", {
+      p_user_id: userId,
+      p_allowance: FARAH_CHAT_FREE_ALLOWANCE,
+      p_window_days: FARAH_CHAT_FREE_WINDOW_DAYS,
+      p_hold_seconds: FARAH_FREE_CLAIM_HOLD_SECONDS,
+    }));
+  } catch (err) {
+    data = null;
+    error = { message: String(err), code: "thrown" };
+  }
+  if (error) {
+    if (error.code && MISSING_OBJECT_CODES.has(error.code)) {
+      console.error(`[farah-chat-gate] free claim function missing (code=${error.code}): migration 0236 may not be applied; using the check-then-commit path`);
+      return { kind: "legacy" };
+    }
+    console.error(`[farah-chat-gate] free claim failed (code=${error.code ?? "none"})`);
+    return { kind: "lost" };
+  }
+  const row = Array.isArray(data) ? (data[0] as { ok?: unknown; claim_id?: unknown; used?: unknown } | undefined) : undefined;
+  if (row && row.ok === true && typeof row.claim_id === "string" && typeof row.used === "number") return { kind: "claimed", id: row.claim_id, usedAfter: row.used };
+  return { kind: "lost" };
 }
 
 /**
@@ -71,7 +116,7 @@ export interface FarahChatAllowanceResult {
  */
 async function countFreeAllowanceUsed(userId: string, now: Date): Promise<number> {
   const supabase = createServiceRoleClient();
-  const since = new Date(now.getTime() - FARAH_CHAT_FREE_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const since = freeWindowStart(now).toISOString();
   const { count, error } = await supabase
     .from("credit_gate_events")
     .select("id", { count: "exact", head: true })
@@ -104,6 +149,34 @@ export async function farahChatFreeMessagesRemaining(
 }
 
 /**
+ * When the next free message comes back, as an ISO timestamp, or `null` when none is coming back (nothing was used in the window) or the read failed.
+ *
+ * Rolling, not a calendar month: a free message returns 30 days after it was logged, and a person is free again once fewer than 3 are inside the window, so it is the (n - 3 + 1)th oldest of the n
+ * inside it, plus 30 days (`nextFreeMessageAt`, free-allowance.ts, which shares the window edge with the count above). That row is the 3rd NEWEST for every n >= 3 (the oldest when n is 3, the second
+ * oldest when n is 4), so this reads only the 3 newest in-window rows, newest first: no bound to hit and at most 3 rows however many there are. n can be above 3 because parallel requests can over-commit
+ * (characterised in chat-gate-concurrent-commit.test.ts; possible today and NOT fixed here), which is why taking the oldest row alone would be wrong. It ignores a Pass: a Pass holder's free messages still come back on this schedule; whether to SHOW it is the caller's decision (the history route reports no free count for a
+ * Pass holder). Display-only: it never decides whether a message is free (the count does), so a failed read is `null`, not fail-closed. Safe to call as often as a page wants to show it.
+ */
+export async function farahChatNextFreeMessageAt(userId: string, now: Date = new Date()): Promise<string | null> {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("credit_gate_events")
+    .select("created_at")
+    .eq("user_id", userId)
+    .eq("reason", FARAH_CHAT_REASON)
+    .eq("outcome", "covered_by_free_allowance")
+    .gte("created_at", freeWindowStart(now).toISOString())
+    .order("created_at", { ascending: false })
+    .limit(FARAH_CHAT_FREE_ALLOWANCE);
+  if (error) {
+    console.error(`[farah-chat-gate] could not read when the next free message returns: ${error.message}`);
+    return null;
+  }
+  const at = nextFreeMessageAt((data ?? []).map((r) => r.created_at), now);
+  return at ? at.toISOString() : null;
+}
+
+/**
  * Read-only affordability check — call BEFORE askFarahChat/askFarahChatStream. Does not
  * mutate anything; pair with commitFarahChatAllowance after the LLM call
  * actually succeeds.
@@ -121,7 +194,24 @@ export async function checkFarahChatAllowance(
   const balance = profile?.credits_balance ?? 0;
 
   const used = await countFreeAllowanceUsed(userId, now);
-  if (used < FARAH_CHAT_FREE_ALLOWANCE) {
+  let freeLeft = Math.max(0, FARAH_CHAT_FREE_ALLOWANCE - used);
+  // The count above is a cheap read and only a pre-filter: when it says a free message is left, the slot is CLAIMED here, in one locked step in the database, before the model is called (0236). A request
+  // that loses the claim goes down the Pass / credits / refusal path exactly as if the free messages were already used; one that wins carries the claim to the route to settle.
+  let freeClaimId: string | undefined;
+  if (freeLeft > 0) {
+    const claim = await claimFreeMessage(userId);
+    if (claim.kind === "claimed") {
+      freeClaimId = claim.id;
+      freeLeft = Math.max(0, FARAH_CHAT_FREE_ALLOWANCE - (claim.usedAfter - 1)); // the claim's own count includes the messages in flight
+    } else if (claim.kind === "lost") {
+      freeLeft = 0;
+    }
+  }
+  // A Pass is asked about only once the free messages are used, as before. The ORDER (free, then Pass, then credits) and the PRICE both come from farahMessageCharge, the one function every price label also calls.
+  const coverage = freeLeft > 0 ? undefined : await checkPassCoverage(userId);
+  const charge = farahMessageCharge({ freeLeft, passCovered: coverage ? coverage.covered : false, balance });
+
+  if (charge.kind === "free") {
     // NOT logged here — see commitFarahChatAllowance. A failed LLM call
     // must not burn a free-allowance slot for a message that never
     // happened, the same ordering rule covered_by_pass already follows.
@@ -130,12 +220,12 @@ export async function checkFarahChatAllowance(
       isPassCovered: false,
       creditsSpent: 0,
       creditsAvailableAtCheck: balance,
-      freeMessagesRemaining: Math.max(0, FARAH_CHAT_FREE_ALLOWANCE - used - 1),
+      freeMessagesRemaining: charge.freeAfter,
+      ...(freeClaimId ? { freeClaimId } : {}),
     };
   }
 
-  const coverage = await checkPassCoverage(userId);
-  if (coverage.covered) {
+  if (charge.kind === "pass") {
     // Also not logged here, for the same reason: this counts against the
     // Pass's own daily fair-use cap, and a failed reply must not spend one.
     return {
@@ -147,20 +237,22 @@ export async function checkFarahChatAllowance(
     };
   }
 
-  if (balance < CREDIT_COSTS.farahChatMessage) {
+  if (charge.kind === "insufficient") {
     await logCreditGateEvent({
       userId,
       reason: FARAH_CHAT_REASON,
-      creditsRequired: CREDIT_COSTS.farahChatMessage,
+      creditsRequired: charge.required,
       creditsAvailable: balance,
       outcome: "blocked_insufficient_credits",
     });
     throw new InsufficientCreditsError(
-      CREDIT_COSTS.farahChatMessage,
+      charge.required,
       balance,
-      coverage.reason === "daily_cap_reached" ? DAILY_CAP_MESSAGE : undefined,
+      coverage && !coverage.covered && coverage.reason === "daily_cap_reached" ? DAILY_CAP_MESSAGE : undefined,
     );
   }
+
+  if (charge.kind !== "credits") throw new Error("farahMessageCharge returned an unexpected kind for a gate call");
 
   // A credit spend is logged as 'proceeded' immediately, unlike the two
   // capped-resource branches above — nothing about this outcome is capped,
@@ -168,14 +260,14 @@ export async function checkFarahChatAllowance(
   await logCreditGateEvent({
     userId,
     reason: FARAH_CHAT_REASON,
-    creditsRequired: CREDIT_COSTS.farahChatMessage,
+    creditsRequired: charge.credits,
     creditsAvailable: balance,
     outcome: "proceeded",
   });
   return {
     isFreeAllowance: false,
     isPassCovered: false,
-    creditsSpent: CREDIT_COSTS.farahChatMessage,
+    creditsSpent: charge.credits,
     creditsAvailableAtCheck: balance,
     freeMessagesRemaining: 0,
   };
@@ -199,6 +291,18 @@ export async function commitFarahChatAllowance(
   userId: string,
   allowance: FarahChatAllowanceResult,
 ): Promise<FarahChatCommitResult> {
+  if (allowance.isFreeAllowance && allowance.freeClaimId) {
+    // The claim becomes the free-allowance event in the database, in one statement (0236). It never turns a delivered reply into an error: a claim that had already expired (the slot may be someone
+    // else's) or a failed call leaves the message unrecorded, which is the direction a failure here has always gone (the reply is still delivered, nothing is charged).
+    try {
+      const { data, error } = await rpcOf(createServiceRoleClient())("commit_farah_free_claim", { p_claim_id: allowance.freeClaimId, p_user_id: userId, p_credits_available: allowance.creditsAvailableAtCheck });
+      if (error) console.error(`[farah-chat-gate] a free claim could not be recorded (code=${error.code ?? "none"})`);
+      else if (data !== true) console.error("[farah-chat-gate] a free claim could not be recorded (expired or already settled)");
+    } catch {
+      console.error("[farah-chat-gate] a free claim could not be recorded (code=thrown)");
+    }
+    return { balanceAfter: null };
+  }
   if (allowance.isFreeAllowance) {
     await logCreditGateEvent({
       userId,
@@ -221,4 +325,19 @@ export async function commitFarahChatAllowance(
   }
   const balanceAfter = await spendCredits(userId, allowance.creditsSpent, FARAH_CHAT_REASON);
   return { balanceAfter };
+}
+
+/**
+ * Gives a held free-message claim back (0236): call it on every way out of the route that is NOT a completed reply (a failure, a cut-off reply, a reader that went away, an early refusal), so a
+ * message that never happened never uses a free slot. A paid, Pass or legacy free message holds no claim and this does nothing. It never throws: if the release itself fails, the claim expires by
+ * itself after FARAH_FREE_CLAIM_HOLD_SECONDS, and one content-free line says so.
+ */
+export async function releaseFarahChatAllowance(userId: string, allowance: FarahChatAllowanceResult): Promise<void> {
+  if (!allowance.freeClaimId) return;
+  try {
+    const { error } = await rpcOf(createServiceRoleClient())("release_farah_free_claim", { p_claim_id: allowance.freeClaimId, p_user_id: userId });
+    if (error) console.error(`[farah-chat-gate] could not release a free claim (code=${error.code ?? "none"}); it expires by itself`);
+  } catch {
+    console.error("[farah-chat-gate] could not release a free claim (code=thrown); it expires by itself");
+  }
 }

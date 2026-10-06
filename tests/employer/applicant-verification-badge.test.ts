@@ -44,7 +44,8 @@ interface Seed {
 const SEEDS: Seed[] = [
   { key: "verified", status: "verified", score: 87, optIn: false },
   { key: "pendingCheck", status: "pending", score: null, optIn: true },
-  { key: "rejected", status: "rejected", score: null, optIn: true },
+  // A score of 0 on a rejected review is the sharpest case: it is a number an employer must never be able to read (0234).
+  { key: "rejected", status: "rejected", score: 0, optIn: true },
   // Never touched Talent Directory at all — left exactly at whatever
   // createAuthedTestUser's profile defaults to (0135: not null default
   // 'unverified'), no explicit update. This is the "no row"-shaped case:
@@ -151,7 +152,7 @@ afterAll(async () => {
 });
 
 describe("employer_job_applicants surfaces Talent Directory verification, independent of opt-in", () => {
-  it("returns 'verified' with the real score for a verified applicant who is NOT opted into the directory", async () => {
+  it("returns 'verified' and NO score for a verified applicant who is NOT opted into the directory", async () => {
     const { data, error } = await orgOwner.client.rpc("employer_job_applicants", {
       p_job_posting_id: jobId,
     });
@@ -160,10 +161,15 @@ describe("employer_job_applicants surfaces Talent Directory verification, indepe
     const row = (data ?? []).find((r) => r.application_id === applicationIds.verified);
     expect(row).toBeDefined();
     expect(row!.talent_verification_status).toBe("verified");
-    expect(row!.talent_verification_score).toBe(87);
+    // 0234: the score is not a column of the function at all; an employer calling it with their own login cannot read it.
+    expect(Object.keys(row!)).not.toContain("talent_verification_score");
+    // By VALUE, not by substring: the row carries random ids and timestamps, and a text search for "87" in its JSON matched them (a resume id such as 9c187231-...)
+    // about one run in four. The score is a number, so no value of the row may be the number 87 (or its string form).
+    expect(Object.values(row!)).not.toContain(87);
+    expect(Object.values(row!)).not.toContain("87");
   });
 
-  it("never reports 'verified' for a pending or rejected applicant, regardless of opt-in", async () => {
+  it("reports nothing at all (null) for a pending or rejected applicant, regardless of opt-in: never 'pending', never 'rejected'", async () => {
     const { data, error } = await orgOwner.client.rpc("employer_job_applicants", {
       p_job_posting_id: jobId,
     });
@@ -171,8 +177,13 @@ describe("employer_job_applicants surfaces Talent Directory verification, indepe
 
     const pending = (data ?? []).find((r) => r.application_id === applicationIds.pendingCheck);
     const rejected = (data ?? []).find((r) => r.application_id === applicationIds.rejected);
-    expect(pending!.talent_verification_status).toBe("pending");
-    expect(rejected!.talent_verification_status).toBe("rejected");
+    expect(pending!.talent_verification_status).toBeNull();
+    expect(rejected!.talent_verification_status).toBeNull();
+    // the rejected applicant's score is 0: no row may carry it, under any name
+    for (const row of data ?? []) {
+      expect(Object.keys(row)).not.toContain("talent_verification_score");
+      expect(["verified", null]).toContain(row.talent_verification_status);
+    }
     // Both are opted IN (optIn: true above) — proving the badge's absence
     // here is about verification status, not opt-in leaking through as a
     // second, undocumented gate.
@@ -189,9 +200,8 @@ describe("employer_job_applicants surfaces Talent Directory verification, indepe
 
     const row = (data ?? []).find((r) => r.application_id === applicationIds.neverTouched);
     expect(row).toBeDefined();
-    // 0135's column default — never explicitly set for this seeker.
-    expect(row!.talent_verification_status).toBe("unverified");
-    expect(row!.talent_verification_score).toBeNull();
+    // 0135's column default is 'unverified'; the employer is told nothing (null), not that word.
+    expect(row!.talent_verification_status).toBeNull();
   });
 
   it("all 4 applicants still resolve together — the widen didn't drop or duplicate a row", async () => {

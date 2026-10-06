@@ -6,8 +6,9 @@
  *      pass mark. So `passed` implies an integer from 70 to 100.
  *   2. The AI runner hands exactly that score and that `passed` to resolve_talent_verification, and the mentor path hands null. Those are the only two callers.
  *   3. resolve_talent_verification (0135, 0142) writes status 'verified' only when p_verified is true.
- * So: verified + AI => a number. verified + null => mentor. Until review_type reaches the employer functions (0a-2), this is what labels the method; anything
- * that cannot be shown to be one or the other (a missing value) is labelled with no method at all.
+ * So: verified + AI => a number. verified + null => mentor. Since 0234 the database applies this rule once, for both employer reads, and answers with a review
+ * type (tests/talent-directory/review-type-0234.test.ts pins that); anything that cannot be shown to be one or the other (a missing value) is labelled with no
+ * method at all.
  */
 import { describe, expect, it, vi } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
