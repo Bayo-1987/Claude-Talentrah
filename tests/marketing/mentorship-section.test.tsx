@@ -6,7 +6,7 @@
  *   2. no session length;
  *   3. no individual mentor name, photo or company, and nothing about a mentor reaches the section (it takes no props and reads no data);
  *   4. "never through credits" is gone;
- *   5. only session types the product actually offers (checked against the booking page's list, below);
+ *   5. only session types the product actually offers (checked against the booking page's list, below): five, the quick question first (owner answer 5, 6 Oct);
  *   6. both links point where the spec says;
  *   7. (click events: NOT in this PR; see the guard at the end.)
  * It also pins the accessibility basics: the contrast of the colours it uses, hit targets on both links, and heading order.
@@ -46,8 +46,9 @@ describe("the copy the owner approved", () => {
     expect(text).toContain(line);
   });
 
-  it("lists the four session types, each with its one line", () => {
+  it("lists the five session types, each with its one line", () => {
     for (const [label, line] of [
+      ["Quick question", "Get unstuck on one thing."],
       ["Mock interview", "Practise the real thing before it counts."],
       ["Offer negotiation", "Prepare for a specific offer."],
       ["Career strategy", "Talk through your next move."],
@@ -82,7 +83,9 @@ describe("hard rule 1: no price, currency or amount", () => {
 describe("hard rule 2: no session length", () => {
   it("states no duration (no number of minutes or hours, no 'quick' session)", () => {
     expect(text).not.toMatch(/\b\d+\s*(min|mins|minutes?|hours?|hrs?)\b/i);
-    expect(text).not.toMatch(/\b(half[- ]hour|hour[- ]long|quick (question|chat))\b/i);
+    expect(text).not.toMatch(/\b(half[- ]hour|hour[- ]long|quick chat)\b/i);
+    // The quick question's length is on the booking page ("Quick question (15 min)"); the section names the type and no length.
+    expect(text).toContain("Quick question");
   });
   it("only points to where the lengths are shown, in the approved sentence", () => {
     expect(text).toContain("You'll see each mentor's session lengths before you book.");
@@ -114,12 +117,17 @@ describe("hard rule 3: no mentor identity, and none can reach the section", () =
 
 describe("hard rule 5: only session types the product offers", () => {
   const offered = read("src/app/(app)/mentorship/[mentorId]/page.tsx");
-  it("the booking page offers resume review, mock interview, career strategy and negotiation strategy for a specific offer", () => {
-    for (const value of ["resume_review", "mock_interview", "career_strategy", "negotiation_strategy"]) expect(offered).toContain(`value: "${value}"`);
+  it("the booking page offers all five types the section names: quick question, mock interview, negotiation strategy for a specific offer, career strategy and resume review", () => {
+    for (const value of ["quick_question", "mock_interview", "negotiation_strategy", "career_strategy", "resume_review"]) expect(offered).toContain(`value: "${value}"`);
   });
-  it("lists exactly four types, none of them the booking page's fifth (the quick question)", () => {
-    expect((html.match(/<li[^>]*data-session-type/g) ?? []).length).toBe(4);
-    expect(text).not.toMatch(/quick question/i);
+  it("lists exactly five types, in this order: Quick question first, then the four the owner approved first", () => {
+    expect((html.match(/<li[^>]*data-session-type/g) ?? []).length).toBe(5);
+    const labels = [...html.matchAll(/<li[^>]*data-session-type[^>]*>\s*<span[^>]*>([^<]+)<\/span>/g)].map((m) => m[1]);
+    expect(labels).toEqual(["Quick question", "Mock interview", "Offer negotiation", "Career strategy", "Resume review"]);
+  });
+  it("the quick question's line says nothing about how long it is", () => {
+    expect(text).toContain("Get unstuck on one thing.");
+    expect(text).not.toMatch(/15/);
   });
 });
 
@@ -163,6 +171,17 @@ describe("accessibility", () => {
     }
     expect(html).toMatch(/text-ink-soft/);
     expect(html).not.toMatch(/text-\[oklch|text-gray|text-slate|(?:^|[\s"])opacity-\d/);
+  });
+  it("on a phone the card is wider and its padding smaller, inside the section only: it bleeds 20px past the text column (-mx-5) with p-5, and returns to p-7 and no bleed from 901px up", () => {
+    const card = /<div class="([^"]*border-\[1\.5px\][^"]*)"/.exec(html)?.[1] ?? "";
+    expect(card).toMatch(/(?:^|\s)-mx-5(?:\s|$)/);
+    expect(card).toMatch(/(?:^|\s)p-5(?:\s|$)/);
+    expect(card).toMatch(/min-\[901px\]:mx-0/);
+    expect(card).toMatch(/min-\[901px\]:p-7/);
+    expect(card).not.toMatch(/(?:^|\s)p-7(?:\s|$)/);
+  });
+  it("the page gutters are not touched: the section keeps the site's px-10 on its container", () => {
+    expect(html).toMatch(/class="mx-auto grid max-w-\[1120px\][^"]*\bpx-10\b/);
   });
   it("follows the Editorial system: a bordered card with no radius or shadow, and no rounded or shadow class anywhere", () => {
     expect(html).not.toMatch(/\brounded(?!-none\b)|\bshadow/);
