@@ -12,6 +12,10 @@ import { BorderedCard, EyebrowLabel, buttonClasses } from "@/components/ui";
  *     visitor. This component takes no props and awaits nothing, so no mentor data can reach it; showing mentors publicly would need a separate opt-in decision.
  *   - no "never through credits". The old paragraph that restated Meet Farah's "a human is the better call" is gone, so the two neighbouring sections no longer say the same thing.
  *
+ * "Become a mentor" goes through the SIGNUP page with its destination as `redirectTo`, not straight to the login-gated /mentorship/apply: an internal link that sends a signed-out visitor to /login fails
+ * e2e/signed-out-link-gate.spec.ts (send-477), and send-491 re-pointed the other gated destinations the same way. /signup forwards a signed-in visitor straight to the destination, its "Log in" link keeps it, and a new
+ * account carries it through onboarding (tests/marketing/mentor-apply-return-path.test.ts pins the chain).
+ *
  * The five session types are the ones the booking page offers (src/app/(app)/mentorship/[mentorId]/page.tsx SESSION_TYPES; "Offer negotiation" is `negotiation_strategy`, "Negotiation strategy for a specific offer" there). The quick question
  * comes first at the owner's request; it is named without its length ("Quick question (15 min)" on the booking page), because the section states no session length.
  *
@@ -76,7 +80,7 @@ export function MentorshipSection() {
             Browse mentors
           </Link>
           <Link
-            href="/mentorship/apply"
+            href="/signup?redirectTo=%2Fmentorship%2Fapply"
             className="flex min-h-11 items-center py-1 font-body text-[14px] text-ink underline underline-offset-2 hover:text-rust"
           >
             Experienced professional? Become a mentor →
