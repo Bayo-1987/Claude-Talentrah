@@ -14,6 +14,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { freeClaimRpc } from "./support/free-claim-model";
+import { realRpcBuilder } from "./support/real-rpc-builder";
 
 type Row = Record<string, unknown>;
 const NOW = new Date("2026-10-31T12:00:00.000Z");
@@ -68,7 +70,7 @@ function query(name: string) {
   };
   return api;
 }
-const fakeDb = () => ({ from: (t: string) => query(t), auth: { getUser: async () => ({ data: { user: signedIn ? { id: USER } : null } }) } });
+const fakeDb = () => ({ from: (t: string) => query(t), rpc: (fn: string, args: Record<string, unknown>) => realRpcBuilder(freeClaimRpc(store, fn, args, Date.now())), auth: { getUser: async () => ({ data: { user: signedIn ? { id: USER } : null } }) } });
 
 const spendCredits = vi.fn(async () => 4);
 const askFarahChatStream = vi.fn();
@@ -105,13 +107,13 @@ const request = (body: unknown = { message: "Hello" }, signal?: AbortSignal) =>
   new Request("http://localhost/api/farah/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: typeof body === "string" ? body : JSON.stringify(body), signal });
 
 /** Everything that would mean a message was USED: a free-allowance event, a Pass-use event, a credit spend. (A 'blocked' funnel row is a log of a refusal, not a use.) */
-/** The statuses this file has SEEN the route answer with while it checked that nothing was used. The allowlist of statuses the panel may add the failure note for is held to this set at the end of the file. */
+/** The statuses this file has SEEN the route answer with while it checked that nothing was used (and no free slot was left held). The allowlist of statuses the panel may add the failure note for is held to this set at the end of the file. */
 const provenChargeFree = new Set<number>();
 /** The stream error KINDS this file has seen the route send (as the `kind` of an `error` event) while checking that nothing was used. */
 const provenErrorKinds = new Set<string>();
 
 function used() {
-  return { freeEvents: freeEvents().length, passEvents: passEvents().length, creditSpends: spendCredits.mock.calls.length };
+  return { freeEvents: freeEvents().length, passEvents: passEvents().length, creditSpends: spendCredits.mock.calls.length, pendingClaims: rows("farah_free_claims").length };
 }
 
 beforeEach(() => {
@@ -143,7 +145,7 @@ describe("CONTROL: a request that succeeds IS charged, so the assertions below c
     const free = await POST(request());
     expect(free.status).toBe(200);
     await free.text();
-    expect(used()).toEqual({ freeEvents: 1, passEvents: 0, creditSpends: 0 });
+    expect(used()).toEqual({ freeEvents: 1, passEvents: 0, creditSpends: 0, pendingClaims: 0 });
 
     seed({ freeUsed: 3, balance: 5 });
     spendCredits.mockClear();
@@ -179,7 +181,7 @@ describe("every non-2xx answer the route gives leaves everything unused", () => 
       expect(res.status).toBe(c.status);
       await res.text();
       expect(askFarahChatStream).not.toHaveBeenCalled();
-      expect(used()).toEqual({ freeEvents: freeBefore(), passEvents: 0, creditSpends: 0 }); // the free events there already were (seeded), no more
+      expect(used()).toEqual({ freeEvents: freeBefore(), passEvents: 0, creditSpends: 0, pendingClaims: 0 }); // the free events there already were (seeded), no more
       provenChargeFree.add(res.status); // reached only if every assertion above held
     });
   }
@@ -191,7 +193,7 @@ describe("every non-2xx answer the route gives leaves everything unused", () => 
     const res = await POST(request({ message: "Hello" }, controller.signal));
     expect(res.status).toBe(499);
     expect(askFarahChatStream).not.toHaveBeenCalled();
-    expect(used()).toEqual({ freeEvents: 0, passEvents: 0, creditSpends: 0 });
+    expect(used()).toEqual({ freeEvents: 0, passEvents: 0, creditSpends: 0, pendingClaims: 0 });
     provenChargeFree.add(499);
   });
 
@@ -200,7 +202,7 @@ describe("every non-2xx answer the route gives leaves everything unused", () => 
     sessionLogThrows = true;
     await expect(POST(request({ message: "Hello", sessionId: "s-1" }))).rejects.toThrow("session log down");
     expect(askFarahChatStream).not.toHaveBeenCalled();
-    expect(used()).toEqual({ freeEvents: 0, passEvents: 0, creditSpends: 0 });
+    expect(used()).toEqual({ freeEvents: 0, passEvents: 0, creditSpends: 0, pendingClaims: 0 });
   });
 });
 
@@ -220,7 +222,7 @@ describe("a reply that FAILS after the request was accepted (status 200, an erro
         const text = await res.text();
         expect(text).toContain('"type":"error"');
         expect(text).not.toContain('"type":"done"');
-        expect(used()).toEqual({ freeEvents: seedOpts.freeUsed, passEvents: 0, creditSpends: 0 });
+        expect(used()).toEqual({ freeEvents: seedOpts.freeUsed, passEvents: 0, creditSpends: 0, pendingClaims: 0 });
       }
     });
   }
@@ -249,7 +251,7 @@ describe("every stream 'error' event names its KIND, and each kind is a failure 
         expect(errors, "exactly one error event").toHaveLength(1);
         expect(errors[0].kind).toBe(kind);
         expect(typeof errors[0].message).toBe("string");
-        expect(used()).toEqual({ freeEvents: seedOpts.freeUsed, passEvents: 0, creditSpends: 0 });
+        expect(used()).toEqual({ freeEvents: seedOpts.freeUsed, passEvents: 0, creditSpends: 0, pendingClaims: 0 });
         provenErrorKinds.add(String(errors[0].kind));
       }
     });

@@ -8,6 +8,11 @@
  */
 export const FARAH_CHAT_FREE_ALLOWANCE = 3;
 export const FARAH_CHAT_FREE_WINDOW_DAYS = 30;
+/**
+ * How long a pending claim on a free message is held (migration 0236) before it expires by itself: a free message is claimed BEFORE the model call and settled after it, and a reply takes at most about
+ * a minute (spend-ceiling.ts), so 120 seconds is above any reply and short enough that a slot nobody gave back (a crash) returns quickly.
+ */
+export const FARAH_FREE_CLAIM_HOLD_SECONDS = 120;
 
 const DAY_MS = 86_400_000;
 
