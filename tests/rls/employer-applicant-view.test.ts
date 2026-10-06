@@ -211,11 +211,11 @@ describe("employer_job_applicants — identity-bearing, org-scoped", () => {
     expect(row?.matched_skills).toBeNull();
     expect(row?.missing_skills).toBeNull();
     expect(row?.seniority_alignment).toBeNull();
-    // 0170: this fixture's seeker never touched Talent Directory — the
-    // column default (0135: not null default 'unverified') and a null
-    // score, the same "honest, not missing" answer match_score gets above.
-    expect(row?.talent_verification_status).toBe("unverified");
-    expect(row?.talent_verification_score).toBeNull();
+    // 0170/0234: this fixture's seeker never touched Talent Directory. The column default is 'unverified' (0135), but the function tells an employer
+    // only 'verified' or nothing, so this reads null, with no score column at all, no review date and no reviewer.
+    expect(row?.talent_verification_status).toBeNull();
+    expect(row?.talent_verified_at).toBeNull();
+    expect(row?.talent_review_type).toBeNull();
     // 0171/send-327: this fixture's job has no screening questions at all —
     // screening_passed must read null, never false, for "no gate exists"
     // (see 0171's own header for the three-valued meaning).
@@ -236,8 +236,9 @@ describe("employer_job_applicants — identity-bearing, org-scoped", () => {
         "screening_passed",
         "seniority_alignment",
         "status",
-        "talent_verification_score",
+        "talent_review_type",
         "talent_verification_status",
+        "talent_verified_at",
       ].sort(),
     );
   });
