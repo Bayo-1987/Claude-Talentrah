@@ -84,14 +84,14 @@ describe("a flagged resume", () => {
     expect(r).toMatchObject({ status: "success", passed: false, score: 0 });
     expect(r.message).toMatch(/haven't been charged|not charged|no credits/i);
     expect(r.message).toMatch(/instructions/i);
-    expect(r.message).toMatch(/human review/i);
+    expect(r.message).toMatch(/Resume reviewed by a Talentrah mentor/);
   });
 
-  it("the answer, word for word: nothing charged, remove-and-retry, human review, no attempt limit, none of the words the copy scan forbids", async () => {
+  it("the answer, word for word: nothing charged, remove-and-retry, mentor review, no attempt limit, none of the words the copy scan forbids", async () => {
     grade.mockResolvedValue(FLAGGED);
     const r = await runTalentVerification("user-1");
     expect(r.message).toBe(
-      "This review couldn't be completed: your resume contains text that reads like instructions to the grader. You haven't been charged. Remove that text and try again, or ask for a human review, where a person reads it.",
+      "This review couldn't be completed: your resume contains text that reads like instructions to the grader. You haven't been charged. Remove that text and try again, or ask for “Resume reviewed by a Talentrah mentor”, where a person reads it.",
     );
     expect(r.message).not.toMatch(/verif(?:ied|ication|ications|y|ying)/i);
   });

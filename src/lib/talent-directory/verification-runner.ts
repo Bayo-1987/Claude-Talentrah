@@ -164,7 +164,7 @@ export async function runTalentVerification(userId: string): Promise<Verificatio
     return {
       status: "success",
       message:
-        "This review couldn't be completed: your resume contains text that reads like instructions to the grader. You haven't been charged. Remove that text and try again, or ask for a human review, where a person reads it.",
+        "This review couldn't be completed: your resume contains text that reads like instructions to the grader. You haven't been charged. Remove that text and try again, or ask for “Resume reviewed by a Talentrah mentor”, where a person reads it.",
       score: grade.score,
       passed: false,
     };
