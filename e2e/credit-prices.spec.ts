@@ -366,7 +366,7 @@ test.describe("Talent Directory purchases show the price on the button", () => {
     await page.goto("/talent-directory/verify");
 
     await expect(page.getByRole("button", { name: `Request human review · ${credits(CREDIT_COSTS.talentDirectoryHumanReview)}` })).toBeVisible();
-    const verify = page.getByRole("button", { name: `Request verification · ${credits(CREDIT_COSTS.talentDirectoryVerification)}` });
+    const verify = page.getByRole("button", { name: `Request a resume review · ${credits(CREDIT_COSTS.talentDirectoryVerification)}` });
     await expect(verify).toBeVisible();
     await verify.click();
     await expectCharged(page, testUser.id, START, CREDIT_COSTS.talentDirectoryVerification);

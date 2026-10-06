@@ -4,6 +4,8 @@ import { useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { MatchTierBadge } from "@/components/ui";
+import { ResumeReviewedBadge } from "@/components/talent-directory/resume-reviewed-badge";
+import type { ReviewMethod } from "@/lib/talent-directory/review-badge";
 import { ApplicantStatusSelect } from "./applicant-status-select";
 import { MatchBreakdown } from "@/components/jobs/match-breakdown";
 import { formatTrackerDate } from "@/lib/tracker/format-date";
@@ -31,14 +33,15 @@ export interface ApplicantRow {
   explanation: MatchExplanation | null;
   /**
    * send-328 — deliberately NOT gated on talent_directory_opt_in (see
-   * migration 0170's own header for the consent reasoning): a verified
-   * skill credential is closer to a resume fact than to directory
-   * discoverability, and the candidate has already chosen to be seen by
-   * THIS employer by applying. Render the badge for 'verified' only, never
-   * a partial-credit display for 'pending'/'rejected'/'unverified'.
+   * migration 0170's own header for the consent reasoning): a resume
+   * review is closer to a resume fact than to directory discoverability,
+   * and the candidate has already chosen to be seen by THIS employer by
+   * applying. Which review, if any: null means this resume has not been
+   * reviewed (or the review did not pass), and nothing is shown. It is
+   * never a score: the page turns the stored score into a method on the
+   * server (VERIFY-1 0a-1), so a score cannot reach this component.
    */
-  talentVerificationStatus: string;
-  talentVerificationScore: number | null;
+  resumeReview: ReviewMethod | null;
   /**
    * send-327 — null means the job has no screening questions, or this
    * application's required questions aren't all answered yet (0171's own
@@ -319,11 +322,7 @@ export function ApplicantList({
                   <p className="mt-0.5 font-body text-[12.5px] text-ink-soft">
                     Applied {applicant.applied_at ? formatTrackerDate(applicant.applied_at) : "—"}
                   </p>
-                  {applicant.talentVerificationStatus === "verified" && (
-                    <p className="mt-0.5 text-[12.5px] font-semibold text-green">
-                      Verified — {applicant.talentVerificationScore}/100
-                    </p>
-                  )}
+                  {applicant.resumeReview !== null && <ResumeReviewedBadge method={applicant.resumeReview} className="mt-0.5" />}
                   {applicant.screeningPassed !== null && (
                     <p
                       className={`mt-0.5 text-[12.5px] font-semibold ${

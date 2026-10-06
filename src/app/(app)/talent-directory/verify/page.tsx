@@ -9,6 +9,7 @@ import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { renderInlineMarkdown } from "@/lib/farah/render-markdown";
 import { verificationHeadline } from "@/lib/talent-directory/verification-copy";
+import { HOW_WE_REVIEW_PATH } from "@/lib/talent-directory/review-badge";
 import { VerificationPanel } from "./verification-panel";
 import { HumanReviewForm } from "./human-review-form";
 import { OptInToggle } from "./opt-in-toggle";
@@ -18,7 +19,7 @@ import { PortfolioManager } from "./portfolio-manager";
 import { IncomingContactRequests } from "./incoming-contact-requests";
 import { formatDate } from "@/lib/format/datetime";
 
-export const metadata = { title: "Get Verified — Talentrah" };
+export const metadata = { title: "Resume review — Talentrah" };
 
 /**
  * Talent Directory & Verification, seeker-facing half (send-139, build-prompt
@@ -46,13 +47,16 @@ export default async function TalentDirectoryVerifyPage() {
   return (
     <Container className="flex max-w-[720px] flex-col gap-8 py-12">
       <EyebrowLabel>Talent Directory</EyebrowLabel>
-      <h1 className="font-display text-[28px] font-semibold">Get verified</h1>
+      <h1 className="font-display text-[28px] font-semibold">Get your resume reviewed</h1>
       <p className="max-w-[560px] text-[14.5px] text-ink-soft">
-        A verified badge tells local employers your resume holds up —
-        complete, specific, and internally consistent. Farah grades it
-        automatically; verifying costs {CREDIT_COSTS.talentDirectoryVerification}{" "}
-        credits. Prefer a person to look it over instead? A Talentrah mentor
-        can review it directly for {CREDIT_COSTS.talentDirectoryHumanReview} credits.
+        A resume-reviewed badge tells employers your resume was read and found complete, specific
+        and consistent. It does not check your identity, employment history or skills. Farah
+        reviews it automatically for {CREDIT_COSTS.talentDirectoryVerification} credits. Prefer a
+        person to look it over instead? A Talentrah mentor can review it directly for{" "}
+        {CREDIT_COSTS.talentDirectoryHumanReview} credits.{" "}
+        <a href={HOW_WE_REVIEW_PATH} className="font-semibold text-rust underline underline-offset-2">
+          How we review
+        </a>
       </p>
 
       <BorderedCard className="flex flex-col gap-3 p-5">
@@ -99,7 +103,7 @@ export default async function TalentDirectoryVerifyPage() {
 
       {history.length > 0 && (
         <section className="flex flex-col gap-3">
-          <h2 className="font-display text-[18px] font-semibold">Verification history</h2>
+          <h2 className="font-display text-[18px] font-semibold">Resume review history</h2>
           {/*
            * send-372 — h.feedback (queries.ts's `ai_feedback` column, despite
            * the name) is the ONE candidate-facing read site for this text,

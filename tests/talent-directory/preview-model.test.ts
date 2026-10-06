@@ -34,10 +34,10 @@ describe("the threshold is a named constant, pinned at 10", () => {
 
 describe("the below-threshold message is the founder's wording, with N interpolated and the noun agreeing with N", () => {
   it.each([
-    [0, "0 verified candidates"],
-    [1, "1 verified candidate"],
-    [2, "2 verified candidates"],
-    [9, "9 verified candidates"],
+    [0, "0 candidates with a reviewed resume"],
+    [1, "1 candidate with a reviewed resume"],
+    [2, "2 candidates with a reviewed resume"],
+    [9, "9 candidates with a reviewed resume"],
   ])("N = %i", (n, count) => {
     expect(buildingTheDirectoryMessage(n)).toBe(
       `We're building the directory: ${count} so far. Join the waitlist and we'll tell you when 10+ are listed.`,

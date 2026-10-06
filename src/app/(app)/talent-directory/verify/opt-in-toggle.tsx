@@ -12,7 +12,7 @@ export function OptInToggle({ optIn }: { optIn: boolean }) {
     <div className="flex items-center justify-between gap-4">
       <p className="max-w-[48ch] font-body text-[13.5px] text-ink-soft">
         Local employers with a directory subscription can see your name, availability, and work
-        samples. Off by default — this is separate from being verified.
+        samples. Off by default — this is separate from having your resume reviewed.
       </p>
       <button
         type="button"

@@ -1,7 +1,7 @@
 /**
  * The Talent Directory waitlist card shows how close the directory is to opening (C1), and says what the waitlist costs.
  *
- *   - Below the threshold, on both the "Join the waitlist" card and the "You're on the waitlist" card: "N of 10 verified candidates listed" as text AND as a
+ *   - Below the threshold, on both the "Join the waitlist" card and the "You're on the waitlist" card: "N of 10 candidates with a reviewed resume listed" as text AND as a
  *     progressbar (valuemin 0, valuemax 10, valuenow N), so a screen reader gets the same fact a sighted employer gets from the bar.
  *   - On the joined card the old closing sentence "Nothing to pay." is replaced by "Free while you wait. We'll tell you about pricing before anything is charged."
  *   - At or above the threshold there is no progress bar: the card states the live count and offers Subscribe.
@@ -35,11 +35,11 @@ describe("listedProgress", () => {
     [10, 10, 100],
   ])("%i listed: now %i, %i percent", (count, now, pct) => {
     const p = listedProgress(count);
-    expect(p).toMatchObject({ now, max: 10, pct, text: `${now} of 10 verified candidates listed` });
+    expect(p).toMatchObject({ now, max: 10, pct, text: `${now} of 10 candidates with a reviewed resume listed` });
   });
 
   it("never reports more than the maximum, less than zero, or a fraction", () => {
-    expect(listedProgress(25)).toMatchObject({ now: 10, pct: 100, text: "10 of 10 verified candidates listed" });
+    expect(listedProgress(25)).toMatchObject({ now: 10, pct: 100, text: "10 of 10 candidates with a reviewed resume listed" });
     expect(listedProgress(-4)).toMatchObject({ now: 0, pct: 0 });
     expect(listedProgress(2.9)).toMatchObject({ now: 2 });
     expect(listedProgress(Number.NaN)).toMatchObject({ now: 0, pct: 0 });
@@ -50,8 +50,8 @@ describe.each([
   ["not joined", false],
   ["joined", true],
 ] as const)("below the threshold, %s", (_label, joined) => {
-  it.each([0, 1, 3, 9])("N = %i: the text 'N of 10 verified candidates listed' is on the card", (n) => {
-    expect(render(n, joined)).toContain(`${n} of 10 verified candidates listed`);
+  it.each([0, 1, 3, 9])("N = %i: the text 'N of 10 candidates with a reviewed resume listed' is on the card", (n) => {
+    expect(render(n, joined)).toContain(`${n} of 10 candidates with a reviewed resume listed`);
   });
 
   it.each([0, 1, 3, 9])("N = %i: a progressbar with min 0, max 10 and now N, named by that text", (n) => {
@@ -60,10 +60,10 @@ describe.each([
     expect(attr(html, "aria-valuemin")).toBe("0");
     expect(attr(html, "aria-valuemax")).toBe("10");
     expect(attr(html, "aria-valuenow")).toBe(String(n));
-    expect(attr(html, "aria-valuetext")).toBe(`${n} of 10 verified candidates listed`);
+    expect(attr(html, "aria-valuetext")).toBe(`${n} of 10 candidates with a reviewed resume listed`);
     const labelledBy = attr(html, "aria-labelledby");
     expect(labelledBy, "the bar has no accessible name").toBeTruthy();
-    expect(html).toMatch(new RegExp(`id="${labelledBy}"[^>]*>${n} of 10 verified candidates listed<`));
+    expect(html).toMatch(new RegExp(`id="${labelledBy}"[^>]*>${n} of 10 candidates with a reviewed resume listed<`));
   });
 
   it("the filled part is N tenths of the bar", () => {
@@ -83,7 +83,7 @@ describe("at the threshold", () => {
   it.each([10, 12])("N = %i: no progress bar and no 'of 10' line, the live count and Subscribe instead", (n) => {
     const html = render(n, false);
     expect(html).not.toContain('role="progressbar"');
-    expect(html).not.toContain("of 10 verified candidates listed");
+    expect(html).not.toContain("of 10 candidates with a reviewed resume listed");
     expect(html).toContain("Subscribe");
   });
 });

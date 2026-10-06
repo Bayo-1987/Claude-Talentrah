@@ -345,7 +345,9 @@ describe("RLS: negative control — B cannot READ A's rows by id", () => {
   it.each(OWNED_TABLES)("B gets zero rows from %s", async (table) => {
     const { data, error } = await B.client
       .from(table as "resumes")
-      .select("*")
+      // `id`, not `*`: payment_transactions and user_passes withhold a few columns from signed-in users (0231), so `select *` on them is rejected. The question here is whether B
+      // sees A's ROW, and that does not depend on which columns are asked for.
+      .select("id")
       .eq("id", ids[table]);
     expect(error, `${table} query should not error, it should return nothing`).toBeNull();
     expect(data, `LEAK: B could read A's ${table} row`).toHaveLength(0);

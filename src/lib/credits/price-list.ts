@@ -21,8 +21,8 @@ const LABELS: Record<CostKey, string> = {
   scholarshipEligibilityCheck: "Scholarship eligibility check",
   scholarshipSopDraft: "Scholarship statement draft",
   templateUnlock: "Premium resume template",
-  talentDirectoryVerification: "Talent Directory verification",
-  talentDirectoryHumanReview: "Talent Directory verification with human review",
+  talentDirectoryVerification: "Talent Directory resume review",
+  talentDirectoryHumanReview: "Talent Directory resume review by a mentor",
   talentDirectoryBoost: "Talent Directory boost",
 };
 
