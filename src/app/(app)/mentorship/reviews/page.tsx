@@ -4,7 +4,7 @@ import { claimVerificationReviewAction } from "@/lib/talent-directory/reviewer-a
 import { Container, EyebrowLabel, BorderedCard, Button } from "@/components/ui";
 import { formatDateTime } from "@/lib/format/datetime";
 
-export const metadata = { title: "Verification reviews — Talentrah" };
+export const metadata = { title: "Resume reviews — Talentrah" };
 
 /**
  * The reviewer-picks-from-a-pool surface (0141/0142, design decision 2).
@@ -32,9 +32,9 @@ export default async function VerificationReviewsPage({
   return (
     <Container className="flex max-w-[720px] flex-col gap-8 py-12">
       <EyebrowLabel>Talent Directory</EyebrowLabel>
-      <h1 className="font-display text-[28px] font-semibold">Verification reviews</h1>
+      <h1 className="font-display text-[28px] font-semibold">Resume reviews</h1>
       <p className="max-w-[560px] text-[14.5px] text-ink-soft">
-        Candidates who paid for a human-reviewed verification land here, unclaimed. Claim one to
+        Candidates who paid for a mentor to review their resume land here, unclaimed. Claim one to
         review it — best expertise matches are shown first.
       </p>
 

@@ -33,7 +33,7 @@ function render(count: number, opts: { joined?: boolean; samples?: PreviewSample
 }
 
 const BELOW_COPY = (n: number) =>
-  `We&#x27;re building the directory: ${n} verified candidate${n === 1 ? "" : "s"} so far. Join the waitlist and we&#x27;ll tell you when 10+ are listed.`;
+  `We&#x27;re building the directory: ${n} candidate${n === 1 ? "" : "s"} with a reviewed resume so far. Join the waitlist and we&#x27;ll tell you when 10+ are listed.`;
 
 describe("below the threshold (9 candidates)", () => {
   const html = render(9);
@@ -70,7 +70,7 @@ describe("at the threshold (10 candidates)", () => {
   });
 
   it("states the live count", () => {
-    expect(html).toContain("10 verified candidates");
+    expect(html).toContain("10 candidates with a reviewed resume");
   });
 });
 

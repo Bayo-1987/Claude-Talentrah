@@ -15,7 +15,7 @@ const NAV_LINKS = [
   { href: "/auto-apply", label: "Auto-Apply" },
   { href: "/resume-builder", label: "Resume Builder" },
   { href: "/scholarships", label: "Scholarships" },
-  { href: "/talent-directory/verify", label: "Get Verified" },
+  { href: "/talent-directory/verify", label: "Resume review" },
   { href: "/refer", label: "Refer a Friend" },
   { href: "/mentorship", label: "Mentorship" },
   { href: "/feedback", label: "Feedback" },

@@ -19,7 +19,7 @@ export default function TalentDirectoryVerifyLoading() {
 
       <div>
         <EyebrowLabel>Talent Directory</EyebrowLabel>
-        <h1 className="mt-2 font-display text-[28px] font-semibold">Get verified</h1>
+        <h1 className="mt-2 font-display text-[28px] font-semibold">Get your resume reviewed</h1>
       </div>
 
       <SkeletonCard lines={2} />

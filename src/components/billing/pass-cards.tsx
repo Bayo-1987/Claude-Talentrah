@@ -62,7 +62,7 @@ export function PassCards({ passes, current }: { passes: readonly PassProductRow
       <p className="max-w-[760px] text-[13.5px] text-ink-soft">
         Covers tailoring, cover letters, bullet rewrites, Auto-Apply beyond {autoApplyFreeRunsPhrase()}, and scholarship eligibility checks
         and SOP drafts — all at zero credit cost, up to {PASS_DAILY_ACTION_CAP} actions a day. Template unlocks and Talent Directory
-        verification are sold separately, credits only. Auto-renews if paid by card; one-time if paid by mobile money.
+        resume reviews are sold separately, credits only. Auto-renews if paid by card; one-time if paid by mobile money.
       </p>
     </>
   );

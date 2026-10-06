@@ -82,7 +82,7 @@ describe("an org with no subscription", () => {
     state.preview = { count: 9, samples: [] };
     const html = await render();
     expect(html).toContain(
-      "We&#x27;re building the directory: 9 verified candidates so far. Join the waitlist and we&#x27;ll tell you when 10+ are listed.",
+      "We&#x27;re building the directory: 9 candidates with a reviewed resume so far. Join the waitlist and we&#x27;ll tell you when 10+ are listed.",
     );
     expect(html).toContain("Join the waitlist");
     expect(html).not.toMatch(/Subscribe/);
@@ -90,11 +90,11 @@ describe("an org with no subscription", () => {
   });
 
   it("at 1 candidate (production today) and at 0", async () => {
-    for (const [n, count] of [[1, "1 verified candidate"], [0, "0 verified candidates"]] as const) {
+    for (const [n, count] of [[1, "1 candidate with a reviewed resume"], [0, "0 candidates with a reviewed resume"]] as const) {
       state.preview = { count: n, samples: [] };
       const html = await render();
       expect(html).toContain(`${count} so far`);
-      expect(html).not.toMatch(/\b1 verified candidates\b/);
+      expect(html).not.toMatch(/\b1 candidates with a reviewed resume\b/);
       expect(html).not.toMatch(/Subscribe/);
     }
   });

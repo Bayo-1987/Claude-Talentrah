@@ -40,18 +40,18 @@ export function isSubscriptionOpen(listedCount: number): boolean {
   return listedCount >= TALENT_DIRECTORY_MIN_LISTED;
 }
 
-/** "0 verified candidates", "1 verified candidate", "2 verified candidates": the noun agrees with the number. */
-export function verifiedCandidates(n: number): string {
-  return `${n} verified candidate${n === 1 ? "" : "s"}`;
+/** "0 candidates with a reviewed resume", "1 candidate with a reviewed resume", "2 candidates with a reviewed resume": the noun agrees with the number. */
+export function candidatesWithReviewedResume(n: number): string {
+  return `${n} candidate${n === 1 ? "" : "s"} with a reviewed resume`;
 }
 
-/** "is" for exactly one, "are" for everything else (zero included), for "N verified candidate(s) is/are listed". */
+/** "is" for exactly one, "are" for everything else (zero included), for "N candidate(s) with a reviewed resume is/are listed". */
 export function isAre(n: number): "is" | "are" {
   return n === 1 ? "is" : "are";
 }
 
 /**
- * How close the directory is to opening, for the waitlist card: "N of 10 verified candidates listed", as text and as a progress bar. N is clamped to
+ * How close the directory is to opening, for the waitlist card: "N of 10 candidates with a reviewed resume listed", as text and as a progress bar. N is clamped to
  * 0..the threshold and truncated to a whole number, so a bad count can never draw a bar fuller than full or emptier than empty.
  */
 export function listedProgress(listedCount: number): { now: number; max: number; pct: number; text: string } {
@@ -61,7 +61,7 @@ export function listedProgress(listedCount: number): { now: number; max: number;
     now,
     max: TALENT_DIRECTORY_MIN_LISTED,
     pct: (now / TALENT_DIRECTORY_MIN_LISTED) * 100,
-    text: `${now} of ${TALENT_DIRECTORY_MIN_LISTED} verified candidates listed`,
+    text: `${now} of ${TALENT_DIRECTORY_MIN_LISTED} candidates with a reviewed resume listed`,
   };
 }
 
@@ -70,10 +70,10 @@ export const WAITLIST_FREE_NOTE = "Free while you wait. We'll tell you about pri
 
 /**
  * The founder's wording, with N interpolated, the noun agreeing with N, and the threshold read from the constant. (It said
- * "1 verified candidates" until the count was routed through verifiedCandidates; production had exactly one listed candidate.)
+ * "1 verified candidates" until the count was routed through candidatesWithReviewedResume (then verifiedCandidates); production had exactly one listed candidate.)
  */
 export function buildingTheDirectoryMessage(listedCount: number): string {
-  return `We're building the directory: ${verifiedCandidates(listedCount)} so far. Join the waitlist and we'll tell you when ${TALENT_DIRECTORY_MIN_LISTED}+ are listed.`;
+  return `We're building the directory: ${candidatesWithReviewedResume(listedCount)} so far. Join the waitlist and we'll tell you when ${TALENT_DIRECTORY_MIN_LISTED}+ are listed.`;
 }
 
 function parseSample(raw: unknown): PreviewSample | null {

@@ -6,7 +6,7 @@ import { Container, EyebrowLabel, BorderedCard, Button } from "@/components/ui";
 import { DecideForm } from "./decide-form";
 import { formatDateTime } from "@/lib/format/datetime";
 
-export const metadata = { title: "Review a verification — Talentrah" };
+export const metadata = { title: "Review a resume — Talentrah" };
 
 /**
  * What the reviewer actually sees (0141/0142's scope item 4): the SAME

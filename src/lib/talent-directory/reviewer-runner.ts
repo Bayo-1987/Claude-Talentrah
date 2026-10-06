@@ -90,6 +90,6 @@ export async function resolveVerificationReview(
 
   return {
     status: "success",
-    message: verified ? "Marked verified." : "Marked not verified.",
+    message: verified ? "Review recorded: the resume holds up." : "Review recorded: the resume needs changes.",
   };
 }
