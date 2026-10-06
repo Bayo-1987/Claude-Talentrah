@@ -92,6 +92,7 @@ vi.mock("@/lib/farah/spend-tally", () => ({
 
 const { POST } = await import("@/app/api/farah/chat/route");
 const { NANO_PER_USD, DEFAULT_DAILY_CEILING_USD } = await import("@/lib/farah/spend-ceiling");
+const { NOTHING_CHARGED_STATUSES } = await import("@/lib/farah/failure-note");
 
 const freeEvents = () => rows("credit_gate_events").filter((r) => r.outcome === "covered_by_free_allowance");
 const passEvents = () => rows("credit_gate_events").filter((r) => r.outcome === "covered_by_pass");
@@ -104,6 +105,9 @@ const request = (body: unknown = { message: "Hello" }, signal?: AbortSignal) =>
   new Request("http://localhost/api/farah/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: typeof body === "string" ? body : JSON.stringify(body), signal });
 
 /** Everything that would mean a message was USED: a free-allowance event, a Pass-use event, a credit spend. (A 'blocked' funnel row is a log of a refusal, not a use.) */
+/** The statuses this file has SEEN the route answer with while it checked that nothing was used (and no free slot was left held). The allowlist of statuses the panel may add the failure note for is held to this set at the end of the file. */
+const provenChargeFree = new Set<number>();
+
 function used() {
   return { freeEvents: freeEvents().length, passEvents: passEvents().length, creditSpends: spendCredits.mock.calls.length, pendingClaims: rows("farah_free_claims").length };
 }
@@ -174,6 +178,7 @@ describe("every non-2xx answer the route gives leaves everything unused", () => 
       await res.text();
       expect(askFarahChatStream).not.toHaveBeenCalled();
       expect(used()).toEqual({ freeEvents: freeBefore(), passEvents: 0, creditSpends: 0, pendingClaims: 0 }); // the free events there already were (seeded), no more
+      provenChargeFree.add(res.status); // reached only if every assertion above held
     });
   }
 
@@ -185,6 +190,7 @@ describe("every non-2xx answer the route gives leaves everything unused", () => 
     expect(res.status).toBe(499);
     expect(askFarahChatStream).not.toHaveBeenCalled();
     expect(used()).toEqual({ freeEvents: 0, passEvents: 0, creditSpends: 0, pendingClaims: 0 });
+    provenChargeFree.add(499);
   });
 
   it("an UNEXPECTED exception before the reply starts (the route throws, the platform answers 5xx): nothing is used", async () => {
@@ -247,5 +253,37 @@ describe("WHY it holds: the status is fixed before the charge, and the charge is
 
   it("the credit spend and the free-allowance event are written only by the commit (nothing else in the route calls them)", () => {
     expect(src).not.toMatch(/spendCredits|logCreditGateEvent/);
+  });
+});
+
+describe("the allowlist of statuses the panel may show 'nothing was charged' for (NOTHING_CHARGED_STATUSES, failure-note.ts) holds only proven statuses", () => {
+  it("it is a plain list of whole HTTP error statuses, with no duplicates", () => {
+    expect(Array.isArray(NOTHING_CHARGED_STATUSES)).toBe(true);
+    for (const status of NOTHING_CHARGED_STATUSES) expect(Number.isInteger(status) && status >= 400 && status <= 599, String(status)).toBe(true);
+    expect(new Set(NOTHING_CHARGED_STATUSES).size).toBe(NOTHING_CHARGED_STATUSES.length);
+  });
+
+  for (const status of NOTHING_CHARGED_STATUSES) {
+    it(`status ${status} is listed, and this file saw the route answer ${status} with no free message, no Pass use, no credit used (the proof)`, () => {
+      expect(provenChargeFree.has(status), `${status} is on the allowlist without a proof in this file`).toBe(true);
+    });
+  }
+
+  it("the list contains no status without a proof: every listed status was observed charge-free above", () => {
+    const unproven = NOTHING_CHARGED_STATUSES.filter((status) => !provenChargeFree.has(status));
+    expect(unproven).toEqual([]);
+  });
+
+  it("402 (its own message already says it) and 499 (the reader went away: nothing is shown) are proven here but deliberately not on the list; no 2xx is ever on it", () => {
+    expect(provenChargeFree.has(402) && provenChargeFree.has(499)).toBe(true);
+    expect(NOTHING_CHARGED_STATUSES).not.toContain(402);
+    expect(NOTHING_CHARGED_STATUSES).not.toContain(499);
+    expect(NOTHING_CHARGED_STATUSES.some((status) => status < 400)).toBe(false);
+  });
+
+  it("a status this file could not prove is not on it: the gateway and platform statuses (502, 504) are not the route's own answers and are left off", () => {
+    expect(NOTHING_CHARGED_STATUSES).not.toContain(502);
+    expect(NOTHING_CHARGED_STATUSES).not.toContain(504);
+    expect(provenChargeFree.has(502) || provenChargeFree.has(504)).toBe(false);
   });
 });
