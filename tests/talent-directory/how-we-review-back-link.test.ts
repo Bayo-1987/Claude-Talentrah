@@ -10,7 +10,7 @@
  *     a non-string, nothing at all. Validated with the repo's own safe-redirect helper first, then by exact membership.
  * Reached through loadModule so the file compiles before the module exists.
  */
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadModule } from "../support/load-module";
@@ -72,6 +72,20 @@ describe("howWeReviewHref: the link every entry point uses", () => {
       expect(f(from as string | null | undefined)).toBe(BASE);
     },
   );
+});
+
+describe("the repo's safe-redirect helper is part of the check (defence in depth under the exact allow-list match)", () => {
+  it("how-we-review-link.ts imports safeRedirectTo from the auth module and runs every candidate through it before the lookup", () => {
+    const src = readFileSync(path.join(__dirname, "../../src/lib/talent-directory/how-we-review-link.ts"), "utf8");
+    expect(src).toMatch(/import \{ safeRedirectTo \} from "@\/lib\/auth\/redirect-to";/);
+    const body = src.slice(src.indexOf("export function backLinkFor"));
+    expect(body.indexOf("safeRedirectTo(")).toBeGreaterThan(-1);
+    expect(body.indexOf("safeRedirectTo(")).toBeLessThan(body.indexOf("hasOwn("));
+  });
+  it.each(["/__proto__", "/constructor", "/toString", "/hasOwnProperty"])("the inherited-property name %s is no match", async (raw) => {
+    const f = await fn("backLinkFor");
+    expect(f(raw)).toBeNull();
+  });
 });
 
 describe("backLinkFor: the page's side", () => {
