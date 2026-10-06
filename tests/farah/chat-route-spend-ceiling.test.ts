@@ -450,7 +450,7 @@ describe("recording the spend (an estimate from token counts and published price
     });
     const body = await (await POST(request())).text();
     const events = body.trim().split("\n").map((l) => JSON.parse(l));
-    expect(events).toEqual([{ type: "error", message: "Farah is busy right now. Please try again in a few minutes. You haven't been charged for this message." }]);
+    expect(events).toEqual([{ type: "error", kind: "fallback_declined", message: "Farah is busy right now. Please try again in a few minutes. You haven't been charged for this message." }]);
     expect(body).not.toContain("7m");
     expect(body).not.toContain("resting for today");
     expect(body).not.toContain('"type":"done"');
