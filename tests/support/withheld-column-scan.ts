@@ -85,8 +85,9 @@ export function clientKind(text: string, fromIndex: number): { kind: Kind; name:
   if (/createServiceRoleClient\(\)\s*$/.test(before)) return { kind: "service", name: "createServiceRoleClient()" };
   if (name === "?") return { kind: "caller", name };
   const id = name.replace(/\$/g, "\\$");
-  const decl = new RegExp(`(?:const|let)\\s+${id}\\s*=\\s*(?:await\\s+)?([A-Za-z_][\\w]*)\\(`).exec(text);
-  if (decl && decl[1] === "createServiceRoleClient") return { kind: "service", name };
+  // `const admin = createServiceRoleClient()`, and the injectable form `const client = deps.client ?? createServiceRoleClient()`: a service-role client is named on the right-hand side.
+  const decl = new RegExp(`(?:const|let)\\s+${id}\\b[^=;]*=([^;]*);`).exec(text);
+  if (decl && /\bcreateServiceRoleClient\s*\(/.test(decl[1])) return { kind: "service", name };
   const param = new RegExp(`(?:^|[^\\w$])${id}\\s*:\\s*([^,)=]*ServiceRole[^,)=]*)`).exec(text);
   if (param) return { kind: "service", name };
   return { kind: "caller", name };
