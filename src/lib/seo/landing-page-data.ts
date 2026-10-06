@@ -6,6 +6,7 @@ import type { DegreeLevel } from "@/lib/scholarships/types";
 import { freshnessFloorISO } from "@/lib/jobs/freshness";
 import { countryFromSlug, countryOrFilter, type TrackedCountry } from "@/lib/jobs/country";
 import { openScholarshipFilter } from "@/lib/scholarships/close-instant";
+import { SCHOLARSHIP_READABLE_COLUMNS, type ScholarshipRow } from "@/lib/scholarships/columns";
 
 /**
  * Typed generically as `SupabaseClient<Database>` rather than the return
@@ -211,7 +212,7 @@ export async function loadCityJobs(
 
 export interface ScholarshipLandingResult {
   total: number;
-  scholarships: Tables<"scholarships">[];
+  scholarships: ScholarshipRow[];
 }
 
 /**
@@ -237,7 +238,7 @@ export async function loadFullyFundedScholarships(
 
   const { data, error } = await supabase
     .from("scholarships")
-    .select("*")
+    .select(SCHOLARSHIP_READABLE_COLUMNS)
     .eq("moderation_status", "verified")
     .eq("funding_type", "full")
     .or(stillOpen)
@@ -245,7 +246,7 @@ export async function loadFullyFundedScholarships(
     .limit(PAGE_LIMIT);
   if (error) throw new Error(error.message);
 
-  return { total: count ?? 0, scholarships: (data ?? []) as Tables<"scholarships">[] };
+  return { total: count ?? 0, scholarships: (data ?? []) as ScholarshipRow[] };
 }
 
 export interface DegreeLevelLandingResult extends ScholarshipLandingResult {
@@ -271,7 +272,7 @@ export async function loadScholarshipsByLevel(
 
   const { data, error } = await supabase
     .from("scholarships")
-    .select("*")
+    .select(SCHOLARSHIP_READABLE_COLUMNS)
     .eq("moderation_status", "verified")
     .contains("degree_levels", [level])
     .or(stillOpen)
@@ -279,7 +280,7 @@ export async function loadScholarshipsByLevel(
     .limit(PAGE_LIMIT);
   if (error) throw new Error(error.message);
 
-  return { level, total: count ?? 0, scholarships: (data ?? []) as Tables<"scholarships">[] };
+  return { level, total: count ?? 0, scholarships: (data ?? []) as ScholarshipRow[] };
 }
 
 /**

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { BorderedCard } from "@/components/ui";
 import { DEGREE_LEVEL_LABEL, FUNDING_TYPE_LABEL } from "@/lib/scholarships/types";
 import { formatDeadline } from "./scholarship-card";
-import type { Tables } from "@/lib/supabase/types";
+import type { ScholarshipRow } from "@/lib/scholarships/columns";
 import { scholarshipDeadlineDisplay } from "@/lib/scholarships/close-instant";
 import { deadlineNoteOrFallback } from "@/lib/scholarships/public-deadline-note";
 
@@ -18,7 +18,7 @@ import { deadlineNoteOrFallback } from "@/lib/scholarships/public-deadline-note"
  * CTA, matching how PublicJobRow routes through /jobs/[id] for the same
  * reason.
  */
-export function PublicScholarshipRow({ scholarship }: { scholarship: Tables<"scholarships"> }) {
+export function PublicScholarshipRow({ scholarship }: { scholarship: ScholarshipRow }) {
   const urgent = scholarshipDeadlineDisplay(scholarship, new Date(), { detailed: false, showClosed: false })?.urgent ?? false;
 
   return (
