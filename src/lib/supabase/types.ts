@@ -3521,6 +3521,7 @@ export type Database = {
           claimed_at: string | null
           credit_ledger_id: string | null
           decided_at: string | null
+          flag_source: string | null
           id: string
           requested_at: string
           review_type: string
@@ -3540,6 +3541,7 @@ export type Database = {
           claimed_at?: string | null
           credit_ledger_id?: string | null
           decided_at?: string | null
+          flag_source?: string | null
           id?: string
           requested_at?: string
           review_type?: string
@@ -3559,6 +3561,7 @@ export type Database = {
           claimed_at?: string | null
           credit_ledger_id?: string | null
           decided_at?: string | null
+          flag_source?: string | null
           id?: string
           requested_at?: string
           review_type?: string
@@ -4105,6 +4108,15 @@ export type Database = {
         Args: { p_holder: string; p_name: string }
         Returns: boolean
       }
+      claim_ai_talent_verification: {
+        Args: { p_user_id: string }
+        Returns: {
+          next_allowed_at: string | null
+          ok: boolean
+          reason: string | null
+          verification_id: string | null
+        }[]
+      }
       claim_anonymous_demo_run: {
         Args: { p_daily_cap: number; p_ip_hash: string; p_visitor_id: string }
         Returns: {
@@ -4576,6 +4588,10 @@ export type Database = {
       reset_test_pool_user: {
         Args: { p_new_email: string; p_user_id: string }
         Returns: undefined
+      }
+      resolve_flagged_talent_verification: {
+        Args: { p_feedback: string; p_flag_source: string; p_user_id: string; p_verification_id: string }
+        Returns: boolean
       }
       resolve_talent_directory_boost: {
         Args: { p_boost_id: string; p_days: number; p_user_id: string }
