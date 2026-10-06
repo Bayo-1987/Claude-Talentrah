@@ -78,11 +78,11 @@ function freeEvent(offsetDays: number): Row {
   return { user_id: USER, reason: "farah_chat_message", outcome: "covered_by_free_allowance", created_at: at(offsetDays) };
 }
 const freeEvents = () => rows("credit_gate_events").filter((r) => r.outcome === "covered_by_free_allowance");
-function seed(opts: { freeUsedAt?: number[]; balance?: number; pass?: { expiresInDays: number } }) {
+function seed(opts: { freeUsedAt?: number[]; balance?: number; pass?: { expiresInDays: number; status?: string } }) {
   for (const k of Object.keys(store)) delete store[k];
   rows("profiles").push({ id: USER, credits_balance: opts.balance ?? 0 });
   for (const d of opts.freeUsedAt ?? []) rows("credit_gate_events").push(freeEvent(d));
-  if (opts.pass) rows("user_passes").push({ id: "p1", user_id: USER, status: "active", expires_at: at(opts.pass.expiresInDays) });
+  if (opts.pass) rows("user_passes").push({ id: "p1", user_id: USER, status: opts.pass.status ?? "active", expires_at: at(opts.pass.expiresInDays) });
 }
 async function send(): Promise<Array<Record<string, unknown>>> {
   const res = await POST(new Request("http://localhost/api/farah/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: "Hello" }) }));
@@ -149,6 +149,11 @@ describe("an EXPIRED Pass, through the real Pass check (nothing about it is fake
     expect(await hasActivePass(USER)).toBe(false);
     seed({ freeUsedAt: [], pass: { expiresInDays: 3 } });
     expect(await hasActivePass(USER)).toBe(true);
+  });
+
+  it("a Pass that is not active (status cancelled) is not active even with an end date in the future", async () => {
+    seed({ freeUsedAt: [], pass: { expiresInDays: 3, status: "cancelled" } });
+    expect(await hasActivePass(USER)).toBe(false);
   });
 
   it("free messages left: a free message is used, as for anyone", async () => {
