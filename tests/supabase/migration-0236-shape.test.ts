@@ -12,6 +12,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { parseAccountDeletionMap } from "../support/account-deletion-map";
 
 const FILE = join(__dirname, "../../supabase/migrations/0236_farah_free_claims.sql");
 const ROLLBACK = join(__dirname, "../../supabase/rollbacks/0236_farah_free_claims.rollback.sql");
@@ -196,5 +197,21 @@ describe("0236: the rollback sits beside it, outside the migrations directory", 
   it("checks that all four are gone", () => {
     expect(rb).toMatch(/\bdo \$[a-z]*\$/);
     expect(rb).toMatch(/raise exception '0236 rollback self-check/);
+  });
+});
+
+describe("0236: the new foreign key into a person is classified in the account-deletion map", () => {
+  // tests/rls/account-deletion-fk-map.test.ts compares the LIVE keys with the map but needs a database (CI only); this is the same decision checked without one, so a missing row fails here first.
+  const map = parseAccountDeletionMap(readFileSync(join(__dirname, "../../docs/account-deletion-map.md"), "utf8"));
+  const entry = map.keys.find((k) => k.key === "farah_free_claims.user_id");
+
+  it("the table points at profiles and cascades (the file says so)", () => {
+    expect(flat).toMatch(/user_id uuid not null references public\.profiles\(id\) on delete cascade/);
+  });
+
+  it("docs/account-deletion-map.md has a row for farah_free_claims.user_id, recording the same parent and ON DELETE, with the class 'delete'", () => {
+    expect(entry, "add the key to docs/account-deletion-map.md with a class").toBeTruthy();
+    expect({ parent: entry?.parent, onDelete: entry?.onDelete }).toEqual({ parent: "profiles", onDelete: "CASCADE" });
+    expect(entry?.cls).toBe("delete");
   });
 });
