@@ -183,16 +183,19 @@ describe("deleting a user keeps their money and counterparty records", () => {
 
   it("the notes trigger still lets the authenticated mentor edit their OWN notes on the detached session, and still refuses a stranger", async () => {
     const mentorClient = await sessionFor(mentor.email, mentor.id);
-    const own = await mentorClient.from("mentorship_sessions").update({ mentor_notes: "edited by the mentor" }).eq("id", sessionId).select("mentor_notes");
+    // No .select(): 0224 withholds SELECT on mentor_notes from authenticated (its header: an UPDATE ... RETURNING of one is refused), so the note is read back with the service role.
+    const own = await mentorClient.from("mentorship_sessions").update({ mentor_notes: "edited by the mentor" }).eq("id", sessionId);
     expect(own.error).toBeNull();
-    expect(own.data).toEqual([{ mentor_notes: "edited by the mentor" }]);
+    const { data: afterOwn } = await admin.from("mentorship_sessions").select("mentor_notes").eq("id", sessionId).single();
+    expect(afterOwn).toEqual({ mentor_notes: "edited by the mentor" });
 
     const stranger = await createTestUser("stranger-notes");
     try {
       const strangerClient = await sessionFor(stranger.email, stranger.id);
-      const refused = await strangerClient.from("mentorship_sessions").update({ mentor_notes: "stranger edit" }).eq("id", sessionId).select("mentor_notes");
-      // Either a column-level/RLS denial (error) or zero rows; never a successful edit.
-      expect(refused.data ?? []).toEqual([]);
+      // Either a column-level/RLS denial (error) or zero rows is acceptable; the proof that nothing was edited is the unchanged note, read back with the service role.
+      await strangerClient.from("mentorship_sessions").update({ mentor_notes: "stranger edit" }).eq("id", sessionId);
+      const { data: afterStranger } = await admin.from("mentorship_sessions").select("mentor_notes").eq("id", sessionId).single();
+      expect(afterStranger).toEqual({ mentor_notes: "edited by the mentor" });
     } finally {
       await deleteTestUsers([stranger.id]);
     }
