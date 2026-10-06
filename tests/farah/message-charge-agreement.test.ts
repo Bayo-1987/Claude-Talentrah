@@ -16,7 +16,16 @@ function from(table: string) {
   const c: Record<string, unknown> = { select: () => c, eq: () => c, gte: () => c, then: (resolve: (v: unknown) => void) => resolve(r) };
   return c;
 }
-vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => ({ from }) }));
+// The free-message claim (migration 0236) is asked for only when the read says a free message is left; here it grants one (and counts the pending ones as `claimedElsewhere`).
+const claim = { claimedElsewhere: 0 };
+const rpcCalls: string[] = [];
+const rpc = async (fn: string) => {
+  rpcCalls.push(fn);
+  if (fn !== "claim_farah_free_message") return { data: true, error: null };
+  const used = state.used + claim.claimedElsewhere;
+  return used < 3 ? { data: [{ ok: true, claim_id: "claim-1", used: used + 1 }], error: null } : { data: [{ ok: false, claim_id: null, used }], error: null };
+};
+vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => ({ from, rpc }) }));
 vi.mock("@/lib/passes/entitlement", () => ({
   checkPassCoverage: async () => (state.passCovered ? { covered: true } : { covered: false, reason: state.passReason }),
   DAILY_CAP_MESSAGE: "cap",
@@ -42,6 +51,7 @@ beforeEach(() => {
   state.balance = 0;
   state.passCovered = false;
   state.passReason = "no_active_pass";
+  claim.claimedElsewhere = 0;
 });
 
 /** What the gate decided, in the same words as a charge. */
@@ -199,12 +209,13 @@ describe("a message that fails writes nothing: no free message used, so the next
     expect(logCreditGateEvent).not.toHaveBeenCalled();
   });
 
-  it("committing it writes exactly one covered_by_free_allowance event", async () => {
+  it("committing it makes exactly one covered_by_free_allowance event: in the database, from the claim (the app writes none of its own)", async () => {
     state.used = 2;
+    rpcCalls.length = 0;
     const a = await checkFarahChatAllowance("u-1");
     await commitFarahChatAllowance("u-1", a);
-    expect(logCreditGateEvent).toHaveBeenCalledTimes(1);
-    expect(logCreditGateEvent).toHaveBeenCalledWith(expect.objectContaining({ outcome: "covered_by_free_allowance", userId: "u-1" }));
+    expect(rpcCalls.filter((c) => c === "commit_farah_free_claim")).toHaveLength(1);
+    expect(logCreditGateEvent).not.toHaveBeenCalled();
   });
 });
 
@@ -225,5 +236,20 @@ describe("a repricing moves the gate and the charge function together", () => {
     expect(chip).toEqual({ kind: "credits", credits: 7 });
     vi.doUnmock("@/lib/credits/costs");
     vi.resetModules();
+  });
+});
+
+describe("a request that loses the free-message claim is priced exactly as an account whose free messages are used up", () => {
+  const COST = CREDIT_COSTS.farahChatMessage;
+  it("1 used on the read but 2 others in flight: the claim is refused, so the gate names the same charge as 3 used (credits, a Pass, or a refusal)", async () => {
+    for (const [balance, passCovered] of [[5, false], [0, false], [0, true]] as const) {
+      state.used = 1;
+      claim.claimedElsewhere = 2;
+      state.balance = balance;
+      state.passCovered = passCovered;
+      const gate = await gateOutcome();
+      const chip = panelFor(3, passCovered, balance);
+      expect(gate, `balance ${balance} pass ${passCovered}`).toEqual(chip.kind === "credits" ? { kind: "credits", credits: COST } : chip.kind === "pass" ? { kind: "pass" } : { kind: "insufficient", required: COST, available: balance });
+    }
   });
 });

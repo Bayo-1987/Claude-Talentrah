@@ -4,6 +4,7 @@
  * real as its weakest link, so each link is sabotage-tested directly against
  * the real database rather than trusted from reading the code.
  */
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { admin, createTestUser, deleteTestUsers } from "../support/auth";
 import {
@@ -95,6 +96,8 @@ afterEach(async () => {
    */
   await admin.from("credit_gate_events").delete().eq("user_id", userId);
   await admin.from("credit_ledger").delete().eq("user_id", userId);
+  // A check that returns "free" now takes a pending claim (migration 0236) that only a commit or a release settles; several tests here check without committing, so clear them too.
+  await (admin as unknown as SupabaseClient).from("farah_free_claims").delete().eq("user_id", userId);
   await setBalance(0);
 });
 
