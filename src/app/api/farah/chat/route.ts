@@ -359,7 +359,7 @@ async function handlePost(request: Request, held: { release?: () => Promise<void
           if (err instanceof FallbackDeclinedError) {
             // The primary was rate-limited and there is not enough headroom left for the fallback: end the reply with the busy wording (nothing was charged). Content-free line.
             console.warn("[farah-spend:fallback-declined] the fallback provider was not used: the day's headroom is below its reserve");
-            send({ type: "error", message: FARAH_BUSY_MESSAGE });
+            send({ type: "error", kind: "fallback_declined", message: FARAH_BUSY_MESSAGE });
             controller.close();
             return;
           }
@@ -371,7 +371,7 @@ async function handlePost(request: Request, held: { release?: () => Promise<void
             err instanceof LLMProviderError && err.kind === "rate_limit"
               ? farahRateLimitMessage(err.message)
               : GENERIC_FARAH_UNAVAILABLE_MESSAGE;
-          send({ type: "error", message: errorMessage });
+          send({ type: "error", kind: err instanceof LLMProviderError && err.kind === "rate_limit" ? "rate_limited" : "unavailable", message: errorMessage });
           controller.close();
           return;
         }
@@ -392,7 +392,7 @@ async function handlePost(request: Request, held: { release?: () => Promise<void
           // the same as the pre-streaming "empty response" case each
           // provider's own generateWithUsage already guards against, just
           // reached a different way here.
-          send({ type: "error", message: GENERIC_FARAH_UNAVAILABLE_MESSAGE });
+          send({ type: "error", kind: "empty_reply", message: GENERIC_FARAH_UNAVAILABLE_MESSAGE });
           controller.close();
           return;
         }

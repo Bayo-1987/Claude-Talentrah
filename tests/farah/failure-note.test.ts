@@ -4,7 +4,7 @@
  * and the function. WHERE the panel shows it is the panel's business (it calls withNothingChargedNote; it does not word the note itself).
  */
 import { describe, expect, it } from "vitest";
-import { withNothingChargedNote, NOTHING_CHARGED_NOTE, NOTHING_CHARGED_STATUSES } from "@/lib/farah/failure-note";
+import { withNothingChargedNote, NOTHING_CHARGED_NOTE, NOTHING_CHARGED_STATUSES, NOTHING_CHARGED_ERROR_KINDS } from "@/lib/farah/failure-note";
 import { GENERIC_FARAH_UNAVAILABLE_MESSAGE, farahRateLimitMessage } from "@/lib/farah/rate-limit-message";
 
 describe("the note on a failed reply", () => {
@@ -41,5 +41,16 @@ describe("NOTHING_CHARGED_STATUSES: where the panel may show the note", () => {
 
   it("lists exactly the statuses proven charge-free by tests/farah/chat-route-failed-requests-charge-nothing.test.ts: 400, 401, 429, 500, 503 (the proof file also holds the test that no listed status lacks a proof)", () => {
     expect([...NOTHING_CHARGED_STATUSES].sort((a, b) => a - b)).toEqual([400, 401, 429, 500, 503]);
+  });
+});
+
+describe("NOTHING_CHARGED_ERROR_KINDS: which stream errors the panel may show the note for", () => {
+  it("is exported as a list of kind names only", () => {
+    expect(Array.isArray(NOTHING_CHARGED_ERROR_KINDS)).toBe(true);
+    expect(NOTHING_CHARGED_ERROR_KINDS.every((k) => typeof k === "string")).toBe(true);
+  });
+
+  it("lists exactly the kinds proven charge-free by tests/farah/chat-route-failed-requests-charge-nothing.test.ts: rate_limited, unavailable, empty_reply, fallback_declined", () => {
+    expect([...NOTHING_CHARGED_ERROR_KINDS].sort()).toEqual(["empty_reply", "fallback_declined", "rate_limited", "unavailable"]);
   });
 });

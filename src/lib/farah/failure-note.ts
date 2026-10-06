@@ -17,6 +17,17 @@ export const NOTHING_CHARGED_NOTE = "That reply didn't go through, and nothing w
  */
 export const NOTHING_CHARGED_STATUSES: readonly number[] = [400, 401, 429, 500, 503];
 
+/** The kinds of failure the chat route reports as a stream `error` event (its `kind` field). A thrown read or a dropped connection has no kind: it is not an event the route sent. */
+export type FarahStreamErrorKind = "rate_limited" | "unavailable" | "empty_reply" | "fallback_declined";
+
+/**
+ * The stream error KINDS for which a test PROVES that no free message, no Pass use and no credit was used, so the panel may say "nothing was charged" (owner's rule: hidden unless proven charge-free; an
+ * unlisted or missing kind hides it). The second half of NOTHING_CHARGED_STATUSES, for failures that arrive as an `error` event inside a stream whose HTTP status was already 200. Each kind is added only
+ * together with a case in tests/farah/chat-route-failed-requests-charge-nothing.test.ts that drives the route to an error event of that kind and checks nothing was used; that file also fails if a listed kind
+ * has no proof. Why they hold: every `error` event is sent before the charge is committed (a source-scan test). A thrown read, a dropped connection or a timeout carries no kind and is never listed.
+ */
+export const NOTHING_CHARGED_ERROR_KINDS: readonly FarahStreamErrorKind[] = ["rate_limited", "unavailable", "empty_reply", "fallback_declined"];
+
 const DEFAULT_FAILURE = "Something went wrong — try again.";
 
 export function withNothingChargedNote(message: string | undefined): string {

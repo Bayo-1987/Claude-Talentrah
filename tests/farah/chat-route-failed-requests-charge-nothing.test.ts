@@ -92,7 +92,8 @@ vi.mock("@/lib/farah/spend-tally", () => ({
 
 const { POST } = await import("@/app/api/farah/chat/route");
 const { NANO_PER_USD, DEFAULT_DAILY_CEILING_USD } = await import("@/lib/farah/spend-ceiling");
-const { NOTHING_CHARGED_STATUSES } = await import("@/lib/farah/failure-note");
+const { NOTHING_CHARGED_STATUSES, NOTHING_CHARGED_ERROR_KINDS } = await import("@/lib/farah/failure-note");
+const { FallbackDeclinedError, LLMProviderError } = await import("@/lib/llm");
 
 const freeEvents = () => rows("credit_gate_events").filter((r) => r.outcome === "covered_by_free_allowance");
 const passEvents = () => rows("credit_gate_events").filter((r) => r.outcome === "covered_by_pass");
@@ -107,6 +108,8 @@ const request = (body: unknown = { message: "Hello" }, signal?: AbortSignal) =>
 /** Everything that would mean a message was USED: a free-allowance event, a Pass-use event, a credit spend. (A 'blocked' funnel row is a log of a refusal, not a use.) */
 /** The statuses this file has SEEN the route answer with while it checked that nothing was used (and no free slot was left held). The allowlist of statuses the panel may add the failure note for is held to this set at the end of the file. */
 const provenChargeFree = new Set<number>();
+/** The stream error KINDS this file has seen the route send (as the `kind` of an `error` event) while checking that nothing was used. */
+const provenErrorKinds = new Set<string>();
 
 function used() {
   return { freeEvents: freeEvents().length, passEvents: passEvents().length, creditSpends: spendCredits.mock.calls.length, pendingClaims: rows("farah_free_claims").length };
@@ -224,6 +227,36 @@ describe("a reply that FAILS after the request was accepted (status 200, an erro
   }
 });
 
+describe("every stream 'error' event names its KIND, and each kind is a failure that used nothing", () => {
+  const cases: Array<[string, string, () => AsyncGenerator<string>]> = [
+    ["rate_limited", "the provider is rate limited (before the first token)", async function* () { throw new LLMProviderError("groq", "rate_limit", "Please try again in 1m2s."); }],
+    ["rate_limited", "the provider is rate limited after a start", async function* () { yield "A start, "; throw new LLMProviderError("groq", "rate_limit", "Please try again in 1m2s."); }],
+    ["unavailable", "the model throws a plain error", async function* () { throw new Error("provider down"); yield "x"; }],
+    ["unavailable", "the provider fails with another kind of error (auth) part-way through", async function* () { yield "A start, "; throw new LLMProviderError("groq", "auth", "bad key"); }],
+    ["empty_reply", "the model returns nothing", async function* () { /* no chunks */ }],
+    ["fallback_declined", "the primary is rate limited and the fallback provider is declined (the busy answer)", async function* () { throw new FallbackDeclinedError(new Error("limited")); yield "x"; }],
+  ];
+  for (const [kind, name, model] of cases) {
+    it(`${kind}: ${name}: the error event carries kind "${kind}", no done event, and no free message, no Pass use, no credit (free path and paid path)`, async () => {
+      for (const seedOpts of [{ freeUsed: 0, balance: 5 }, { freeUsed: 3, balance: 5 }]) {
+        seed(seedOpts);
+        spendCredits.mockClear();
+        askFarahChatStream.mockReset().mockImplementation(model);
+        const res = await POST(request());
+        expect(res.status).toBe(200);
+        const events = (await res.text()).split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l) as Record<string, unknown>);
+        expect(events.some((e) => e.type === "done")).toBe(false);
+        const errors = events.filter((e) => e.type === "error");
+        expect(errors, "exactly one error event").toHaveLength(1);
+        expect(errors[0].kind).toBe(kind);
+        expect(typeof errors[0].message).toBe("string");
+        expect(used()).toEqual({ freeEvents: seedOpts.freeUsed, passEvents: 0, creditSpends: 0, pendingClaims: 0 });
+        provenErrorKinds.add(String(errors[0].kind));
+      }
+    });
+  }
+});
+
 describe("WHY it holds: the status is fixed before the charge, and the charge is only inside the reply stream", () => {
   const src = readFileSync(join(__dirname, "../../src/app/api/farah/chat/route.ts"), "utf8");
   const streamStart = src.indexOf("new ReadableStream");
@@ -243,6 +276,12 @@ describe("WHY it holds: the status is fixed before the charge, and the charge is
     expect(statuses(after), "no status is chosen after the stream starts").toEqual([]);
     const response = after.slice(after.indexOf("return new Response(stream"));
     expect(response).not.toMatch(/status/);
+  });
+
+  it("every 'error' event the route builds carries a kind (so the panel can tell which failure it is without parsing words)", () => {
+    const sends = [...src.matchAll(/send\(\{ type: "error"[^}]*\}\)/g)].map((m) => m[0]);
+    expect(sends.length).toBeGreaterThanOrEqual(3);
+    for (const send of sends) expect(send, send).toMatch(/kind: /);
   });
 
   it("every 'error' event the stream sends sits BEFORE the commit: a person who is shown the failure note on an error event can never have been charged", () => {
@@ -285,5 +324,27 @@ describe("the allowlist of statuses the panel may show 'nothing was charged' for
     expect(NOTHING_CHARGED_STATUSES).not.toContain(502);
     expect(NOTHING_CHARGED_STATUSES).not.toContain(504);
     expect(provenChargeFree.has(502) || provenChargeFree.has(504)).toBe(false);
+  });
+});
+
+describe("the allowlist of stream error KINDS the panel may show 'nothing was charged' for (NOTHING_CHARGED_ERROR_KINDS, failure-note.ts) holds only proven kinds", () => {
+  it("it is a plain list of kind names (strings), with no duplicates", () => {
+    expect(Array.isArray(NOTHING_CHARGED_ERROR_KINDS)).toBe(true);
+    for (const kind of NOTHING_CHARGED_ERROR_KINDS) expect(typeof kind === "string" && kind.length > 0, String(kind)).toBe(true);
+    expect(new Set(NOTHING_CHARGED_ERROR_KINDS).size).toBe(NOTHING_CHARGED_ERROR_KINDS.length);
+  });
+
+  for (const kind of NOTHING_CHARGED_ERROR_KINDS) {
+    it(`kind "${kind}" is listed, and this file saw the route send an error event of kind "${kind}" with nothing used (the proof)`, () => {
+      expect(provenErrorKinds.has(kind), `"${kind}" is on the allowlist without a proof in this file`).toBe(true);
+    });
+  }
+
+  it("the list contains no kind without a proof", () => {
+    expect(NOTHING_CHARGED_ERROR_KINDS.filter((kind) => !provenErrorKinds.has(kind))).toEqual([]);
+  });
+
+  it("a thrown read, a dropped connection and any other failure that carries no kind are not on it (the reply may already have been charged)", () => {
+    for (const kind of ["read_failed", "network", "connection_dropped", "aborted", "timeout", "unknown", ""]) expect(NOTHING_CHARGED_ERROR_KINDS).not.toContain(kind);
   });
 });

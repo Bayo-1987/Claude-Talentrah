@@ -87,12 +87,15 @@ describe("anon cannot read a draft", () => {
   it("does not see it when asking for it by slug", async () => {
     // The distinction that matters: absent from a list is not the same as
     // unreadable. Someone who knows the slug must still get nothing.
-    const { data } = await anon.from("blog_posts").select("*").eq("slug", draftSlug);
+    // Named columns, not "*": 0232 withholds created_by/updated_by, and a refused "*" would hand back no rows for the wrong reason (permission, not row security).
+    const { data, error } = await anon.from("blog_posts").select("id, slug, status").eq("slug", draftSlug);
+    expect(error, "the read was refused instead of being filtered by row security").toBeNull();
     expect(data ?? [], "a draft was readable by slug").toHaveLength(0);
   });
 
   it("does not see it when asking for it by id", async () => {
-    const { data } = await anon.from("blog_posts").select("*").eq("id", draftId);
+    const { data, error } = await anon.from("blog_posts").select("id, slug, status").eq("id", draftId);
+    expect(error, "the read was refused instead of being filtered by row security").toBeNull();
     expect(data ?? [], "a draft was readable by id").toHaveLength(0);
   });
 });
