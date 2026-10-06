@@ -415,7 +415,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
               : [...prev, { id: streamId, role: "farah", content: event.fullText, created_at: new Date().toISOString() }],
           );
         } else if (event.type === "error") {
-          setError(serverFailureText(null, event.message));
+          setError(serverFailureText(null, event.message, event.kind));
           setMessages((prev) => prev.filter((m) => m.id !== optimisticId && m.id !== streamId));
           return;
         } else if (event.type === "done") {
