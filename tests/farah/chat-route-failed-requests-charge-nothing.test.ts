@@ -239,6 +239,12 @@ describe("WHY it holds: the status is fixed before the charge, and the charge is
     expect(response).not.toMatch(/status/);
   });
 
+  it("every 'error' event the stream sends sits BEFORE the commit: a person who is shown the failure note on an error event can never have been charged", () => {
+    const errorSends = [...src.matchAll(/send\(\{ type: "error"/g)].map((m) => m.index!);
+    expect(errorSends.length).toBeGreaterThanOrEqual(3);
+    for (const at of errorSends) expect(at, "an error event is sent after the charge was committed").toBeLessThan(commitCall);
+  });
+
   it("the credit spend and the free-allowance event are written only by the commit (nothing else in the route calls them)", () => {
     expect(src).not.toMatch(/spendCredits|logCreditGateEvent/);
   });
