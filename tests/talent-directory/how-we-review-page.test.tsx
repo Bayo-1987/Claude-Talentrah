@@ -11,7 +11,9 @@ vi.mock("@/components/marketing/marketing-masthead", () => ({ MarketingMasthead:
 vi.mock("@/components/marketing/marketing-footer", () => ({ MarketingFooter: () => <footer data-testid="footer" /> }));
 
 const { default: Page, metadata } = await import("@/app/how-we-review-resumes/page");
-const html = renderToStaticMarkup(<Page />).replace(/&#x27;/g, "'").replace(/&rsquo;|’/g, "'");
+// What a browser shows, before the apostrophes are normalised for the readable checks below. The e2e spec matches this exact text on the live page.
+const raw = renderToStaticMarkup(<Page />);
+const html = raw.replace(/&#x27;/g, "'").replace(/&rsquo;|’/g, "'");
 const plain = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 
 describe("the page", () => {
@@ -26,6 +28,11 @@ describe("the page", () => {
     expect(html).toContain("What is checked");
     expect(html).toContain("What is not checked");
     for (const word of ["Complete:", "Specific:", "Consistent:"]) expect(plain).toContain(word);
+  });
+
+  it("uses the typographic apostrophe on the page itself, which is the text the e2e spec looks for", () => {
+    expect(raw).toContain("We don’t check who the person is.");
+    expect(raw).not.toContain("We don't check who the person is.");
   });
 
   it("says plainly that identity, employment and skills were not checked", () => {

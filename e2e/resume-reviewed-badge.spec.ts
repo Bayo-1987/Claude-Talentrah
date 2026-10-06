@@ -240,7 +240,7 @@ test.describe("the resume-reviewed badge", () => {
     expect(response?.status()).toBe(200);
     expect(page.url()).toContain("/how-we-review-resumes");
     await expect(page.getByRole("heading", { name: "How we review resumes" })).toBeVisible();
-    await expect(page.getByText("We don't check who the person is.")).toBeVisible();
+    await expect(page.getByText("We don’t check who the person is.")).toBeVisible();
     await context.close();
   });
 });
