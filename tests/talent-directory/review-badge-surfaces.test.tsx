@@ -38,8 +38,8 @@ vi.mock("@/lib/talent-directory/subscription-actions", () => ({ purchaseTalentDi
 vi.mock("@/lib/talent-directory/waitlist-actions", () => ({ joinTalentDirectoryWaitlistAction: async () => {} }));
 vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("notFound"); }, useRouter: () => ({ refresh: () => {}, push: () => {} }) }));
 
-const ai: DirectoryCandidate = { userId: "c1", firstName: "Ada", lastName: "Okafor", country: "Nigeria", availableForHire: true, remoteReady: true, earliestStartDate: null, verificationScore: 87, verifiedAt: "2026-10-05T09:30:00Z", reviewType: "ai" };
-const mentor: DirectoryCandidate = { ...ai, userId: "c2", firstName: "Chidi", lastName: "Eze", verificationScore: null, verifiedAt: "2026-10-12T10:00:00Z", reviewType: "human" };
+const ai: DirectoryCandidate = { userId: "c1", firstName: "Ada", lastName: "Okafor", country: "Nigeria", availableForHire: true, remoteReady: true, earliestStartDate: null, verifiedAt: "2026-10-05T09:30:00Z", reviewType: "ai" };
+const mentor: DirectoryCandidate = { ...ai, userId: "c2", firstName: "Chidi", lastName: "Eze", verifiedAt: "2026-10-12T10:00:00Z", reviewType: "human" };
 
 const text = (html: string) => html.replace(/&#x27;/g, "'").replace(/&amp;/g, "&");
 const noScore = (html: string) => {
@@ -56,17 +56,18 @@ describe("the directory list", async () => {
   const { default: Page } = await import("@/app/employer/talent-directory/page");
   const render = async () => text(renderToStaticMarkup(await Page({ searchParams: Promise.resolve({}) })));
 
-  it("shows each candidate's own line with their date: Farah (AI) for the scored one, a mentor for the unscored one", async () => {
+  it("shows each candidate's own line with their date: Farah (AI) for the 'ai' one, a mentor for the 'human' one", async () => {
     const html = await render();
     expect(html).toContain("Resume reviewed by Farah (AI) · 5 Oct 2026");
     expect(html).toContain("Resume reviewed by a Talentrah mentor · 12 Oct 2026");
   });
 
-  it("the type decides, not the score: a score on a 'human' review and no score on an 'ai' review change nothing", async () => {
+  it("each line follows its own candidate's type, in any order (the candidate shape carries no score to go by)", async () => {
     state.candidates = [
-      { ...ai, userId: "c3", firstName: "Zed", lastName: "Aye", verificationScore: null, reviewType: "ai" },
-      { ...mentor, userId: "c4", firstName: "Yan", lastName: "Bee", verificationScore: 90, reviewType: "human" },
+      { ...mentor, userId: "c4", firstName: "Yan", lastName: "Bee", verifiedAt: "2026-10-12T10:00:00Z", reviewType: "human" },
+      { ...ai, userId: "c3", firstName: "Zed", lastName: "Aye", verifiedAt: "2026-10-05T09:30:00Z", reviewType: "ai" },
     ];
+    expect(Object.keys(state.candidates[0] as object)).not.toContain("verificationScore");
     const html = await render();
     expect(html).toMatch(/Zed Aye[\s\S]*?Resume reviewed by Farah \(AI\) · 5 Oct 2026/);
     expect(html).toMatch(/Yan Bee[\s\S]*?Resume reviewed by a Talentrah mentor · 12 Oct 2026/);
@@ -78,13 +79,13 @@ describe("the directory list", async () => {
     expect(html).toMatch(/data-testid="resume-reviewed-badge"[^>]*>Resume reviewed · 5 Oct 2026</);
   });
 
-  it("a mentor-reviewed candidate IS listed with a badge (it used to be hidden because it has no score)", async () => {
+  it("a mentor-reviewed candidate IS listed with a badge (it used to be hidden because it had no score)", async () => {
     const html = await render();
     expect(html).toContain("Chidi Eze");
     expect(html.match(/data-testid="resume-reviewed-badge"/g)).toHaveLength(2);
   });
 
-  it("carries no score, no '/100' and no 'verified', although the data it was given has the score", async () => {
+  it("carries no score, no '/100' and no 'verified'", async () => {
     noScore(await render());
   });
 

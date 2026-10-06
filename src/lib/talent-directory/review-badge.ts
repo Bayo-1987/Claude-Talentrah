@@ -17,10 +17,10 @@ export function reviewMethodFromType(type: string | null | undefined): ReviewMet
 }
 
 /**
- * Which review an applicant's resume has, if any, for the applicant list: a resume only counts as reviewed when the profile's status is "verified" (the database's
- * word for a review that passed). A pending, rejected or unreviewed profile shows nothing: never a partial result.
+ * Which review an applicant's resume has, if any, for the applicant list. The database tells an employer only "verified" (a review that passed) or nothing (null) for
+ * the status, and a type only for a verified profile: a pending, rejected or unreviewed profile arrives as null and shows nothing, never a partial result.
  */
-export function resumeReviewFor(status: string, type: string | null | undefined): ReviewMethod | null {
+export function resumeReviewFor(status: string | null | undefined, type: string | null | undefined): ReviewMethod | null {
   return status === "verified" ? reviewMethodFromType(type) : null;
 }
 

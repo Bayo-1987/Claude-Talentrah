@@ -1,11 +1,22 @@
--- 0234 — say WHEN a resume was reviewed and BY WHOM, on the two employer-side reads.
+-- 0234 — say WHEN a resume was reviewed and BY WHOM, on the two employer-side reads, and tell an employer NOTHING ELSE about the review.
 --
 -- VERIFY-1 step 0a-2. The employer screens now show "Resume reviewed by Farah (AI) · 5 Oct 2026" or "Resume reviewed by a mentor · …".
 -- Step 0a-1 inferred the "by whom" half from the stored score in application code. This replaces that inference with the value the database already
 -- records, read in ONE place for both screens, and adds the missing date to the applicant list.
 --
 --   employer_job_applicants(uuid)   + talent_verified_at (the review date) + talent_review_type
+--                                   - talent_verification_score (gone)
+--                                   ~ talent_verification_status: now 'verified' or null, never 'pending', 'rejected' or 'unverified'
 --   talent_directory_search(...)    + review_type          (it already returned verified_at, the date)
+--                                   - verification_score (gone)
+--                                   ~ search_path '' (was 'public'), and its COMMENT
+--
+-- WHY THE SCORE AND THE STATUS GO. Both functions are callable with an employer's own login, whatever the page shows. Until now an employer calling
+-- employer_job_applicants directly could read every applicant's review score (a rejected applicant's included) and their 'rejected' or 'pending' status, and
+-- talent_directory_search returned the score of every listed candidate. VERIFY-1 0a says an employer sees no score; the status of a review that did not pass
+-- is the candidate's own business. So the score is not returned by either function, and the applicant list's status is 'verified' for a review that passed and
+-- null for everything else (a pending, rejected or never-requested review looks the same to an employer: nothing). The candidate still sees their own score
+-- and status on their own page, which reads their own profile row and not these functions.
 --
 -- The type is READ, not inferred: talent_verifications.review_type ('ai' or 'human', 0142) is set once, when a review is requested, by which credit the
 -- request spent, and never changes. Both employer reads return the review_type of the candidate's LATEST PASSED review (status 'verified', newest decided_at;
@@ -18,9 +29,13 @@
 --   * Who is listed. The paid search still reads its gate from talent_directory_listed_ids() and must not restate it (the standing check in
 --     tests/talent-directory/gate-single-definition.test.ts fails if it does). The search reads the type from the candidate's passed reviews
 --     (talent_verifications), which says nothing about WHO IS LISTED: the listing rule is still written only in the helper.
---   * The applicant list is still not gated on directory opt-in (0170): an employer sees the review status of someone who applied to them
---     whether or not that person is listed. It still hides people who asked to delete their account (0212).
+--   * The applicant list is still not gated on directory opt-in (0170): an employer sees whether the resume of someone who applied to them was reviewed
+--     (and by whom, and when) whether or not that person is listed. It still hides people who asked to delete their account (0212).
 --   * Grants. Both functions keep exactly the grants they have: authenticated and service_role, nothing for anon or public.
+--
+-- search_path. talent_directory_search was 'public'; it is now '' like the applicant function. Every table and function it names is already schema-qualified
+-- (public.*, auth.uid()), and the built-ins it uses (now, least, greatest, coalesce) live in pg_catalog, which is always searched. A DROP also drops a
+-- function's COMMENT, so the search's comment is written again below.
 --
 -- Changing a function's return columns cannot be done with CREATE OR REPLACE, so each is dropped and recreated in this one transaction
 -- (the pattern 0170 and 0172 used). Neither function has a dependent object (no view, no other function calls it). The recreate keeps
@@ -43,7 +58,6 @@ returns table (
   missing_skills jsonb,
   seniority_alignment text,
   talent_verification_status text,
-  talent_verification_score integer,
   screening_passed boolean,
   talent_verified_at timestamp with time zone,
   talent_review_type text
@@ -65,8 +79,7 @@ as $$
     m.explanation -> 'matchedSkills',
     m.explanation -> 'missingSkills',
     m.explanation ->> 'seniorityAlignment',
-    p.talent_verification_status,
-    p.talent_verification_score,
+    case when p.talent_verification_status = 'verified' then 'verified' end,
     a.screening_passed,
     case when p.talent_verification_status = 'verified' then p.talent_verified_at end,
     case when p.talent_verification_status = 'verified' then (
@@ -93,7 +106,7 @@ revoke all on function public.employer_job_applicants(uuid) from anon;
 grant execute on function public.employer_job_applicants(uuid) to authenticated, service_role;
 
 comment on function public.employer_job_applicants(uuid) is
-  'Per-applicant rows for ONE job posting, scoped to the caller''s own organisation, sorted by match score (highest first, unscored last). Never returns email, applications.notes, or applications.stage (seeker-private, 0037) — only name, applied_at, resume_id, the employer''s own status (default new), the seeker-side match score/explanation (match_scores, read-only here), Talent Directory resume review status/score (profiles, read-only here, NOT gated on talent_directory_opt_in), the review date and who reviewed (talent_verified_at and talent_review_type, 0234: the stored review_type of the latest passed review, ''ai'' = Farah or ''human'' = a mentor, null when the resume is not reviewed or no passed review row exists), and screening_passed (applications, 0171 — null means no screening questions or answers incomplete, never gates whether the application itself was accepted). People who asked to delete their account are not listed (0212).';
+  'Per-applicant rows for ONE job posting, scoped to the caller''s own organisation, sorted by match score (highest first, unscored last). Never returns email, applications.notes, or applications.stage (seeker-private, 0037) — only name, applied_at, resume_id, the employer''s own status (default new), the seeker-side match score/explanation (match_scores, read-only here), whether the resume review passed (talent_verification_status, 0234: ''verified'' or null, never a pending, rejected or unreviewed state; profiles, read-only here, NOT gated on talent_directory_opt_in), the review date and who reviewed (talent_verified_at and talent_review_type, 0234: the stored review_type of the latest passed review, ''ai'' = Farah or ''human'' = a mentor, null when the resume is not reviewed or no passed review row exists) — never the review score, and screening_passed (applications, 0171 — null means no screening questions or answers incomplete, never gates whether the application itself was accepted). People who asked to delete their account are not listed (0212).';
 
 drop function if exists public.talent_directory_search(boolean, boolean, integer, integer, uuid);
 
@@ -112,14 +125,13 @@ returns table (
   available_for_hire boolean,
   remote_ready boolean,
   earliest_start_date date,
-  verification_score integer,
   verified_at timestamp with time zone,
   review_type text
 )
 language plpgsql
 stable
 security definer
-set search_path = 'public'
+set search_path = ''
 as $$
 begin
   if not exists (
@@ -136,7 +148,7 @@ begin
   return query
     select p.id, p.first_name, p.last_name, p.country,
            p.talent_available_for_hire, p.talent_remote_ready, p.talent_earliest_start_date,
-           p.talent_verification_score, p.talent_verified_at,
+           p.talent_verified_at,
            (select tv.review_type
             from public.talent_verifications tv
             where tv.user_id = p.id and tv.status = 'verified'
@@ -156,3 +168,6 @@ $$;
 
 revoke all on function public.talent_directory_search(boolean, boolean, integer, integer, uuid) from public, anon;
 grant execute on function public.talent_directory_search(boolean, boolean, integer, integer, uuid) to authenticated, service_role;
+
+comment on function public.talent_directory_search(boolean, boolean, integer, integer, uuid) is
+  'The paid Talent Directory search: candidates in talent_directory_listed_ids() (the only place the listing rule is written), for a member of an organisation with an active subscription. Returns the name, country, availability, remote-readiness, earliest start date, the date the resume was reviewed and who reviewed it (review_type, 0234: the stored review_type of the latest passed review, ai = Farah or human = a mentor, null if no passed review row exists). Never returns a review score (0234): no score reaches an employer.';

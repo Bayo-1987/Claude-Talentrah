@@ -124,7 +124,6 @@ export interface DirectoryCandidate {
   availableForHire: boolean;
   remoteReady: boolean;
   earliestStartDate: string | null;
-  verificationScore: number | null;
   verifiedAt: string | null;
   /** "ai" or "mentor", answered by the database (0234). */
   reviewType: string | null;
@@ -155,7 +154,6 @@ export async function searchTalentDirectory(filters: {
     availableForHire: r.available_for_hire,
     remoteReady: r.remote_ready,
     earliestStartDate: r.earliest_start_date,
-    verificationScore: r.verification_score,
     verifiedAt: r.verified_at,
     reviewType: r.review_type,
   }));

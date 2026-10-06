@@ -45,6 +45,8 @@ let owner: { id: string; client: DB };
 let unreviewed: { id: string };
 /** verified people whose review history is unusual: two passed reviews (newest is human), two passed reviews (newest is ai), and verified with no review row at all */
 let history: { newestHuman: string; newestAi: string; noRow: string };
+/** applicants whose review did NOT pass: rejected with a score of 0, and one still pending. An employer must be able to learn nothing about either. */
+let notPassed: { rejectedZero: string; pending: string };
 let postingId = "";
 const orgIds: string[] = [];
 
@@ -81,6 +83,16 @@ beforeAll(async () => {
         .eq("id", e.id),
     ),
   );
+  const np = await Promise.all(["rejected-zero", "pending"].map((n) => createAuthedTestUser(`tdment-${n}`)));
+  notPassed = { rejectedZero: np[0].id, pending: np[1].id };
+  await admin
+    .from("profiles")
+    .update({ talent_directory_opt_in: true, talent_verification_status: "rejected", talent_verification_score: 0, talent_verified_at: null })
+    .eq("id", notPassed.rejectedZero);
+  await admin
+    .from("profiles")
+    .update({ talent_directory_opt_in: true, talent_verification_status: "pending", talent_verification_score: null, talent_verified_at: null })
+    .eq("id", notPassed.pending);
   const { error: histError } = await admin.from("talent_verifications").insert([
     { user_id: history.newestHuman, status: "verified", review_type: "ai", ai_score: 80, requested_at: "2026-08-01T09:00:00Z", decided_at: "2026-08-01T09:30:00Z" },
     { user_id: history.newestHuman, status: "verified", review_type: "human", requested_at: "2026-10-05T09:00:00Z", decided_at: "2026-10-05T09:30:00Z" },
@@ -117,14 +129,14 @@ beforeAll(async () => {
   postingId = job.id;
   const { error: appErr } = await admin
     .from("applications")
-    .insert([...candidates.map((c) => c.id), unreviewed.id, history.newestHuman, history.newestAi, history.noRow].map((user_id) => ({ user_id, job_posting_id: postingId, applied_at: new Date().toISOString() })));
+    .insert([...candidates.map((c) => c.id), unreviewed.id, history.newestHuman, history.newestAi, history.noRow, notPassed.rejectedZero, notPassed.pending].map((user_id) => ({ user_id, job_posting_id: postingId, applied_at: new Date().toISOString() })));
   if (appErr) throw new Error(`fixture applications: ${appErr.message}`);
 }, 120_000);
 
 afterAll(async () => {
   if (orgIds[0]) await admin.from("talent_directory_subscriptions").delete().eq("organization_id", orgIds[0]);
   await deleteTestOrgs(orgIds);
-  await deleteTestUsers([...candidates.map((c) => c.id), owner?.id, unreviewed?.id, history?.newestHuman, history?.newestAi, history?.noRow].filter(Boolean));
+  await deleteTestUsers([...candidates.map((c) => c.id), owner?.id, unreviewed?.id, history?.newestHuman, history?.newestAi, history?.noRow, notPassed?.rejectedZero, notPassed?.pending].filter(Boolean));
 }, 60_000);
 
 describe("who is listed does not depend on who reviewed the resume", () => {
@@ -138,11 +150,11 @@ describe("who is listed does not depend on who reviewed the resume", () => {
     expect((data ?? []).length === 1, "the paid search, looked up by id").toBe(state.listed);
   });
 
-  it("a mentor-reviewed candidate comes back from the search with no score and the date of the review, which is what the page turns into the mentor badge", async () => {
+  it("a mentor-reviewed candidate comes back from the search with the date of the review and no score column, which is what the page turns into the mentor badge", async () => {
     const mentor = candidates.find((c) => c.label === "mentor-reviewed, opted in")!;
     const { data } = await owner.client.rpc("talent_directory_search", { p_candidate_id: mentor.id });
     expect(data).toHaveLength(1);
-    expect(data![0].verification_score).toBeNull();
+    expect(Object.keys(data![0])).not.toContain("verification_score");
     expect(new Date(data![0].verified_at as string).toISOString()).toBe("2026-10-05T09:30:00.000Z");
   });
 
@@ -233,5 +245,43 @@ describe("the employer applicant list says when and by whom a resume was reviewe
       const c = candidates.find((x) => x.label === label)!;
       expect(byLabel(rows, c.id, appOf), label).toBeUndefined();
     }
+  });
+});
+
+describe("an employer who calls either function directly (with their own login) learns no score and no non-verified status (0234)", () => {
+  const SEARCH_COLUMNS = ["available_for_hire", "country", "earliest_start_date", "first_name", "last_name", "remote_ready", "review_type", "user_id", "verified_at"];
+
+  it("the applicant list has no score column on any row, and its status is only 'verified' or null: a rejected score-0 applicant and a pending one both read null", async () => {
+    const { data, error } = await owner.client.rpc("employer_job_applicants", { p_job_posting_id: postingId });
+    expect(error, error?.message).toBeNull();
+    const rows = (data ?? []) as unknown as Array<Record<string, unknown>>;
+    expect(rows.length).toBeGreaterThan(2);
+    for (const r of rows) {
+      expect(Object.keys(r)).not.toContain("talent_verification_score");
+      expect(["verified", null]).toContain(r.talent_verification_status);
+    }
+    const { data: apps } = await admin.from("applications").select("id, user_id").eq("job_posting_id", postingId);
+    const appOf = new Map((apps ?? []).map((a) => [a.user_id as string, a.id as string]));
+    for (const id of [notPassed.rejectedZero, notPassed.pending]) {
+      const r = rows.find((x) => x.application_id === appOf.get(id))!;
+      expect(r, "the applicant is on the list").toBeDefined();
+      expect(r.talent_verification_status).toBeNull();
+      expect(r.talent_verified_at).toBeNull();
+      expect(r.talent_review_type).toBeNull();
+    }
+    expect(JSON.stringify(rows)).not.toMatch(/rejected|pending|unverified/);
+  });
+
+  it("the paid search returns exactly the documented columns: no score, and nobody who was rejected or is pending", async () => {
+    const { data, error } = await owner.client.rpc("talent_directory_search", { p_limit: 50 });
+    expect(error, error?.message).toBeNull();
+    const rows = (data ?? []) as unknown as Array<Record<string, unknown>>;
+    expect(rows.length).toBeGreaterThan(0);
+    for (const r of rows) expect(Object.keys(r).sort()).toEqual(SEARCH_COLUMNS);
+    const ids = rows.map((r) => r.user_id);
+    expect(ids).not.toContain(notPassed.rejectedZero);
+    expect(ids).not.toContain(notPassed.pending);
+    const byId = await owner.client.rpc("talent_directory_search", { p_candidate_id: notPassed.rejectedZero });
+    expect(byId.data ?? []).toHaveLength(0);
   });
 });

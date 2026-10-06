@@ -46,6 +46,33 @@ describe("0234: the review type is READ from the candidate's latest passed revie
   });
 });
 
+describe("0234 tells an employer no score and no status other than 'verified'", () => {
+  const returnsOf = (fn: string) => {
+    const start = sql.indexOf(`create or replace function public.${fn}`);
+    const open = sql.indexOf("returns table (", start);
+    return sql.slice(open, sql.indexOf(") language", open));
+  };
+
+  it("the applicant list's result has no score column and the search's result has no score column", () => {
+    expect(returnsOf("employer_job_applicants")).not.toContain("talent_verification_score");
+    expect(returnsOf("talent_directory_search")).not.toContain("verification_score");
+    expect(returnsOf("talent_directory_search")).toContain("review_type text");
+  });
+
+  it("neither body selects the score", () => {
+    for (const fn of ["employer_job_applicants", "talent_directory_search"]) {
+      const start = sql.indexOf(`create or replace function public.${fn}`);
+      const body = sql.slice(sql.indexOf("$$", start), sql.indexOf("$$;", start) + 3);
+      expect(body, `${fn} selects the score`).not.toMatch(/talent_verification_score/);
+    }
+  });
+
+  it("the applicant list's status is 'verified' or null, never the stored word", () => {
+    expect(sql).toContain("case when p.talent_verification_status = 'verified' then 'verified' end,");
+    expect(sql).not.toMatch(/\n\s+p\.talent_verification_status,/);
+  });
+});
+
 describe("0234 changes nothing about who sees what", () => {
   it("the applicant list keeps its organisation-membership check, its applied-only filter, the deletion filter and no opt-in condition", () => {
     const start = sql.indexOf("create or replace function public.employer_job_applicants");
@@ -58,9 +85,22 @@ describe("0234 changes nothing about who sees what", () => {
     expect(body).not.toContain("talent_directory_opt_in");
   });
 
-  it("both functions stay security definer with their pinned search_path", () => {
-    expect(sql).toContain("security definer set search_path = ''");
-    expect(sql).toContain("security definer set search_path = 'public'");
+  it("both functions stay security definer, and both now pin an EMPTY search_path (every name in them is schema-qualified)", () => {
+    expect(sql.match(/security definer set search_path = ''/g)).toHaveLength(2);
+    expect(sql).not.toContain("search_path = 'public'");
+  });
+
+  it("the search's body names every table and function with its schema, so an empty search_path cannot change what it reads", () => {
+    const start = sql.indexOf("create or replace function public.talent_directory_search");
+    const body = sql.slice(sql.indexOf("$$", start), sql.indexOf("$$;", start) + 3);
+    const unqualified = [...body.matchAll(/\b(?:from|join)\s+(?!public\.|\()([a-z_][a-z0-9_.]*)/g)].map((m) => m[1]);
+    expect(unqualified).toEqual([]);
+    expect(body).toContain("auth.uid()");
+    expect(body).toContain("public.talent_directory_listed_ids()");
+  });
+
+  it("the search function has a comment again (the drop removes it), saying what an employer is and is not told", () => {
+    expect(sql).toMatch(/comment on function public\.talent_directory_search\(boolean, boolean, integer, integer, uuid\) is\s+'[^']*no score/);
   });
 
   it("neither function is ever granted to anon or public, and both are granted to authenticated and service_role", () => {

@@ -4296,8 +4296,7 @@ export type Database = {
           seniority_alignment: string | null
           status: Database["public"]["Enums"]["applicant_review_status"]
           talent_review_type: string | null
-          talent_verification_score: number | null
-          talent_verification_status: string
+          talent_verification_status: string | null
           talent_verified_at: string | null
         }[]
       }
@@ -4774,7 +4773,6 @@ export type Database = {
           remote_ready: boolean
           review_type: string
           user_id: string
-          verification_score: number
           verified_at: string
         }[]
       }
