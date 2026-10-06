@@ -68,6 +68,10 @@ describe("no caller-client read is refused by the 0232 grants", () => {
     expect(one('const r = await supabase.from("mentorship_reviews").insert(row);')).toHaveLength(0);
     const service = `const admin = createServiceRoleClient();\nconst r = await admin.from("scholarships").select("*");`;
     expect(problemsIn([{ path: "x.ts", text: service }])).toHaveLength(0);
+    const injectable = "const client = deps.client ?? createServiceRoleClient();\nconst r = await client.from(\"scholarships\").select(\"*\");";
+    expect(problemsIn([{ path: "x.ts", text: injectable }]), "an injectable service-role client (deps.client ?? createServiceRoleClient()) is the service role").toHaveLength(0);
+    const injectableCaller = "const client = deps.client ?? createClient();\nconst r = await client.from(\"scholarships\").select(\"*\");";
+    expect(problemsIn([{ path: "x.ts", text: injectableCaller }]), "an injectable client whose fallback is the caller's is the caller's").toHaveLength(1);
     const injected = "export async function f(client: Client) {\n  return client.from(\"scholarships\").select(\"*\");\n}";
     expect(problemsIn([{ path: "x.ts", text: injected }]), "a client passed in as a parameter is the caller's").toHaveLength(1);
     const typedService = "export async function f(admin: ReturnType<typeof createServiceRoleClient>) {\n  return admin.from(\"scholarships\").select(\"*\");\n}";
