@@ -41,7 +41,7 @@ export interface VerificationGrade {
 
 /** What the person is told when their resume was flagged. It names no text from the resume. */
 export const FLAGGED_FEEDBACK =
-  "Your resume contains text that reads like instructions to the grader (for example, what score to give or to ignore the grading rules), which is not part of a career history. We can't grade it with that in. Remove it and try again, or ask for a human review, where a person reads it.";
+  "Your resume contains text that reads like instructions to the grader (for example, what score to give or to ignore the grading rules), which is not part of a career history, so it couldn't be graded. You haven't been charged. Remove that text and try again, or ask for a human review, where a person reads it.";
 
 /** One line per flagged resume: the source, the category NAMES and how many. Never the resume's text, a name or an id, so the hit rate can be watched after launch without logging personal data. */
 function logFlag(source: "pattern" | "model", categories: string[]): void {

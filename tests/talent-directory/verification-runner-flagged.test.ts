@@ -87,6 +87,15 @@ describe("a flagged resume", () => {
     expect(r.message).toMatch(/human review/i);
   });
 
+  it("the answer, word for word: nothing charged, remove-and-retry, human review, no attempt limit, none of the words the copy scan forbids", async () => {
+    grade.mockResolvedValue(FLAGGED);
+    const r = await runTalentVerification("user-1");
+    expect(r.message).toBe(
+      "This review couldn't be completed: your resume contains text that reads like instructions to the grader. You haven't been charged. Remove that text and try again, or ask for a human review, where a person reads it.",
+    );
+    expect(r.message).not.toMatch(/verif(?:ied|ication|ications|y|ying)/i);
+  });
+
   it("the stored feedback and the answer carry no attempt limit (none exists yet: 0b will add it)", async () => {
     grade.mockResolvedValue(FLAGGED);
     const r = await runTalentVerification("user-1");

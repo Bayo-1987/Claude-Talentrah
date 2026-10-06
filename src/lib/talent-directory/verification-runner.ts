@@ -114,8 +114,8 @@ export async function runTalentVerification(userId: string): Promise<Verificatio
    * A FLAGGED grade (the resume tried to instruct the grader, see injection-flags.ts) was never graded, so it is not charged. It is still RECORDED: the row is resolved below as rejected with
    * its feedback (not released, which deletes it), so the attempt counts toward any limit on a person's verification rows. A flagged grade can never be a pass.
    */
+  if (grade.flagged) grade = { ...grade, passed: false }; // a flagged grade can never be a pass, whatever the object says: enforced once, here, so every use below reads grade.passed
   const charged = !grade.flagged;
-  const verified = grade.passed && !grade.flagged;
 
   /*
    * Wrapped the way scholarships/actions.ts already wraps its own spend: the
@@ -143,7 +143,7 @@ export async function runTalentVerification(userId: string): Promise<Verificatio
   const { data: resolvedOk } = await serviceClient.rpc("resolve_talent_verification", {
     p_verification_id: verification.id,
     p_user_id: userId,
-    p_verified: verified,
+    p_verified: grade.passed,
     p_score: grade.score,
     p_feedback: grade.feedback,
   });
@@ -172,11 +172,11 @@ export async function runTalentVerification(userId: string): Promise<Verificatio
 
   return {
     status: "success",
-    message: verified
+    message: grade.passed
       ? "Resume reviewed — you're now eligible to list yourself in the directory."
       : "This review found things to fix. See the feedback below and try again once you've updated your resume.",
     score: grade.score,
-    passed: verified,
+    passed: grade.passed,
   };
 }
 

@@ -291,9 +291,14 @@ describe("the feedback for a flagged resume is fixed, server-written text; the m
     expect(generateText).not.toHaveBeenCalled();
   });
 
-  it("the fixed text names no resume text, offers the human review, and mentions no attempt limit (none exists yet)", () => {
+  it("the stored feedback, word for word (it is shown in the person's history): says nothing was charged, keeps the remove-and-retry and human-review advice, mentions no attempt limit, and avoids the words the Talent Directory copy scan forbids", () => {
+    expect(FLAGGED_FEEDBACK).toBe(
+      "Your resume contains text that reads like instructions to the grader (for example, what score to give or to ignore the grading rules), which is not part of a career history, so it couldn't be graded. You haven't been charged. Remove that text and try again, or ask for a human review, where a person reads it.",
+    );
+    expect(FLAGGED_FEEDBACK).toMatch(/haven't been charged/i);
     expect(FLAGGED_FEEDBACK).toMatch(/human review/i);
     expect(FLAGGED_FEEDBACK).not.toMatch(/per 30 days|30 days|attempts?\b|limit|twice|2 /i);
+    expect(FLAGGED_FEEDBACK).not.toMatch(/verif(?:ied|ication|ications|y|ying)/i);
   });
 });
 
