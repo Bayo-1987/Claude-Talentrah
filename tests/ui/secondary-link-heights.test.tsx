@@ -4,7 +4,7 @@
  * with the file and the link rather than only in CI's browser run. (A class is not the measure; the spec is. Both exist because the classes alone once passed a link that
  * still measured short.)
  */
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -65,6 +65,34 @@ describe("the list titles that are links", () => {
   });
   it("a scholarship's title link is at least 24px tall", () => {
     expect(minHeightPx(classOfLinkWith(read("src/components/scholarships/scholarship-card.tsx"), "href={`/scholarships/${scholarship.id}`}"))).toBeGreaterThanOrEqual(24);
+  });
+});
+
+describe("every title link on a list, card or landing row (CI found two the named checks above missed)", () => {
+  /** The class signature of a list-title link: ink text, no underline until hover. Found by scanning src, so a NEW row component with the same link fails too. */
+  const SIGNATURE = "no-underline hover:text-rust hover:underline";
+  const TITLE_LINK = /<Link\b[^>]*?className="([^"]*no-underline hover:text-rust hover:underline[^"]*)"/g;
+  const walk = (dir: string): string[] =>
+    readdirSync(path.join(ROOT, dir), { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? walk(`${dir}/${e.name}`) : /\.tsx$/.test(e.name) ? [`${dir}/${e.name}`] : [],
+    );
+  const found = walk("src").flatMap((file) => [...read(file).matchAll(TITLE_LINK)].map((m) => ({ file, cls: m[1] })));
+  it("finds the known title links (the scan is not empty)", () => {
+    const files = new Set(found.map((f) => f.file));
+    for (const f of [
+      "src/components/jobs/job-card.tsx",
+      "src/components/jobs/public-job-row.tsx",
+      "src/components/jobs/public-landing.tsx",
+      "src/components/scholarships/public-scholarship-row.tsx",
+      "src/components/scholarships/scholarship-card.tsx",
+      "src/components/scholarships/public-landing.tsx",
+    ])
+      expect(files.has(f), f).toBe(true);
+    expect(SIGNATURE.length).toBeGreaterThan(0);
+  });
+  it("each carries a minimum height of at least 24px", () => {
+    const short = found.filter(({ cls }) => minHeightPx(cls) < 24).map(({ file }) => file);
+    expect(short).toEqual([]);
   });
 });
 
