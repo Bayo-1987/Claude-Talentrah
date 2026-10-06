@@ -194,3 +194,64 @@ describe("talent_verification_review_detail: only the current claim-holder", () 
     expect(data ?? [], "a released claim must not still expose the detail to its former holder").toEqual([]);
   });
 });
+
+/**
+ * An AI-graded attempt is never a human review. A FLAGGED resume (one that tried to instruct the grader) is recorded as an ordinary AI attempt: review_type 'ai', rejected, score 0,
+ * the fixed feedback. It must never appear in a mentor's review queue and must never be claimable, whatever its status. (The queue and the claim both filter on review_type = 'human'; this
+ * proves it against the real functions, and replaces the SQL text scan in tests/talent-directory/flagged-attempt-visibility.test.ts as the real check. DATABASE-BACKED, CI ONLY.)
+ */
+describe("an AI-graded attempt (rejected or pending, score 0) never reaches a review queue and cannot be claimed", () => {
+  let aiRejected: { id: string; client: DB };
+  let aiPending: { id: string; client: DB };
+  let reviewer: { id: string; client: DB };
+  const rowIds: string[] = [];
+
+  beforeAll(async () => {
+    [aiRejected, aiPending, reviewer] = await Promise.all([
+      createAuthedTestUser("tdrev-ai-rejected"),
+      createAuthedTestUser("tdrev-ai-pending"),
+      createAuthedTestUser("tdrev-ai-reviewer"),
+    ]);
+    await admin.from("mentor_profiles").insert({ user_id: reviewer.id, status: "approved", reviews_verifications: true });
+    const FIXED = "Your resume contains text that reads like instructions to the grader.";
+    const { data: a, error: ea } = await admin
+      .from("talent_verifications")
+      .insert({ user_id: aiRejected.id, status: "rejected", ai_score: 0, ai_feedback: FIXED, review_type: "ai" })
+      .select("id")
+      .single();
+    expect(ea, ea?.message).toBeNull();
+    const { data: b, error: eb } = await admin
+      .from("talent_verifications")
+      .insert({ user_id: aiPending.id, status: "pending", review_type: "ai" })
+      .select("id")
+      .single();
+    expect(eb, eb?.message).toBeNull();
+    rowIds.push(a!.id, b!.id);
+  }, 60_000);
+
+  afterAll(async () => {
+    await admin.from("talent_verifications").delete().in("id", rowIds);
+    await admin.from("mentor_profiles").delete().eq("user_id", reviewer.id);
+    await deleteTestUsers([aiRejected.id, aiPending.id, reviewer.id]);
+  }, 60_000);
+
+  it("an eligible reviewer's queue holds neither row", async () => {
+    const { data, error } = await reviewer.client.rpc("talent_verification_review_queue", {});
+    expect(error).toBeNull();
+    const ids = (data ?? []).map((r) => r.id);
+    for (const id of rowIds) expect(ids, "an AI-graded attempt reached the human review queue").not.toContain(id);
+  });
+
+  it("claiming either row is refused, and the row is left unclaimed", async () => {
+    for (const id of rowIds) {
+      const { data, error } = await admin.rpc("claim_talent_verification_review", { p_reviewer_id: reviewer.id, p_verification_id: id });
+      expect(error, error?.message).toBeNull();
+      expect(data?.[0]?.ok, `row ${id} was claimable`).toBe(false);
+    }
+    const { data: rows } = await admin.from("talent_verifications").select("id, status, reviewer_id").in("id", rowIds);
+    for (const r of rows ?? []) {
+      expect(r.reviewer_id).toBeNull();
+      expect(r.status).not.toBe("claimed");
+    }
+  });
+});
