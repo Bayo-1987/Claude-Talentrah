@@ -58,12 +58,24 @@ that ledger shows it; "reserved" means the owner assigned the number and no ledg
 
 ## 3. The order for a migration
 
-1. **Production first.** A rolled-back dry run (`BEGIN … ROLLBACK`, with its own self-checks) is shown to the owner. **Then the owner's yes.** Then a **hash-checked apply**
-   in one transaction with self-checks: the SQL applied is the SQL in the PR, proven by comparing a hash of it with the file's.
-2. **Then talentrah-preview, by the same session that applied to production**, recorded **with a timestamp and the hash** in the PR that carries the migration.
-3. **talentrah-preview never runs ahead of production.** A migration goes there only after production has it, by the same session, recorded with timestamp and sha256.
-   A migration whose PR is still open is fine once production has it (step 2 is exactly that). Branch-only or experimental changes never go there: Vercel builds every
-   branch's preview against that one database, so one branch's unreviewed schema would make every other branch's preview disagree with its own code.
+The order is **talentrah-preview before production**, as one chain per migration. Every script in the chain is approved by the CTO or the owner **by its full sha256** in
+`approvals/log.md` before it runs (a chat message does not count), is run once, and its raw output is saved verbatim. The SQL applied is the SQL in the PR, proven by
+comparing a hash of it with the file's; the **same sha256** goes to both projects, and a changed file voids every approval for it.
+
+| Step | Where | What runs | Gate | Recorded |
+|---|---|---|---|---|
+| 1 | talentrah-preview | A rolled-back dry run (`BEGIN … ROLLBACK`, or a single `DO` that always raises), with its own self-checks | The approver reads it in full; an approval line quotes its sha256 | Raw output saved verbatim |
+| 2 | talentrah-preview | A hash-checked apply in one transaction with self-checks, then a read-only post-check, then a ledger read | One approval line per script, by full hash | Timestamp and sha256 in the PR that carries the migration |
+| 3 | production | A rolled-back dry run built from production's own snapshot, with its own self-checks | The same: read in full, approved by full hash | Raw output saved verbatim |
+| 4 | production | A hash-checked apply, then a read-only post-check, then a ledger read | One approval line per script, by full hash | The ledger version in the register row (section 2) |
+| 5 | merge | The PR merges, with its head SHA pinned | Every required check green; for a migration PR, the production ledger read has passed (additive) or the deploy has completed (destructive) | A merge line in `approvals/log.md` |
+
+- **talentrah-preview is never ahead of production for a migration whose production apply is not yet approved.** Preview is a rehearsal of a migration the owner is ready to apply
+  to production, not a place to try one. Each apply is recorded with timestamp and sha256, in the PR that carries the migration. Branch-only or experimental changes never go there:
+  Vercel builds every branch's preview against that one database, so one branch's unreviewed schema would make every other branch's preview disagree with its own code.
+- Any other order (for example an urgent production fix that cannot wait for preview) is an exception: the CTO or the owner records it in `approvals/log.md`, naming the migration
+  and the reason, before the apply. The 0224 and 0225 rows in section 2 are the history from the earlier rule, under which production came first.
+- A migration whose PR is still open is fine once its production apply is approved.
 
 Additive migrations go to production before the merge and destructive ones after the deploy (see production-migration-apply.md); this section does not change that.
 
