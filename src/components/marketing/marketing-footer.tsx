@@ -194,7 +194,7 @@ export function MarketingFooter() {
         <div className="grid grid-cols-2 gap-10 border-y border-ink-line py-10 min-[901px]:grid-cols-4">
           {FOOTER_COLUMNS.map((col) => (
             <div key={col.heading} className="flex flex-col gap-3.5">
-              <div className="font-body text-[12px] font-bold uppercase tracking-[0.1em] text-[oklch(60%_0.02_60)]">
+              <div className="font-body text-[12px] font-bold uppercase tracking-[0.1em] text-footer-eyebrow">
                 {col.heading}
               </div>
               {col.links.map((link) => {
@@ -212,7 +212,7 @@ export function MarketingFooter() {
 
         {communityLinks.length > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-6 border-b border-ink-line py-7">
-            <span className="font-body text-[12px] font-bold uppercase tracking-[0.1em] text-[oklch(60%_0.02_60)]">
+            <span className="font-body text-[12px] font-bold uppercase tracking-[0.1em] text-footer-eyebrow">
               Join the community
             </span>
             <div className="flex flex-wrap items-center gap-7">
@@ -234,7 +234,7 @@ export function MarketingFooter() {
 
         {socialLinks.length > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-6 border-b border-ink-line py-7">
-            <span className="font-body text-[12px] font-bold uppercase tracking-[0.1em] text-[oklch(60%_0.02_60)]">
+            <span className="font-body text-[12px] font-bold uppercase tracking-[0.1em] text-footer-eyebrow">
               Follow us
             </span>
             <div className="flex flex-wrap items-center gap-2.5">
@@ -255,10 +255,10 @@ export function MarketingFooter() {
         )}
 
         <div className="flex items-center justify-between pt-6">
-          <span className="text-[13px] text-[oklch(60%_0.02_60)]">
+          <span className="text-[13px] text-footer-eyebrow">
             © 2026 Talentrah. All rights reserved.
           </span>
-          <span className="font-display text-[13px] italic text-[oklch(60%_0.02_60)]">
+          <span className="font-display text-[13px] italic text-footer-eyebrow">
             Built for job seekers in Nigeria and beyond.
           </span>
         </div>
