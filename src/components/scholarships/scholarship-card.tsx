@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BorderedCard } from "@/components/ui";
-import type { Tables } from "@/lib/supabase/types";
+import type { ScholarshipRow } from "@/lib/scholarships/columns";
 import { DEGREE_LEVEL_LABEL, FUNDING_TYPE_LABEL, type SaveStatus } from "@/lib/scholarships/types";
 import { SaveToggle } from "./save-toggle";
 import { SaveStatusSelect } from "./save-status-select";
@@ -12,7 +12,7 @@ import { DeadlineLine } from "@/components/scholarships/deadline-line";
 import { deadlineNoteOrFallback } from "@/lib/scholarships/public-deadline-note";
 
 export interface ScholarshipCardProps {
-  scholarship: Tables<"scholarships">;
+  scholarship: ScholarshipRow;
   save: { id: string; status: SaveStatus } | null;
   creditsBalance: number;
   /** See FarahActions — checkPassCoverage(userId).covered, from the page. */
