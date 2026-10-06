@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { employerVisibleVerification } from "@/lib/talent-directory/employer-view";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireEmployer } from "@/lib/employer/membership";
@@ -115,9 +114,8 @@ export default async function JobApplicantsPage({
       explanation,
       // send-328 — never gated on talent_directory_opt_in, see 0170's own
       // header for the consent reasoning.
-      // Only a verified state is passed on (employerVisibleVerification): a rejected attempt, flagged or not, never reaches an employer, not even as data in the page.
-      talentVerificationStatus: employerVisibleVerification(applicant.talent_verification_status, applicant.talent_verification_score).status,
-      talentVerificationScore: employerVisibleVerification(applicant.talent_verification_status, applicant.talent_verification_score).score,
+      talentVerificationStatus: applicant.talent_verification_status,
+      talentVerificationScore: applicant.talent_verification_score,
       // send-327 — null means no screening questions, or answers incomplete.
       screeningPassed: applicant.screening_passed,
     };

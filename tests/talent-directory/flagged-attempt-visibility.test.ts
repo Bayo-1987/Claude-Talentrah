@@ -1,4 +1,6 @@
 /**
+ * (The employer applicant list is covered by tests/talent-directory/employer-applicant-verification.test.ts, in its own change: only a verified state reaches the browser.)
+ *
  * Where a FLAGGED verification attempt (a resume that tried to instruct the grader: rejected, score 0, fixed feedback) can and cannot be seen.
  *
  * It is recorded as a normal rejected row of the person's own verification history, and that is the ONLY place it should appear: their own verify page. Not in the directory employers search,
@@ -11,7 +13,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { employerVisibleVerification } from "@/lib/talent-directory/employer-view";
 
 const ROOT = join(__dirname, "../..");
 const read = (p: string) => readFileSync(join(ROOT, p), "utf8");
@@ -23,30 +24,6 @@ function walk(dir: string, out: string[] = []): string[] {
   }
   return out;
 }
-
-describe("an employer's applicant list: only a verified state is passed on", () => {
-  it("a flagged or rejected attempt (score 0) becomes 'unverified' with no score", () => {
-    expect(employerVisibleVerification("rejected", 0)).toEqual({ status: "unverified", score: null });
-    expect(employerVisibleVerification("rejected", 40)).toEqual({ status: "unverified", score: null });
-  });
-  it("pending, claimed, unverified and anything unknown also collapse to unverified", () => {
-    for (const status of ["pending", "claimed", "unverified", "", "weird"]) expect(employerVisibleVerification(status, 77)).toEqual({ status: "unverified", score: null });
-  });
-  it("a verified candidate keeps the score they were verified with", () => {
-    expect(employerVisibleVerification("verified", 85)).toEqual({ status: "verified", score: 85 });
-    expect(employerVisibleVerification("verified", null)).toEqual({ status: "verified", score: null });
-  });
-  it("the applicants page maps through the helper and never passes the raw status or score on", () => {
-    const page = read("src/app/employer/jobs/[id]/applicants/page.tsx");
-    expect(page).toContain("employerVisibleVerification(");
-    expect(page).not.toMatch(/talentVerificationStatus:\s*applicant\.talent_verification_status/);
-    expect(page).not.toMatch(/talentVerificationScore:\s*applicant\.talent_verification_score/);
-  });
-  it("the list shows the verified line only for a verified status", () => {
-    const list = read("src/components/employer/applicant-list.tsx");
-    expect(list).toMatch(/talentVerificationStatus === "verified"/);
-  });
-});
 
 describe("the directory employers search, and its preview, list verified and opted-in candidates only", () => {
   const files = readdirSync(join(ROOT, "supabase/migrations")).filter((f) => f.endsWith(".sql")).sort();
@@ -91,7 +68,7 @@ describe("nothing else reads a person's verification score or status, and nothin
   const READ = /talent_verification_score|talent_verification_status|talent_verified_at|\bai_score\b|\bai_feedback\b/;
   const ALLOWED_READERS = new Set([
     "src/app/(app)/talent-directory/verify/page.tsx", // the person's OWN page
-    "src/app/employer/jobs/[id]/applicants/page.tsx", // through employerVisibleVerification
+    "src/app/employer/jobs/[id]/applicants/page.tsx", // the applicant list: see employer-applicant-verification.test.ts
     "src/lib/talent-directory/queries.ts",
     "src/lib/talent-directory/reviewer-runner.ts",
     "src/lib/talent-directory/verification-runner.ts",
