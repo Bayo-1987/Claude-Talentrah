@@ -3,7 +3,7 @@
  * withheld ones, and nothing else. A column added to the table later fails here until someone decides whether the pages should read it (and, with 0232's
  * explicit grants, until a migration grants it), instead of being silently picked up by a `*` or silently missed.
  *
- * Pure source scan, no database: it runs everywhere. The same eleven columns are withheld in the migration and in the grants fake
+ * Pure source scan, no database: it runs everywhere. The same ten column entries (nine distinct names: created_by is withheld on two tables) are withheld in the migration and in the grants fake
  * (tests/support/fake-grants-client.ts), which this file also pins.
  */
 import { describe, expect, it } from "vitest";
