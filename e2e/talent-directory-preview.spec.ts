@@ -29,14 +29,14 @@ test.describe("employer Talent Directory, no subscription", () => {
   test("shows the live count and either the waitlist (below 10) or Subscribe (10+), never both", async ({ page }) => {
     await login(page);
     await page.goto("/employer/talent-directory");
-    await expect(page.getByRole("heading", { name: "Search verified candidates." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Search candidates with a reviewed resume." })).toBeVisible();
 
     const subscribe = page.getByRole("button", { name: /^Subscribe/ });
     const join = page.getByRole("button", { name: "Join the waitlist" });
     const joined = page.getByText("You're on the waitlist.");
 
     const body = (await page.locator("body").innerText()).replace(/\s+/g, " ");
-    const match = body.match(/(\d+) verified candidates? (so far|are listed|is listed)/);
+    const match = body.match(/(\d+) candidates? with a reviewed resume (so far|are listed|is listed)/);
     expect(match, "the page does not state the live candidate count").not.toBeNull();
     const count = Number(match![1]);
 
@@ -45,7 +45,7 @@ test.describe("employer Talent Directory, no subscription", () => {
       // free to join, idempotent across reruns on the same database (an org already on the list sees the confirmation instead)
       if (await join.count()) {
         expect(body).toContain(
-          `We're building the directory: ${count} verified candidate${count === 1 ? "" : "s"} so far. Join the waitlist and we'll tell you when 10+ are listed.`,
+          `We're building the directory: ${count} candidate${count === 1 ? "" : "s"} with a reviewed resume so far. Join the waitlist and we'll tell you when 10+ are listed.`,
         );
         await join.click();
         await expect(joined).toBeVisible();

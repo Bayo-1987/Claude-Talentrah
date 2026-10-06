@@ -7,6 +7,8 @@ import { joinTalentDirectoryWaitlistAction } from "@/lib/talent-directory/waitli
 import { isOnTalentDirectoryWaitlist } from "@/lib/talent-directory/waitlist-runner";
 import { TalentDirectoryPreviewPanel } from "@/components/employer/talent-directory-preview-panel";
 import { EyebrowLabel, BorderedCard, Button } from "@/components/ui";
+import { ResumeReviewedBadge } from "@/components/talent-directory/resume-reviewed-badge";
+import { HOW_WE_REVIEW_PATH, reviewMethodFromScore } from "@/lib/talent-directory/review-badge";
 import { formatDate } from "@/lib/format/datetime";
 
 export const metadata = { title: "Talent Directory — Talentrah" };
@@ -67,7 +69,13 @@ export default async function EmployerTalentDirectoryPage({
   return (
     <div className="flex flex-col gap-8">
       <EyebrowLabel>Talent Directory</EyebrowLabel>
-      <h1 className="font-display text-[28px] font-semibold">Search verified candidates.</h1>
+      <h1 className="font-display text-[28px] font-semibold">Search candidates with a reviewed resume.</h1>
+      <p className="text-[13px] text-ink-soft">
+        Each candidate&apos;s resume was reviewed by Farah (AI) or a Talentrah mentor.{" "}
+        <Link href={HOW_WE_REVIEW_PATH} className="font-semibold text-rust underline underline-offset-2">
+          How we review
+        </Link>
+      </p>
       {error && <p className="text-[13.5px] text-rust">{error}</p>}
 
       {!subscription ? (
@@ -99,26 +107,27 @@ export default async function EmployerTalentDirectoryPage({
           </form>
 
           {candidates.length === 0 ? (
-            <p className="text-[14px] text-ink-soft">No verified, opted-in candidates match yet.</p>
+            <p className="text-[14px] text-ink-soft">No opted-in candidates with a reviewed resume match yet.</p>
           ) : (
             <ul className="grid list-none grid-cols-1 gap-5 p-0 sm:grid-cols-2">
               {candidates.map((c) => (
                 <li key={c.userId}>
-                  <Link href={`/employer/talent-directory/${c.userId}`} className="no-underline">
-                    <BorderedCard className="flex h-full flex-col gap-2 p-5">
-                      <h2 className="font-display text-[18px] font-semibold text-ink">
+                  {/* The card is not one big link: the badge carries a "What this means" control, and a control cannot sit inside a link. The title is the link and
+                      stretches over the card; the badge sits above that stretch so it can be opened. The score the database returns is turned into a method here, on the
+                      server, and goes no further: nothing below takes a score. */}
+                  <BorderedCard className="relative flex h-full flex-col gap-2 p-5">
+                    <h2 className="font-display text-[18px] font-semibold text-ink">
+                      <Link href={`/employer/talent-directory/${c.userId}`} className="no-underline after:absolute after:inset-0 after:content-['']">
                         {[c.firstName, c.lastName].filter(Boolean).join(" ") || "A Talentrah candidate"}
-                      </h2>
-                      <p className="text-[13px] text-ink-soft">
-                        {c.country ?? "Location not given"}
-                        {c.remoteReady && " · Remote-ready"}
-                        {c.availableForHire && " · Available now"}
-                      </p>
-                      {c.verificationScore != null && (
-                        <p className="text-[12.5px] font-semibold text-green">Verified — {c.verificationScore}/100</p>
-                      )}
-                    </BorderedCard>
-                  </Link>
+                      </Link>
+                    </h2>
+                    <p className="text-[13px] text-ink-soft">
+                      {c.country ?? "Location not given"}
+                      {c.remoteReady && " · Remote-ready"}
+                      {c.availableForHire && " · Available now"}
+                    </p>
+                    <ResumeReviewedBadge method={reviewMethodFromScore(c.verificationScore)} reviewedAt={c.verifiedAt} className="relative z-10" />
+                  </BorderedCard>
                 </li>
               ))}
             </ul>

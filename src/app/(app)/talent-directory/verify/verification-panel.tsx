@@ -38,7 +38,7 @@ export function VerificationPanel({ status }: { status: string }) {
           })
         }
       >
-        {priced(status === "rejected" ? "Try again" : "Request verification", CREDIT_COSTS.talentDirectoryVerification)}
+        {priced(status === "rejected" ? "Try again" : "Request a resume review", CREDIT_COSTS.talentDirectoryVerification)}
       </Button>
       {message && (
         <p className={`text-[13px] ${message.ok ? "text-green" : "text-rust"}`}>{message.text}</p>

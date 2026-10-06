@@ -12,7 +12,7 @@ import {
 const CLAIM_REASON_MESSAGE: Record<string, string> = {
   NOT_ELIGIBLE_REVIEWER: "You're not an eligible reviewer — check that you're an approved mentor who has opted in to reviewing.",
   ALREADY_CLAIMED: "Someone else already claimed that submission.",
-  CANNOT_REVIEW_OWN_SUBMISSION: "You can't review your own verification submission.",
+  CANNOT_REVIEW_OWN_SUBMISSION: "You can't review your own resume submission.",
   error: "Could not claim that submission.",
 };
 

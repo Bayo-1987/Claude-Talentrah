@@ -6,6 +6,8 @@ import {
   searchTalentDirectory,
 } from "@/lib/talent-directory/queries";
 import { EyebrowLabel, BorderedCard } from "@/components/ui";
+import { ResumeReviewedBadge } from "@/components/talent-directory/resume-reviewed-badge";
+import { reviewMethodFromScore } from "@/lib/talent-directory/review-badge";
 import { ContactRequestForm } from "./contact-request-form";
 
 export const metadata = { title: "Candidate — Talent Directory" };
@@ -46,9 +48,8 @@ export default async function CandidateDetailPage({
         {candidate.availableForHire && " · Available now"}
         {candidate.earliestStartDate && ` · Earliest start ${candidate.earliestStartDate}`}
       </p>
-      {candidate.verificationScore != null && (
-        <p className="text-[13px] font-semibold text-green">Verified — {candidate.verificationScore}/100</p>
-      )}
+      {/* The score is turned into a method on the server and goes no further; an employer never sees it. */}
+      <ResumeReviewedBadge method={reviewMethodFromScore(candidate.verificationScore)} reviewedAt={candidate.verifiedAt} />
 
       <section className="flex flex-col gap-3">
         <h2 className="font-display text-[18px] font-semibold">Contact</h2>

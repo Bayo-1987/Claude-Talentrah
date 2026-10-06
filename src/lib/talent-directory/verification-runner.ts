@@ -51,7 +51,7 @@ export async function runTalentVerification(userId: string): Promise<Verificatio
   if (!claimed) {
     return {
       status: "error",
-      message: "A verification attempt is already pending, or you're already verified.",
+      message: "A resume review is already pending, or your resume has already been reviewed.",
     };
   }
 
@@ -164,7 +164,7 @@ export async function runTalentVerification(userId: string): Promise<Verificatio
     return {
       status: "success",
       message:
-        "Not verified: your resume contains text that reads like instructions to the grader. You haven't been charged. Remove that text and try again, or ask for a human review, where a person reads it.",
+        "This review couldn't be completed: your resume contains text that reads like instructions to the grader. You haven't been charged. Remove that text and try again, or ask for a human review, where a person reads it.",
       score: grade.score,
       passed: false,
     };
@@ -173,8 +173,8 @@ export async function runTalentVerification(userId: string): Promise<Verificatio
   return {
     status: "success",
     message: verified
-      ? "Verified — you're now eligible to list yourself in the directory."
-      : "Not verified this time. See the feedback below and try again once you've updated your resume.",
+      ? "Resume reviewed — you're now eligible to list yourself in the directory."
+      : "This review found things to fix. See the feedback below and try again once you've updated your resume.",
     score: grade.score,
     passed: verified,
   };
@@ -214,7 +214,7 @@ export async function runTalentVerificationHumanReview(
   if (!claimed) {
     return {
       status: "error",
-      message: "A verification attempt is already pending, or you're already verified.",
+      message: "A resume review is already pending, or your resume has already been reviewed.",
     };
   }
 
