@@ -55,11 +55,11 @@ describe("the limit is reached", () => {
     expectNothingElseHappened();
   });
 
-  it("says, word for word: both reviews used for the past 30 days, the date the next one opens, and the human review (which has no such limit)", async () => {
+  it("says, word for word: both reviews by Farah (AI) used in the past 30 days, the date the next one opens, and a review by a Talentrah mentor (which has no such limit), in the words of the Resume reviewed by … badge", async () => {
     claimReturns(LIMIT);
     const r = await runTalentVerification("user-1");
     expect(r.message).toBe(
-      "You've used both of your resume reviews from Farah for the past 30 days. The next one opens on 31 October 2026. If you'd rather not wait, you can ask for a human review, where a person reads your resume.",
+      "You've used both of your resume reviews by Farah (AI) in the past 30 days. The next one opens on 31 October 2026. If you'd rather not wait, you can ask a Talentrah mentor to review your resume.",
     );
   });
 
@@ -79,7 +79,7 @@ describe("the limit is reached", () => {
       const m = attemptLimitMessage(bad);
       expect(m).not.toMatch(/opens on/);
       expect(m).toContain("both of your resume reviews");
-      expect(m).toContain("human review");
+      expect(m).toContain("Talentrah mentor");
     }
   });
 });

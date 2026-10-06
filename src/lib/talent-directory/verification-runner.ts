@@ -31,11 +31,11 @@ export interface VerificationActionResult {
   passed?: boolean;
 }
 
-/** What the person is told when they have used both AI resume reviews in the last 30 days. States the rule and the date the next one opens, and points to a human review, which has no such limit. */
+/** What the person is told when they have used both AI resume reviews in the last 30 days. States the rule and the date the next one opens, and points to a review by a Talentrah mentor (the wording of the Resume reviewed by … badge), which has no such limit. */
 export function attemptLimitMessage(nextAllowedAt: string | null | undefined): string {
   const when = nextAllowedAt ? new Date(nextAllowedAt) : null;
   const date = when && !Number.isNaN(when.getTime()) ? when.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }) : null;
-  return `You've used both of your resume reviews from Farah for the past 30 days.${date ? ` The next one opens on ${date}.` : ""} If you'd rather not wait, you can ask for a human review, where a person reads your resume.`;
+  return `You've used both of your resume reviews by Farah (AI) in the past 30 days.${date ? ` The next one opens on ${date}.` : ""} If you'd rather not wait, you can ask a Talentrah mentor to review your resume.`;
 }
 
 export async function runTalentVerification(userId: string): Promise<VerificationActionResult> {
