@@ -5,9 +5,12 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { consumeTripwireTouches } from "../support/tripwire";
+import { realRpcBuilder } from "./support/real-rpc-builder";
 
 const rpc = vi.fn();
-vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => ({ rpc }) }));
+// The fake answers the way the real client does: a thenable that is NOT a Promise (no .catch, no .finally), so code that leans on a Promise-only method fails here and not only against the real client
+// (the free-claim code did exactly that and passed every mocked test; see tests/farah/support/real-rpc-builder.ts). The tests below still script `rpc` as a vi.fn that returns a Promise; this adapter re-wraps it.
+vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => ({ rpc: (...args: unknown[]) => realRpcBuilder(rpc(...args) as Promise<unknown>) }) }));
 
 interface Tally {
   readSpendNano(): Promise<number>;
@@ -118,5 +121,17 @@ describe("the tripwire itself", () => {
     const t = await import("@/lib/farah/spend-tally");
     await expect(t.readSpendNano()).rejects.toThrow(/safe route mocks/i);
     expect(consumeTripwireTouches()).toEqual(["readSpendNano"]); // consumed here so THIS test passes; any other test leaving a touch behind fails in afterEach
+  });
+});
+
+describe("the fake client answers like the real one", () => {
+  it("rpc() returns a thenable that has no .catch and no .finally and is not a Promise", async () => {
+    const { createServiceRoleClient } = await import("@/lib/supabase/service-role");
+    rpc.mockResolvedValueOnce({ data: 1, error: null });
+    const answer = (createServiceRoleClient().rpc as unknown as (fn: string, args: object) => Record<string, unknown>)("x", {});
+    expect(typeof answer.then).toBe("function");
+    expect(answer.catch).toBeUndefined();
+    expect(answer.finally).toBeUndefined();
+    expect(answer instanceof Promise).toBe(false);
   });
 });
