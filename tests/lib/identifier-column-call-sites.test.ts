@@ -72,7 +72,7 @@ describe("the grants fake itself (so a fake that can only say yes cannot pass)",
     expect(ok.data[0]).toEqual({ id: "sch-1", program_name: "Helmut Schmidt Programme" });
   });
 
-  it("the withheld lists name the eleven columns 0232 withholds", () => {
+  it("the withheld lists name the ten columns 0232 withholds (created_by on two tables)", () => {
     expect(Object.values(WITHHELD).flat().sort()).toEqual(
       ["cac_business_name", "cac_confirmed_by", "cac_number", "created_by", "created_by", "moderated_by", "moderation_note", "reviewer_id", "session_id", "updated_by"].sort(),
     );
