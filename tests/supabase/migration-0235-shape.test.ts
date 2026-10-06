@@ -85,8 +85,8 @@ describe("0235: claim_llm_alert_attempt: one statement decides, in the database,
 
   it("refuses an unknown alert and out-of-range limits with SQLSTATE 22023, so a bad caller cannot switch the bounds off", () => {
     expect(claim).toMatch(/p_alert is null or p_alert not in \('eighty', 'reached'\)/);
-    expect(claim).toMatch(/p_max_attempts is null or p_max_attempts < 1 or p_max_attempts > 10/);
-    expect(claim).toMatch(/p_lease_seconds is null or p_lease_seconds < 0 or p_lease_seconds > 600/);
+    expect(claim).toMatch(/p_max_attempts is null or p_max_attempts < 1 or p_max_attempts > 10(?!\d)/);
+    expect(claim).toMatch(/p_lease_seconds is null or p_lease_seconds < 0 or p_lease_seconds > 600(?!\d)/);
     expect((claim.match(/errcode = '22023'/g) ?? []).length).toBe(3);
   });
 
