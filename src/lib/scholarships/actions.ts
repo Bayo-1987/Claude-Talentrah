@@ -10,6 +10,7 @@ import { checkPassCoverage, DAILY_CAP_MESSAGE } from "@/lib/passes/entitlement";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
 import { checkEligibility, draftPersonalStatement, type EligibilityCheckResult } from "./farah";
 import type { SaveStatus } from "./types";
+import { SCHOLARSHIP_READABLE_COLUMNS } from "./columns";
 
 async function getAuthedUserId() {
   const supabase = await createClient();
@@ -32,7 +33,7 @@ async function loadVisibleScholarship(
 ) {
   const { data } = await supabase
     .from("scholarships")
-    .select("*")
+    .select(SCHOLARSHIP_READABLE_COLUMNS)
     .eq("id", scholarshipId)
     .maybeSingle();
   return data;
