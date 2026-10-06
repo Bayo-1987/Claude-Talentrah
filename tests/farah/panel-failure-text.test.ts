@@ -1,10 +1,10 @@
 /**
  * Farah (C): the "nothing was charged" note is HIDDEN BY DEFAULT.
  *
- * The note is a money claim. It is shown only on an HTTP status that S3 has proven charge-free by test and listed in NOTHING_CHARGED_STATUSES (src/lib/farah/failure-note.ts), and nowhere else:
- * an unlisted status, a missing status (the error event inside the stream has none), and a dropped connection all show the existing wording WITHOUT the claim. It is an allowlist, not a denylist, so a
- * status nobody has proven (a platform 502 or 504, anything new the route one day answers with) can never show it by accident. Adding a status to the list is the only way to show the note.
- * The list is empty until S3's proof lands. The tests swap the list (vi.doMock) so they keep passing whatever S3 later puts in it.
+ * The note is a money claim. It is shown only for (a) an HTTP status that S3 has proven charge-free by test and listed in NOTHING_CHARGED_STATUSES, or (b) a stream `error` event whose `kind` S3 has proven
+ * charge-free and listed in NOTHING_CHARGED_ERROR_KINDS (both in src/lib/farah/failure-note.ts), and nowhere else: an unlisted status, an unlisted or missing kind, and a dropped connection (which never
+ * reaches this function) all show the existing wording WITHOUT the claim. Allowlists, not denylists, so a status or kind nobody has proven can never show it by accident. Adding to a list is the only way to
+ * show the note. The tests swap both lists (vi.doMock), so they keep passing whatever S3 puts in them.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -13,13 +13,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const NOTE = "That reply didn't go through, and nothing was charged.";
 const GENERIC = "Something went wrong — try again.";
 
-async function withList(list: readonly number[]) {
+async function withLists(statuses: readonly number[], kinds: readonly string[] = []) {
   vi.resetModules();
   const real = await vi.importActual<typeof import("@/lib/farah/failure-note")>("@/lib/farah/failure-note");
-  vi.doMock("@/lib/farah/failure-note", () => ({ ...real, NOTHING_CHARGED_STATUSES: list }));
+  vi.doMock("@/lib/farah/failure-note", () => ({ ...real, NOTHING_CHARGED_STATUSES: statuses, NOTHING_CHARGED_ERROR_KINDS: kinds }));
   const m = await import("@/lib/farah/panel-failure-text");
-  return m.serverFailureText;
+  return m.serverFailureText as (status: number | null, message?: string, kind?: string) => string;
 }
+const withList = (statuses: readonly number[]) => withLists(statuses, []);
 afterEach(() => {
   vi.doUnmock("@/lib/farah/failure-note");
   vi.resetModules();
@@ -70,7 +71,43 @@ describe("adding a status to the list is the ONLY way to show the note", () => {
   });
 });
 
-describe("the real list and the panel", () => {
+describe("a stream error event: shown only for a kind on the proven list", () => {
+  it("with BOTH lists empty, no kind shows the note", async () => {
+    const f = await withLists([], []);
+    for (const kind of ["rate_limited", "unavailable", "empty_reply", "fallback_declined", "anything", undefined]) expect(f(null, "Words.", kind)).toBe("Words.");
+  });
+  it("a listed kind gets the server's words followed by the note", async () => {
+    const f = await withLists([], ["unavailable", "empty_reply"]);
+    expect(f(null, "Words.", "unavailable")).toBe(`Words. ${NOTE}`);
+    expect(f(null, "Words.", "empty_reply")).toBe(`Words. ${NOTE}`);
+  });
+  it("a listed kind with no message gets the generic line and the note", async () => {
+    const f = await withLists([], ["unavailable"]);
+    expect(f(null, undefined, "unavailable")).toBe(`${GENERIC} ${NOTE}`);
+  });
+  it("an UNLISTED kind stays hidden even though others are listed", async () => {
+    const f = await withLists([], ["unavailable"]);
+    for (const kind of ["rate_limited", "empty_reply", "fallback_declined", "Unavailable", " unavailable", "", "unknown_kind"]) expect(f(null, "Words.", kind)).toBe("Words.");
+  });
+  it("a MISSING kind stays hidden however long the kind list is", async () => {
+    const f = await withLists([], ["rate_limited", "unavailable", "empty_reply", "fallback_declined"]);
+    expect(f(null, "Words.", undefined)).toBe("Words.");
+    expect(f(null, "Words.")).toBe("Words.");
+  });
+  it("a kind never makes an HTTP failure show the note, and a status never makes a kind-less stream event show it", async () => {
+    const f = await withLists([500], ["unavailable"]);
+    expect(f(502, "Words.", "unavailable")).toBe("Words.");
+    expect(f(500, "Words.", undefined)).toBe(`Words. ${NOTE}`);
+    expect(f(null, "Words.", undefined)).toBe("Words.");
+  });
+  it("a message that already says nothing was charged is not told twice, for a listed kind either", async () => {
+    const f = await withLists([], ["fallback_declined"]);
+    const busy = "Farah is busy right now. Please try again in a few minutes. You haven't been charged for this message.";
+    expect(f(null, busy, "fallback_declined")).toBe(busy);
+  });
+});
+
+describe("the real lists and the panel", () => {
   it("the exported list holds only whole HTTP error statuses (400 to 599), with no duplicates", async () => {
     vi.doUnmock("@/lib/farah/failure-note");
     vi.resetModules();
@@ -80,14 +117,22 @@ describe("the real list and the panel", () => {
     for (const s of NOTHING_CHARGED_STATUSES) expect(Number.isInteger(s) && s >= 400 && s <= 599, `bad status ${s}`).toBe(true);
     expect(new Set(NOTHING_CHARGED_STATUSES).size).toBe(NOTHING_CHARGED_STATUSES.length);
   });
+  it("the exported kind list holds only strings, with no duplicates, and none is blank", async () => {
+    vi.doUnmock("@/lib/farah/failure-note");
+    vi.resetModules();
+    const { NOTHING_CHARGED_ERROR_KINDS = undefined } = (await import("@/lib/farah/failure-note")) as { NOTHING_CHARGED_ERROR_KINDS?: readonly string[] };
+    if (!NOTHING_CHARGED_ERROR_KINDS) throw new Error("failure-note.ts does not export NOTHING_CHARGED_ERROR_KINDS");
+    for (const k of NOTHING_CHARGED_ERROR_KINDS) expect(typeof k === "string" && k.trim() === k && k.length > 0, `bad kind ${k}`).toBe(true);
+    expect(new Set(NOTHING_CHARGED_ERROR_KINDS).size).toBe(NOTHING_CHARGED_ERROR_KINDS.length);
+  });
   it("a dropped connection never goes through the note: the panel's catch block keeps its own text and does not call serverFailureText", () => {
     const flat = readFileSync(join(__dirname, "../../src/components/app-shell/farah-panel.tsx"), "utf8").replace(/\s+/g, " ");
     expect(flat).toMatch(/\} catch \{ setError\("Couldn't reach Farah — check your connection and try again\."\);/);
     expect(flat).not.toMatch(/Couldn't reach Farah[^;]*(NOTHING_CHARGED|withNothingChargedNote|serverFailureText)/);
   });
-  it("the panel sends every server-reported failure through the one function, with the status (a number) or null for the stream event", () => {
+  it("the panel sends every server-reported failure through the one function: the status for a failed request, and null with the event's kind for a stream error event", () => {
     const flat = readFileSync(join(__dirname, "../../src/components/app-shell/farah-panel.tsx"), "utf8").replace(/\s+/g, " ");
     expect(flat).toMatch(/setError\(serverFailureText\(res\.status, data\.error\)\)/);
-    expect(flat).toMatch(/setError\(serverFailureText\(null, event\.message\)\)/);
+    expect(flat).toMatch(/setError\(serverFailureText\(null, event\.message, event\.kind\)\)/);
   });
 });

@@ -60,7 +60,7 @@ describe("the panel's wiring", () => {
   });
   it("server-reported failures (a failed request, a stream error event) go through serverFailureText", () => {
     expect(flat).toMatch(/setError\(serverFailureText\(res\.status, data\.error\)\)/);
-    expect(flat).toMatch(/event\.type === "error"\) \{ setError\(serverFailureText\(null, event\.message\)\)/);
+    expect(flat).toMatch(/event\.type === "error"\) \{ setError\(serverFailureText\(null, event\.message, event\.kind\)\)/);
   });
   it("a dropped connection keeps its own text and gets no 'nothing was charged' claim", () => {
     const catchBlock = /\} catch \{ setError\("Couldn't reach Farah — check your connection and try again\."\);/;
