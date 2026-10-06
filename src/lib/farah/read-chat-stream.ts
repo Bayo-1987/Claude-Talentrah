@@ -6,6 +6,11 @@ export type FarahChatStreamEvent =
       id?: string | null;
       createdAt?: string;
       freeMessagesRemaining?: number | null;
+      /**
+       * When the next free message comes back, as an ISO time; `null` means "show no date" (a Pass is active, a free message is left, nothing was used in the window, or the server could not tell); absent
+       * from an older server, which also means "show no date". Never a number or anything else: the parser drops any other value.
+       */
+      nextFreeMessageAt?: string | null;
       /** The account's new credit balance after a PAID message; null when nothing was spent, absent from an older server. */
       creditsBalance?: number | null;
       /**
@@ -59,6 +64,7 @@ export async function* readFarahChatStream(response: Response): AsyncGenerator<F
           id: event.id,
           createdAt: event.createdAt,
           freeMessagesRemaining: event.freeMessagesRemaining,
+          ...(typeof event.nextFreeMessageAt === "string" || event.nextFreeMessageAt === null ? { nextFreeMessageAt: event.nextFreeMessageAt } : {}),
           creditsBalance: event.creditsBalance,
           ...(event.truncated === true ? { truncated: true } : {}),
         };
