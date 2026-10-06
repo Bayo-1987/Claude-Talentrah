@@ -52,7 +52,7 @@ async function consume(
  * can never tell from behavior which one tripped. That matters here
  * specifically: these actions are otherwise careful to give an identical
  * response regardless of whether the address exists (see
- * resendSignupConfirmationAction), and a rate-limit response that only ever
+ * resendSignupCodeAction), and a rate-limit response that only ever
  * consumed one bucket would be a second, smaller way to learn something about
  * the caller's own request pattern relative to others'.
  *

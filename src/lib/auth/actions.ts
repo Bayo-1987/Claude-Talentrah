@@ -222,7 +222,13 @@ export async function verifySignupCodeAction(_prev: CodeFormState, formData: For
 
 /**
  * Send a new code, from /signup/check-email. The address is read from the pending cookie (it is never an argument, so it is never in the page's own data).
- * Same call and same daily limits as the link resend below; plus a one-minute cooldown, enforced here as well as shown in the page.
+ * Same call and same daily limits the old link resend had, plus the one-minute pause kept by the server and the one shown in the page.
+ *
+ * SAME NON-COMMITTAL SHAPE AS `signUp()` ITSELF, checked against the real behaviour when the old link resend was written: `supabase.auth.resend({ type: "signup",
+ * email })` returns NO error for both a nonexistent address and an already-confirmed one (GoTrue's own anti-enumeration), so nothing here may branch on those.
+ * It did return an error for a genuinely unconfirmed real account ("Email address ... is invalid", status 400): Supabase's built-in mailer refusing an address
+ * outside the project's own team (docs/admin-auth.md). That message is never shown: it would say "this address exists and has never been confirmed". Only
+ * Supabase's OWN 429s are told apart, and only to say how long to wait (they say nothing about the address).
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- useActionState passes (previousState, formData); this action needs neither: the address and the clock come from the cookie
 export async function resendSignupCodeAction(_prev: ResendCodeState, _formData: FormData): Promise<ResendCodeState> {
@@ -269,66 +275,6 @@ export async function resendSignupCodeAction(_prev: ResendCodeState, _formData: 
 export async function startOverSignupAction(): Promise<void> {
   await clearSignupPending();
   redirect("/signup");
-}
-
-/**
- * Resend the signup confirmation link, from /signup/check-email.
- *
- * REACHABLE WITH NO SESSION, on purpose — that page is reached before anyone
- * has one, and the whole point is giving a stuck visitor a second try without
- * asking them to start signup over. That is also exactly what makes it
- * different from every other rate-limited action in this codebase: the
- * caller isn't spending their own budget, they're triggering mail to
- * whatever address is in the `email` field, which may or may not be theirs.
- * See migration 0117 for the rate-limit table this calls into and why it
- * isn't `consumeRateLimit` (0038).
- *
- * SAME NON-COMMITTAL SHAPE AS `signUp()` ITSELF, and checked against the real
- * behavior rather than assumed: probed live against the CI project,
- * `supabase.auth.resend({ type: "signup", email })` returns NO error for
- * BOTH a nonexistent address and an already-confirmed one (GoTrue's own
- * anti-enumeration — there is nothing for this action to leak by branching
- * on those). It DID return an error for a genuinely unconfirmed real account
- * ("Email address ... is invalid", status 400) — which on inspection is not
- * about that account at all: it is Supabase's built-in mailer refusing to
- * send to an address outside the project's own team (the delivery
- * restriction that applies with no custom SMTP configured — see
- * docs/admin-auth.md). Left un-branched deliberately: whatever the true
- * cause, surfacing that specific message would tell a caller "this address
- * exists and has never been confirmed", which is exactly the fact this
- * screen must never reveal. Every non-rate-limit error below collapses to
- * the same generic sentence for that reason, not because the distinction
- * wasn't checked.
- */
-export async function resendSignupConfirmationAction(
-  email: string,
-  _prevState: ResendState,
-  _formData: FormData,
-): Promise<ResendState> {
-  const parsed = emailSchema.safeParse(email);
-  if (!parsed.success) {
-    return { status: "error", message: "That doesn't look like a valid email address." };
-  }
-  const validEmail = parsed.data;
-
-  const ip = await getRequestIp();
-  const limit = await consumeResendRateLimit(validEmail, ip);
-  if (!limit.allowed) {
-    return { status: "error", message: RESEND_RATE_LIMITED_ERROR };
-  }
-
-  const supabase = await createClient();
-  const { error } = await supabase.auth.resend({ type: "signup", email: validEmail });
-
-  if (error) {
-    console.error("[resend-signup] failed:", error.message);
-    if (error.status === 429) {
-      return { status: "error", message: RESEND_RATE_LIMITED_ERROR };
-    }
-    return { status: "error", message: RESEND_GENERIC_ERROR };
-  }
-
-  return { status: "success", message: null };
 }
 
 export async function signInAction(
@@ -454,8 +400,8 @@ export async function requestPasswordResetAction(
 /**
  * Resend the reset-password link, from /forgot-password/check-email.
  *
- * SAME SHAPE AS `resendSignupConfirmationAction`, and the same reason it
- * exists: reachable with no session, at a URL anyone can hit with any
+ * SAME SHAPE AS the signup code's resend (`resendSignupCodeAction`), and the same
+ * reason it exists: reachable with no session, at a URL anyone can hit with any
  * address, so it is rate-limited by the same anonymous, text-keyed bucket
  * (migration 0117) rather than `consumeRateLimit`. Calls
  * `resetPasswordForEmail` with the SAME options `requestPasswordResetAction`
