@@ -160,11 +160,14 @@ describe("0236: all three functions are service_role only", () => {
     ]);
   });
 
-  it("checks itself when applied: no client role can execute any of them or touch the table, PUBLIC cannot, service_role can (and can write the free-allowance events), none is SECURITY DEFINER, RLS is on with no policy", () => {
+  it("checks itself when applied: no client role can execute any of them or touch the table, PUBLIC cannot, service_role can (and can read and write the free-allowance events), none is SECURITY DEFINER, RLS is on with no policy", () => {
     expect(flat).toMatch(/\bdo \$[a-z]*\$/);
     expect(flat).toMatch(/has_function_privilege\(r, v_fn, 'execute'\)/);
     expect(flat).toMatch(/has_table_privilege\(r, v_table, 'select, insert, update, delete, truncate, references, trigger'\)/);
     expect(flat).toMatch(/has_table_privilege\('service_role', 'public\.credit_gate_events', 'insert'\)/);
+    // claim_farah_free_message READS credit_gate_events to count the committed free messages, so the check needs SELECT as its own test (a comma list passes on either privilege)
+    expect(flat).toMatch(/has_table_privilege\('service_role', 'public\.credit_gate_events', 'select'\)/);
+    expect(flat).toContain("0236 self-check: service_role cannot select from public.credit_gate_events");
     expect(flat).toMatch(/relrowsecurity/);
     expect(flat).toMatch(/prosecdef/);
     expect(flat).toMatch(/pg_policy/);

@@ -177,6 +177,9 @@ begin
       raise exception '0236 self-check: % holds a privilege on public.farah_free_claims', r;
     end if;
   end loop;
+  if not pg_catalog.has_table_privilege('service_role', 'public.credit_gate_events', 'select') then
+    raise exception '0236 self-check: service_role cannot select from public.credit_gate_events, which claim_farah_free_message needs';
+  end if;
   if not pg_catalog.has_table_privilege('service_role', 'public.credit_gate_events', 'insert') then
     raise exception '0236 self-check: service_role cannot insert into public.credit_gate_events, which commit_farah_free_claim needs';
   end if;
