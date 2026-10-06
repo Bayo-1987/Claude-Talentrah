@@ -8,6 +8,8 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { freeClaimRpc } from "./support/free-claim-model";
+
 type Row = Record<string, unknown>;
 const NOW = new Date("2026-10-31T12:00:00.000Z");
 const DAY = 86_400_000;
@@ -57,7 +59,12 @@ function query(name: string) {
   };
   return api;
 }
-const fakeDb = () => ({ from: (t: string) => query(t), auth: { getUser: async () => ({ data: { user: { id: USER } } }) } });
+const fakeDb = () => ({
+  from: (t: string) => query(t),
+  // The claim functions of migration 0236, modelled rule by rule (tests/farah/support/free-claim-model.ts).
+  rpc: async (fn: string, args: Record<string, unknown>) => freeClaimRpc(store, fn, args, Date.now()),
+  auth: { getUser: async () => ({ data: { user: { id: USER } } }) },
+});
 
 const spendCredits = vi.fn(async () => 4);
 const askFarahChatStream = vi.fn();
@@ -244,7 +251,10 @@ describe("OVER-COMMITTED: more than 3 free messages inside the window (parallel 
     // The reported instant is the moment the oldest blocking message turns exactly 30 days old; the gate still counts a message that is exactly 30 days old (created_at >= now - 30 days), so it is free from the next millisecond.
     seed({ freeUsedAt: [-25, -20, -10, -5], balance: 0 });
     const promised = new Date(String((await history()).nextFreeMessageAt));
+    // The claim is made by the database on ITS clock, which in this file is the faked Date: move that clock too, not only the gate's `now` argument.
+    vi.setSystemTime(new Date(promised.getTime() - 1));
     await expect(checkFarahChatAllowance(USER, new Date(promised.getTime() - 1))).rejects.toThrow(); // no free left, no credits, no Pass
+    vi.setSystemTime(new Date(promised.getTime() + 1));
     expect(await checkFarahChatAllowance(USER, new Date(promised.getTime() + 1))).toMatchObject({ isFreeAllowance: true, freeMessagesRemaining: 0 }); // free: 2 counted, this message is the third (0 left after it)
   });
 
@@ -273,14 +283,14 @@ describe("OVER-COMMITTED: more than 3 free messages inside the window (parallel 
     expect(done.nextFreeMessageAt).toBe(at(10));
   });
 
-  it("a real over-commit: four requests in parallel against 2 used messages all pass the check, and the time that follows is for the over-committed count", async () => {
+  it("four requests in parallel against 2 used messages can no longer push the count past 3: one is free, the rest are refused here (no credits), and the count stays at 3", async () => {
     seed({ freeUsedAt: [-20, -5], balance: 0 });
-    await Promise.all([send(), send(), send(), send()]);
-    const inWindow = freeEvents().length;
-    expect(inWindow, "the premise: parallel requests really did push the count above the allowance").toBeGreaterThan(3);
-    const sorted = freeEvents().map((r) => String(r.created_at)).sort();
-    const expected = new Date(new Date(sorted[inWindow - 3]).getTime() + 30 * DAY).toISOString(); // row (n - 3 + 1), 1-based
-    expect((await history()).nextFreeMessageAt).toBe(expected);
+    const outcomes = await Promise.all([send(), send(), send(), send()]);
+    const freeReplies = outcomes.filter((events) => doneOf(events));
+    expect(freeReplies, "exactly the one free slot was granted").toHaveLength(1);
+    expect(freeEvents()).toHaveLength(3);
+    expect(rows("farah_free_claims"), "no pending claim is left behind").toHaveLength(0);
+    expect((await history()).nextFreeMessageAt).toBe(at(10));
   });
 });
 
