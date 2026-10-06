@@ -9,7 +9,7 @@ import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { renderInlineMarkdown } from "@/lib/farah/render-markdown";
 import { verificationHeadline } from "@/lib/talent-directory/verification-copy";
-import { HOW_WE_REVIEW_PATH } from "@/lib/talent-directory/review-badge";
+import { howWeReviewHref } from "@/lib/talent-directory/how-we-review-link";
 import { VerificationPanel } from "./verification-panel";
 import { HumanReviewForm } from "./human-review-form";
 import { OptInToggle } from "./opt-in-toggle";
@@ -54,7 +54,7 @@ export default async function TalentDirectoryVerifyPage() {
         reviews it automatically for {CREDIT_COSTS.talentDirectoryVerification} credits. Prefer a
         person to look it over instead? A Talentrah mentor can review it directly for{" "}
         {CREDIT_COSTS.talentDirectoryHumanReview} credits.{" "}
-        <a href={HOW_WE_REVIEW_PATH} className="font-semibold text-rust underline underline-offset-2">
+        <a href={howWeReviewHref("/talent-directory/verify")} className="font-semibold text-rust underline underline-offset-2">
           How we review
         </a>
       </p>

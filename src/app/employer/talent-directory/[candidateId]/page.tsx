@@ -49,7 +49,7 @@ export default async function CandidateDetailPage({
         {candidate.earliestStartDate && ` · Earliest start ${candidate.earliestStartDate}`}
       </p>
       {/* The score is turned into a method on the server and goes no further; an employer never sees it. */}
-      <ResumeReviewedBadge method={reviewMethodFromType(candidate.reviewType)} reviewedAt={candidate.verifiedAt} />
+      <ResumeReviewedBadge method={reviewMethodFromType(candidate.reviewType)} reviewedAt={candidate.verifiedAt} from="/employer/talent-directory" />
 
       <section className="flex flex-col gap-3">
         <h2 className="font-display text-[18px] font-semibold">Contact</h2>
