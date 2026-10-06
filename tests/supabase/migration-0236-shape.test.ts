@@ -7,7 +7,7 @@
  * taken BEFORE the model call: a function counts committed free messages plus unexpired pending claims for the account under a per-account lock, and records a pending claim only if the count is below
  * the allowance. A successful reply commits the claim into the existing free-allowance event; a failed one releases it; one that is never settled (a crash) expires by itself.
  *
- * It adds one table and three functions and changes nothing that exists (not credit_gate_events, not its policies or grants, not 0223 or 0235).
+ * It adds one table and three functions and changes ONE existing thing: the test-user pool's reset gets one more row in its table list (reset_test_pool_user, patched from its live definition). Not credit_gate_events, not its policies or grants, not 0223 or 0235.
  */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -27,7 +27,7 @@ const between = (from: string, to?: string) => {
 };
 const claim = between("create or replace function public.claim_farah_free_message(", "create or replace function public.commit_farah_free_claim(");
 const commit = between("create or replace function public.commit_farah_free_claim(", "create or replace function public.release_farah_free_claim(");
-const release = between("create or replace function public.release_farah_free_claim(");
+const release = between("create or replace function public.release_farah_free_claim(", "do $reset$");
 
 describe("0236: the file", () => {
   it("exists, under this exact name (0236 is the number the owner assigned)", () => {
@@ -35,7 +35,7 @@ describe("0236: the file", () => {
   });
 });
 
-describe("0236: it adds one table and three functions and touches nothing that exists", () => {
+describe("0236: it adds one table and three functions and touches nothing that exists except the test-pool reset (below)", () => {
   it("creates exactly one table, with the four columns, an id that generates itself, and a link to the account that goes with it", () => {
     expect((flat.match(/\bcreate table\b/g) ?? []).length).toBe(1);
     expect(flat).toContain(`create table ${T} (`);
@@ -213,5 +213,55 @@ describe("0236: the new foreign key into a person is classified in the account-d
     expect(entry, "add the key to docs/account-deletion-map.md with a class").toBeTruthy();
     expect({ parent: entry?.parent, onDelete: entry?.onDelete }).toEqual({ parent: "profiles", onDelete: "CASCADE" });
     expect(entry?.cls).toBe("delete");
+  });
+});
+
+describe("0236: the test-pool reset wipes the new table: ONE row added to the live function, nothing else changed", () => {
+  const reset = between("do $reset$", "do $check$");
+  const undo = (() => {
+    const t = existsSync(ROLLBACK) ? strip(readFileSync(ROLLBACK, "utf8")) : "";
+    const a = t.indexOf("do $undo$");
+    return a < 0 ? "" : t.slice(a, t.indexOf("drop function"));
+  })();
+
+  it("is patched from the function's CURRENT definition (like 0212), not restated: the definition is read from the catalogue and recreated, and the file has no second copy of the function", () => {
+    expect(reset).toContain("pg_catalog.pg_get_functiondef(oid)");
+    expect(reset).toContain("'public.reset_test_pool_user(uuid, text)'::regprocedure");
+    expect(reset).toMatch(/execute v_new;/);
+    expect(flat).not.toMatch(/create (or replace )?function public\.reset_test_pool_user/);
+  });
+
+  it("adds exactly one row, ('farah_free_claims', 'user_id'), directly before the farah_messages row, and only when the anchor row is found exactly once", () => {
+    expect(reset).toContain("c_anchor constant text := e' (''farah_messages'', ''user_id''),\\n'");
+    expect(reset).toContain("c_row constant text := e' (''farah_free_claims'', ''user_id''),\\n'");
+    expect(reset).toContain("pg_catalog.replace(v_def, c_anchor, c_row || c_anchor)");
+    expect(reset).toMatch(/if v_cnt <> 1 then raise exception '0236: reset_test_pool_user: the anchor line was found % times \(it must be found exactly once\)'/);
+    expect((reset.match(/pg_catalog\.replace\(/g) ?? []).length).toBe(2); // one to count the anchor, one to change it: nothing else is rewritten
+  });
+
+  it("compares the function's ACL, owner, search_path setting and security setting before and after, and fails if any differ", () => {
+    expect(reset).toMatch(/select pg_catalog\.pg_get_functiondef\(oid\), proacl::text, proowner, proconfig, prosecdef into v_def, v_acl, v_owner, v_conf, v_secdef/);
+    expect(reset).toMatch(/proacl::text is distinct from v_acl or proowner <> v_owner or proconfig is distinct from v_conf or prosecdef <> v_secdef/);
+    expect(reset).toContain("reset_test_pool_user changed its owner, grants, search_path or security setting");
+  });
+
+  it("the self-check asserts the reset is still SECURITY DEFINER with search_path = public, executable by service_role only (not anon, authenticated or PUBLIC), wipes the new table exactly once, and still carries 0201's and 0212's additions", () => {
+    expect(flat).toContain("prosecdef and proconfig = array['search_path=public']");
+    expect(flat).toContain("raise exception '0236 self-check: % can execute reset_test_pool_user'");
+    expect(flat).toContain("raise exception '0236 self-check: public can execute reset_test_pool_user'".replace("public can", "PUBLIC can").toLowerCase());
+    expect(flat).toContain("raise exception '0236 self-check: service_role cannot execute reset_test_pool_user'");
+    expect(flat).toContain("raise exception '0236 self-check: reset_test_pool_user does not wipe farah_free_claims exactly once'");
+    expect(flat).toContain("prosrc like '%delete from public.mentor_payouts where mentor_id = p_user_id%'");
+    expect(flat).toContain("prosrc like '%delete from public.account_deletions where profile_id = p_user_id%'");
+    expect(flat).toContain("prosrc like '%deletion_requested_at = null%'");
+  });
+
+  it("the rollback gives the previous body back FIRST: it removes that one row from the live definition, only if it (with its anchor) is found exactly once, compares the same four settings, and then drops", () => {
+    expect(undo).toContain("c_row constant text := e' (''farah_free_claims'', ''user_id''),\\n'");
+    expect(undo).toContain("pg_catalog.replace(v_def, c_row || c_anchor, '')");
+    expect(undo).toMatch(/if v_cnt <> 1 then raise exception '0236 rollback: the reset row \(with its anchor\) was found % times in reset_test_pool_user \(it must be found exactly once\)'/);
+    expect(undo).toContain("execute pg_catalog.replace(v_def, c_row || c_anchor, c_anchor);");
+    expect(undo).toContain("reset_test_pool_user still names farah_free_claims");
+    expect(undo).toMatch(/proacl::text is distinct from v_acl or proowner <> v_owner or proconfig is distinct from v_conf or prosecdef <> v_secdef/);
   });
 });

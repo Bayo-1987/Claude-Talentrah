@@ -21,6 +21,12 @@
 -- WHAT IT DOES NOT CHANGE. credit_gate_events, its policies and its grants, 0223's counter and 0235's alert objects are not touched. The Pass's daily fair-use cap is the same check-then-commit shape and is
 -- NOT part of this migration. Rows already over-committed before this runs stay as they are (the next-free date handles them, foundation PR).
 --
+-- THE ONE EXISTING OBJECT IT CHANGES: the test-user pool's reset (reset_test_pool_user, 0188, 0201, 0212). A pooled test identity is REUSED, and a reused identity must not inherit a pending claim, which
+-- would count against its next claimer's allowance for up to hold_seconds. So the reset's table list gets one more row, ('farah_free_claims', 'user_id'), and nothing else about the function changes. It is
+-- applied the way 0212 patches the same function: the function's CURRENT definition is read from the catalogue, ONE anchor line (the farah_messages row of the list) must be found exactly once and is
+-- replaced by itself preceded by the new row, and the function is recreated. Because it patches what is live at the moment it runs, it cannot revert anything that landed in between, and the function keeps
+-- its SECURITY DEFINER setting, its pinned search_path, its owner and its grants (the migration compares all four before and after and fails if any differ). The rollback removes that one row the same way.
+--
 -- SERVER ONLY. The table has row level security on and no policy, every privilege revoked from everyone, and select, insert and delete (not update) granted to service_role only. All three functions are SECURITY
 -- INVOKER with an empty search_path and executable by service_role only: the account id is an argument, so granting it to a client role would let that client spend someone else's slot.
 --
@@ -145,8 +151,38 @@ $$;
 revoke all on function public.release_farah_free_claim(uuid, uuid) from public, anon, authenticated, service_role;
 grant execute on function public.release_farah_free_claim(uuid, uuid) to service_role;
 
+-- The test-pool reset also clears this table: ONE row added to the function's table list, patched from its live definition (see the header). Nothing else about the function changes.
+do $reset$
+declare
+  v_oid    oid := 'public.reset_test_pool_user(uuid, text)'::regprocedure;
+  v_def    text;
+  v_new    text;
+  v_cnt    integer;
+  v_acl    text;
+  v_owner  oid;
+  v_conf   text[];
+  v_secdef boolean;
+  c_anchor constant text := E'      (''farah_messages'', ''user_id''),\n';
+  c_row    constant text := E'      (''farah_free_claims'', ''user_id''),\n';
+begin
+  select pg_catalog.pg_get_functiondef(oid), proacl::text, proowner, proconfig, prosecdef into v_def, v_acl, v_owner, v_conf, v_secdef from pg_catalog.pg_proc where oid = v_oid;
+  if position(c_row in v_def) = 0 then
+    v_cnt := (pg_catalog.length(v_def) - pg_catalog.length(pg_catalog.replace(v_def, c_anchor, ''))) / pg_catalog.length(c_anchor);
+    if v_cnt <> 1 then
+      raise exception '0236: reset_test_pool_user: the anchor line was found % times (it must be found exactly once)', v_cnt;
+    end if;
+    v_new := pg_catalog.replace(v_def, c_anchor, c_row || c_anchor);
+    execute v_new;
+  end if;
+  if (select proacl::text is distinct from v_acl or proowner <> v_owner or proconfig is distinct from v_conf or prosecdef <> v_secdef from pg_catalog.pg_proc where oid = v_oid) then
+    raise exception '0236: reset_test_pool_user changed its owner, grants, search_path or security setting';
+  end if;
+end
+$reset$;
+
 -- Checks itself when it is applied: the apply fails, and nothing is kept, if a client role can execute any of the three functions or touch the table, if PUBLIC can execute any of them, if service_role
--- lost any of them or cannot write the free-allowance events, if any is SECURITY DEFINER, or if the table has no row level security or has a policy.
+-- lost any of them or cannot read and write the free-allowance events, if any is SECURITY DEFINER, if the table has no row level security or has a policy, or if the test-pool reset is not the same function
+-- (same security setting, search_path, no client role or PUBLIC able to execute it, service_role able to) carrying 0201's and 0212's additions and wiping this table exactly once.
 do $check$
 declare
   v_claim   oid := 'public.claim_farah_free_message(uuid, integer, integer, integer)'::regprocedure;
@@ -185,6 +221,27 @@ begin
   end if;
   if not (select relrowsecurity from pg_catalog.pg_class where oid = v_table) then
     raise exception '0236 self-check: RLS is not enabled on public.farah_free_claims';
+  end if;
+  -- the test-pool reset: still the same function (SECURITY DEFINER, search_path = public, no client role or PUBLIC can execute it, service_role can), still carrying 0201's and 0212's additions, and now wiping this table
+  if not exists (select 1 from pg_catalog.pg_proc where oid = 'public.reset_test_pool_user(uuid, text)'::regprocedure and prosecdef and proconfig = array['search_path=public']) then
+    raise exception '0236 self-check: reset_test_pool_user is not SECURITY DEFINER with search_path = public';
+  end if;
+  foreach r in array array['anon', 'authenticated'] loop
+    if pg_catalog.has_function_privilege(r, 'public.reset_test_pool_user(uuid, text)'::regprocedure, 'execute') then
+      raise exception '0236 self-check: % can execute reset_test_pool_user', r;
+    end if;
+  end loop;
+  if exists (select 1 from pg_catalog.aclexplode(coalesce((select proacl from pg_catalog.pg_proc where oid = 'public.reset_test_pool_user(uuid, text)'::regprocedure), pg_catalog.acldefault('f', (select proowner from pg_catalog.pg_proc where oid = 'public.reset_test_pool_user(uuid, text)'::regprocedure)))) a where a.grantee = 0 and a.privilege_type = 'EXECUTE') then
+    raise exception '0236 self-check: PUBLIC can execute reset_test_pool_user';
+  end if;
+  if not pg_catalog.has_function_privilege('service_role', 'public.reset_test_pool_user(uuid, text)'::regprocedure, 'execute') then
+    raise exception '0236 self-check: service_role cannot execute reset_test_pool_user';
+  end if;
+  if (select pg_catalog.length(prosrc) - pg_catalog.length(pg_catalog.replace(prosrc, E'(''farah_free_claims'', ''user_id'')', '')) from pg_catalog.pg_proc where oid = 'public.reset_test_pool_user(uuid, text)'::regprocedure) <> pg_catalog.length(E'(''farah_free_claims'', ''user_id'')') then
+    raise exception '0236 self-check: reset_test_pool_user does not wipe farah_free_claims exactly once';
+  end if;
+  if not exists (select 1 from pg_catalog.pg_proc where oid = 'public.reset_test_pool_user(uuid, text)'::regprocedure and prosrc like '%delete from public.mentor_payouts where mentor_id = p_user_id%' and prosrc like '%delete from public.account_deletions where profile_id = p_user_id%' and prosrc like '%deletion_requested_at = null%') then
+    raise exception '0236 self-check: reset_test_pool_user lost an earlier addition (0201 or 0212)';
   end if;
   if exists (select 1 from pg_catalog.pg_policy where polrelid = v_table) then
     raise exception '0236 self-check: public.farah_free_claims has a policy (it must have none)';

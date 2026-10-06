@@ -24,8 +24,9 @@ The gate used to read how many free messages an account had used, answer "free" 
 - **If the claim function is missing** (the migration is not applied yet), the gate logs one loud content-free line (`[farah-chat-gate] free claim function missing ...`) and uses the old check-then-commit path, so a deploy that arrives before the migration does not turn every free message into a paid one. Apply the migration **before** merging the code.
 - **Any other failure to claim is a lost claim** (it closes, like a failed count), with one content-free line, no account id and no error text.
 - **The Pass's daily fair-use cap has the same check-then-commit shape and is not covered here.**
+- **The test-user pool's reset clears the table.** A pooled test identity is reused, and a pending claim left on it by a test that never settled it would count against the next claimer for up to 120 seconds. 0236 adds one row, `('farah_free_claims', 'user_id')`, to the table list of `reset_test_pool_user` (0188, 0201, 0212), patched from the function's live definition in the same way 0212 patches it: the anchor row must be found exactly once, and the function's owner, grants, search_path and security setting are compared before and after. The rollback removes that one row the same way.
 
 ## Tests
 
-- `tests/farah/free-claim.test.ts` and `tests/rls/farah-free-claims-grants.test.ts`: against the real database, **CI only** (the first run is CI's).
+- `tests/farah/free-claim.test.ts`, `tests/farah/free-claim-pool-reset.test.ts` and `tests/rls/farah-free-claims-grants.test.ts`: against the real database, **CI only** (the first run is CI's).
 - `tests/farah/free-claim-gate.test.ts`, `free-claim-route.test.ts`, `free-claim-end-to-end.test.ts`, `free-claim-race-detection.test.ts`, `tests/supabase/migration-0236-shape.test.ts`: no database; the functions are modelled rule by rule in `tests/farah/support/free-claim-model.ts`.

@@ -8,6 +8,35 @@
 set local lock_timeout = '2s';
 set local statement_timeout = '20s';
 
+-- First give the test-pool reset its previous body back: remove the ONE row 0236 added to its table list, from its live definition, and only if it is there exactly once (anything else stops the rollback).
+-- Owner, grants, search_path and the security setting are compared before and after, as the migration did.
+do $undo$
+declare
+  v_oid    oid := 'public.reset_test_pool_user(uuid, text)'::regprocedure;
+  v_def    text;
+  v_cnt    integer;
+  v_acl    text;
+  v_owner  oid;
+  v_conf   text[];
+  v_secdef boolean;
+  c_anchor constant text := E'      (''farah_messages'', ''user_id''),\n';
+  c_row    constant text := E'      (''farah_free_claims'', ''user_id''),\n';
+begin
+  select pg_catalog.pg_get_functiondef(oid), proacl::text, proowner, proconfig, prosecdef into v_def, v_acl, v_owner, v_conf, v_secdef from pg_catalog.pg_proc where oid = v_oid;
+  v_cnt := (pg_catalog.length(v_def) - pg_catalog.length(pg_catalog.replace(v_def, c_row || c_anchor, ''))) / pg_catalog.length(c_row || c_anchor);
+  if v_cnt <> 1 then
+    raise exception '0236 rollback: the reset row (with its anchor) was found % times in reset_test_pool_user (it must be found exactly once)', v_cnt;
+  end if;
+  execute pg_catalog.replace(v_def, c_row || c_anchor, c_anchor);
+  if (select proacl::text is distinct from v_acl or proowner <> v_owner or proconfig is distinct from v_conf or prosecdef <> v_secdef from pg_catalog.pg_proc where oid = v_oid) then
+    raise exception '0236 rollback: reset_test_pool_user changed its owner, grants, search_path or security setting';
+  end if;
+  if (select prosrc like '%farah_free_claims%' from pg_catalog.pg_proc where oid = v_oid) then
+    raise exception '0236 rollback: reset_test_pool_user still names farah_free_claims';
+  end if;
+end
+$undo$;
+
 drop function public.claim_farah_free_message(uuid, integer, integer, integer);
 drop function public.commit_farah_free_claim(uuid, uuid, integer);
 drop function public.release_farah_free_claim(uuid, uuid);
