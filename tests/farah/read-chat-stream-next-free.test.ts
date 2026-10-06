@@ -67,3 +67,22 @@ describe("readFarahChatStream: done.nextFreeMessageAt", () => {
     expect(doneOf(events).nextFreeMessageAt).toBe("2026-11-05T12:00:00.000Z");
   });
 });
+
+describe("readFarahChatStream: error.kind", () => {
+  it("passes a kind (a string) through on an error event, with its message", async () => {
+    const events = await collect(responseOf([{ type: "delta", text: "Hi" }, { type: "error", message: "Farah is busy right now.", kind: "fallback_declined" }]));
+    expect(events.at(-1)).toEqual({ type: "error", message: "Farah is busy right now.", kind: "fallback_declined" });
+  });
+
+  it("leaves the kind absent when the server sent none (an older server): the key is not added", async () => {
+    const events = await collect(responseOf([{ type: "error", message: "Something went wrong." }]));
+    expect("kind" in events[0]).toBe(false);
+  });
+
+  it("drops a kind that is not a string (a misbehaving server), never passing it on", async () => {
+    for (const bad of [0, true, null, {}, ["unavailable"]]) {
+      const events = await collect(responseOf([{ type: "error", message: "x", kind: bad }]));
+      expect("kind" in events[0], JSON.stringify(bad)).toBe(false);
+    }
+  });
+});
