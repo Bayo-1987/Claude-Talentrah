@@ -4,7 +4,7 @@
  * and the function. WHERE the panel shows it is the panel's business (it calls withNothingChargedNote; it does not word the note itself).
  */
 import { describe, expect, it } from "vitest";
-import { withNothingChargedNote, NOTHING_CHARGED_NOTE } from "@/lib/farah/failure-note";
+import { withNothingChargedNote, NOTHING_CHARGED_NOTE, NOTHING_CHARGED_STATUSES } from "@/lib/farah/failure-note";
 import { GENERIC_FARAH_UNAVAILABLE_MESSAGE, farahRateLimitMessage } from "@/lib/farah/rate-limit-message";
 
 describe("the note on a failed reply", () => {
@@ -30,5 +30,16 @@ describe("the note on a failed reply", () => {
     expect(NOTHING_CHARGED_NOTE).toMatch(/reply didn't go through/);
     expect(NOTHING_CHARGED_NOTE).toMatch(/nothing was charged/);
     expect(NOTHING_CHARGED_NOTE).not.toMatch(/groq|gemini|token|quota/i);
+  });
+});
+
+describe("NOTHING_CHARGED_STATUSES: where the panel may show the note", () => {
+  it("is exported as a list of statuses only: numbers, nothing else (the panel hides the note for any status not on it)", () => {
+    expect(Array.isArray(NOTHING_CHARGED_STATUSES)).toBe(true);
+    expect(NOTHING_CHARGED_STATUSES.every((s) => typeof s === "number")).toBe(true);
+  });
+
+  it("lists exactly the statuses proven charge-free by tests/farah/chat-route-failed-requests-charge-nothing.test.ts: 400, 401, 429, 500, 503 (the proof file also holds the test that no listed status lacks a proof)", () => {
+    expect([...NOTHING_CHARGED_STATUSES].sort((a, b) => a - b)).toEqual([400, 401, 429, 500, 503]);
   });
 });
