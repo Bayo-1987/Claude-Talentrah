@@ -77,6 +77,11 @@ async function createCandidate(first: string, last: string, score: number | null
     })
     .eq("id", data.user.id);
   if (profileError) throw new Error(`candidate profile: ${profileError.message}`);
+  // the type on the badge is the one recorded on the candidate's passed review (0234), so write that review: a score means Farah graded it, none means a mentor did
+  const { error: reviewError } = await admin
+    .from("talent_verifications")
+    .insert({ user_id: data.user.id, status: "verified", review_type: score === null ? "human" : "ai", ai_score: score, requested_at: reviewedAt, decided_at: reviewedAt });
+  if (reviewError) throw new Error(`candidate review: ${reviewError.message}`);
   return data.user.id;
 }
 
@@ -213,16 +218,15 @@ test.describe("the resume-reviewed badge", () => {
         expect(body).not.toMatch(/\b87\b|\/\s*100|verified/i);
       });
 
-      test("the applicant list shows who reviewed each resume, with no date yet and no score", async ({ page, baseURL }) => {
+      test("the applicant list shows who reviewed each resume and when, with no score", async ({ page, baseURL }) => {
         await signedIn(page, baseURL);
         await page.goto(`/employer/jobs/${fx.jobId}/applicants`);
         const badges = page.getByTestId("resume-reviewed-badge");
         await expect(badges).toHaveCount(2);
-        await expect(page.getByText("Resume reviewed by Farah (AI)", { exact: true })).toBeVisible();
-        await expect(page.getByText("Resume reviewed by a Talentrah mentor", { exact: true })).toBeVisible();
+        await expect(page.getByText("Resume reviewed by Farah (AI) · 5 Oct 2026", { exact: true })).toBeVisible();
+        await expect(page.getByText("Resume reviewed by a Talentrah mentor · 12 Oct 2026", { exact: true })).toBeVisible();
         const body = (await page.locator("body").innerText()).replace(/\s+/g, " ");
         expect(body).not.toMatch(/\b87\b|\/\s*100|verified/i);
-        expect(body).not.toMatch(/Resume reviewed by[^·]*·/);
 
         const summary = page.getByText("What this means").first();
         await summary.click();
