@@ -2,13 +2,13 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/require-user";
-import type { Tables } from "@/lib/supabase/types";
+import type { OrganizationRow } from "@/lib/employer/organization-columns";
 
 export interface EmployerContext {
   userId: string;
   userEmail: string | null;
   emailConfirmed: boolean;
-  organization: Tables<"organizations">;
+  organization: OrganizationRow;
   role: string;
 }
 
@@ -39,7 +39,11 @@ export async function getEmployerContext(): Promise<EmployerContext | null> {
 
   const { data: membership, error } = await supabase
     .from("organization_members")
-    .select("role, created_at, organization_id, organizations(*)")
+    // The organisation's readable columns, named (ORGANIZATION_READABLE_COLUMNS, written out because supabase-js types a result from the literal): migration 0232
+    // withholds the registration details and the creator's id, so `organizations(*)` is refused. See src/lib/employer/cac-details.ts for the details.
+    .select(
+      "role, created_at, organization_id, organizations(id, name, domain, description, logo_url, verified, cac_confirmed_at, claim_review_dismissed_at, verification_reminder_48h_sent_at, verification_reminder_7d_sent_at, created_at, updated_at)",
+    )
     .eq("user_id", user.id)
     .order("created_at", { ascending: true })
     .limit(1)

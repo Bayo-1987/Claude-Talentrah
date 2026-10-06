@@ -394,6 +394,43 @@ describe("recording the spend (an estimate from token counts and published price
     expect(inserted).toEqual([]);
    }, 3000);
 
+  // The label "aborted" is only for a reader that went away. Every other failed model call is counted the same way, but says what it is.
+  it("a plain provider failure (an unknown error, a rate limit, a timeout) is counted once and logs NO [farah-spend:aborted] line", async () => {
+    const m = await spend();
+    const { LLMProviderError } = await import("@/lib/llm");
+    for (const failure of [new LLMProviderError("groq", "unknown", "boom"), new LLMProviderError("groq", "rate_limit", "Please try again in 7m0s."), new Error("socket hang up")]) {
+      addSpendNano.mockClear();
+      warn.mockClear();
+      errorSpy.mockClear();
+      askFarahChatStream.mockImplementation(async function* () {
+        throw failure;
+      });
+      await (await POST(request())).text();
+      expect(addSpendNano, String(failure)).toHaveBeenCalledTimes(1);
+      expect(addSpendNano).toHaveBeenCalledWith(m.FAILED_ATTEMPT_ESTIMATE_NANO);
+      expect(spendLines(warn).filter((l) => l.startsWith("[farah-spend:aborted]")), String(failure)).toHaveLength(0);
+    }
+  });
+
+  it("a reply the reader closes (the stream's cancel path, no request signal) logs exactly one [farah-spend:aborted] line", async () => {
+    await spend();
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => (release = r));
+    askFarahChatStream.mockImplementation(async function* () {
+      yield "first part";
+      await gate;
+      yield "second part";
+    });
+    const res = await POST(request());
+    const reader = res.body!.getReader();
+    await reader.read();
+    await reader.cancel();
+    release();
+    await wait();
+    expect(spendLines(warn).filter((l) => l.startsWith("[farah-spend:aborted]"))).toHaveLength(1);
+    expect(errorSpy.mock.calls.map((c: unknown[]) => String(c[0])).filter((l: string) => l.startsWith("Farah chat: LLM call failed"))).toHaveLength(0);
+  });
+
   it("the model call is handed an allowFallback that answers from a FRESH read of today's total: yes with the whole-day reserve left, no with one nano-dollar less, no when the counter cannot be read", async () => {
     const m = (await import("@/lib/farah/spend-ceiling")) as unknown as { FALLBACK_RESERVE_NANO: number };
     let handed: (() => Promise<boolean> | boolean) | undefined;
