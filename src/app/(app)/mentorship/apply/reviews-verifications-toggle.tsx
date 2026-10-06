@@ -16,14 +16,14 @@ export function ReviewsVerificationsToggle({ optIn }: { optIn: boolean }) {
   return (
     <div className="flex items-center justify-between gap-4">
       <p className="max-w-[48ch] font-body text-[13.5px] text-ink-soft">
-        Review candidates&apos; skills-verification submissions and decide whether they pass —
+        Review candidates&apos; resumes and decide whether they hold up —
         paid per review. Off by default, separate from your mentor listing.
       </p>
       <button
         type="button"
         role="switch"
         aria-checked={optimisticOptIn}
-        aria-label="Review Talent Directory verifications"
+        aria-label="Review Talent Directory resumes"
         disabled={isPending}
         onClick={() =>
           startTransition(async () => {

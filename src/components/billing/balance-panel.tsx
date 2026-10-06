@@ -14,7 +14,7 @@ import { PassOverlapNotice } from "@/components/billing/pass-overlap-notice";
  */
 const PACK_DESCRIPTION: Record<string, string> = {
   Starter: "1 resume tailoring · credits never expire",
-  Plus: "2 tailorings + a cover letter, or a Directory verification · never expire",
+  Plus: "2 tailorings + a cover letter, or a Directory resume review · never expire",
 };
 
 const COLUMN_HEADING = "font-body text-[11px] font-bold uppercase tracking-[0.14em] text-line";
