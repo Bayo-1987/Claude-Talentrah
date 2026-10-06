@@ -18,6 +18,8 @@
  * check-for-check so the two can't drift from each other.
  */
 import { describe, expect, it } from "vitest";
+import { createClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/supabase/types";
 import { admin } from "../support/auth";
 
 async function grantsSnapshot() {
@@ -48,9 +50,12 @@ describe("Data API grant catch-up (0192) holds — send-458/459", () => {
     expect(hasGrant(snapshot, "course_recommendations", "anon", "SELECT")).toBe(true);
   });
 
-  it("blog_posts: anon has SELECT", async () => {
-    const snapshot = await grantsSnapshot();
-    expect(hasGrant(snapshot, "blog_posts", "anon", "SELECT")).toBe(true);
+  it("blog_posts: anon can read the public columns", async () => {
+    // Since 0232 anon holds SELECT on blog_posts COLUMN BY COLUMN (the withheld ones are the author ids), and the snapshot above lists only table-level grants, so the
+    // standing question "can a signed-out visitor still read the blog?" is asked of the Data API itself. tests/rls/identifier-column-grants.test.ts holds the full column list.
+    const anon = createClient<Database>(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { auth: { autoRefreshToken: false, persistSession: false } });
+    const { error } = await anon.from("blog_posts").select("id, slug, title, status, published_at").limit(1);
+    expect(error, "anon can no longer read the blog's public columns").toBeNull();
   });
 
   it("job_posting_assessment_files: anon has SELECT; authenticated has INSERT, UPDATE and DELETE", async () => {
