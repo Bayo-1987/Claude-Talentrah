@@ -10,6 +10,7 @@ import { JdDemoRefusal } from "./jd-demo-refusal";
 import { DEMO_CAPTION_SIGNED_OUT } from "@/lib/demo/copy";
 import { isDemoRefusalReason, type DemoRefusalReason } from "@/lib/demo/refusal-copy";
 import { fetchWithTimeout, fetchErrorMessage } from "@/lib/forms/fetch-with-timeout";
+import { TextArea } from "@/components/ui/text-area";
 
 // Quick, unauthenticated actions only — "Talk to a mentor" isn't one: booking
 // a real mentor needs an account and a session to book, not a single click
@@ -228,9 +229,6 @@ export function JdDemoInput() {
       >
         <EyebrowLabel className="mb-3 block">Paste a job description</EyebrowLabel>
         <div className="mb-4 flex items-start gap-3.5 border-b border-dashed border-line pb-4">
-          <label htmlFor="jd-demo" className="sr-only">
-            Job description
-          </label>
           {/*
             A textarea, not an input. The floor is 50 characters and a real
             job description is thousands — a single-line box that scrolls
@@ -239,14 +237,18 @@ export function JdDemoInput() {
             in this codebase fetches a URL, so it was advertising a capability
             that does not exist.
           */}
-          <textarea
+          <TextArea
             id="jd-demo"
+            label="Job description"
+            hideLabel
+            compact
+            maxHeight={240}
+            wrapperClassName="flex-1"
+            className="font-display text-[16px] italic text-ink-soft placeholder:text-ink-soft disabled:opacity-60 sm:text-[15.5px]"
             value={value}
             onChange={(e) => setValue(e.target.value)}
             disabled={busy}
-            rows={2}
             placeholder="Paste the job description here and Farah will tailor a resume to it…"
-            className="flex-1 resize-y border-none bg-transparent font-display text-[15.5px] italic text-ink-soft outline-none placeholder:text-ink-soft disabled:opacity-60"
           />
           <button
             type="submit"

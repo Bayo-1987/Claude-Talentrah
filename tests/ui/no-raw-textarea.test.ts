@@ -29,6 +29,7 @@ const ALLOWED = ["src/components/ui/text-area.tsx"];
 /** Conversions that belong to a later PR or to another owner, with the reason. */
 const PENDING: Record<string, string> = {
   "src/app/admin/(protected)/scholarships/new/admin-scholarship-form.tsx": "scholarship file; deferred to the scholarship owner (reviewNote, deadline note)",
+  "src/components/jobs/report-job-menu.tsx": "on the /jobs feed's client path (every job card carries this menu): the shared component would add about 8.8 KB (3.2 KB gzip) to the feed's JS, which tests/ui/text-area-not-in-barrel.test.ts forbids; needs a lighter variant or a lazy boundary the owner approves",
 };
 
 describe("no raw <textarea>", () => {

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { submitMentorshipReviewAction } from "@/lib/mentorship/actions";
 import { Button } from "@/components/ui";
+import { TextArea } from "@/components/ui/text-area";
 
 /** One review per completed session — 0133's own UNIQUE on session_id is the real guard; a second submit here just surfaces that as a plain error. */
 export function ReviewForm({ sessionId, mentorId }: { sessionId: string; mentorId: string }) {
@@ -41,11 +42,11 @@ export function ReviewForm({ sessionId, mentorId }: { sessionId: string; mentorI
           ))}
         </select>
       </label>
-      <textarea
+      <TextArea
+        label="Note for other seekers (optional)"
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder="Optional note for other seekers"
-        className="min-h-16 border-[1.5px] border-ink bg-card p-2.5 font-body text-[13.5px]"
       />
       {error && <p className="text-[12.5px] text-rust">{error}</p>}
       <Button type="submit" variant="secondary" size="sm" disabled={pending}>

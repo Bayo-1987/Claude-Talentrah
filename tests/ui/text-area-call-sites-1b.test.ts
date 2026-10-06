@@ -59,7 +59,6 @@ const FIELDS: Field[] = [
   },
   { file: "src/components/admin/blog-post-form.tsx", find: ["id", "body"], expect: { name: "body", required: "true", mono: "true", label: "*" } },
   { file: "src/components/admin/decision-form.tsx", find: ["name", "{noteName}".replace(/^\{|\}$/g, "")], expect: { placeholder: "notePlaceholder", label: "*" } },
-  { file: "src/components/jobs/report-job-menu.tsx", find: ["name", "details"], expect: { id: "`details-${jobId}`", placeholder: "Anything else? (optional)", label: "*" } },
   { file: "src/components/jobs/screening-gate-apply.tsx", find: ["id", "assessment-response-text"], expect: { value: "responseText", placeholder: "Write your answer here, or attach a file / link below instead.", label: "Your response" } },
   { file: "src/components/marketing/jd-demo-input.tsx", find: ["id", "jd-demo"], expect: { disabled: "busy", placeholder: "Paste the job description here and Farah will tailor a resume to it…", label: "Job description", hideLabel: "true", compact: "true" } },
   { file: "src/components/resume-builder/resume-editor.tsx", find: ["id", "projects-field"], expect: { placeholder: "One project per line", label: "*" } },
