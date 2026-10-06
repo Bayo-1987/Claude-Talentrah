@@ -53,7 +53,7 @@ vi.mock("@/lib/farah/spend-tally", () => {
     tripwire.touches.push(name);
     throw new Error(`UNSAFE DEFAULT: ${name}() was called without the safe route mocks`);
   };
-  return { readSpendNano: touch("readSpendNano"), addSpendNano: touch("addSpendNano"), markHalfwayWarned: touch("markHalfwayWarned"), markEightyWarned: touch("markEightyWarned"), markReachedWarned: touch("markReachedWarned") };
+  return { readSpendNano: touch("readSpendNano"), addSpendNano: touch("addSpendNano"), markHalfwayWarned: touch("markHalfwayWarned"), claimAlertAttempt: touch("claimAlertAttempt"), markAlertSent: touch("markAlertSent") };
 });
 afterEach(() => {
   const touched = tripwire.touches.splice(0);

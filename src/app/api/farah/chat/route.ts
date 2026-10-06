@@ -32,7 +32,7 @@ import {
   estimateSpendNano,
   secondsUntilUtcMidnight,
 } from "@/lib/farah/spend-ceiling";
-import { addSpendNano, markEightyWarned, markHalfwayWarned, markReachedWarned, readSpendNano } from "@/lib/farah/spend-tally";
+import { addSpendNano, claimAlertAttempt, markAlertSent, markHalfwayWarned, readSpendNano } from "@/lib/farah/spend-tally";
 import { sendSpendAlert } from "@/lib/farah/spend-alert";
 import type { MatchExplanation } from "@/lib/matching/score";
 
@@ -92,7 +92,7 @@ export async function POST(request: Request) {
    */
   try {
     const ceiling = await checkSpendCeiling(
-      { read: readSpendNano, markWarned: markHalfwayWarned, markEightyWarned, markReachedWarned },
+      { read: readSpendNano, markWarned: markHalfwayWarned, claimAlertAttempt, markAlertSent },
       process.env,
       sendSpendAlert,
     );

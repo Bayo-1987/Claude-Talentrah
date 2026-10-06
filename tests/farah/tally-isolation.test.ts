@@ -28,6 +28,8 @@ const MAY_CALL_THE_RPC = new Set([
   "tests/farah/tally-isolation.test.ts",
   "tests/supabase/migration-0223-shape.test.ts",
   "tests/supabase/migration-0235-shape.test.ts",
+  "tests/farah/llm-alert-attempts.test.ts",
+  "tests/rls/llm-alert-markers-grants.test.ts",
   // names the migration FILE (to pin its bytes); never touches the table or the function
   "tests/supabase/applied-migrations-not-edited.test.ts",
 ]);
@@ -48,6 +50,11 @@ describe("only the counter's own tests reach the usage counter", () => {
     expect(routeTests.length).toBeGreaterThan(5);
     const missing = routeTests.filter((f) => !/vi\.mock\(\s*["']@\/lib\/farah\/spend-tally["']/.test(f.text)).map((f) => f.path);
     expect(missing).toEqual([]);
+  });
+
+  it("the alert counter's own function names appear in no other test or e2e file", () => {
+    const offenders = files.filter((f) => /claim_llm_alert_attempt|mark_llm_alert_sent|llm_daily_usage_alert_markers/.test(f.text) && !MAY_CALL_THE_RPC.has(f.path)).map((f) => f.path);
+    expect(offenders).toEqual([]);
   });
 
   it("the usage table is read or written directly only by the counter's own tests and its migration", () => {

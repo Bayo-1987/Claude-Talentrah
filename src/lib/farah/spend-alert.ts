@@ -7,13 +7,14 @@ import { NANO_PER_USD, type SpendAlertLevel } from "./spend-ceiling";
  *
  * It goes through the existing operator alert (`sendAdminAlert`, recipient ADMIN_ALERT_EMAIL), which never throws and logs "NOT SENT" when the recipient or the mail key is not set.
  * The text carries only figures and the name of the setting to change: no user id, no email address, no message text. It never throws, and a mail provider that hangs
- * holds the caller for at most MAX_WAIT_MS (this runs on the request that happened to cross the line, once a day).
+ * holds the caller for at most MAX_WAIT_MS (this runs on the request that took the day's attempt). It says whether the mail went out, because that is what decides whether the day's alert is done.
  */
 const MAX_WAIT_MS = 2_000;
 
 const dollars = (nano: number) => `$${(nano / NANO_PER_USD).toFixed(2)}`;
 
-export async function sendSpendAlert(level: SpendAlertLevel, spentNano: number, ceilingNano: number): Promise<void> {
+/** Resolves true only when the email went out. Not configured, refused by the mail provider, too slow (the cap below) and a thrown error are all false: the caller then leaves the day's alert open. */
+export async function sendSpendAlert(level: SpendAlertLevel, spentNano: number, ceilingNano: number): Promise<boolean> {
   const figures = `Estimated spend so far today: ${dollars(spentNano)} of ${dollars(ceilingNano)}.`;
   const message =
     level === "eighty"
@@ -27,9 +28,14 @@ export async function sendSpendAlert(level: SpendAlertLevel, spentNano: number, 
         };
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    await Promise.race([sendAdminAlert(message), new Promise<void>((resolve) => (timer = setTimeout(resolve, MAX_WAIT_MS)))]);
+    const outcome = await Promise.race([
+      sendAdminAlert(message),
+      new Promise<{ sent: false }>((resolve) => (timer = setTimeout(() => resolve({ sent: false }), MAX_WAIT_MS))),
+    ]);
+    return outcome.sent === true;
   } catch {
     /* sendAdminAlert does not throw; this keeps the guarantee even if that changes */
+    return false;
   } finally {
     if (timer) clearTimeout(timer);
   }

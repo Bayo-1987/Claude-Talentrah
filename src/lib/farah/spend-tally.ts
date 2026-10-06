@@ -1,6 +1,6 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { MISSING_OBJECT_CODES } from "./spend-ceiling";
+import { ALERT_ATTEMPT_LEASE_SECONDS, ALERT_MAX_ATTEMPTS_PER_DAY, MISSING_OBJECT_CODES, type SpendAlertLevel } from "./spend-ceiling";
 
 /**
  * The daily usage counter (migration 0223) as three functions. The counter is one table and one function, `add_llm_usage(bucket, nano)`, granted to the service role only:
@@ -23,8 +23,6 @@ export class SpendTallyError extends Error {
 
 const SPEND_BUCKET = "farah_chat";
 const HALFWAY_BUCKET = "farah_chat_half_warned";
-const EIGHTY_BUCKET = "farah_chat_80_warned";
-const REACHED_BUCKET = "farah_chat_reached_warned";
 
 async function add(bucket: string, nano: number): Promise<number> {
   if (!Number.isInteger(nano) || nano < 0) throw new Error("spend tally: the amount must be a whole, non-negative number of nano-dollars");
@@ -54,12 +52,25 @@ export async function markHalfwayWarned(): Promise<boolean> {
   return (await add(HALFWAY_BUCKET, 1)) === 1;
 }
 
-/** True for exactly one caller per day: the one whose add of 1 to the 80% marker returns 1 (the operator alert at 80% of the ceiling). */
-export async function markEightyWarned(): Promise<boolean> {
-  return (await add(EIGHTY_BUCKET, 1)) === 1;
+type RpcCall = (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string; code?: string } | null }>;
+
+/** The operator-alert attempt functions (migration 0235). Each answers a plain boolean; anything else is an error, never permission to send. */
+async function alertRpc(fn: "claim_llm_alert_attempt" | "mark_llm_alert_sent", args: Record<string, unknown>): Promise<boolean> {
+  const { data, error } = await (createServiceRoleClient().rpc as unknown as RpcCall)(fn, args);
+  if (error) throw new SpendTallyError(`spend tally: ${fn} failed (${error.code ?? "no code"})`, error.code ?? null);
+  if (typeof data !== "boolean") throw new SpendTallyError(`spend tally: ${fn} did not return a boolean`, null);
+  return data;
 }
 
-/** True for exactly one caller per day: the one whose add of 1 to the "reached" marker returns 1 (the operator alert when the ceiling is reached). */
-export async function markReachedWarned(): Promise<boolean> {
-  return (await add(REACHED_BUCKET, 1)) === 1;
+/**
+ * True when THIS caller may try to send the alert now (the counter decides, in one statement: not already sent today, fewer than ALERT_MAX_ATTEMPTS_PER_DAY attempts taken, and the last attempt's lease of
+ * ALERT_ATTEMPT_LEASE_SECONDS has run out). It takes an attempt; it does not close the alert.
+ */
+export function claimAlertAttempt(level: SpendAlertLevel): Promise<boolean> {
+  return alertRpc("claim_llm_alert_attempt", { p_alert: level, p_max_attempts: ALERT_MAX_ATTEMPTS_PER_DAY, p_lease_seconds: ALERT_ATTEMPT_LEASE_SECONDS });
+}
+
+/** Records that today's alert went out; true for the call that recorded it. Call it only after a send that succeeded. */
+export function markAlertSent(level: SpendAlertLevel): Promise<boolean> {
+  return alertRpc("mark_llm_alert_sent", { p_alert: level });
 }

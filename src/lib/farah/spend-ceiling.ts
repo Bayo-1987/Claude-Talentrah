@@ -126,15 +126,23 @@ export const FARAH_BUSY_MESSAGE = "Farah is busy right now. Please try again in 
 export interface SpendTallyReader {
   read(): Promise<number>;
   markWarned(): Promise<boolean>;
-  /** True for exactly one caller per day: the first to see 80% of the ceiling. Optional so a caller with no alerting need not supply it. */
-  markEightyWarned?(): Promise<boolean>;
-  /** True for exactly one caller per day: the first to be blocked at the ceiling. Its own marker, so an 80% alert earlier the same day cannot swallow it. */
-  markReachedWarned?(): Promise<boolean>;
+  /**
+   * True when THIS caller may try to send this alert now: the day's alert is not yet recorded as sent, fewer than ALERT_MAX_ATTEMPTS_PER_DAY attempts were taken, and no other attempt is in flight (the counter
+   * decides all three in one statement). Optional so a caller with no alerting need not supply it. A taken attempt is NOT "done": only markAlertSent closes the alert.
+   */
+  claimAlertAttempt?(level: SpendAlertLevel): Promise<boolean>;
+  /** Records that the alert for today went out, so no later request tries again. Called only after a send that succeeded. */
+  markAlertSent?(level: SpendAlertLevel): Promise<unknown>;
 }
+
+/** At most this many attempts to send one alert per day (80% and 'reached' counted separately), and one attempt in flight at a time: a later attempt waits ALERT_ATTEMPT_LEASE_SECONDS after the last one began. */
+export const ALERT_MAX_ATTEMPTS_PER_DAY = 3;
+export const ALERT_ATTEMPT_LEASE_SECONDS = 10;
 
 /** The two operator alerts: 80% of the daily ceiling used (Farah still answers) and the ceiling reached (Farah stops until 00:00 UTC). */
 export type SpendAlertLevel = "eighty" | "reached";
-export type SpendAlertSender = (level: SpendAlertLevel, spentNano: number, ceilingNano: number) => Promise<void>;
+/** Resolves true only when the email WENT OUT. Anything else (not configured, refused, too slow, an error) is false: the alert is then still open for a later attempt. */
+export type SpendAlertSender = (level: SpendAlertLevel, spentNano: number, ceilingNano: number) => Promise<boolean>;
 
 export interface CeilingCheck {
   status: "ok" | "blocked";
@@ -146,10 +154,11 @@ export interface CeilingCheck {
  * Reads today's total and compares it with the ceiling. A failure to READ throws (the caller fails closed: a counter that cannot be read is not "zero spent"). At half the ceiling, the first
  * caller of the day writes one content-free warning line; a failure to mark that is swallowed, because the warning is a convenience and the ceiling is the safeguard.
  *
- * ALERTS (`notify`, optional). At 80% of the ceiling the first caller of the day sends the operator one alert; when the ceiling is reached the first blocked caller of the day sends another. "First caller of the day" is
- * the counter's own marker (an add of 1 that returns 1), so it holds across server instances and a restart. The markers are separate: if one covered both, a day that sent the 80% alert could never send the one
- * that matters more. Like the 50% line, an alert is a convenience: a failing marker or sender is swallowed and never changes the answer. A jump straight from under 80% to the ceiling sends only "reached".
- * The marker is read only at or above 80%, so an ordinary message makes no extra counter call.
+ * ALERTS (`notify`, optional). At 80% of the ceiling a caller sends the operator one alert; when the ceiling is reached a blocked caller sends another. WHO SENDS is the counter's decision (`claimAlertAttempt`):
+ * one attempt at a time, at most ALERT_MAX_ATTEMPTS_PER_DAY a day, none once the day's alert is recorded as sent, and that holds across server instances and a restart. An alert is recorded as sent (`markAlertSent`)
+ * ONLY AFTER a send succeeded: a send that fails is logged (content-free) and the alert stays open, so a later request the same day can try again, within the bound. The two alerts are claimed and recorded
+ * separately: if one covered both, a day that sent the 80% alert could never send the one that matters more. Like the 50% line, an alert is a convenience: nothing here throws or changes the answer, and the only wait
+ * is the sender's own cap. A jump straight from under 80% to the ceiling sends only "reached". The counter is asked only at or above 80%, so an ordinary message makes no extra counter call.
  */
 export async function checkSpendCeiling(
   tally: SpendTallyReader,
@@ -159,7 +168,7 @@ export async function checkSpendCeiling(
   const ceilingNano = Math.round(dailyCeilingUsd(env) * NANO_PER_USD);
   const spentNano = await tally.read();
   if (spentNano >= ceilingNano) {
-    await alertOnce(tally.markReachedWarned, notify, "reached", spentNano, ceilingNano);
+    await alertOnce(tally, notify, "reached", spentNano, ceilingNano);
     return { status: "blocked", spentNano, ceilingNano };
   }
   if (spentNano >= ceilingNano / 2) {
@@ -169,21 +178,39 @@ export async function checkSpendCeiling(
       /* the warning is optional */
     }
   }
-  if (spentNano >= ceilingNano * 0.8) await alertOnce(tally.markEightyWarned, notify, "eighty", spentNano, ceilingNano);
+  if (spentNano >= ceilingNano * 0.8) await alertOnce(tally, notify, "eighty", spentNano, ceilingNano);
   return { status: "ok", spentNano, ceilingNano };
 }
 
-async function alertOnce(
-  mark: (() => Promise<boolean>) | undefined,
-  notify: SpendAlertSender | undefined,
-  level: SpendAlertLevel,
-  spentNano: number,
-  ceilingNano: number,
-): Promise<void> {
-  if (!mark || !notify) return;
+function errorCode(err: unknown): string {
+  const code = (err as { code?: unknown } | null)?.code;
+  return typeof code === "string" ? code : "none";
+}
+
+/** One attempt at one alert, end to end. Never throws, and writes at most one content-free line (tag, alert name, error code), never the error's own text. */
+async function alertOnce(tally: SpendTallyReader, notify: SpendAlertSender | undefined, level: SpendAlertLevel, spentNano: number, ceilingNano: number): Promise<void> {
+  if (!tally.claimAlertAttempt || !tally.markAlertSent || !notify) return;
+  let mayTry = false;
   try {
-    if (await mark()) await notify(level, spentNano, ceilingNano);
+    mayTry = await tally.claimAlertAttempt(level);
+  } catch (err) {
+    console.error(`[farah-spend:alert-counter-failed] level=${level} code=${errorCode(err)}`);
+    return;
+  }
+  if (!mayTry) return;
+  let sent = false;
+  try {
+    sent = (await notify(level, spentNano, ceilingNano)) === true;
   } catch {
-    /* the alert is optional */
+    sent = false;
+  }
+  if (!sent) {
+    console.error(`[farah-spend:alert-not-sent] level=${level}`);
+    return;
+  }
+  try {
+    await tally.markAlertSent(level);
+  } catch (err) {
+    console.error(`[farah-spend:alert-mark-failed] level=${level} code=${errorCode(err)}`);
   }
 }

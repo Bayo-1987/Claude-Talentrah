@@ -1,12 +1,12 @@
 /**
- * Migration 0235 (the two operator-alert markers on the daily LLM usage counter) — its shape, read from the file (no database). The behaviour is in
- * tests/farah/llm-usage-counter.test.ts; this pins what a reviewer would otherwise have to find by reading the SQL.
+ * Migration 0235 (the operator alerts on Farah's daily spend ceiling: one small table and two functions that decide, in the database, who may try to send today's alert and when it counts as sent)
+ * — its shape, read from the file (no database). The behaviour is in tests/farah/llm-alert-attempts.test.ts; this pins what a reviewer would otherwise have to find by reading the SQL.
  *
- * 0223 allowed two buckets: the day's spend (farah_chat) and a call counter for the 50% log line (farah_chat_half_warned). The operator alerts need one more marker each,
- * so the bucket list in the table's CHECK and in public.add_llm_usage grows by farah_chat_80_warned and farah_chat_reached_warned. Nothing else changes: not the
- * columns, the grants, RLS, or what the function does. 0223's own file is not edited (applied migrations never are), so this redefines the two places that hold the list.
- *
- * Written before the migration exists: every test here is red until 0235 is written.
+ * WHAT IT IS. An alert (the 80% one, the "reached" one) is a convenience, and the day's alert must not be lost because one send failed. So "today's alert is done" is recorded only AFTER a send succeeds,
+ * and a failed send can be tried again on a later request the same day, at most MAX attempts, with only one attempt in flight at a time (a short lease). Two functions do it in one statement each:
+ *   claim_llm_alert_attempt(alert, max_attempts, lease_seconds)  -> true for the caller that may try the send now
+ *   mark_llm_alert_sent(alert)                                    -> records that the send succeeded; true for the caller that recorded it
+ * It touches NOTHING that exists: not llm_daily_usage and not add_llm_usage (0223's objects stay exactly as they are).
  */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -14,90 +14,154 @@ import { describe, expect, it } from "vitest";
 
 const FILE = join(__dirname, "../../supabase/migrations/0235_llm_daily_usage_alert_markers.sql");
 const ROLLBACK = join(__dirname, "../../supabase/rollbacks/0235_llm_daily_usage_alert_markers.rollback.sql");
+const strip = (t: string) => t.split("\n").filter((l) => !l.trim().startsWith("--")).join("\n").replace(/\s+/g, " ").toLowerCase();
 const sql = existsSync(FILE) ? readFileSync(FILE, "utf8") : "";
-const code = sql.split("\n").filter((l) => !l.trim().startsWith("--")).join("\n");
-const flat = code.replace(/\s+/g, " ").toLowerCase();
-const BUCKETS = "'farah_chat', 'farah_chat_half_warned', 'farah_chat_80_warned', 'farah_chat_reached_warned'";
+const flat = strip(sql);
+const T = "public.llm_daily_usage_alert_markers";
 
 describe("0235: the file", () => {
   it("exists, under this exact name (0235 is the number registered for it)", () => {
     expect(existsSync(FILE)).toBe(true);
-    expect(code.trim().length).toBeGreaterThan(0);
   });
 });
 
-describe("0235: the bucket list grows in both places that hold it, and only by the two markers", () => {
-  it("replaces the table's CHECK with the four buckets (drop and add in one statement, so no row is ever unchecked)", () => {
-    expect(flat).toMatch(/alter table public\.llm_daily_usage drop constraint llm_daily_usage_bucket_known, add constraint llm_daily_usage_bucket_known check \(bucket in \(/);
-    expect(flat).toContain(`check (bucket in (${BUCKETS}))`);
+describe("0235: it adds one table and two functions and touches nothing that exists", () => {
+  it("creates exactly one table, with the five columns", () => {
+    expect((flat.match(/\bcreate table\b/g) ?? []).length).toBe(1);
+    expect(flat).toContain(`create table ${T} (`);
+    expect(flat).toMatch(/day date not null/);
+    expect(flat).toMatch(/alert text not null/);
+    expect(flat).toMatch(/attempts integer not null default 0/);
+    expect(flat).toMatch(/last_attempt_at timestamptz(?! not null)/);
+    expect(flat).toMatch(/sent_at timestamptz(?! not null)/);
+    expect(flat).toMatch(/primary key \(day, alert\)/);
   });
 
-  it("replaces the function's own list with the same four", () => {
-    expect(flat).toContain(`p_bucket not in (${BUCKETS})`);
+  it("limits the alert to the two known names and the attempt counter to a small range (a bug cannot write a third alert or a runaway counter)", () => {
+    expect(flat).toMatch(/check \(alert in \('eighty', 'reached'\)\)/);
+    expect(flat).toMatch(/check \(attempts between 0 and 10\)/);
   });
 
-  it("touches no other constraint, column or table", () => {
-    const alters = [...flat.matchAll(/alter table (?:if exists )?(?:only )?([a-z_.]+)/g)].map((m) => m[1]);
-    expect(alters.length).toBeGreaterThan(0);
-    expect(alters.every((t) => t === "public.llm_daily_usage")).toBe(true);
-    expect([...flat.matchAll(/(?:drop|add) constraint ([a-z_]+)/g)].map((m) => m[1]).every((n) => n === "llm_daily_usage_bucket_known")).toBe(true);
-    expect(flat).not.toMatch(/\b(add|drop|alter) column\b/);
-    expect(flat).not.toMatch(/\bcreate table\b/);
-    expect(flat).not.toMatch(/\bdrop (table|function|policy|trigger|column)\b/);
+  it("does not alter, drop or redefine anything from 0223: not llm_daily_usage, not add_llm_usage", () => {
+    expect(flat).not.toMatch(/\balter table\b(?! public\.llm_daily_usage_alert_markers)/);
+    expect(flat).not.toMatch(/\bdrop\b/);
+    expect(flat).not.toMatch(/public\.add_llm_usage/);
+    expect(flat).not.toMatch(/(insert into|update|delete from|from) public\.llm_daily_usage\b(?!_)/);
   });
 
-  it("deletes and updates no row", () => {
+  it("creates exactly two functions", () => {
+    expect((flat.match(/\bcreate (or replace )?function\b/g) ?? []).length).toBe(2);
+    expect(flat).toContain("create or replace function public.claim_llm_alert_attempt(");
+    expect(flat).toContain("create or replace function public.mark_llm_alert_sent(");
+  });
+
+  it("deletes no row and truncates nothing", () => {
     expect(flat).not.toMatch(/\bdelete from\b/);
-    expect(flat).not.toMatch(/\bupdate public\./);
-    expect(flat).not.toMatch(/\btruncate\b/);
+    expect(flat).not.toMatch(/\btruncate (table )?(only )?public\./);
   });
 });
 
-describe("0235: public.add_llm_usage is redefined exactly as 0223 had it, apart from the list", () => {
-  it("same signature, SECURITY INVOKER, plpgsql, search_path pinned to empty", () => {
-    expect(flat).toMatch(/create or replace function public\.add_llm_usage\(p_bucket text, p_nano bigint\) returns bigint/);
-    expect(flat).toMatch(/security invoker/);
-    expect(flat).not.toMatch(/security definer/);
-    expect(flat).toMatch(/set search_path = ''/);
+describe("0235: the table is server-only", () => {
+  it("row level security on, and no policy at all", () => {
+    expect(flat).toContain(`alter table ${T} enable row level security`);
+    expect(flat).not.toMatch(/\bcreate policy\b/);
   });
 
-  it("keeps the validation (null or negative amount, above $100, errcode 22023) and the single-statement add", () => {
-    expect(flat).toMatch(/p_nano is null/);
-    expect(flat).toMatch(/p_nano < 0/);
-    expect(flat).toMatch(/p_nano > 100000000000(?!\d)/); // not a longer number that merely starts with it
-    expect(flat).toMatch(/errcode = '22023'/);
-    expect(flat).toMatch(/insert into public\.llm_daily_usage as u \(day, bucket, nano_usd\) values \(\(pg_catalog\.now\(\) at time zone 'utc'\)::date, p_bucket, p_nano\) on conflict \(day, bucket\) do update set nano_usd = u\.nano_usd \+ excluded\.nano_usd returning u\.nano_usd into v_total/);
-    expect((flat.match(/\binsert into\b/g) ?? []).length).toBe(1);
+  it("every privilege revoked from everyone, then select, insert and update (not delete) granted to service_role only", () => {
+    expect(flat).toContain(`revoke all on table ${T} from public, anon, authenticated, service_role`);
+    const grants = [...flat.matchAll(new RegExp(`grant ([a-z, ]+) on table ${T.replace(".", "\\.")} to ([a-z_, ]+)`, "g"))].map((m) => `${m[1].trim()} -> ${m[2].trim()}`);
+    expect(grants).toEqual(["select, insert, update -> service_role"]);
+  });
+});
+
+describe("0235: claim_llm_alert_attempt: one statement decides, in the database, who may try now", () => {
+  const claim = flat.slice(flat.indexOf("create or replace function public.claim_llm_alert_attempt("), flat.indexOf("create or replace function public.mark_llm_alert_sent("));
+
+  it("signature, defaults (3 attempts, a 10 second lease), returns boolean, SECURITY INVOKER, search_path pinned to empty", () => {
+    expect(claim).toContain("claim_llm_alert_attempt(p_alert text, p_max_attempts integer default 3, p_lease_seconds integer default 10) returns boolean");
+    expect(claim).toMatch(/language plpgsql security invoker set search_path = ''/);
+    expect(claim).not.toMatch(/security definer/);
   });
 
-  it("states the grants again: revoked from everyone, executable by service_role only", () => {
-    expect(flat).toMatch(/revoke all on function public\.add_llm_usage\(text, bigint\) from public, anon, authenticated, service_role/);
-    expect(flat).toMatch(/grant execute on function public\.add_llm_usage\(text, bigint\) to service_role/);
-    const grants = [...flat.matchAll(/grant execute on function public\.add_llm_usage\(text, bigint\) to ([a-z_, ]+)/g)].map((m) => m[1].trim());
-    expect(grants).toEqual(["service_role"]);
-    expect(flat).not.toMatch(/grant [a-z, ]+ on (table )?public\.llm_daily_usage/);
+  it("refuses an unknown alert and out-of-range limits with SQLSTATE 22023, so a bad caller cannot switch the bounds off", () => {
+    expect(claim).toMatch(/p_alert is null or p_alert not in \('eighty', 'reached'\)/);
+    expect(claim).toMatch(/p_max_attempts is null or p_max_attempts < 1 or p_max_attempts > 10/);
+    expect(claim).toMatch(/p_lease_seconds is null or p_lease_seconds < 0 or p_lease_seconds > 600/);
+    expect((claim.match(/errcode = '22023'/g) ?? []).length).toBe(3);
   });
 
-  it("checks itself when applied: the four buckets are accepted, others are not, and nothing reachable by a client changed", () => {
+  it("is ONE insert ... on conflict do update ... where (the check and the increment are the same statement), keyed on the DATABASE's UTC day", () => {
+    expect((claim.match(/\binsert into\b/g) ?? []).length).toBe(1);
+    expect(claim).toContain(`insert into ${T} as m (day, alert, attempts, last_attempt_at)`);
+    expect(claim).toMatch(/values \(\(pg_catalog\.now\(\) at time zone 'utc'\)::date, p_alert, 1, pg_catalog\.now\(\)\)/);
+    expect(claim).toMatch(/on conflict \(day, alert\) do update set attempts = m\.attempts \+ 1, last_attempt_at = pg_catalog\.now\(\)/);
+  });
+
+  it("the three conditions: not already sent, fewer than the maximum attempts, and the previous attempt's lease has run out", () => {
+    expect(claim).toMatch(/where m\.sent_at is null and m\.attempts < p_max_attempts and \(m\.last_attempt_at is null or m\.last_attempt_at <= pg_catalog\.now\(\) - pg_catalog\.make_interval\(secs => p_lease_seconds\)\)/);
+  });
+
+  it("returns whether this caller got the attempt (a row came back from the statement)", () => {
+    expect(claim).toMatch(/returning m\.attempts into v_attempts/);
+    expect(claim).toMatch(/return v_attempts is not null/);
+  });
+});
+
+describe("0235: mark_llm_alert_sent: records the success, once", () => {
+  const mark = flat.slice(flat.indexOf("create or replace function public.mark_llm_alert_sent("));
+
+  it("signature, returns boolean, SECURITY INVOKER, search_path pinned to empty, unknown alert refused with 22023", () => {
+    expect(mark).toContain("mark_llm_alert_sent(p_alert text) returns boolean");
+    expect(mark).toMatch(/language plpgsql security invoker set search_path = ''/);
+    expect(mark).toMatch(/p_alert is null or p_alert not in \('eighty', 'reached'\)/);
+    expect(mark).toMatch(/errcode = '22023'/);
+  });
+
+  it("is ONE update of today's row that was attempted and is not yet marked (so a second mark, or a mark with no attempt, gets false), and it deletes nothing", () => {
+    expect((mark.match(/\bupdate public\./g) ?? []).length).toBe(1);
+    expect(mark).toMatch(new RegExp(`update ${T.replace(".", "\\.")} set sent_at = pg_catalog\\.now\\(\\) where day = \\(pg_catalog\\.now\\(\\) at time zone 'utc'\\)::date and alert = p_alert and attempts > 0 and sent_at is null returning`));
+  });
+});
+
+describe("0235: both functions are service_role only", () => {
+  it("states the grants: revoked from everyone, executable by service_role only, for each of the two functions", () => {
+    expect(flat).toContain("revoke all on function public.claim_llm_alert_attempt(text, integer, integer) from public, anon, authenticated, service_role");
+    expect(flat).toContain("revoke all on function public.mark_llm_alert_sent(text) from public, anon, authenticated, service_role");
+    const grants = [...flat.matchAll(/grant execute on function (public\.[a-z_]+\([a-z, ]+\)) to ([a-z_, ]+)/g)].map((m) => `${m[1]} -> ${m[2].trim()}`);
+    expect(grants).toEqual(["public.claim_llm_alert_attempt(text, integer, integer) -> service_role", "public.mark_llm_alert_sent(text) -> service_role"]);
+  });
+
+  it("checks itself when applied: no client role can execute either function or read the table, PUBLIC cannot, service_role can, neither is SECURITY DEFINER, RLS is on with no policy", () => {
     expect(flat).toMatch(/\bdo \$[a-z]*\$/);
-    expect(flat).toMatch(/has_function_privilege\('anon'|has_function_privilege\(r, v_fn, 'execute'\)/);
+    expect(flat).toMatch(/has_function_privilege\(r, [a-z_]+, 'execute'\)/);
+    expect(flat).toMatch(/v_table oid := 'public\.llm_daily_usage_alert_markers'::regclass/);
+    expect(flat).toMatch(/has_table_privilege\(r, v_table, 'select, insert, update, delete, truncate, references, trigger'\)/);
+    expect(flat).toMatch(/relrowsecurity/);
+    expect(flat).toMatch(/prosecdef/);
+    expect(flat).toMatch(/pg_policy/);
+    expect(flat).toMatch(/raise exception '0235 self-check/);
   });
 });
 
 describe("0235: the rollback sits beside it, outside the migrations directory", () => {
-  it("exists, and puts back the two-bucket list in both places", () => {
+  const rb = existsSync(ROLLBACK) ? strip(readFileSync(ROLLBACK, "utf8")) : "";
+
+  it("exists", () => {
     expect(existsSync(ROLLBACK)).toBe(true);
-    const rb = existsSync(ROLLBACK) ? readFileSync(ROLLBACK, "utf8").replace(/\s+/g, " ").toLowerCase() : "";
-    expect(rb).toContain("check (bucket in ('farah_chat', 'farah_chat_half_warned'))");
-    expect(rb).toContain("p_bucket not in ('farah_chat', 'farah_chat_half_warned')");
   });
 
-  it("removes the rows of the two new buckets BEFORE it puts the shorter CHECK back (otherwise the CHECK cannot be added on a day that has them)", () => {
-    const rb = existsSync(ROLLBACK) ? readFileSync(ROLLBACK, "utf8").split("\n").filter((l) => !l.trim().startsWith("--")).join("\n").replace(/\s+/g, " ").toLowerCase() : "";
-    const del = rb.indexOf("delete from public.llm_daily_usage where bucket in ('farah_chat_80_warned', 'farah_chat_reached_warned')");
-    const add = rb.indexOf("add constraint llm_daily_usage_bucket_known");
-    expect(del).toBeGreaterThanOrEqual(0);
-    expect(add).toBeGreaterThan(del);
-    expect((rb.match(/\bdelete from\b/g) ?? []).length).toBe(1);
+  it("drops the two functions (with their exact argument lists) and then the table, and nothing else", () => {
+    const drops = [...rb.matchAll(/\bdrop (function|table)\b ([^;]+);/g)].map((m) => `${m[1]} ${m[2].trim()}`);
+    expect(drops).toEqual([
+      "function public.claim_llm_alert_attempt(text, integer, integer)",
+      "function public.mark_llm_alert_sent(text)",
+      `table ${T}`,
+    ]);
+    expect(rb).not.toMatch(/\bdelete\b|\btruncate\b|alter table|add_llm_usage|public\.llm_daily_usage\b(?!_)/);
+  });
+
+  it("checks that all three are gone", () => {
+    expect(rb).toMatch(/\bdo \$[a-z]*\$/);
+    expect(rb).toMatch(/raise exception '0235 rollback self-check/);
   });
 });

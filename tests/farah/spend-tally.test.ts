@@ -13,8 +13,8 @@ interface Tally {
   readSpendNano(): Promise<number>;
   addSpendNano(nano: number): Promise<number>;
   markHalfwayWarned(): Promise<boolean>;
-  markEightyWarned(): Promise<boolean>;
-  markReachedWarned(): Promise<boolean>;
+  claimAlertAttempt(level: "eighty" | "reached"): Promise<boolean>;
+  markAlertSent(level: "eighty" | "reached"): Promise<boolean>;
 }
 // The explicit way around the tripwire: the actual module, not the unsafe default.
 const actual = () => vi.importActual<Tally>("@/lib/farah/spend-tally");
@@ -47,18 +47,31 @@ describe("the real tally module, reached on purpose with importActual", () => {
     expect(rpc).toHaveBeenCalledWith("add_llm_usage", { p_bucket: "farah_chat_half_warned", p_nano: 1 });
   });
 
-  it("the 80% and 'reached' markers are separate buckets, each true only for the caller whose add of 1 returns 1", async () => {
+  it("claimAlertAttempt asks the counter for an attempt: the alert name, at most 3 attempts a day, a 10 second lease; true only when the database says true", async () => {
     const t = await actual();
-    rpc.mockResolvedValueOnce({ data: 1, error: null });
-    expect(await t.markEightyWarned()).toBe(true);
-    expect(rpc).toHaveBeenLastCalledWith("add_llm_usage", { p_bucket: "farah_chat_80_warned", p_nano: 1 });
-    rpc.mockResolvedValueOnce({ data: 2, error: null });
-    expect(await t.markEightyWarned()).toBe(false);
-    rpc.mockResolvedValueOnce({ data: 1, error: null });
-    expect(await t.markReachedWarned()).toBe(true);
-    expect(rpc).toHaveBeenLastCalledWith("add_llm_usage", { p_bucket: "farah_chat_reached_warned", p_nano: 1 });
-    rpc.mockResolvedValueOnce({ data: 7, error: null });
-    expect(await t.markReachedWarned()).toBe(false);
+    rpc.mockResolvedValueOnce({ data: true, error: null });
+    expect(await t.claimAlertAttempt("eighty")).toBe(true);
+    expect(rpc).toHaveBeenLastCalledWith("claim_llm_alert_attempt", { p_alert: "eighty", p_max_attempts: 3, p_lease_seconds: 10 });
+    rpc.mockResolvedValueOnce({ data: false, error: null });
+    expect(await t.claimAlertAttempt("reached")).toBe(false);
+    expect(rpc).toHaveBeenLastCalledWith("claim_llm_alert_attempt", { p_alert: "reached", p_max_attempts: 3, p_lease_seconds: 10 });
+  });
+
+  it("claimAlertAttempt never turns an odd answer into permission to send: only the boolean true counts", async () => {
+    const t = await actual();
+    for (const data of [null, 1, "true", undefined]) {
+      rpc.mockResolvedValueOnce({ data, error: null });
+      await expect(t.claimAlertAttempt("eighty")).rejects.toBeTruthy();
+    }
+  });
+
+  it("markAlertSent records the send for that alert and returns whether this call was the one that recorded it", async () => {
+    const t = await actual();
+    rpc.mockResolvedValueOnce({ data: true, error: null });
+    expect(await t.markAlertSent("reached")).toBe(true);
+    expect(rpc).toHaveBeenLastCalledWith("mark_llm_alert_sent", { p_alert: "reached" });
+    rpc.mockResolvedValueOnce({ data: false, error: null });
+    expect(await t.markAlertSent("reached")).toBe(false);
   });
 
   it("an rpc error is thrown, never turned into a number (the caller fails closed)", async () => {
@@ -67,8 +80,8 @@ describe("the real tally module, reached on purpose with importActual", () => {
     await expect(t.readSpendNano()).rejects.toBeTruthy();
     await expect(t.addSpendNano(5)).rejects.toBeTruthy();
     await expect(t.markHalfwayWarned()).rejects.toBeTruthy();
-    await expect(t.markEightyWarned()).rejects.toBeTruthy();
-    await expect(t.markReachedWarned()).rejects.toBeTruthy();
+    await expect(t.claimAlertAttempt("eighty")).rejects.toBeTruthy();
+    await expect(t.markAlertSent("eighty")).rejects.toBeTruthy();
   });
 
   it("a failure carries the database error code, and a missing function or table is flagged as a likely missing migration", async () => {
