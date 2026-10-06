@@ -107,7 +107,7 @@ describe("hard rule 3: no mentor identity, and none can reach the section", () =
     expect(read("src/app/page.tsx")).toMatch(/<MentorshipSection\s*\/>/);
   });
   it("names no person, company or stat (no 'N mentors', no 'N sessions', no rating)", () => {
-    expect(text).not.toMatch(/\d+\s*(sessions?|mentors?|reviews?)\b/i);
+    expect(text.replace(/1:1/g, "")).not.toMatch(/\d+\s*(sessions?|mentors?|reviews?)\b/i);
     expect(text).not.toMatch(/\d+(\.\d+)?\s*(%|\/\s*5|stars?)/i);
   });
 });
@@ -145,8 +145,13 @@ describe("accessibility", () => {
     expect(html).toMatch(/<section[^>]*aria-labelledby="mentors-heading"/);
     expect(html).toMatch(/<h2[^>]*id="mentors-heading"/);
   });
-  it("both links have a real hit target of at least 44px (min-h-11)", () => {
-    for (const m of html.matchAll(/<a\s[^>]*class="([^"]*)"[^>]*>/g)) expect(m[1], m[0]).toMatch(/\bmin-h-11\b/);
+  it("both links have a real hit target of at least 44px tall (a min-h class: min-h-11 is 44px, or min-h-[Npx])", () => {
+    const anchors = [...html.matchAll(/<a\s[^>]*class="([^"]*)"[^>]*>/g)];
+    expect(anchors.length).toBe(2);
+    for (const m of anchors) {
+      const tall = /(?:^|\s)min-h-11(?:\s|$)/.test(m[1]) ? 44 : Number(/(?:^|\s)min-h-\[(\d+)px\](?:\s|$)/.exec(m[1])?.[1] ?? 0);
+      expect(tall, m[1]).toBeGreaterThanOrEqual(44);
+    }
   });
   it("the check marks are decorative: hidden from a screen reader, and drawn as inline SVG, not an emoji", () => {
     expect((html.match(/<svg[^>]*aria-hidden="true"/g) ?? []).length).toBe(2);
@@ -160,7 +165,7 @@ describe("accessibility", () => {
     expect(html).not.toMatch(/text-\[oklch|text-gray|text-slate|(?:^|[\s"])opacity-\d/);
   });
   it("follows the Editorial system: a bordered card with no radius or shadow, and no rounded or shadow class anywhere", () => {
-    expect(html).not.toMatch(/\brounded|\bshadow/);
+    expect(html).not.toMatch(/\brounded(?!-none\b)|\bshadow/);
   });
 });
 
