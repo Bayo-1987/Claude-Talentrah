@@ -14,6 +14,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { freeClaimRpc } from "./support/free-claim-model";
 
 type Row = Record<string, unknown>;
 const NOW = new Date("2026-10-31T12:00:00.000Z");
@@ -68,7 +69,7 @@ function query(name: string) {
   };
   return api;
 }
-const fakeDb = () => ({ from: (t: string) => query(t), auth: { getUser: async () => ({ data: { user: signedIn ? { id: USER } : null } }) } });
+const fakeDb = () => ({ from: (t: string) => query(t), rpc: async (fn: string, args: Record<string, unknown>) => freeClaimRpc(store, fn, args, Date.now()), auth: { getUser: async () => ({ data: { user: signedIn ? { id: USER } : null } }) } });
 
 const spendCredits = vi.fn(async () => 4);
 const askFarahChatStream = vi.fn();
@@ -104,7 +105,7 @@ const request = (body: unknown = { message: "Hello" }, signal?: AbortSignal) =>
 
 /** Everything that would mean a message was USED: a free-allowance event, a Pass-use event, a credit spend. (A 'blocked' funnel row is a log of a refusal, not a use.) */
 function used() {
-  return { freeEvents: freeEvents().length, passEvents: passEvents().length, creditSpends: spendCredits.mock.calls.length };
+  return { freeEvents: freeEvents().length, passEvents: passEvents().length, creditSpends: spendCredits.mock.calls.length, pendingClaims: rows("farah_free_claims").length };
 }
 
 beforeEach(() => {
@@ -136,7 +137,7 @@ describe("CONTROL: a request that succeeds IS charged, so the assertions below c
     const free = await POST(request());
     expect(free.status).toBe(200);
     await free.text();
-    expect(used()).toEqual({ freeEvents: 1, passEvents: 0, creditSpends: 0 });
+    expect(used()).toEqual({ freeEvents: 1, passEvents: 0, creditSpends: 0, pendingClaims: 0 });
 
     seed({ freeUsed: 3, balance: 5 });
     spendCredits.mockClear();
@@ -172,7 +173,7 @@ describe("every non-2xx answer the route gives leaves everything unused", () => 
       expect(res.status).toBe(c.status);
       await res.text();
       expect(askFarahChatStream).not.toHaveBeenCalled();
-      expect(used()).toEqual({ freeEvents: freeBefore(), passEvents: 0, creditSpends: 0 }); // the free events there already were (seeded), no more
+      expect(used()).toEqual({ freeEvents: freeBefore(), passEvents: 0, creditSpends: 0, pendingClaims: 0 }); // the free events there already were (seeded), no more
     });
   }
 
@@ -183,7 +184,7 @@ describe("every non-2xx answer the route gives leaves everything unused", () => 
     const res = await POST(request({ message: "Hello" }, controller.signal));
     expect(res.status).toBe(499);
     expect(askFarahChatStream).not.toHaveBeenCalled();
-    expect(used()).toEqual({ freeEvents: 0, passEvents: 0, creditSpends: 0 });
+    expect(used()).toEqual({ freeEvents: 0, passEvents: 0, creditSpends: 0, pendingClaims: 0 });
   });
 
   it("an UNEXPECTED exception before the reply starts (the route throws, the platform answers 5xx): nothing is used", async () => {
@@ -191,7 +192,7 @@ describe("every non-2xx answer the route gives leaves everything unused", () => 
     sessionLogThrows = true;
     await expect(POST(request({ message: "Hello", sessionId: "s-1" }))).rejects.toThrow("session log down");
     expect(askFarahChatStream).not.toHaveBeenCalled();
-    expect(used()).toEqual({ freeEvents: 0, passEvents: 0, creditSpends: 0 });
+    expect(used()).toEqual({ freeEvents: 0, passEvents: 0, creditSpends: 0, pendingClaims: 0 });
   });
 });
 
@@ -211,7 +212,7 @@ describe("a reply that FAILS after the request was accepted (status 200, an erro
         const text = await res.text();
         expect(text).toContain('"type":"error"');
         expect(text).not.toContain('"type":"done"');
-        expect(used()).toEqual({ freeEvents: seedOpts.freeUsed, passEvents: 0, creditSpends: 0 });
+        expect(used()).toEqual({ freeEvents: seedOpts.freeUsed, passEvents: 0, creditSpends: 0, pendingClaims: 0 });
       }
     });
   }

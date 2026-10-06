@@ -52,7 +52,11 @@ function resolveEntryPoint(quickAction: string | undefined): FarahEntryPoint {
  */
 const MAX_USER_MESSAGES_PER_HOUR = 30;
 
-export async function POST(request: Request) {
+/**
+ * The handler. An unexpected exception anywhere after the free-message claim (a malformed resume that the context builder trips over, a failing session log) would leave the claim held until it expires;
+ * the wrapper below releases it and rethrows, so the platform's 5xx is unchanged and a retry is not refused for the next two minutes. `held.release` is set once a claim is held.
+ */
+async function handlePost(request: Request, held: { release?: () => Promise<void> }) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -170,6 +174,7 @@ export async function POST(request: Request) {
       /* the gate's release never throws; a mock or a future change that does must not turn an exit into a crash */
     }
   };
+  held.release = releaseIfHeld;
 
   // Best-effort, and independent of whether Farah's reply below succeeds —
   // this counts what the user actually did (sent a message from this entry
@@ -476,4 +481,14 @@ export async function POST(request: Request) {
   return new Response(stream, {
     headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-cache" },
   });
+}
+
+export async function POST(request: Request) {
+  const held: { release?: () => Promise<void> } = {};
+  try {
+    return await handlePost(request, held);
+  } catch (err) {
+    await held.release?.();
+    throw err;
+  }
 }
