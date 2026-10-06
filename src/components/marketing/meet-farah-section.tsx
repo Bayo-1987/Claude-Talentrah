@@ -17,10 +17,8 @@ export function MeetFarahSection() {
             exactly what&apos;s missing before you apply.
           </p>
           <p className="max-w-[560px] text-[16px] text-ink-soft">
-            For the moments that matter most — negotiating a real offer, or getting live feedback
-            before a final-round interview — Farah will tell you plainly that a human is the
-            better call, and connect you with a real mentor. Some things are still worth a
-            human&apos;s judgment.
+            When a human is the better call, Farah will tell you plainly and connect you with a
+            real mentor.
           </p>
         </div>
       </div>
