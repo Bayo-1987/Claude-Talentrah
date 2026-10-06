@@ -6,7 +6,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 
-type RpcAnswer = { data: unknown; error: { message: string; code?: string } | null };
+import { realRpcBuilder, rejectingRpcBuilder, type RpcAnswer } from "./support/real-rpc-builder";
+let rpcRejects = false;
 const rpcCalls: Array<[string, Record<string, unknown>]> = [];
 let committedFreeCount = 0;
 let balance = 5;
@@ -23,9 +24,11 @@ function chain(result: unknown) {
 }
 const fakeClient = () => ({
   from: (table: string) => (table === "profiles" ? chain({ data: { credits_balance: balance }, error: null }) : chain({ count: committedFreeCount, data: [], error: null })),
-  rpc: async (fn: string, args: Record<string, unknown>): Promise<RpcAnswer> => {
+  // a thenable without .catch, as the real client returns (tests/farah/support/real-rpc-builder.ts)
+  rpc: (fn: string, args: Record<string, unknown>) => {
     rpcCalls.push([fn, args]);
-    return fn === "claim_farah_free_message" ? claimAnswer : fn === "commit_farah_free_claim" ? commitAnswer : releaseAnswer;
+    if (rpcRejects) return rejectingRpcBuilder(new Error("network down"));
+    return realRpcBuilder<RpcAnswer>(fn === "claim_farah_free_message" ? claimAnswer : fn === "commit_farah_free_claim" ? commitAnswer : releaseAnswer);
   },
 });
 vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => fakeClient() }));
@@ -48,6 +51,7 @@ const claimCalls = () => rpcCalls.filter(([fn]) => fn === "claim_farah_free_mess
 
 beforeEach(() => {
   rpcCalls.length = 0;
+  rpcRejects = false;
   committedFreeCount = 1; // one used of 3: the read says a free message is left
   balance = 5;
   claimAnswer = { data: [{ ok: true, claim_id: "claim-1", used: 2 }], error: null };
@@ -57,6 +61,7 @@ beforeEach(() => {
   logCreditGateEvent.mockReset().mockResolvedValue(undefined);
   spendCredits.mockReset().mockResolvedValue(4);
   errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  errorSpy.mockClear(); // spyOn on an already spied method returns the same spy, so the previous test's lines would otherwise still be in it
 });
 
 describe("checkFarahChatAllowance: a free message is CLAIMED before the model call", () => {
@@ -123,6 +128,22 @@ describe("a claim that cannot be made is treated as lost (fail closed), with one
     expect(a).toMatchObject({ isFreeAllowance: false, creditsSpent: COST });
     expect(errorLines().filter((l) => l.startsWith("[farah-chat-gate] free claim failed"))).toEqual(["[farah-chat-gate] free claim failed (code=08006)"]);
     expect(errorLines().join("\n")).not.toMatch(/user-secret-id|db-internal-7|refused/);
+  });
+
+  it("a claim whose call REJECTS (a lost connection) is lost too, with the same content-free line (code=thrown)", async () => {
+    rpcRejects = true;
+    const a = await gate.checkFarahChatAllowance("user-secret-id");
+    expect(a).toMatchObject({ isFreeAllowance: false, creditsSpent: COST });
+    expect(errorLines().filter((l) => l.startsWith("[farah-chat-gate] free claim failed"))).toEqual(["[farah-chat-gate] free claim failed (code=thrown)"]);
+    expect(errorLines().join("\n")).not.toMatch(/user-secret-id|network down/);
+  });
+
+  it("the fake database answers the way the real client does: a thenable that is not a Promise and has no .catch (so code that needs .catch fails here, not only in CI)", () => {
+    const b = realRpcBuilder({ data: null, error: null }) as unknown as Record<string, unknown>;
+    expect(typeof b.then).toBe("function");
+    expect(b.catch).toBeUndefined();
+    expect(b.finally).toBeUndefined();
+    expect(b instanceof Promise).toBe(false);
   });
 
   it("an answer that is not the expected row (none, not an array, a missing id on an 'ok') is lost, never free", async () => {

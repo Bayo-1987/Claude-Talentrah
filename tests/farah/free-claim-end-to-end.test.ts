@@ -9,6 +9,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { freeClaimRpc } from "./support/free-claim-model";
+import { realRpcBuilder } from "./support/real-rpc-builder";
 
 type Row = Record<string, unknown>;
 const NOW = new Date("2026-10-31T12:00:00.000Z");
@@ -63,8 +64,8 @@ let releaseFails = false;
 const fakeDb = () => ({
   from: (t: string) => query(t),
   // The claim functions of migration 0236, modelled rule by rule (tests/farah/support/free-claim-model.ts). `releaseFails` makes the release answer with an error, as a lost connection would.
-  rpc: async (fn: string, args: Record<string, unknown>) =>
-    releaseFails && fn === "release_farah_free_claim" ? { data: null, error: { message: "connection lost", code: "08006" } } : freeClaimRpc(store, fn, args, Date.now()),
+  rpc: (fn: string, args: Record<string, unknown>) =>
+    realRpcBuilder(releaseFails && fn === "release_farah_free_claim" ? { data: null, error: { message: "connection lost", code: "08006" } } : freeClaimRpc(store, fn, args, Date.now())),
   auth: { getUser: async () => ({ data: { user: { id: USER } } }) },
 });
 

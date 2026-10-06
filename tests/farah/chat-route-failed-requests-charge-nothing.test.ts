@@ -15,6 +15,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { freeClaimRpc } from "./support/free-claim-model";
+import { realRpcBuilder } from "./support/real-rpc-builder";
 
 type Row = Record<string, unknown>;
 const NOW = new Date("2026-10-31T12:00:00.000Z");
@@ -69,7 +70,7 @@ function query(name: string) {
   };
   return api;
 }
-const fakeDb = () => ({ from: (t: string) => query(t), rpc: async (fn: string, args: Record<string, unknown>) => freeClaimRpc(store, fn, args, Date.now()), auth: { getUser: async () => ({ data: { user: signedIn ? { id: USER } : null } }) } });
+const fakeDb = () => ({ from: (t: string) => query(t), rpc: (fn: string, args: Record<string, unknown>) => realRpcBuilder(freeClaimRpc(store, fn, args, Date.now())), auth: { getUser: async () => ({ data: { user: signedIn ? { id: USER } : null } }) } });
 
 const spendCredits = vi.fn(async () => 4);
 const askFarahChatStream = vi.fn();

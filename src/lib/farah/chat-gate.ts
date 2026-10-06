@@ -70,17 +70,25 @@ export interface FarahChatAllowanceResult {
  * (the migration is not applied), so the old check-then-commit path is used rather than turning every free message into a paid one.
  */
 type FreeClaim = { kind: "claimed"; id: string; usedAfter: number } | { kind: "lost" } | { kind: "legacy" };
-type ClaimRpc = (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string; code?: string } | null }>;
+type ClaimRpc = (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: { message: string; code?: string } | null }>;
 // The generated Database types do not list the claim functions until they are regenerated after 0236.
 const rpcOf = (supabase: ReturnType<typeof createServiceRoleClient>): ClaimRpc => supabase.rpc.bind(supabase) as unknown as ClaimRpc;
 
 async function claimFreeMessage(userId: string): Promise<FreeClaim> {
-  const { data, error } = await rpcOf(createServiceRoleClient())("claim_farah_free_message", {
-    p_user_id: userId,
-    p_allowance: FARAH_CHAT_FREE_ALLOWANCE,
-    p_window_days: FARAH_CHAT_FREE_WINDOW_DAYS,
-    p_hold_seconds: FARAH_FREE_CLAIM_HOLD_SECONDS,
-  }).catch((err: unknown) => ({ data: null, error: { message: String(err), code: "thrown" } }));
+  // supabase-js's rpc() returns a thenable that is NOT a Promise (no .catch), so the call is awaited inside try/catch.
+  let data: unknown;
+  let error: { message: string; code?: string } | null;
+  try {
+    ({ data, error } = await rpcOf(createServiceRoleClient())("claim_farah_free_message", {
+      p_user_id: userId,
+      p_allowance: FARAH_CHAT_FREE_ALLOWANCE,
+      p_window_days: FARAH_CHAT_FREE_WINDOW_DAYS,
+      p_hold_seconds: FARAH_FREE_CLAIM_HOLD_SECONDS,
+    }));
+  } catch (err) {
+    data = null;
+    error = { message: String(err), code: "thrown" };
+  }
   if (error) {
     if (error.code && MISSING_OBJECT_CODES.has(error.code)) {
       console.error(`[farah-chat-gate] free claim function missing (code=${error.code}): migration 0236 may not be applied; using the check-then-commit path`);
