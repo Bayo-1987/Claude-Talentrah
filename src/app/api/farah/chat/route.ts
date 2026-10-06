@@ -17,6 +17,7 @@ import {
 import {
   checkFarahChatAllowance,
   commitFarahChatAllowance,
+  farahChatNextFreeMessageAt,
   InsufficientCreditsError,
 } from "@/lib/farah/chat-gate";
 import { chipEntryPoint } from "@/lib/farah/chip-registry";
@@ -333,7 +334,7 @@ export async function POST(request: Request) {
         if (err instanceof FallbackDeclinedError) {
           // The primary was rate-limited and there is not enough headroom left for the fallback: end the reply with the busy wording (nothing was charged). Content-free line.
           console.warn("[farah-spend:fallback-declined] the fallback provider was not used: the day's headroom is below its reserve");
-          send({ type: "error", message: FARAH_BUSY_MESSAGE });
+          send({ type: "error", kind: "fallback_declined", message: FARAH_BUSY_MESSAGE });
           controller.close();
           return;
         }
@@ -345,7 +346,7 @@ export async function POST(request: Request) {
           err instanceof LLMProviderError && err.kind === "rate_limit"
             ? farahRateLimitMessage(err.message)
             : GENERIC_FARAH_UNAVAILABLE_MESSAGE;
-        send({ type: "error", message: errorMessage });
+        send({ type: "error", kind: err instanceof LLMProviderError && err.kind === "rate_limit" ? "rate_limited" : "unavailable", message: errorMessage });
         controller.close();
         return;
       }
@@ -366,7 +367,7 @@ export async function POST(request: Request) {
         // the same as the pre-streaming "empty response" case each
         // provider's own generateWithUsage already guards against, just
         // reached a different way here.
-        send({ type: "error", message: GENERIC_FARAH_UNAVAILABLE_MESSAGE });
+        send({ type: "error", kind: "empty_reply", message: GENERIC_FARAH_UNAVAILABLE_MESSAGE });
         controller.close();
         return;
       }
@@ -399,6 +400,16 @@ export async function POST(request: Request) {
         truncated && allowance.isFreeAllowance && allowance.freeMessagesRemaining !== null
           ? allowance.freeMessagesRemaining + 1
           : allowance.freeMessagesRemaining;
+      // When the next free message comes back, for the panel's line: only when the free messages are used up and no Pass covers this message (read AFTER the commit, so a message that just used the last one counts).
+      // Display-only: null in every other case without a read, and a failed read is null; it never blocks the reply or changes a charge.
+      let nextFreeMessageAt: string | null = null;
+      if (!allowance.isPassCovered && freeMessagesRemaining === 0) {
+        try {
+          nextFreeMessageAt = await farahChatNextFreeMessageAt(user.id);
+        } catch {
+          nextFreeMessageAt = null;
+        }
+      }
       const rowContext = truncated ? { ...context, truncated: true } : context;
       // The reply row (only) also carries the token counts, so daily totals can be summed from saved rows: runtime logs are kept about an hour.
       // No migration: `context` is the existing JSON column. Absent when the provider reported none (unknown is not zero).
@@ -417,6 +428,7 @@ export async function POST(request: Request) {
           createdAt: new Date().toISOString(),
           persisted: false,
           freeMessagesRemaining,
+          nextFreeMessageAt,
           creditsBalance,
           ...(truncated ? { truncated: true } : {}),
         });
@@ -427,6 +439,7 @@ export async function POST(request: Request) {
           createdAt: saved.createdAt,
           persisted: true,
           freeMessagesRemaining,
+          nextFreeMessageAt,
           creditsBalance,
           ...(truncated ? { truncated: true } : {}),
         });
