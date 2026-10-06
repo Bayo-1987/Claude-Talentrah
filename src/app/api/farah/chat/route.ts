@@ -17,6 +17,7 @@ import {
 import {
   checkFarahChatAllowance,
   commitFarahChatAllowance,
+  farahChatNextFreeMessageAt,
   InsufficientCreditsError,
 } from "@/lib/farah/chat-gate";
 import { chipEntryPoint } from "@/lib/farah/chip-registry";
@@ -399,6 +400,16 @@ export async function POST(request: Request) {
         truncated && allowance.isFreeAllowance && allowance.freeMessagesRemaining !== null
           ? allowance.freeMessagesRemaining + 1
           : allowance.freeMessagesRemaining;
+      // When the next free message comes back, for the panel's line: only when the free messages are used up and no Pass covers this message (read AFTER the commit, so a message that just used the last one counts).
+      // Display-only: null in every other case without a read, and a failed read is null; it never blocks the reply or changes a charge.
+      let nextFreeMessageAt: string | null = null;
+      if (!allowance.isPassCovered && freeMessagesRemaining === 0) {
+        try {
+          nextFreeMessageAt = await farahChatNextFreeMessageAt(user.id);
+        } catch {
+          nextFreeMessageAt = null;
+        }
+      }
       const rowContext = truncated ? { ...context, truncated: true } : context;
       // The reply row (only) also carries the token counts, so daily totals can be summed from saved rows: runtime logs are kept about an hour.
       // No migration: `context` is the existing JSON column. Absent when the provider reported none (unknown is not zero).
@@ -417,6 +428,7 @@ export async function POST(request: Request) {
           createdAt: new Date().toISOString(),
           persisted: false,
           freeMessagesRemaining,
+          nextFreeMessageAt,
           creditsBalance,
           ...(truncated ? { truncated: true } : {}),
         });
@@ -427,6 +439,7 @@ export async function POST(request: Request) {
           createdAt: saved.createdAt,
           persisted: true,
           freeMessagesRemaining,
+          nextFreeMessageAt,
           creditsBalance,
           ...(truncated ? { truncated: true } : {}),
         });

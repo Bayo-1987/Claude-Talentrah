@@ -4,7 +4,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const state = { used: 0, balance: 0, passCovered: false };
+const state = { used: 0, balance: 0, passCovered: false, passReason: "no_active_pass" as "no_active_pass" | "daily_cap_reached" };
 
 function from(table: string) {
   if (table === "profiles") {
@@ -18,10 +18,11 @@ function from(table: string) {
 }
 vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => ({ from }) }));
 vi.mock("@/lib/passes/entitlement", () => ({
-  checkPassCoverage: async () => (state.passCovered ? { covered: true } : { covered: false, reason: "no_pass" }),
+  checkPassCoverage: async () => (state.passCovered ? { covered: true } : { covered: false, reason: state.passReason }),
   DAILY_CAP_MESSAGE: "cap",
 }));
-vi.mock("@/lib/credits/gate-events", () => ({ logCreditGateEvent: async () => undefined }));
+const logCreditGateEvent = vi.fn(async () => undefined);
+vi.mock("@/lib/credits/gate-events", () => ({ logCreditGateEvent }));
 vi.mock("@/lib/credits/spend", () => ({
   spendCredits: async () => ({ balanceAfter: 0 }),
   InsufficientCreditsError: class InsufficientCreditsError extends Error {
@@ -31,14 +32,16 @@ vi.mock("@/lib/credits/spend", () => ({
   },
 }));
 
-const { checkFarahChatAllowance, InsufficientCreditsError } = await import("@/lib/farah/chat-gate");
+const { checkFarahChatAllowance, commitFarahChatAllowance, InsufficientCreditsError } = await import("@/lib/farah/chat-gate");
 const { farahMessageCharge, panelChipCharge } = await import("@/lib/credits/farah-message-charge");
 const { CREDIT_COSTS } = await import("@/lib/credits/costs");
 
 beforeEach(() => {
+  logCreditGateEvent.mockClear();
   state.used = 0;
   state.balance = 0;
   state.passCovered = false;
+  state.passReason = "no_active_pass";
 });
 
 /** What the gate decided, in the same words as a charge. */
@@ -98,6 +101,110 @@ describe("the gate and the charge function name the same charge", () => {
     const chip = panelChipCharge(undefined, 5);
     expect(chip).toEqual({ kind: "unknown" });
     expect(farahMessageCharge({ freeLeft: undefined, passCovered: undefined, balance: undefined })).toEqual({ kind: "unknown" });
+  });
+});
+
+describe("every state an account can be in: the gate and the charge function agree", () => {
+  const COST = CREDIT_COSTS.farahChatMessage;
+  const FREE_ALLOWANCE = 3;
+
+  it("free messages left: all three counts (3, 2 and 1 left before it)", async () => {
+    for (const used of [0, 1, 2]) {
+      state.used = used;
+      state.balance = 0;
+      const left = FREE_ALLOWANCE - used;
+      expect(await gateOutcome(), `${used} used`).toEqual({ kind: "free", freeAfter: left - 1 });
+      expect(panelFor(used, false, 0), `${used} used`).toEqual({ kind: "free", freeAfter: left - 1 });
+    }
+  });
+
+  it("free messages used up, no Pass, enough credits: exactly the price, at the boundary and above it", async () => {
+    for (const balance of [COST, COST + 1, 50]) {
+      state.used = 3;
+      state.balance = balance;
+      expect(await gateOutcome(), `balance ${balance}`).toEqual({ kind: "credits", credits: COST });
+      expect(panelFor(3, false, balance), `balance ${balance}`).toEqual({ kind: "credits", credits: COST });
+    }
+  });
+
+  it("free messages used up, no Pass, NOT enough credits: refused, at one credit short and at zero", async () => {
+    for (const balance of [COST - 1, 0]) {
+      state.used = 3;
+      state.balance = balance;
+      expect(await gateOutcome(), `balance ${balance}`).toEqual({ kind: "insufficient", required: COST, available: balance });
+      expect(panelFor(3, false, balance), `balance ${balance}`).toEqual({ kind: "insufficient", required: COST, available: balance });
+    }
+  });
+
+  it("an active Pass, free messages used up: covered, whatever the balance", async () => {
+    for (const balance of [0, 5]) {
+      state.used = 3;
+      state.passCovered = true;
+      state.balance = balance;
+      expect(await gateOutcome(), `balance ${balance}`).toEqual({ kind: "pass" });
+      expect(panelFor(3, true, balance), `balance ${balance}`).toEqual({ kind: "pass" });
+    }
+  });
+
+  it("an active Pass but free messages still left: the free message goes first (the founder's order), the Pass is not used", async () => {
+    state.used = 1;
+    state.passCovered = true;
+    state.balance = 0;
+    expect(await gateOutcome()).toEqual({ kind: "free", freeAfter: 1 });
+  });
+
+  it("an EXPIRED Pass (the Pass check answers 'not covered: no_active_pass', as for no Pass at all): the credit price applies", async () => {
+    state.used = 3;
+    state.passCovered = false;
+    state.passReason = "no_active_pass";
+    state.balance = 5;
+    expect(await gateOutcome()).toEqual({ kind: "credits", credits: COST });
+    state.balance = 0;
+    expect(await gateOutcome()).toEqual({ kind: "insufficient", required: COST, available: 0 });
+  });
+
+  it("an active Pass past today's fair-use cap: the credit price applies, and a refusal carries the cap's own explanation", async () => {
+    state.used = 3;
+    state.passCovered = false;
+    state.passReason = "daily_cap_reached";
+    state.balance = 5;
+    expect(await gateOutcome()).toEqual({ kind: "credits", credits: COST });
+    state.balance = 0;
+    try {
+      await checkFarahChatAllowance("u-1");
+      throw new Error("expected a refusal");
+    } catch (e) {
+      expect(e).toBeInstanceOf(InsufficientCreditsError);
+      expect((e as { capMessage?: string }).capMessage).toBe("cap");
+    }
+  });
+
+  it("an account with no Pass and no credits is refused WITHOUT a cap message (the cap's explanation belongs to a Pass holder only)", async () => {
+    state.used = 3;
+    state.balance = 0;
+    try {
+      await checkFarahChatAllowance("u-1");
+      throw new Error("expected a refusal");
+    } catch (e) {
+      expect((e as { capMessage?: string }).capMessage).toBeUndefined();
+    }
+  });
+});
+
+describe("a message that fails writes nothing: no free message used, so the next-free time cannot move", () => {
+  it("checking a free message logs NOTHING (the free-allowance event, which is what the next-free time is read from, is written only by the commit after a successful reply)", async () => {
+    state.used = 2;
+    const a = await checkFarahChatAllowance("u-1");
+    expect(a.isFreeAllowance).toBe(true);
+    expect(logCreditGateEvent).not.toHaveBeenCalled();
+  });
+
+  it("committing it writes exactly one covered_by_free_allowance event", async () => {
+    state.used = 2;
+    const a = await checkFarahChatAllowance("u-1");
+    await commitFarahChatAllowance("u-1", a);
+    expect(logCreditGateEvent).toHaveBeenCalledTimes(1);
+    expect(logCreditGateEvent).toHaveBeenCalledWith(expect.objectContaining({ outcome: "covered_by_free_allowance", userId: "u-1" }));
   });
 });
 

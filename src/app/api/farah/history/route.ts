@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { farahChatFreeMessagesRemaining } from "@/lib/farah/chat-gate";
+import { farahChatFreeMessagesRemaining, farahChatNextFreeMessageAt } from "@/lib/farah/chat-gate";
 import { hasActivePass } from "@/lib/passes/entitlement";
 
 /**
@@ -66,6 +66,19 @@ export async function GET() {
   const freeMessagesRemaining = isPassHolder ? null : await farahChatFreeMessagesRemaining(user.id);
 
   /*
+   * When the next free message comes back (an ISO time), for the panel's "next one on ..." line. Only when the free messages are USED UP and no Pass is active: in every other case it is null
+   * and the read is not made. It is display-only, so any failure of the read is null and never changes or blocks the rest of this response.
+   */
+  let nextFreeMessageAt: string | null = null;
+  if (!isPassHolder && freeMessagesRemaining === 0) {
+    try {
+      nextFreeMessageAt = await farahChatNextFreeMessageAt(user.id);
+    } catch {
+      nextFreeMessageAt = null;
+    }
+  }
+
+  /*
    * The Farah-visibility design review's notification dot — wired to the
    * REAL "something new" signal 0131 already built for the proactive match
    * alert (user_notifications, owner-readable RLS, read_at owner-writable),
@@ -117,6 +130,7 @@ export async function GET() {
   return NextResponse.json({
     messages: [...(data ?? [])].reverse(),
     freeMessagesRemaining,
+    nextFreeMessageAt,
     hasUnreadNotification,
   });
 }
