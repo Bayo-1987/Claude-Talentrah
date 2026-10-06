@@ -41,7 +41,12 @@ describe("the footer uses the token everywhere it used the old colour", () => {
     expect(source).not.toContain("oklch(60%_0.02_60)");
   });
 
-  it("renders the column headings, the copyright line and the tagline with the token's class", () => {
-    expect((html.match(/text-footer-eyebrow/g) ?? []).length).toBeGreaterThanOrEqual(5);
+  it("renders the four column headings with the token's class", () => {
+    expect((html.match(/uppercase tracking-\[0\.1em\] text-footer-eyebrow/g) ?? []).length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("renders the copyright line and the italic tagline with the token's class", () => {
+    expect(html).toMatch(/<span class="text-\[13px\] text-footer-eyebrow">[^<]*©/);
+    expect(html).toMatch(/<span class="font-display text-\[13px\] italic text-footer-eyebrow">/);
   });
 });
