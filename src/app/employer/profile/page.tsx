@@ -1,4 +1,5 @@
 import { requireEmployer } from "@/lib/employer/membership";
+import { loadOrganizationCacDetails } from "@/lib/employer/cac-details";
 import {
   evaluateDomainVerification,
   verificationMessage,
@@ -11,6 +12,9 @@ export const metadata = { title: "Company Profile — Talentrah" };
 
 export default async function CompanyProfilePage() {
   const { organization, userEmail, emailConfirmed } = await requireEmployer();
+  // The registration details are withheld from the signed-in role (0232); the organisation id above came from the viewer's own membership,
+  // so reading them for exactly that organisation on the server is the viewer's own data.
+  const cac = await loadOrganizationCacDetails(organization.id);
 
   // Recomputed from the CURRENT stored domain, so the explanation always
   // describes the state the employer is actually in rather than the one they
@@ -78,13 +82,13 @@ export default async function CompanyProfilePage() {
       <div className="mt-9">
         <CacVerificationForm
           initial={{
-            cacNumber: organization.cac_number ?? "",
-            cacBusinessName: organization.cac_business_name ?? "",
+            cacNumber: cac.cacNumber ?? "",
+            cacBusinessName: cac.cacBusinessName ?? "",
           }}
           status={
             organization.cac_confirmed_at
               ? "confirmed"
-              : organization.cac_number
+              : cac.cacNumber
                 ? "pending"
                 : "none"
           }

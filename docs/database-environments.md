@@ -50,6 +50,9 @@ one morning by two sessions that each did exactly that. Ask, wait for the number
 | 0232 | S3-21, column grants for the public internal-metadata columns (assigned by the owner on 5 Oct 2026; file not yet pushed) | reserved | reserved |
 | 0233 | S1, the Founding Member verification offer: a grants table, an offer table and a claim function (assigned by the owner on 5 Oct 2026; file not yet pushed) | reserved | reserved |
 | 0234 | S1, VERIFY-1 step 0a-2: review date and review type on `employer_job_applicants`, and review type on `talent_directory_search`; the score and the non-verified status are no longer returned to employers (assigned by the owner on 5 Oct 2026; `supabase/migrations/0234_review_date_and_type_on_applicants_and_search.sql`, sha256 `d07df1f270c8d6a9eadedaa7afcb81645c95decf818f3be01132cdb12456a99a`; applied with that hash on production and on preview, both read back from the ledger) | applied 11:02:25Z (6 Oct), ledger 20261006110225 | applied 09:53:07Z (6 Oct), ledger 20261006095307 |
+| 0235 | S3, the Farah spend-alert markers (assigned by the owner on 5 Oct 2026; additive; file in its PR) | reserved | reserved |
+| 0236 | S3, the Farah atomic free-message claim (assigned by the owner on 6 Oct 2026; one table and three functions, written for `credit_gate_events`; the production apply is on the owner's list) | reserved | reserved |
+| 0237 | S1 and S3-21, the employer job-list widget (assigned by the owner on 6 Oct 2026; moved from 0236) | reserved | reserved |
 
 The times are the ledger's own version stamps (UTC, 2 to 4 Oct 2026), read from `supabase_migrations.schema_migrations` on both projects. A row says "applied" only because
 that ledger shows it; "reserved" means the owner assigned the number and no ledger has it; "proposed" means the owner named the number but the migration file does not exist yet.
