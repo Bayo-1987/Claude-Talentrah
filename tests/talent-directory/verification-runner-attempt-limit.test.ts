@@ -59,7 +59,7 @@ describe("the limit is reached", () => {
     claimReturns(LIMIT);
     const r = await runTalentVerification("user-1");
     expect(r.message).toBe(
-      "You've used both of your resume reviews by Farah (AI) in the past 30 days. The next one opens on 31 October 2026. If you'd rather not wait, you can ask a Talentrah mentor to review your resume.",
+      "You've used both of your resume reviews by Farah (AI) in the past 30 days. The next one opens on 31 Oct 2026. If you'd rather not wait, you can ask a Talentrah mentor to review your resume.",
     );
   });
 
@@ -70,8 +70,8 @@ describe("the limit is reached", () => {
   });
 
   it("gives the date in UTC, so it does not depend on the server's time zone", () => {
-    expect(attemptLimitMessage("2026-10-31T23:30:00Z")).toContain("31 October 2026");
-    expect(attemptLimitMessage("2026-11-01T00:30:00Z")).toContain("1 November 2026");
+    expect(attemptLimitMessage("2026-10-31T23:30:00Z")).toContain("31 Oct 2026");
+    expect(attemptLimitMessage("2026-11-01T00:30:00Z")).toContain("1 Nov 2026");
   });
 
   it("leaves the date out rather than inventing one when the database gave none or an unreadable one", () => {
