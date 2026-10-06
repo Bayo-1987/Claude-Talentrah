@@ -1,8 +1,10 @@
 /**
- * CHARACTERIZATION (report only; this work does not change behaviour): pins what the commits do today, against the real database and the real
- * functions, when PARALLEL = 10 requests are in flight at once with one free message, or one credit, left. Any future change to charge timing
- * has to change these numbers on purpose. Database-backed: it runs in CI only, and its first run is CI's.
+ * CHARACTERIZATION (changed on purpose by migration 0236, the free-message claim): pins what the gate does against the real database and the real functions when PARALLEL = 10 requests are in
+ * flight at once with one free message, or one credit, left. Before the claim, all 10 requests passed the free check and all 10 committed (12 events in the window for an account that had 2
+ * used). With the claim, taken before the model call, exactly ONE request gets the last free slot and the other 9 fall through to Pass/credits/refusal. Any future change to charge timing has to
+ * change these numbers on purpose. Database-backed: it runs in CI only, and its first run is CI's.
  */
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { admin, createTestUser, deleteTestUsers } from "../support/auth";
 import {
@@ -44,30 +46,33 @@ async function balance(): Promise<number> {
 }
 
 afterEach(async () => {
+  await (admin as unknown as SupabaseClient).from("farah_free_claims").delete().eq("user_id", userId);
   await admin.from("credit_gate_events").delete().eq("user_id", userId);
   await admin.from("credit_ledger").delete().eq("user_id", userId);
   await setBalance(0);
 });
 
 describe(`${PARALLEL} requests in flight together`, () => {
-  it("free allowance, one message left: every request passes the check, every commit records its event", async () => {
+  it("free allowance, one message left: exactly ONE request is covered by the free allowance; the other 9 are refused (no credits, no Pass) before any model call; the account ends at exactly 3", async () => {
     await insertFreeEvents(FARAH_CHAT_FREE_ALLOWANCE - 1);
     expect(await farahChatFreeMessagesRemaining(userId)).toBe(1);
 
-    const allowances = await Promise.all(Array.from({ length: PARALLEL }, () => checkFarahChatAllowance(userId)));
-    expect(allowances.every((a) => a.isFreeAllowance), "every request was told it is covered by the free allowance").toBe(true);
+    const checks = await Promise.allSettled(Array.from({ length: PARALLEL }, () => checkFarahChatAllowance(userId)));
+    const free = checks.filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof checkFarahChatAllowance>>> => r.status === "fulfilled");
+    const refused = checks.filter((r): r is PromiseRejectedResult => r.status === "rejected");
+    console.info(`[characterization] ${free.length} of ${PARALLEL} parallel requests were given the last free message`);
+    expect(free).toHaveLength(1);
+    expect(free[0].value.isFreeAllowance).toBe(true);
+    expect(refused).toHaveLength(PARALLEL - 1);
+    for (const r of refused) expect(r.reason).toBeInstanceOf(InsufficientCreditsError);
 
-    const results = await Promise.allSettled(allowances.map((a) => commitFarahChatAllowance(userId, a)));
-    const completedFree = results.filter((r) => r.status === "fulfilled").length;
-    console.info(`[characterization] ${completedFree} of ${PARALLEL} parallel requests completed under the free allowance`);
-    expect(completedFree).toBe(PARALLEL);
-
+    await commitFarahChatAllowance(userId, free[0].value);
     const { count } = await admin
       .from("credit_gate_events")
       .select("id", { count: "exact", head: true })
       .eq("user_id", userId)
       .eq("outcome", "covered_by_free_allowance");
-    expect(count, "events recorded in the window").toBe(FARAH_CHAT_FREE_ALLOWANCE - 1 + PARALLEL);
+    expect(count, "events recorded in the window").toBe(FARAH_CHAT_FREE_ALLOWANCE);
     expect(await farahChatFreeMessagesRemaining(userId)).toBe(0);
   });
 
