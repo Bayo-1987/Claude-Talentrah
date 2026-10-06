@@ -12,10 +12,15 @@ import { BorderedCard, EyebrowLabel, buttonClasses } from "@/components/ui";
  *     visitor. This component takes no props and awaits nothing, so no mentor data can reach it; showing mentors publicly would need a separate opt-in decision.
  *   - no "never through credits". The old paragraph that restated Meet Farah's "a human is the better call" is gone, so the two neighbouring sections no longer say the same thing.
  *
- * The four session types are the ones the booking page offers (src/app/(app)/mentorship/[mentorId]/page.tsx SESSION_TYPES; "Offer negotiation" is `negotiation_strategy`, "Negotiation strategy for a specific offer" there).
+ * The five session types are the ones the booking page offers (src/app/(app)/mentorship/[mentorId]/page.tsx SESSION_TYPES; "Offer negotiation" is `negotiation_strategy`, "Negotiation strategy for a specific offer" there). The quick question
+ * comes first at the owner's request; it is named without its length ("Quick question (15 min)" on the booking page), because the section states no session length.
+ *
+ * ON A PHONE the card bleeds 20px past the text column on each side (-mx-5) and has less inner padding (p-5), so it is 320px wide at 360px with 280px for its text, instead of 280 and 224. The section's own gutters
+ * (px-10, the same as its neighbours) are not touched; from 901px the card is back to its normal size.
  * No click events here: the app has no custom analytics call and its page-view analytics is not gated on cookie consent, so events are a separate decision.
  */
 const SESSION_TYPES = [
+  { label: "Quick question", line: "Get unstuck on one thing." },
   { label: "Mock interview", line: "Practise the real thing before it counts." },
   { label: "Offer negotiation", line: "Prepare for a specific offer." },
   { label: "Career strategy", line: "Talk through your next move." },
@@ -56,7 +61,7 @@ export function MentorshipSection() {
             ))}
           </ul>
         </div>
-        <BorderedCard className="flex flex-col gap-5 p-7">
+        <BorderedCard className="-mx-5 flex flex-col gap-5 p-5 min-[901px]:mx-0 min-[901px]:p-7">
           <EyebrowLabel>1:1 mentor sessions</EyebrowLabel>
           <ul className="flex flex-col">
             {SESSION_TYPES.map((type) => (
