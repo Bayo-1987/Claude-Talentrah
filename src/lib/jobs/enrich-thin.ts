@@ -138,6 +138,11 @@ export interface EnrichmentRunSummary {
   attempted: number;
   enriched: number;
   errors: string[];
+  /**
+   * Present only when the run was refused: the flag was on but the provider resolved to the offline stub in a production deployment. Nothing was
+   * read or written (see enrichThinPostings).
+   */
+  skipped?: "stub-provider-in-production";
 }
 
 const DISABLED_SUMMARY: EnrichmentRunSummary = { enabled: false, attempted: 0, enriched: 0, errors: [] };
@@ -154,6 +159,21 @@ export async function enrichThinPostings(
     return DISABLED_SUMMARY;
   }
 
+  /*
+   * THE STUB MUST NEVER WRITE TO PRODUCTION. `JD_EXTRACTION_LLM_PROVIDER` is unset in every environment, so the provider is the offline stub, whose
+   * one output is the fixed skill "stub-jd-extraction-skill". With the flag on, that skill was merged into live postings' structured_jd for
+   * 17 days (2026-09-16 to 2026-10-03): it counted as a screenable tag in match scores, showed in the job page's skills list, and each rewrite
+   * deleted the posting's stored scores (trigger 0069). So: flag on + stub + production = do NOTHING (no read, no write, no provider call), log
+   * one warning for the run, and say so in the summary. The stub still works everywhere else (tests, local development, preview deployments).
+   * "Production" is VERCEL_ENV, as in src/lib/dev/dev-fixture-guard.ts: NODE_ENV cannot tell CI, which runs a production build, from the live site.
+   * Checked BEFORE any query so a refused run costs nothing and touches nothing.
+   */
+  const provider = getJdExtractionProvider();
+  if (provider.name === "stub" && process.env.VERCEL_ENV === "production") {
+    console.warn("[enrich-thin] enrichment enabled but no real provider configured; skipped");
+    return { enabled: true, attempted: 0, enriched: 0, errors: [], skipped: "stub-provider-in-production" };
+  }
+
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
     .from("job_postings")
@@ -167,7 +187,6 @@ export async function enrichThinPostings(
   if (error) throw error;
 
   const candidates = selectEnrichmentCandidates((data ?? []) as EnrichmentCandidateRow[], cap);
-  const provider = getJdExtractionProvider();
   const errors: string[] = [];
   let enriched = 0;
 
