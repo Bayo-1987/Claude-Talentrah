@@ -65,6 +65,8 @@ test("QA Seeker: a wrong password is refused on the page and the person stays on
 });
 
 test("QA Seeker: creates an account on /signup with the form, then reaches the code page", async ({ page }, info) => {
+  // Real signup + code + onboarding with a screenshot per step: the 30 s default is too tight (signup-code.spec.ts uses 90 s for the same reason).
+  test.setTimeout(90_000);
   const email = newEmail("signup");
   const password = newPassword();
   let userId: string | undefined;
