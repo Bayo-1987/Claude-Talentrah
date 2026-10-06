@@ -106,8 +106,10 @@ export async function farahChatFreeMessagesRemaining(
 /**
  * When the next free message comes back, as an ISO timestamp, or `null` when none is coming back (nothing was used in the window) or the read failed.
  *
- * Rolling, not a calendar month: the oldest free message still inside the last 30 days returns exactly 30 days after it was logged (`nextFreeMessageAt`, free-allowance.ts, which shares the window edge
- * with the count above). It ignores a Pass: a Pass holder's free messages still come back on this schedule; whether to SHOW it is the caller's decision (the history route reports no free count for a
+ * Rolling, not a calendar month: a free message returns 30 days after it was logged, and a person is free again once fewer than 3 are inside the window, so it is the (n - 3 + 1)th oldest of the n
+ * inside it, plus 30 days (`nextFreeMessageAt`, free-allowance.ts, which shares the window edge with the count above). That row is the 3rd NEWEST for every n >= 3 (the oldest when n is 3, the second
+ * oldest when n is 4), so this reads only the 3 newest in-window rows, newest first: no bound to hit and at most 3 rows however many there are. n can be above 3 because parallel requests can over-commit
+ * (characterised in chat-gate-concurrent-commit.test.ts; possible today and NOT fixed here), which is why taking the oldest row alone would be wrong. It ignores a Pass: a Pass holder's free messages still come back on this schedule; whether to SHOW it is the caller's decision (the history route reports no free count for a
  * Pass holder). Display-only: it never decides whether a message is free (the count does), so a failed read is `null`, not fail-closed. Safe to call as often as a page wants to show it.
  */
 export async function farahChatNextFreeMessageAt(userId: string, now: Date = new Date()): Promise<string | null> {
@@ -119,8 +121,8 @@ export async function farahChatNextFreeMessageAt(userId: string, now: Date = new
     .eq("reason", FARAH_CHAT_REASON)
     .eq("outcome", "covered_by_free_allowance")
     .gte("created_at", freeWindowStart(now).toISOString())
-    .order("created_at", { ascending: true })
-    .limit(1);
+    .order("created_at", { ascending: false })
+    .limit(FARAH_CHAT_FREE_ALLOWANCE);
   if (error) {
     console.error(`[farah-chat-gate] could not read when the next free message returns: ${error.message}`);
     return null;

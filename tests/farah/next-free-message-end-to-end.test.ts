@@ -231,3 +231,56 @@ describe("a message whose model call FAILS leaves everything as it was", () => {
     expect((await history()).nextFreeMessageAt).toBeNull();
   });
 });
+
+describe("OVER-COMMITTED: more than 3 free messages inside the window (parallel requests can do this today; it is characterised by chat-gate-concurrent-commit.test.ts and NOT fixed here)", () => {
+  it("history, 4 in the window: the date is when the SECOND oldest leaves, the first moment a message is free again, not when the oldest leaves", async () => {
+    seed({ freeUsedAt: [-25, -20, -10, -5], balance: 0 });
+    const body = await history();
+    expect(body.freeMessagesRemaining).toBe(0);
+    expect(body.nextFreeMessageAt).toBe(at(10)); // -20 days + 30. At day 5 (-25 + 30) the window would still hold 3: not free.
+  });
+
+  it("the promise holds through the real gate: a free message is NOT available one millisecond before the reported time and IS available one millisecond after it", async () => {
+    // The reported instant is the moment the oldest blocking message turns exactly 30 days old; the gate still counts a message that is exactly 30 days old (created_at >= now - 30 days), so it is free from the next millisecond.
+    seed({ freeUsedAt: [-25, -20, -10, -5], balance: 0 });
+    const promised = new Date(String((await history()).nextFreeMessageAt));
+    await expect(checkFarahChatAllowance(USER, new Date(promised.getTime() - 1))).rejects.toThrow(); // no free left, no credits, no Pass
+    expect(await checkFarahChatAllowance(USER, new Date(promised.getTime() + 1))).toMatchObject({ isFreeAllowance: true, freeMessagesRemaining: 0 }); // free: 2 counted, this message is the third (0 left after it)
+  });
+
+  it("5 in the window: the third oldest decides", async () => {
+    seed({ freeUsedAt: [-28, -25, -20, -10, -5], balance: 0 });
+    expect((await history()).nextFreeMessageAt).toBe(at(10));
+  });
+
+  it("many more than 3 in the window (60): still the (n - 3 + 1)th oldest, with no bound on how many there are", async () => {
+    const days = Array.from({ length: 60 }, (_, i) => -29 + i * 0.4); // 60 events from 29 days ago up to about 5 days ago, oldest first
+    seed({ freeUsedAt: days, balance: 0 });
+    const sorted = days.map((d) => at(d)).sort();
+    const expected = new Date(new Date(sorted[60 - 3]).getTime() + 30 * DAY).toISOString(); // row n - 3 + 1 (1-based) is the 3rd newest
+    expect((await history()).nextFreeMessageAt).toBe(expected);
+  });
+
+  it("ties: four events at one instant and one newer: the date is that instant plus 30 days", async () => {
+    seed({ freeUsedAt: [-20, -20, -20, -20, -2], balance: 0 });
+    expect((await history()).nextFreeMessageAt).toBe(at(10));
+  });
+
+  it("the message that goes over (4 free ones in the window after it commits) reports the same corrected time in its done event", async () => {
+    seed({ freeUsedAt: [-25, -20, -10, -5] , balance: 5 });
+    const done = doneOf(await send())!; // credits pay: the free count is already used up, so nothing new is committed as free
+    expect(done.freeMessagesRemaining).toBe(0);
+    expect(done.nextFreeMessageAt).toBe(at(10));
+  });
+
+  it("a real over-commit: four requests in parallel against 2 used messages all pass the check, and the time that follows is for the over-committed count", async () => {
+    seed({ freeUsedAt: [-20, -5], balance: 0 });
+    await Promise.all([send(), send(), send(), send()]);
+    const inWindow = freeEvents().length;
+    expect(inWindow, "the premise: parallel requests really did push the count above the allowance").toBeGreaterThan(3);
+    const sorted = freeEvents().map((r) => String(r.created_at)).sort();
+    const expected = new Date(new Date(sorted[inWindow - 3]).getTime() + 30 * DAY).toISOString(); // row (n - 3 + 1), 1-based
+    expect((await history()).nextFreeMessageAt).toBe(expected);
+  });
+});
+
