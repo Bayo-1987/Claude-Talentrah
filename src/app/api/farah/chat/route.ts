@@ -18,6 +18,7 @@ import {
   checkFarahChatAllowance,
   commitFarahChatAllowance,
   farahChatNextFreeMessageAt,
+  releaseFarahChatAllowance,
   InsufficientCreditsError,
 } from "@/lib/farah/chat-gate";
 import { chipEntryPoint } from "@/lib/farah/chip-registry";
@@ -51,7 +52,11 @@ function resolveEntryPoint(quickAction: string | undefined): FarahEntryPoint {
  */
 const MAX_USER_MESSAGES_PER_HOUR = 30;
 
-export async function POST(request: Request) {
+/**
+ * The handler. An unexpected exception anywhere after the free-message claim (a malformed resume that the context builder trips over, a failing session log) would leave the claim held until it expires;
+ * the wrapper below releases it and rethrows, so the platform's 5xx is unchanged and a retry is not refused for the next two minutes. `held.release` is set once a claim is held.
+ */
+async function handlePost(request: Request, held: { release?: () => Promise<void> }) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -154,6 +159,23 @@ export async function POST(request: Request) {
     throw err;
   }
 
+  /*
+   * A free message holds a CLAIM on one of the account's free slots from here (migration 0236). It is settled on every way out: committed by commitFarahChatAllowance after a completed reply, and
+   * released by this on every other one (an early refusal, a failure, a cut-off reply, a reader that went away), so a message that never happened never uses a free slot. A claim nobody settles
+   * (a crash) expires by itself in the database. `freeClaimHeld` makes the release happen at most once and never after a commit.
+   */
+  let freeClaimHeld = Boolean(allowance.freeClaimId);
+  const releaseIfHeld = async () => {
+    if (!freeClaimHeld) return;
+    freeClaimHeld = false;
+    try {
+      await releaseFarahChatAllowance(user.id, allowance);
+    } catch {
+      /* the gate's release never throws; a mock or a future change that does must not turn an exit into a crash */
+    }
+  };
+  held.release = releaseIfHeld;
+
   // Best-effort, and independent of whether Farah's reply below succeeds —
   // this counts what the user actually did (sent a message from this entry
   // point), not whether a downstream LLM call happened to work. No
@@ -176,6 +198,7 @@ export async function POST(request: Request) {
   ]);
 
   if (historyError) {
+    await releaseIfHeld();
     return NextResponse.json({ error: "Couldn't reach Farah — try again in a moment." }, { status: 500 });
   }
 
@@ -262,6 +285,7 @@ export async function POST(request: Request) {
    */
   // The reader has already gone (the request was aborted before a model call was made): nothing to answer, nothing to charge, nothing to save.
   if (request.signal.aborted) {
+    await releaseIfHeld();
     return new Response(null, { status: 499 });
   }
 
@@ -281,174 +305,190 @@ export async function POST(request: Request) {
       clientGone = true;
     },
     async start(controller) {
-      function send(event: Record<string, unknown>) {
-        controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
-      }
-
-      let fullText = "";
-      // Why the model stopped, as the provider reported it. Stays undefined when the provider never said, which
-      // is treated as "finished": only a REAL length stop (the model hit the output ceiling) is an incomplete reply.
-      let finishReason: LLMFinishReason | undefined;
-      // The token counts the provider reported for this reply, if it reported any; saved on the reply row's JSON context below.
-      let usage: LLMUsage | undefined;
-      // Which provider and model served the reply, as the provider call reported it with its counts: the estimate is priced from this.
-      let served: { provider: string; model: string } | undefined;
       try {
-        for await (const chunk of askFarahChatStream(turns, extraContext, undefined, {
-          quickAction,
-          // The model call stops when the reader goes away; an aborted call ends in the error path below, which saves and charges nothing.
-          signal: request.signal,
-          // The ceiling is checked again, with a fresh read, just before the fallback provider would be used; a counter that cannot be read means no fallback.
-          allowFallback: () => checkFallbackHeadroom({ read: readSpendNano }),
-          onFinish: (reason) => {
-            finishReason = reason;
-          },
-          onUsage: (u, s) => {
-            usage = u;
-            served = s;
-          },
-        })) {
-          fullText += chunk;
-          send({ type: "delta", text: chunk });
+        function send(event: Record<string, unknown>) {
+          controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
         }
-      } catch (err) {
-        // A model call that did not complete is added to today's counter at the flat failed-attempt estimate (most such calls bill nothing, so this is already pessimistic).
-        // When the cause is the reader going away (the stream was cancelled, or the request's own signal fired: either can come first), that is the whole story: say so once, content-free, and stop (nothing can be sent).
-        await recordSpend(FAILED_ATTEMPT_ESTIMATE_NANO);
-        if (clientGone || request.signal.aborted) {
-          console.warn("[farah-spend:aborted] flat estimate charged");
-          try {
-            controller.close();
-          } catch {
-            // the stream was already cancelled: nothing left to close
+
+        let fullText = "";
+        // Why the model stopped, as the provider reported it. Stays undefined when the provider never said, which
+        // is treated as "finished": only a REAL length stop (the model hit the output ceiling) is an incomplete reply.
+        let finishReason: LLMFinishReason | undefined;
+        // The token counts the provider reported for this reply, if it reported any; saved on the reply row's JSON context below.
+        let usage: LLMUsage | undefined;
+        // Which provider and model served the reply, as the provider call reported it with its counts: the estimate is priced from this.
+        let served: { provider: string; model: string } | undefined;
+        try {
+          for await (const chunk of askFarahChatStream(turns, extraContext, undefined, {
+            quickAction,
+            // The model call stops when the reader goes away; an aborted call ends in the error path below, which saves and charges nothing.
+            signal: request.signal,
+            // The ceiling is checked again, with a fresh read, just before the fallback provider would be used; a counter that cannot be read means no fallback.
+            allowFallback: () => checkFallbackHeadroom({ read: readSpendNano }),
+            onFinish: (reason) => {
+              finishReason = reason;
+            },
+            onUsage: (u, s) => {
+              usage = u;
+              served = s;
+            },
+          })) {
+            fullText += chunk;
+            send({ type: "delta", text: chunk });
           }
-          return;
-        }
-        // Never surface the raw provider error to the client — a provider
-        // SDK's error .message can embed the full JSON response body
-        // (internal request details, account-billing detail, etc.), which
-        // is both leaky and useless to a user. Log server-side for
-        // debugging (LLMProviderError — src/lib/llm/errors.ts — carries
-        // which provider and what kind of failure), send a clean,
-        // Farah-voiced message instead.
-        if (err instanceof FallbackDeclinedError) {
-          // The primary was rate-limited and there is not enough headroom left for the fallback: end the reply with the busy wording (nothing was charged). Content-free line.
-          console.warn("[farah-spend:fallback-declined] the fallback provider was not used: the day's headroom is below its reserve");
-          send({ type: "error", kind: "fallback_declined", message: FARAH_BUSY_MESSAGE });
+        } catch (err) {
+          // A model call that did not complete is added to today's counter at the flat failed-attempt estimate (most such calls bill nothing, so this is already pessimistic).
+          // When the cause is the reader going away (the stream was cancelled, or the request's own signal fired: either can come first), that is the whole story: say so once, content-free, and stop (nothing can be sent).
+          await recordSpend(FAILED_ATTEMPT_ESTIMATE_NANO);
+          if (clientGone || request.signal.aborted) {
+            console.warn("[farah-spend:aborted] flat estimate charged");
+            try {
+              controller.close();
+            } catch {
+              // the stream was already cancelled: nothing left to close
+            }
+            return;
+          }
+          // Never surface the raw provider error to the client — a provider
+          // SDK's error .message can embed the full JSON response body
+          // (internal request details, account-billing detail, etc.), which
+          // is both leaky and useless to a user. Log server-side for
+          // debugging (LLMProviderError — src/lib/llm/errors.ts — carries
+          // which provider and what kind of failure), send a clean,
+          // Farah-voiced message instead.
+          if (err instanceof FallbackDeclinedError) {
+            // The primary was rate-limited and there is not enough headroom left for the fallback: end the reply with the busy wording (nothing was charged). Content-free line.
+            console.warn("[farah-spend:fallback-declined] the fallback provider was not used: the day's headroom is below its reserve");
+            send({ type: "error", kind: "fallback_declined", message: FARAH_BUSY_MESSAGE });
+            controller.close();
+            return;
+          }
+          console.error("Farah chat: LLM call failed", err);
+          // send-111: a rate-limit error carries Groq's own real wait time —
+          // use it instead of the generic message. Any other LLMProviderError
+          // kind (or a non-LLM error) keeps the generic copy unchanged.
+          const errorMessage =
+            err instanceof LLMProviderError && err.kind === "rate_limit"
+              ? farahRateLimitMessage(err.message)
+              : GENERIC_FARAH_UNAVAILABLE_MESSAGE;
+          send({ type: "error", kind: err instanceof LLMProviderError && err.kind === "rate_limit" ? "rate_limited" : "unavailable", message: errorMessage });
           controller.close();
           return;
         }
-        console.error("Farah chat: LLM call failed", err);
-        // send-111: a rate-limit error carries Groq's own real wait time —
-        // use it instead of the generic message. Any other LLMProviderError
-        // kind (or a non-LLM error) keeps the generic copy unchanged.
-        const errorMessage =
-          err instanceof LLMProviderError && err.kind === "rate_limit"
-            ? farahRateLimitMessage(err.message)
-            : GENERIC_FARAH_UNAVAILABLE_MESSAGE;
-        send({ type: "error", kind: err instanceof LLMProviderError && err.kind === "rate_limit" ? "rate_limited" : "unavailable", message: errorMessage });
-        controller.close();
-        return;
-      }
 
-      // The model call completed: add its estimated cost, from the provider's reported counts (priced at the dearest known row if the model is unknown), or at the worst-case flat estimate when no counts came.
-      if (fullText) {
-        await recordSpend(
-          usage
-            ? estimateSpendNano({ provider: served?.provider, model: served?.model, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens })
-            : NO_COUNTS_REPLY_ESTIMATE_NANO,
-        );
-      } else {
-        await recordSpend(FAILED_ATTEMPT_ESTIMATE_NANO);
-      }
-
-      if (!fullText) {
-        // A provider that streams zero chunks and never throws — treated
-        // the same as the pre-streaming "empty response" case each
-        // provider's own generateWithUsage already guards against, just
-        // reached a different way here.
-        send({ type: "error", kind: "empty_reply", message: GENERIC_FARAH_UNAVAILABLE_MESSAGE });
-        controller.close();
-        return;
-      }
-
-      /*
-       * A reply that stopped because it hit the output ceiling is cut off mid-thought, and is NOT a complete
-       * answer — so it is not charged, and does not use up a free message or a Pass's daily slot (send-500).
-       * The owner paid a credit for a reply that ended "I'm a FinTech Product Manager with". It is still shown
-       * (the user already read it as it streamed) and still saved, marked truncated, so nothing they saw
-       * disappears; the client tells them it was cut off and cost nothing.
-       *
-       * Why not "continue it" with a second call instead: that replays the whole prompt and history again for
-       * one user action, and Farah's production failure mode is the provider's per-minute token cap (send-109,
-       * token-budget.ts). Not charging is deterministic and adds no cost. Trade-off: someone could try to
-       * provoke length stops for free replies; the hourly message cap still counts their saved messages, and
-       * the reply-size instruction (chat-prompt.ts) makes a length stop the exception.
-       */
-      const truncated = finishReason === "length";
-
-      // Only now — after the LLM call actually succeeded in full — commit
-      // the free allowance/Pass use or the credit spend. See
-      // checkFarahChatAllowance's own header for why this can't happen any
-      // earlier. Skipped for a cut-off reply, above.
-      const committed = truncated ? undefined : await commitFarahChatAllowance(user.id, allowance);
-      // The new balance for a paid message; null when nothing was spent (issue #605).
-      const creditsBalance = committed?.balanceAfter ?? null;
-      // The free-message count the gate reported is "left AFTER this one"; a cut-off message used none, so the
-      // count the user sees must be the one from before it.
-      const freeMessagesRemaining =
-        truncated && allowance.isFreeAllowance && allowance.freeMessagesRemaining !== null
-          ? allowance.freeMessagesRemaining + 1
-          : allowance.freeMessagesRemaining;
-      // When the next free message comes back, for the panel's line: only when the free messages are used up and no Pass covers this message (read AFTER the commit, so a message that just used the last one counts).
-      // Display-only: null in every other case without a read, and a failed read is null; it never blocks the reply or changes a charge.
-      let nextFreeMessageAt: string | null = null;
-      if (!allowance.isPassCovered && freeMessagesRemaining === 0) {
-        try {
-          nextFreeMessageAt = await farahChatNextFreeMessageAt(user.id);
-        } catch {
-          nextFreeMessageAt = null;
+        // The model call completed: add its estimated cost, from the provider's reported counts (priced at the dearest known row if the model is unknown), or at the worst-case flat estimate when no counts came.
+        if (fullText) {
+          await recordSpend(
+            usage
+              ? estimateSpendNano({ provider: served?.provider, model: served?.model, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens })
+              : NO_COUNTS_REPLY_ESTIMATE_NANO,
+          );
+        } else {
+          await recordSpend(FAILED_ATTEMPT_ESTIMATE_NANO);
         }
-      }
-      const rowContext = truncated ? { ...context, truncated: true } : context;
-      // The reply row (only) also carries the token counts, so daily totals can be summed from saved rows: runtime logs are kept about an hour.
-      // No migration: `context` is the existing JSON column. Absent when the provider reported none (unknown is not zero).
-      const replyContext = usage ? { ...rowContext, tokens: { prompt: usage.inputTokens, completion: usage.outputTokens } } : rowContext;
 
-      // Message history is written by the server only (see saveFarahExchange); this route's own client only reads.
-      const saved = await saveFarahExchange({ userId: user.id, message, reply: fullText, userRowContext: rowContext, replyRowContext: replyContext });
+        if (!fullText) {
+          // A provider that streams zero chunks and never throws — treated
+          // the same as the pre-streaming "empty response" case each
+          // provider's own generateWithUsage already guards against, just
+          // reached a different way here.
+          send({ type: "error", kind: "empty_reply", message: GENERIC_FARAH_UNAVAILABLE_MESSAGE });
+          controller.close();
+          return;
+        }
 
-      if (!saved) {
-        // The reply already happened and cost real money — the client
-        // already has the full text from the delta events either way; this
-        // just tells it persistence failed, rather than losing the answer.
-        send({
-          type: "done",
-          id: null,
-          createdAt: new Date().toISOString(),
-          persisted: false,
-          freeMessagesRemaining,
-          nextFreeMessageAt,
-          creditsBalance,
-          ...(truncated ? { truncated: true } : {}),
-        });
-      } else {
-        send({
-          type: "done",
-          id: saved.id,
-          createdAt: saved.createdAt,
-          persisted: true,
-          freeMessagesRemaining,
-          nextFreeMessageAt,
-          creditsBalance,
-          ...(truncated ? { truncated: true } : {}),
-        });
+        /*
+         * A reply that stopped because it hit the output ceiling is cut off mid-thought, and is NOT a complete
+         * answer — so it is not charged, and does not use up a free message or a Pass's daily slot (send-500).
+         * The owner paid a credit for a reply that ended "I'm a FinTech Product Manager with". It is still shown
+         * (the user already read it as it streamed) and still saved, marked truncated, so nothing they saw
+         * disappears; the client tells them it was cut off and cost nothing.
+         *
+         * Why not "continue it" with a second call instead: that replays the whole prompt and history again for
+         * one user action, and Farah's production failure mode is the provider's per-minute token cap (send-109,
+         * token-budget.ts). Not charging is deterministic and adds no cost. Trade-off: someone could try to
+         * provoke length stops for free replies; the hourly message cap still counts their saved messages, and
+         * the reply-size instruction (chat-prompt.ts) makes a length stop the exception.
+         */
+        const truncated = finishReason === "length";
+
+        // Only now — after the LLM call actually succeeded in full — commit
+        // the free allowance/Pass use or the credit spend. See
+        // checkFarahChatAllowance's own header for why this can't happen any
+        // earlier. Skipped for a cut-off reply, above.
+        const committed = truncated ? undefined : await commitFarahChatAllowance(user.id, allowance);
+        // Settled: a claim is the commit's from here (it commits or, if it had expired, records nothing). A cut-off reply committed nothing, so its claim is still held and the finally below releases it.
+        if (!truncated) freeClaimHeld = false;
+        // The new balance for a paid message; null when nothing was spent (issue #605).
+        const creditsBalance = committed?.balanceAfter ?? null;
+        // The free-message count the gate reported is "left AFTER this one"; a cut-off message used none, so the
+        // count the user sees must be the one from before it.
+        const freeMessagesRemaining =
+          truncated && allowance.isFreeAllowance && allowance.freeMessagesRemaining !== null
+            ? allowance.freeMessagesRemaining + 1
+            : allowance.freeMessagesRemaining;
+        // When the next free message comes back, for the panel's line: only when the free messages are used up and no Pass covers this message (read AFTER the commit, so a message that just used the last one counts).
+        // Display-only: null in every other case without a read, and a failed read is null; it never blocks the reply or changes a charge.
+        let nextFreeMessageAt: string | null = null;
+        if (!allowance.isPassCovered && freeMessagesRemaining === 0) {
+          try {
+            nextFreeMessageAt = await farahChatNextFreeMessageAt(user.id);
+          } catch {
+            nextFreeMessageAt = null;
+          }
+        }
+        const rowContext = truncated ? { ...context, truncated: true } : context;
+        // The reply row (only) also carries the token counts, so daily totals can be summed from saved rows: runtime logs are kept about an hour.
+        // No migration: `context` is the existing JSON column. Absent when the provider reported none (unknown is not zero).
+        const replyContext = usage ? { ...rowContext, tokens: { prompt: usage.inputTokens, completion: usage.outputTokens } } : rowContext;
+
+        // Message history is written by the server only (see saveFarahExchange); this route's own client only reads.
+        const saved = await saveFarahExchange({ userId: user.id, message, reply: fullText, userRowContext: rowContext, replyRowContext: replyContext });
+
+        if (!saved) {
+          // The reply already happened and cost real money — the client
+          // already has the full text from the delta events either way; this
+          // just tells it persistence failed, rather than losing the answer.
+          send({
+            type: "done",
+            id: null,
+            createdAt: new Date().toISOString(),
+            persisted: false,
+            freeMessagesRemaining,
+            nextFreeMessageAt,
+            creditsBalance,
+            ...(truncated ? { truncated: true } : {}),
+          });
+        } else {
+          send({
+            type: "done",
+            id: saved.id,
+            createdAt: saved.createdAt,
+            persisted: true,
+            freeMessagesRemaining,
+            nextFreeMessageAt,
+            creditsBalance,
+            ...(truncated ? { truncated: true } : {}),
+          });
+        }
+        controller.close();
+      } finally {
+        await releaseIfHeld();
       }
-      controller.close();
     },
   });
 
   return new Response(stream, {
     headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-cache" },
   });
+}
+
+export async function POST(request: Request) {
+  const held: { release?: () => Promise<void> } = {};
+  try {
+    return await handlePost(request, held);
+  } catch (err) {
+    await held.release?.();
+    throw err;
+  }
 }
