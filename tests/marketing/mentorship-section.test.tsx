@@ -7,7 +7,7 @@
  *   3. no individual mentor name, photo or company, and nothing about a mentor reaches the section (it takes no props and reads no data);
  *   4. "never through credits" is gone;
  *   5. only session types the product actually offers (checked against the booking page's list, below): five, the quick question first (owner answer 5, 6 Oct);
- *   6. both links point where the spec says;
+ *   6. both links point where the spec says, and neither sends a signed-out visitor to /login (e2e/signed-out-link-gate.spec.ts, send-477): "Become a mentor" goes through the signup page with its destination as `redirectTo`;
  *   7. (click events: NOT in this PR; see the guard at the end.)
  * It also pins the accessibility basics: the contrast of the colours it uses, hit targets on both links, and heading order.
  *
@@ -19,6 +19,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeAll, describe, expect, it } from "vitest";
 import { MentorshipSection } from "@/components/marketing/mentorship-section";
 import { contrast } from "../support/contrast";
+import { isProtectedSeekerPath } from "@/lib/auth/seeker-gate-paths";
 
 const read = (rel: string) => readFileSync(path.join(__dirname, "../..", rel), "utf8");
 // Rendered once, in beforeAll, so a section that cannot render fails each test on its own assertion (and the test also works on an async component, which the rules below then reject).
@@ -136,8 +137,16 @@ describe("hard rule 6: the two links", () => {
   it("'Browse mentors' goes to /mentorship", () => {
     expect(links().find((l) => l.label === "Browse mentors")?.href).toBe("/mentorship");
   });
-  it("'Experienced professional? Become a mentor →' goes to /mentorship/apply", () => {
-    expect(links().find((l) => /^Experienced professional\? Become a mentor/.test(l.label))?.href).toBe("/mentorship/apply");
+  it("'Experienced professional? Become a mentor →' goes through the signup page and returns to /mentorship/apply (not straight to the gated page, which would send a signed-out visitor to /login)", () => {
+    expect(links().find((l) => /^Experienced professional\? Become a mentor/.test(l.label))?.href).toBe("/signup?redirectTo=%2Fmentorship%2Fapply");
+  });
+  it("the signup link's destination is the encoded /mentorship/apply, exactly", () => {
+    const href = links().find((l) => /Become a mentor/.test(l.label))?.href ?? "";
+    expect(new URL(href, "https://x.test").searchParams.get("redirectTo")).toBe("/mentorship/apply");
+    expect(href).toBe(`/signup?redirectTo=${encodeURIComponent("/mentorship/apply")}`);
+  });
+  it("neither link targets a login-gated page: a signed-out visitor is never sent to /login by this section (the send-477 ratchet)", () => {
+    for (const l of links()) expect(isProtectedSeekerPath(new URL(l.href, "https://x.test").pathname), `${l.label} -> ${l.href} is gated`).toBe(false);
   });
   it("has exactly those two links", () => {
     expect(links().length).toBe(2);
