@@ -199,7 +199,6 @@ describe("a failed message: nothing charged, no free message used, the date does
     checkFarahChatAllowance.mockResolvedValue(LAST_FREE);
     askFarahChatStream.mockImplementation(async function* () {
       throw new Error("provider down");
-      // eslint-disable-next-line no-unreachable
       yield "x";
     });
     const events = await send();
