@@ -25,6 +25,7 @@
  */
 import { test, expect, admin } from "./fixtures/authed";
 import { randomUUID } from "node:crypto";
+import { openScholarshipFilter } from "../src/lib/scholarships/close-instant";
 
 test.describe("stable, above-threshold landing pages: live in the sitemap today", () => {
   test("remote jobs, Lagos jobs and fully-funded scholarships all appear", async ({ request }) => {
@@ -51,13 +52,14 @@ test.describe("a thin category: excluded below threshold, included the same run 
     const tag = randomUUID().slice(0, 8);
 
     async function phdOpenCount(): Promise<number> {
-      const today = new Date().toISOString().slice(0, 10);
+      // "Open" is the APP's rule: not yet past the closing INSTANT (close_at, migration 0204; a row with no zone closes at 12:00 UTC the next day). It used to be the deadline DATE >= today's UTC date,
+      // which disagreed with the sitemap for the half-day after a deadline and failed every run in that window (tests/seo/sitemap-spec-open-rule.test.ts has the case and the guard).
       const { count, error } = await admin
         .from("scholarships")
         .select("id", { count: "exact", head: true })
         .eq("moderation_status", "verified")
         .contains("degree_levels", ["phd"])
-        .or(`application_deadline.is.null,application_deadline.gte.${today}`);
+        .or(openScholarshipFilter());
       if (error) throw new Error(`could not measure phd baseline: ${error.message}`);
       return count ?? 0;
     }
