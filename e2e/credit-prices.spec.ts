@@ -303,10 +303,10 @@ test.describe("Farah quick actions", () => {
     await requireStubbedLlm(page);
     await grantTestCredits(testUser.id, START);
     await page.goto("/tracker");
-    await expect(page.getByText("3 free messages left in the last 30 days.")).toBeVisible();
+    await expect(page.getByText("3 free messages left.")).toBeVisible();
 
     await page.getByRole("button", { name: "Career Advisor" }).click();
-    await expect(page.getByText("2 free messages left in the last 30 days.")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText("2 free messages left.")).toBeVisible({ timeout: 30_000 });
     expect(await dbBalance(testUser.id)).toBe(START);
   });
 
