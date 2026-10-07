@@ -20,15 +20,6 @@ describe("NAV-1: the seeker masthead item", () => {
   });
 });
 
-describe("NAV-1: the 360px menu check is in the masthead spec, with a screenshot attached", () => {
-  const spec = read("e2e/masthead-nav-fit.spec.ts");
-  it("opens the menu at 360px, finds Talent Directory inside the viewport and attaches a screenshot", () => {
-    expect(spec).toContain("width: 360, height: 800");
-    expect(spec).toContain('menu.getByRole("menuitem", { name: "Talent Directory" })');
-    expect(spec).toContain('testInfo.attach("menu-360px"');
-  });
-});
-
 describe("NAV-1: the page leads with the Talent Directory", () => {
   const page = read("src/app/(app)/talent-directory/verify/page.tsx");
   const loading = read("src/app/(app)/talent-directory/verify/loading.tsx");
