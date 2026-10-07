@@ -9,7 +9,7 @@ import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { renderInlineMarkdown } from "@/lib/farah/render-markdown";
 import { verificationHeadline } from "@/lib/talent-directory/verification-copy";
-import { HOW_WE_REVIEW_PATH } from "@/lib/talent-directory/review-badge";
+import { howWeReviewHref } from "@/lib/talent-directory/how-we-review-link";
 import { VerificationPanel } from "./verification-panel";
 import { HumanReviewForm } from "./human-review-form";
 import { OptInToggle } from "./opt-in-toggle";
@@ -19,7 +19,7 @@ import { PortfolioManager } from "./portfolio-manager";
 import { IncomingContactRequests } from "./incoming-contact-requests";
 import { formatDate } from "@/lib/format/datetime";
 
-export const metadata = { title: "Resume review — Talentrah" };
+export const metadata = { title: "Talent Directory — Talentrah" };
 
 /**
  * Talent Directory & Verification, seeker-facing half (send-139, build-prompt
@@ -46,15 +46,16 @@ export default async function TalentDirectoryVerifyPage() {
 
   return (
     <Container className="flex max-w-[720px] flex-col gap-8 py-12">
-      <EyebrowLabel>Talent Directory</EyebrowLabel>
-      <h1 className="font-display text-[28px] font-semibold">Get your resume reviewed</h1>
+      <EyebrowLabel>How to get listed</EyebrowLabel>
+      <h1 className="font-display text-[28px] font-semibold">Join the Talent Directory</h1>
       <p className="max-w-[560px] text-[14.5px] text-ink-soft">
-        A resume-reviewed badge tells employers your resume was read and found complete, specific
-        and consistent. It does not check your identity, employment history or skills. Farah
+        Employers browse the Talent Directory to find candidates. A resume review is the step that gets you
+        listed: it earns the resume-reviewed badge, which tells employers your resume was read and found
+        complete, specific and consistent. It does not check your identity, employment history or skills. Farah
         reviews it automatically for {CREDIT_COSTS.talentDirectoryVerification} credits. Prefer a
         person to look it over instead? A Talentrah mentor can review it directly for{" "}
         {CREDIT_COSTS.talentDirectoryHumanReview} credits.{" "}
-        <a href={HOW_WE_REVIEW_PATH} className="font-semibold text-rust underline underline-offset-2">
+        <a href={howWeReviewHref("/talent-directory/verify")} className="font-semibold text-rust underline underline-offset-2">
           How we review
         </a>
       </p>

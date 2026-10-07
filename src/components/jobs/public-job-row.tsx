@@ -50,7 +50,7 @@ export function PublicJobRow({ job }: { job: Omit<Tables<"job_postings">, "descr
         </div>
         <div className="min-w-0 flex-1">
           <h3 className="text-[16px]">
-            <Link href={`/jobs/${job.id}`} className="text-ink no-underline hover:text-rust hover:underline">
+            <Link href={`/jobs/${job.id}`} className="inline-flex min-h-6 items-center text-ink no-underline hover:text-rust hover:underline">
               {job.title}
             </Link>
           </h3>

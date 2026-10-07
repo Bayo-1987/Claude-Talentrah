@@ -99,7 +99,7 @@ describe("the directory list", async () => {
   it("offers 'What this means' on every card, and a link to how we review", async () => {
     const html = await render();
     expect(html.match(/What this means/g)).toHaveLength(2);
-    expect(html).toContain('href="/how-we-review-resumes"');
+    expect(html).toContain('href="/how-we-review-resumes?from=%2Femployer%2Ftalent-directory"');
   });
 
   it("tab order inside a card: the name link, then 'What this means', then (once it is opened) 'How we review'", async () => {
@@ -107,7 +107,7 @@ describe("the directory list", async () => {
     const card = html.slice(html.indexOf("<li"), html.indexOf("</li>")); // the first card, c1
     const name = card.indexOf('href="/employer/talent-directory/c1"');
     const summary = card.indexOf("<summary");
-    const how = card.indexOf('href="/how-we-review-resumes"');
+    const how = card.indexOf('href="/how-we-review-resumes?from=%2Femployer%2Ftalent-directory"');
     expect(name).toBeGreaterThanOrEqual(0);
     expect(summary).toBeGreaterThan(name);
     expect(how).toBeGreaterThan(summary);
@@ -144,7 +144,7 @@ describe("a candidate's page", async () => {
     const html = await render("c1");
     expect(html).toContain("What this means");
     expect(html).toContain("We checked that the resume is complete, specific and consistent. We did not check identity, employment history or skills.");
-    expect(html).toContain('href="/how-we-review-resumes"');
+    expect(html).toContain('href="/how-we-review-resumes?from=%2Femployer%2Ftalent-directory"');
   });
 });
 
@@ -190,6 +190,6 @@ describe("the applicant list", async () => {
   it("has 'What this means' and the link", () => {
     const html = render([row("a", "ai")]);
     expect(html).toContain("What this means");
-    expect(html).toContain('href="/how-we-review-resumes"');
+    expect(html).toContain('href="/how-we-review-resumes?from=%2Femployer%2Fjobs"');
   });
 });

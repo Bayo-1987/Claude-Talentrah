@@ -22,6 +22,8 @@
   --gold-hover: oklch(68% 0.15 80);
   --gold-soft: oklch(94% 0.03 80);
   --gold-ink: oklch(45% 0.12 75);
+  /* The footer's small muted text on the ink footer: 4.5:1 or better (it was an inline oklch(60% ...) at 4.36:1), tested in tests/marketing/footer-eyebrow-contrast.test.ts. */
+  --footer-eyebrow: oklch(66% 0.02 60);
   /*
    * Fixed, permanent white for the resume document (screen preview + PDF
    * export, which are the same rendered DOM/CSS — see
@@ -51,6 +53,7 @@
   --color-gold-hover: var(--gold-hover);
   --color-gold-soft: var(--gold-soft);
   --color-gold-ink: var(--gold-ink);
+  --color-footer-eyebrow: var(--footer-eyebrow);
   --color-resume-paper: var(--resume-paper);
 
   --font-display: var(--font-newsreader), Georgia, "Times New Roman", serif;

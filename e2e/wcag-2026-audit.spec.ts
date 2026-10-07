@@ -91,11 +91,11 @@ test.describe("2.4.7 — real visible keyboard focus indicators", () => {
 
     const before = await readFormBorder();
     await page.locator("#jd-demo").focus();
-    const after = await readFormBorder();
 
-    expect(after, "MONEY BUG target: focusing the JD demo textarea must visibly change its box's border").not.toBe(
-      before,
-    );
+    // Polled, not read once: the border colour is animated by a CSS transition, so a read in the same tick as focus() can still see the old value.
+    await expect
+      .poll(readFormBorder, { message: "MONEY BUG target: focusing the JD demo textarea must visibly change its box's border" })
+      .not.toBe(before);
   });
 
   test("the job search bar's bordered box changes border color when the search field is focused", async ({
@@ -106,9 +106,11 @@ test.describe("2.4.7 — real visible keyboard focus indicators", () => {
     const before = await borderColor(authedPage, box);
 
     await authedPage.locator("#job-search").focus();
-    const after = await borderColor(authedPage, box);
 
-    expect(after, "focusing the search input must change the surrounding box's border color").not.toBe(before);
+    // Polled, not read once: a CSS transition animates the border colour (this read failed about one run in six when it ran in the same tick as focus()).
+    await expect
+      .poll(() => borderColor(authedPage, box), { message: "focusing the search input must change the surrounding box's border color" })
+      .not.toBe(before);
   });
 
   test("the Farah chat input's wrapping form changes border color on focus", async ({ authedPage }) => {
@@ -123,9 +125,11 @@ test.describe("2.4.7 — real visible keyboard focus indicators", () => {
     const before = await authedPage.evaluate(formSelectorScript);
 
     await input.focus();
-    const after = await authedPage.evaluate(formSelectorScript);
 
-    expect(after, "focusing the Farah input must change its form's border color").not.toBe(before);
+    // Polled, not read once: see the job search test above.
+    await expect
+      .poll(() => authedPage.evaluate(formSelectorScript), { message: "focusing the Farah input must change its form's border color" })
+      .not.toBe(before);
   });
 
   test("a tracker note's textarea shows a heavier border while focused than once blurred", async ({
@@ -156,12 +160,13 @@ test.describe("2.4.7 — real visible keyboard focus indicators", () => {
     // about submitting) and compare.
     const focusedWidth = await borderWidth(authedPage, '[data-testid="notes-textarea"]');
     await authedPage.getByRole("heading", { name: "QA Engineer" }).first().click();
-    const blurredWidth = await borderWidth(authedPage, '[data-testid="notes-textarea"]');
 
-    expect(
-      focusedWidth,
-      "MONEY BUG target: a keyboard user could not tell focused from merely-editing on this field",
-    ).not.toBe(blurredWidth);
+    // Polled, not read once: the blurred width settles after the click, not in the same tick.
+    await expect
+      .poll(() => borderWidth(authedPage, '[data-testid="notes-textarea"]'), {
+        message: "MONEY BUG target: a keyboard user could not tell focused from merely-editing on this field",
+      })
+      .not.toBe(focusedWidth);
 
     await admin.from("applications").delete().eq("id", app.id);
   });
@@ -179,12 +184,13 @@ test.describe("2.4.7 — real visible keyboard focus indicators", () => {
     // Auto-focused on entering rename mode (resume-list-row.tsx's own effect).
     const focusedWidth = await borderWidth(authedPage, '[data-testid="resume-rename-input"]');
     await authedPage.getByRole("heading", { name: "Build a resume that fits the role." }).click();
-    const blurredWidth = await borderWidth(authedPage, '[data-testid="resume-rename-input"]');
 
-    expect(
-      focusedWidth,
-      "MONEY BUG target: a keyboard user could not tell focused from merely-editing on this field",
-    ).not.toBe(blurredWidth);
+    // Polled, not read once: see the tracker note test above.
+    await expect
+      .poll(() => borderWidth(authedPage, '[data-testid="resume-rename-input"]'), {
+        message: "MONEY BUG target: a keyboard user could not tell focused from merely-editing on this field",
+      })
+      .not.toBe(focusedWidth);
   });
 });
 
