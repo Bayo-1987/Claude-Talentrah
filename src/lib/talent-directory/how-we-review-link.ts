@@ -12,7 +12,7 @@ import { HOW_WE_REVIEW_PATH } from "@/lib/talent-directory/review-badge";
 export const HOW_WE_REVIEW_BACK_TARGETS: Readonly<Record<string, string>> = {
   "/employer/talent-directory": "Talent Directory",
   "/employer/jobs": "Jobs Posted",
-  "/talent-directory/verify": "your resume review",
+  "/talent-directory/verify": "Talent Directory",
 };
 
 /**
