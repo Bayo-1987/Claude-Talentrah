@@ -20,6 +20,26 @@ describe("isQaName: the name rule", () => {
   );
 });
 
+describe("isQaName: trimming is SPACES ONLY, exactly as the SQL twin's btrim (S3-21's public.is_qa_account)", () => {
+  it.each(["\tQA Seeker", "\nQA Seeker", "\u00a0QA Seeker", "QA\tSeeker", "QA\t", "QA\n", "\r\nQA Seeker", "\u2003QA Seeker"])(
+    "%j is not a QA name (a tab, newline or no-break space is not trimmed)",
+    (name) => {
+      expect(isQaName(name)).toBe(false);
+    },
+  );
+  it.each(["  QA Seeker", "QA Seeker  ", "   QA   ", "QA"])("%j is a QA name (spaces are trimmed)", (name) => {
+    expect(isQaName(name)).toBe(true);
+  });
+  it("the same holds through isQaAccount's first/last/full-name paths", () => {
+    expect(isQaAccount({ firstName: "\tQA", lastName: "Seeker" })).toBe(false);
+    expect(isQaAccount({ firstName: "\t", lastName: "QA Seeker" })).toBe(false); // the full name is "\t QA Seeker": a leading tab
+    expect(isQaAccount({ firstName: null, lastName: "\tQA Seeker" })).toBe(false); // no first name, so the full name IS the last name, with its leading tab
+    expect(isQaAccount({ firstName: "  ", lastName: "QA Seeker" })).toBe(true); // spaces only: the full name trims to "QA Seeker"
+    expect(isQaAccount({ displayName: "\u00a0QA Mentor" })).toBe(false);
+    expect(isQaAccount({ leaderboardName: "QA Tester\t" })).toBe(true); // "QA Tester\t" still STARTS with "QA " (only the end differs)
+  });
+});
+
 describe("isQaAccount: the account rule", () => {
   it("an email containing +qa- is a QA account, in any case", () => {
     expect(isQaAccount({ email: "hello+qa-seeker@talentrah.com" })).toBe(true);
