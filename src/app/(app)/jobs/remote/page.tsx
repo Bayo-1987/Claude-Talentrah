@@ -110,7 +110,7 @@ export default async function RemoteJobsPage() {
         <div className="flex flex-wrap items-center gap-3 border-y border-line py-3 text-[13px]">
           <span className="font-semibold text-ink-soft">Also browsing:</span>
           {relatedLinks.map((l) => (
-            <Link key={l.href} href={l.href} className="text-rust underline underline-offset-2 hover:text-rust-hover">
+            <Link key={l.href} href={l.href} className="inline-flex min-h-6 items-center text-rust underline underline-offset-2 hover:text-rust-hover">
               {l.label}
             </Link>
           ))}
