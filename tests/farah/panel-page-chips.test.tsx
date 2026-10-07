@@ -67,6 +67,15 @@ describe("useKnownCreditsBalance (what the chips' cost label reads)", () => {
   });
 });
 
+describe("useKnownCreditsBalance reads the same displayed balance as the masthead", () => {
+  it("through displayedCreditsBalance (so a live override shows, and expires with the server value), not the bare server number", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync("src/components/app-shell/credits-balance.tsx", "utf8");
+    const body = src.slice(src.indexOf("export function useKnownCreditsBalance"));
+    expect(body.slice(0, body.indexOf("\n}\n"))).toMatch(/displayedCreditsBalance\(ctx\.serverBalance, ctx\.override\)/);
+  });
+});
+
 describe("the panel on the other pages (PR B)", () => {
   it("shows each page's chips and opening line, and the greeting prefix is the same on every page", () => {
     const cases: Array<[string, string, string]> = [
