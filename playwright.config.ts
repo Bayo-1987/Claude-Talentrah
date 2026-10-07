@@ -17,6 +17,9 @@ export default defineConfig({
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
     baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000",
+    // Kept only for a failing test (never on a pass: CI time and size). The HTML report in playwright-report/ then carries the trace, so a failure
+    // such as a lost focus can be inspected step by step instead of guessed at from one error line.
+    trace: "retain-on-failure",
   },
   // Assumes the app is already running at baseURL (locally that's the
   // Browser pane's `npm run dev`; in CI, ci.yml builds and starts it itself
