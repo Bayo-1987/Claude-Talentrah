@@ -45,7 +45,7 @@ vi.mock("@/lib/supabase/service-role", () => ({
   }),
 }));
 
-vi.mock("@/lib/resend/client", () => ({
+vi.mock("@/lib/resend/client", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/resend/client")>()),
   getResendClient: () =>
     resendConfigured.value
       ? {

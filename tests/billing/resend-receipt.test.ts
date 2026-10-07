@@ -37,7 +37,7 @@ vi.mock("next/navigation", () => ({
     throw new Redirect(url);
   },
 }));
-vi.mock("@/lib/resend/client", () => ({
+vi.mock("@/lib/resend/client", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/resend/client")>()),
   getResendClient: () => (world.resendConfigured ? { emails: { send: world.send } } : null),
 }));
 vi.mock("@/lib/supabase/service-role", () => ({
