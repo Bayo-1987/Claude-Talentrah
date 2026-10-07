@@ -7,6 +7,10 @@ import {
 import { EyebrowLabel } from "@/components/ui";
 import { CompanyProfileForm } from "@/components/employer/company-profile-form";
 import { CacVerificationForm } from "@/components/employer/cac-verification-form";
+import { JobWidgetCard } from "@/components/employer/job-widget-card";
+import { loadJobWidgetSettings } from "@/lib/embed/settings";
+import { embedUrl, iframeSnippet } from "@/lib/embed/snippet";
+import { SITE_ORIGIN } from "@/lib/seo/site";
 
 export const metadata = { title: "Company Profile — Talentrah" };
 
@@ -15,6 +19,8 @@ export default async function CompanyProfilePage() {
   // The registration details are withheld from the signed-in role (0232); the organisation id above came from the viewer's own membership,
   // so reading them for exactly that organisation on the server is the viewer's own data.
   const cac = await loadOrganizationCacDetails(organization.id);
+  // The employer's own widget settings (null when the table is unavailable, in which case the card is not shown).
+  const widget = await loadJobWidgetSettings(organization.id);
 
   // Recomputed from the CURRENT stored domain, so the explanation always
   // describes the state the employer is actually in rather than the one they
@@ -71,6 +77,18 @@ export default async function CompanyProfilePage() {
         Verification currently means one thing: someone with a confirmed email address at this
         domain set the company up. It doesn&apos;t confirm they speak for the company.
       </p>
+
+      {widget && (
+        <div className="mt-9">
+          <JobWidgetCard
+            enabled={widget.enabled}
+            maxItems={widget.maxItems}
+            verified={organization.verified}
+            snippet={iframeSnippet({ organizationId: organization.id, companyName: organization.name, origin: SITE_ORIGIN })}
+            previewSrc={embedUrl(organization.id, "")}
+          />
+        </div>
+      )}
 
       {/*
         Path 2 (0116/0120): CAC business registration, for the employer domain

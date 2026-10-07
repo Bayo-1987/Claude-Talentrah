@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { revalidateEmbed } from "@/lib/embed/revalidate";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { requirePermission } from "@/lib/admin/require-admin";
 import { recordAdminAction } from "@/lib/admin/audit";
@@ -207,7 +208,7 @@ export async function decideJobPostingAction(
   }
 
   const { data: posting } = await supabase
-    .from("job_postings").select("title, company_name").eq("id", id).maybeSingle();
+    .from("job_postings").select("title, company_name, organization_id").eq("id", id).maybeSingle();
   const title = posting?.title ?? "that posting";
 
   await recordAdminAction({
@@ -225,6 +226,8 @@ export async function decideJobPostingAction(
   // without this, a removal made from that page would leave the
   // now-removed posting sitting in its own still-cached result list.
   revalidatePath("/admin/postings");
+  // A removed posting leaves the employer's embedded job list (and a restored one, which comes back closed, never enters it): purge that organisation's widget page.
+  revalidateEmbed(posting?.organization_id);
   return {
     status: "success",
     targetId: id,
@@ -484,6 +487,8 @@ export async function decideCacVerificationAction(
     });
 
     revalidatePath("/admin/employer-verification");
+    // Verification is one of the widget's gates (a verified organisation's page starts listing), so purge its cached "no jobs" page.
+    revalidateEmbed(id);
     return {
       status: "success",
       targetId: id,
