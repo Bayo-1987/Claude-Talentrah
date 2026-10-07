@@ -263,6 +263,8 @@ jobs:
   checks:
     name: Typecheck, lint, unit tests
     runs-on: ubuntu-latest
+    # Measured 7.5-8.6 min; 25 is roughly three times that. A hung step must fail this required check, not hold it for the six-hour default.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
 
@@ -386,6 +388,9 @@ jobs:
     # ~10 minutes this job takes to build and run Playwright.
     needs: checks
     runs-on: ubuntu-latest
+    # Measured 9.8-12.2 min per shard (setup included); 30 is about 2.5 times that. On 7 Oct one shard sat 23 minutes in the browser install and
+    # starved a required check for the whole PR.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
 
@@ -397,6 +402,8 @@ jobs:
       - run: npm ci
 
       - name: Install Playwright browsers
+        # Normally about 22 seconds. A hung download here held a shard for 23 minutes (7 Oct); fail it fast instead, and the run can be retried.
+        timeout-minutes: 8
         run: npx playwright install --with-deps chromium
 
       # pdftoppm: e2e/resume-print-margins.spec.ts rasterises a printed PDF to
