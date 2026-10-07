@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { readHasSession } from "@/lib/supabase/read-has-session";
 import Link from "next/link";
 import { EyebrowLabel } from "@/components/ui";
 import { JdDemoExample } from "./jd-demo-example";
@@ -87,10 +87,9 @@ export function JdDemoInput() {
 
   useEffect(() => {
     let cancelled = false;
-    createClient()
-      .auth.getSession()
-      .then(({ data }) => {
-        if (!cancelled) setSession(!!data.session);
+    readHasSession()
+      .then((hasSession) => {
+        if (!cancelled) setSession(hasSession);
       })
       .catch(() => {
         // Unknown reads as signed-out: the anonymous path is the one that
@@ -141,10 +140,7 @@ export function JdDemoInput() {
      */
     let signedIn = session;
     if (signedIn === null) {
-      const { data } = await createClient()
-        .auth.getSession()
-        .catch(() => ({ data: { session: null } }));
-      signedIn = !!data.session;
+      signedIn = await readHasSession().catch(() => false);
       setSession(signedIn);
     }
 
