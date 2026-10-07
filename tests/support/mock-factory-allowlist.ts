@@ -120,11 +120,6 @@ export const ALLOWLIST: Record<string, number> = {
   "@/lib/passes/entitlement :: tests/farah/next-free-message.test.ts": 1,
   "@/lib/passes/entitlement :: tests/resume-builder/rewrite-bullet-balance.test.ts": 1,
   "@/lib/passes/entitlement :: tests/tailoring/commit-balance.test.ts": 1,
-  "@/lib/resend/client :: tests/admin/alert-email.test.ts": 1,
-  "@/lib/resend/client :: tests/auth/sign-out-scope-account-deletion.test.ts": 1,
-  "@/lib/resend/client :: tests/auto-apply-digest/flag-gate.test.ts": 1,
-  "@/lib/resend/client :: tests/auto-apply-digest/send.test.ts": 1,
-  "@/lib/resend/client :: tests/billing/deleted-user-payment.test.ts": 1,
   "@/lib/resend/client :: tests/billing/fulfill-amount-currency-guard.test.ts": 1,
   "@/lib/resend/client :: tests/billing/fulfill-atomic-concurrency.test.ts": 1,
   "@/lib/resend/client :: tests/billing/fulfill-posthog-instrumentation.test.ts": 1,
@@ -134,17 +129,12 @@ export const ALLOWLIST: Record<string, number> = {
   "@/lib/resend/client :: tests/billing/resend-receipt.test.ts": 1,
   "@/lib/resend/client :: tests/contact/contact-actions-wiring.test.ts": 1,
   "@/lib/resend/client :: tests/contact/contact-message-field.test.tsx": 1,
-  "@/lib/resend/client :: tests/digest/flag-gate.test.ts": 1,
   "@/lib/resend/client :: tests/digest/proactive-alert-exclusion.test.ts": 1,
-  "@/lib/resend/client :: tests/digest/verification-gate.test.ts": 1,
-  "@/lib/resend/client :: tests/employer-verification-reminders/send.test.ts": 1,
   "@/lib/resend/client :: tests/jobs/expiry-reminders/send.test.ts": 1,
-  "@/lib/resend/client :: tests/lib/account-deletion/actions.test.ts": 1,
   "@/lib/resend/client :: tests/mentorship/application-decision-notifications.test.ts": 1,
   "@/lib/resend/client :: tests/mentorship/confirmation-notifications.test.ts": 1,
   "@/lib/resend/client :: tests/mentorship/late-payment-fulfilment.test.ts": 1,
   "@/lib/resend/client :: tests/mentorship/payment-idempotency.test.ts": 1,
-  "@/lib/resend/client :: tests/mentorship/refund-alert-unset.test.ts": 1,
   "@/lib/resend/client :: tests/mentorship/session-reminders.test.ts": 1,
   "@/lib/resend/client :: tests/notifications/employer-resume-view-notify.test.ts": 1,
   "@/lib/resend/client :: tests/notifications/hired-moment-send.test.ts": 1,
@@ -157,7 +147,7 @@ export const ALLOWLIST: Record<string, number> = {
 };
 
 /** Must equal the sum of ALLOWLIST. Lower it with every conversion; raising it is a visible, reviewed act. */
-export const ALLOWLIST_CEILING = 149;
+export const ALLOWLIST_CEILING = 139;
 
 /** How many hand-written factories the scoped modules had when the ratchet was introduced. Never changes: the ceiling may not exceed it. */
 export const INITIAL_FACTORIES = 149;

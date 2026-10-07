@@ -1,6 +1,7 @@
 import "server-only";
 import { after } from "next/server";
 import { PostHog } from "posthog-node";
+import { isQaUserId } from "@/lib/profile/qa-account-server";
 
 /**
  * The 9 server-side product events this app actually captures, mapped 1:1
@@ -91,6 +92,8 @@ export function captureEvent(
       try {
         const posthog = getClient();
         if (!posthog) return;
+        // QA accounts (owner-authorised test accounts on production) are kept out of product analytics: a cached lookup, here in the deferred callback, never on the request path.
+        if (await isQaUserId(userId)) return;
         posthog.capture({ distinctId: userId, event, properties });
         // See flushAt/flushInterval above — this is the other half of the
         // same guarantee, not redundant with it.
