@@ -11,7 +11,7 @@ import { serverFailureText } from "@/lib/farah/panel-failure-text";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { renderFarahMarkdown } from "@/lib/farah/render-markdown";
 import { readFarahChatStream } from "@/lib/farah/read-chat-stream";
-import { useKnownCreditsBalance, useReportCreditsBalance } from "@/components/app-shell/credits-balance";
+import { useReportCreditsBalance } from "@/components/app-shell/credits-balance";
 import { FarahComposer } from "@/components/app-shell/farah-composer";
 import { isCoarsePointer, prepareMessage, shouldRefocusAfterSend } from "@/lib/farah/composer";
 import {
@@ -152,7 +152,6 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
   const searchParams = useSearchParams();
   const pageChips = panelChipsForPath(pathname, searchParams);
   const { jobId: pageJobId, ...pageIds } = pageContextForPath(pathname, searchParams);
-  const knownBalance = useKnownCreditsBalance();
   const [messages, setMessages] = useState<FarahMessage[]>(initialMessages ?? []);
   const [input, setInput] = useState("");
   /*
@@ -735,8 +734,9 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
 
       <FarahQuickActions
         freeRemaining={freeRemaining}
-        balance={knownBalance}
         actions={pageChips.chips}
+        collapsed={messages.length > 0}
+        collapsedLabel={pageChips.openingLine ? "Ask about this page" : "Quick questions"}
         allowanceLoading={allowanceLoading}
         pending={pending}
         onSend={(key) => {
