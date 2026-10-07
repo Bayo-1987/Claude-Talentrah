@@ -13,9 +13,17 @@
  */
 export const QA_EMAIL_MARKER = "+qa-";
 
-/** True for a name that is exactly "QA" or starts with "QA " (case-sensitive; surrounding whitespace ignored). */
+/**
+ * Trims SPACES only (U+0020), exactly as Postgres `btrim` does: the SQL twin (public.is_qa_account, S3-21) trims nothing else, so a name that starts with a tab,
+ * a newline or a no-break space is NOT a QA name in either place. `String.prototype.trim` would strip all of those and make the two disagree.
+ */
+function trimSpaces(value: string | null | undefined): string {
+  return (value ?? "").replace(/^ +| +$/g, "");
+}
+
+/** True for a name that is exactly "QA" or starts with "QA " (case-sensitive; leading and trailing SPACES ignored, no other whitespace). */
 export function isQaName(name: string | null | undefined): boolean {
-  const n = (name ?? "").trim();
+  const n = trimSpaces(name);
   return n === "QA" || n.startsWith("QA ");
 }
 
@@ -31,8 +39,8 @@ export interface QaAccountFields {
 
 export function isQaAccount(fields: QaAccountFields): boolean {
   if ((fields.email ?? "").toLowerCase().includes(QA_EMAIL_MARKER)) return true;
-  const first = (fields.firstName ?? "").trim();
-  const last = (fields.lastName ?? "").trim();
+  const first = trimSpaces(fields.firstName);
+  const last = trimSpaces(fields.lastName);
   const full = [first, last].filter(Boolean).join(" ");
   return isQaName(first) || isQaName(full) || isQaName(fields.displayName) || isQaName(fields.leaderboardName);
 }
