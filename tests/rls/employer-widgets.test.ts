@@ -10,7 +10,12 @@
  *   - the posting set equals what the public feed shows for that organisation after the widget-only rules (anon through row level security);
  *   - neither anon nor a signed-in user can call it; the service role can;
  *   - employer_widgets: a member reads, creates and changes their own row (enabled defaults to false, max_items to 10), cannot touch the key or the timestamps, cannot delete; a stranger sees and changes nothing; anon is refused;
- *   - deleting the organisation removes its row.
+ *   - deleting the organisation removes its row;
+ *   - two real organisations with different owners cannot see or change each other's row; a signed-in non-member sees no rows and cannot call the function; an organisation whose creator profile has no name, display
+ *     name or handle still gets its widget (the left join); every excluded posting kind (draft, closed, removed, unlisted, superseded, expired, an external posting claimed by the organisation) has its own named case.
+ *
+ * NOT TESTABLE, AND WHY: a "creator row that does not exist" cannot occur. organizations.created_by is NOT NULL with a foreign key, and profiles.email is NOT NULL, so the only creator shapes that exist are a creator whose
+ * first name, last name and display name are null (tested below) and, for the rule itself, all four arguments null (tested below at the function).
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createClient } from "@supabase/supabase-js";
@@ -26,8 +31,10 @@ const tag = randomUUID().slice(0, 6);
 let owner: Authed;
 let qaOwner: Authed;
 let stranger: Authed;
+let otherOwner: Authed; // owns a second real organisation: the cross-organisation tests
+let nullNamesOwner: Authed; // a creator whose first name, last name and display name are all null
 const orgIds: string[] = [];
-const o = { main: "", unverified: "", qa: "", qaName: "", disabled: "", capped: "", noRow: "", fresh: "" };
+const o = { main: "", unverified: "", qa: "", qaName: "", disabled: "", capped: "", noRow: "", fresh: "", other: "", otherNoRow: "", nullNames: "" };
 let fp = 0;
 
 async function makeOrg(label: string, creator: Authed, verified: boolean): Promise<string> {
@@ -67,7 +74,15 @@ async function widget(orgId: string | null) {
 const titles = (w: NonNullable<Awaited<ReturnType<typeof widget>>>) => w.jobs.map((j) => String(j.title).replace(` ${tag}`, ""));
 
 beforeAll(async () => {
-  [owner, qaOwner, stranger] = await Promise.all([createAuthedTestUser("widget-owner"), createAuthedTestUser("widget-qa"), createAuthedTestUser("widget-stranger")]);
+  [owner, qaOwner, stranger, otherOwner, nullNamesOwner] = await Promise.all([
+    createAuthedTestUser("widget-owner"),
+    createAuthedTestUser("widget-qa"),
+    createAuthedTestUser("widget-stranger"),
+    createAuthedTestUser("widget-other"),
+    createAuthedTestUser("widget-nullnames"),
+  ]);
+  const clearNames = await admin.from("profiles").update({ first_name: null, last_name: null, referral_leaderboard_display_name: null } as never).eq("id", nullNamesOwner.id);
+  if (clearNames.error) throw new Error(`fixture null-name creator: ${clearNames.error.message}`);
   const qaTag = await admin.from("profiles").update({ email: `widget+qa-${tag}@example.test` } as never).eq("id", qaOwner.id);
   if (qaTag.error) throw new Error(`fixture QA creator: ${qaTag.error.message}`);
 
@@ -77,8 +92,11 @@ beforeAll(async () => {
   o.disabled = await makeOrg("disabled", owner, true);
   o.capped = await makeOrg("capped", owner, true);
   o.noRow = await makeOrg("norow", owner, true);
+  o.other = await makeOrg("other", otherOwner, true);
+  o.otherNoRow = await makeOrg("other-norow", otherOwner, true);
+  o.nullNames = await makeOrg("nullnames", nullNamesOwner, true);
 
-  for (const [org, enabled, max] of [[o.main, true, 10], [o.unverified, true, 10], [o.qa, true, 10], [o.disabled, false, 10], [o.capped, true, 2]] as const) {
+  for (const [org, enabled, max] of [[o.main, true, 10], [o.unverified, true, 10], [o.qa, true, 10], [o.disabled, false, 10], [o.capped, true, 2], [o.other, true, 10], [o.nullNames, true, 10]] as const) {
     const { error } = await admin.from("employer_widgets" as never).insert({ organization_id: org, enabled, max_items: max } as never);
     if (error) throw new Error(`fixture widget row: ${error.message}`);
   }
@@ -92,6 +110,10 @@ beforeAll(async () => {
   await makeJob(o.main, "UNLISTED", { unlisted_at: new Date().toISOString() });
   await makeJob(o.main, "SUPERSEDED", { superseded_at: new Date().toISOString() });
   await makeJob(o.main, "EXPIRED", { expires_at: new Date(Date.now() - 3_600_000).toISOString() });
+  // an EXTERNAL posting that this organisation has claimed (organization_id stays null for an external row; claimed_by_organization_id carries the claim)
+  await makeJob(o.main, "EXTERNAL-CLAIMED", { source_type: "external", organization_id: null, claimed_by_organization_id: o.main, claimed_at: new Date().toISOString(), external_url: "https://example.com/external-job", external_source: "test" });
+  await makeJob(o.other, "OTHER-OPEN");
+  await makeJob(o.nullNames, "NULLNAMES-OPEN");
   await makeJob(o.unverified, "UNVERIFIED-OPEN");
   await makeJob(o.qa, "QA-OPEN");
   await makeJob(o.disabled, "DISABLED-OPEN");
@@ -106,9 +128,10 @@ afterAll(async () => {
   };
   if (orgIds.length) {
     await check(admin.from("job_postings").delete().in("organization_id", orgIds));
+    await check(admin.from("job_postings").delete().in("claimed_by_organization_id", orgIds));
     await deleteOrgsCascade(admin, orgIds);
   }
-  await deleteTestUsers([owner, qaOwner, stranger].filter(Boolean).map((u) => u.id));
+  await deleteTestUsers([owner, qaOwner, stranger, otherOwner, nullNamesOwner].filter(Boolean).map((u) => u.id));
 }, 360_000);
 
 describe("org_job_widget: what it returns", () => {
@@ -116,6 +139,24 @@ describe("org_job_widget: what it returns", () => {
     const w = await widget(o.main);
     expect(w).not.toBeNull();
     expect(titles(w!).sort()).toEqual(["OPEN-A", "OPEN-B", "OPEN-FUTURE"]);
+  });
+
+  // One named case per excluded kind. Each first proves the excluded posting EXISTS (service role), so an absence below is a real absence and not an empty fixture.
+  it.each([
+    ["a draft posting", "DRAFT"],
+    ["a closed posting", "CLOSED"],
+    ["a removed posting", "REMOVED"],
+    ["an unlisted (link-only) posting", "UNLISTED"],
+    ["a superseded posting", "SUPERSEDED"],
+    ["an expired posting (closing date in the past)", "EXPIRED"],
+    ["an EXTERNAL posting that the organisation has claimed", "EXTERNAL-CLAIMED"],
+  ])("never shows %s", async (_name, title) => {
+    const { data, error } = await admin.from("job_postings").select("id").eq("title", `${title} ${tag}`);
+    expect(error).toBeNull();
+    expect(data, `the fixture for ${title} exists`).toHaveLength(1);
+    const w = (await widget(o.main))!;
+    expect(titles(w)).not.toContain(title);
+    expect(titles(w).length, "the widget itself is not empty (the open postings are there)").toBeGreaterThan(0);
   });
 
   it("has EXACTLY the agreed keys and no others", async () => {
@@ -181,6 +222,23 @@ describe("org_job_widget: every failed gate answers NULL", () => {
   });
 });
 
+describe("org_job_widget: the creator-profile gate", () => {
+  it("is_qa_account(null, null, null, null) is false (every argument is null-guarded; the function never returns null)", async () => {
+    const { data, error } = await admin.rpc("is_qa_account" as never, { p_email: null, p_first: null, p_last: null, p_display: null } as never);
+    expect(error).toBeNull();
+    expect(data).toBe(false);
+  });
+
+  it("an organisation whose creator has no first name, last name or display name still gets its widget (the creator join does not drop it)", async () => {
+    const { data } = await admin.from("profiles").select("first_name, last_name, referral_leaderboard_display_name").eq("id", nullNamesOwner.id).single();
+    expect(data).toEqual({ first_name: null, last_name: null, referral_leaderboard_display_name: null });
+    const w = await widget(o.nullNames);
+    expect(w, "not NULL: a null name is not a QA name").not.toBeNull();
+    expect(titles(w!)).toEqual(["NULLNAMES-OPEN"]);
+  });
+  // A creator row that does not exist cannot occur: organizations.created_by is NOT NULL with a foreign key, and profiles.email is NOT NULL (see the header).
+});
+
 describe("org_job_widget: who may call it", () => {
   it("is service_role only, SECURITY DEFINER with a pinned search_path (function_acl_audit)", async () => {
     const { data, error } = await admin.rpc("function_acl_audit" as never);
@@ -195,9 +253,10 @@ describe("org_job_widget: who may call it", () => {
     expect({ anon: rows[0].anon_exec, authenticated: rows[0].authenticated_exec, service_role: rows[0].service_role_exec, public: rows[0].public_exec }).toEqual({ anon: false, authenticated: false, service_role: true, public: false });
   });
 
-  it("anon and a signed-in user are refused when they call it", async () => {
+  it("anon, a member and a signed-in NON-member are all refused when they call it", async () => {
     expect((await anon.rpc("org_job_widget" as never, { p_org_id: o.main } as never)).error?.code).toBe("42501");
     expect((await untyped(owner.client).rpc("org_job_widget" as never, { p_org_id: o.main } as never)).error?.code).toBe("42501");
+    expect((await untyped(stranger.client).rpc("org_job_widget" as never, { p_org_id: o.main } as never)).error?.code).toBe("42501");
   });
 });
 
@@ -219,6 +278,14 @@ describe("employer_widgets: who may read and change a row", () => {
     expect((await untyped(owner.client).from("employer_widgets" as never).update({ max_items: 21 } as never).eq("organization_id", o.main)).error?.code).toBe("23514");
     expect((await untyped(owner.client).from("employer_widgets" as never).update({ max_items: 0 } as never).eq("organization_id", o.main)).error?.code).toBe("23514");
     await admin.from("employer_widgets" as never).update({ enabled: true, max_items: 10 } as never).eq("organization_id", o.main);
+  });
+
+  it("max_items 20 is accepted and 21 is refused", async () => {
+    const ok = await untyped(owner.client).from("employer_widgets" as never).update({ max_items: 20 } as never).eq("organization_id", o.main).select("max_items");
+    expect(ok.error).toBeNull();
+    expect(ok.data).toEqual([{ max_items: 20 }]);
+    expect((await untyped(owner.client).from("employer_widgets" as never).update({ max_items: 21 } as never).eq("organization_id", o.main)).error?.code).toBe("23514");
+    await admin.from("employer_widgets" as never).update({ max_items: 10 } as never).eq("organization_id", o.main);
   });
 
   it("the key and the timestamps are not client-writable (column grants)", async () => {
@@ -257,6 +324,44 @@ describe("employer_widgets: who may read and change a row", () => {
     expect(refused.error?.message).toMatch(/row-level security/);
     const stamped = await untyped(owner.client).from("employer_widgets" as never).insert({ organization_id: o.noRow, created_at: new Date().toISOString() } as never);
     expect(stamped.error?.code).toBe("42501");
+  });
+
+  it("CROSS-ORGANISATION: a member of organisation A cannot read, update or create a row for organisation B, and the reverse (two real organisations, two real owners)", async () => {
+    // the fixtures: A = o.main (owner), B = o.other (otherOwner), both with a widget row; o.otherNoRow belongs to B's owner and has NO row
+    const readB = await untyped(owner.client).from("employer_widgets" as never).select("organization_id").eq("organization_id", o.other);
+    expect(readB.error).toBeNull();
+    expect(readB.data, "A's member sees none of B's rows").toEqual([]);
+    const readOwn = await untyped(owner.client).from("employer_widgets" as never).select("organization_id");
+    expect(readOwn.error).toBeNull();
+    expect((readOwn.data as unknown as Array<{ organization_id: string }>).map((r) => r.organization_id)).not.toContain(o.other);
+
+    const updB = await untyped(owner.client).from("employer_widgets" as never).update({ enabled: false, max_items: 1 } as never).eq("organization_id", o.other).select("organization_id");
+    expect(updB.error).toBeNull();
+    expect(updB.data, "A's member updates zero rows of B").toEqual([]);
+    const stillB = await admin.from("employer_widgets" as never).select("enabled, max_items").eq("organization_id", o.other).single();
+    expect(stillB.data).toEqual({ enabled: true, max_items: 10 });
+
+    const insB = await untyped(owner.client).from("employer_widgets" as never).insert({ organization_id: o.otherNoRow, enabled: true } as never);
+    expect(insB.error?.code, "A's member cannot create a row for B's organisation").toBe("42501");
+    expect(insB.error?.message).toMatch(/row-level security/);
+
+    // and the reverse direction
+    const readA = await untyped(otherOwner.client).from("employer_widgets" as never).select("organization_id").eq("organization_id", o.main);
+    expect(readA.data).toEqual([]);
+    const updA = await untyped(otherOwner.client).from("employer_widgets" as never).update({ enabled: false } as never).eq("organization_id", o.main).select("organization_id");
+    expect(updA.error).toBeNull();
+    expect(updA.data).toEqual([]);
+    const stillA = await admin.from("employer_widgets" as never).select("enabled").eq("organization_id", o.main).single();
+    expect((stillA.data as unknown as { enabled: boolean }).enabled).toBe(true);
+    // each member still reads and changes their OWN row
+    expect((await untyped(otherOwner.client).from("employer_widgets" as never).select("organization_id").eq("organization_id", o.other)).data).toHaveLength(1);
+  });
+
+  it("a signed-in NON-member sees no widget rows at all, and anon is refused", async () => {
+    const mine = await untyped(stranger.client).from("employer_widgets" as never).select("organization_id");
+    expect(mine.error).toBeNull();
+    expect(mine.data, "a user who belongs to no organisation sees no rows").toEqual([]);
+    expect((await anon.from("employer_widgets" as never).select("organization_id")).error?.code).toBe("42501");
   });
 
   it("deleting the organisation removes its row", async () => {
