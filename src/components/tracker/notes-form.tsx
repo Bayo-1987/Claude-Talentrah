@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { formatTrackerDate } from "@/lib/tracker/format-date";
+import { TextArea } from "@/components/ui/text-area";
 
 /**
  * A note on a tracked application, in three states.
@@ -86,20 +87,6 @@ export function NotesForm({ applicationId, notes, updatedAt }: NotesFormProps) {
     return () => clearTimeout(timer);
   }, [showSaved]);
 
-  /**
-   * Grow the box to fit its content.
-   *
-   * `rows={1}` with `resize-y` was the old behaviour: a three-line note opened
-   * as one visible line and stayed that way unless the user thought to drag
-   * the corner. Height is reset to `auto` first because scrollHeight only ever
-   * grows otherwise — without it, deleting lines leaves the box tall.
-   */
-  function fit(el: HTMLTextAreaElement | null) {
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
-  }
-
   function startEditing() {
     setShowSaved(false);
     setMode("editing");
@@ -162,12 +149,11 @@ export function NotesForm({ applicationId, notes, updatedAt }: NotesFormProps) {
     });
   }
 
-  // Size and focus the box when the editor opens, not on every render.
+  // Focus the box when the editor opens, not on every render. (The shared TextArea grows with its text, so there is nothing to size by hand.)
   useEffect(() => {
     if (mode !== "editing") return;
     const el = textareaRef.current;
     if (!el) return;
-    fit(el);
     el.focus();
     // Caret at the end rather than the start: this is nearly always an append.
     el.setSelectionRange(el.value.length, el.value.length);
@@ -247,9 +233,13 @@ export function NotesForm({ applicationId, notes, updatedAt }: NotesFormProps) {
 
       {mode === "editing" && (
         <form onSubmit={handleSubmit} className="flex items-start gap-2.5">
-          <textarea
-            ref={textareaRef}
+          <TextArea
+            textareaRef={textareaRef}
             name="notes"
+            label="Notes"
+            hideLabel
+            autoGrow
+            wrapperClassName="min-w-0 flex-1"
             /*
              * `defaultValue`, and keyed on the saved text. An uncontrolled box
              * is what lets a failed save keep the user's typing — React does
@@ -259,9 +249,7 @@ export function NotesForm({ applicationId, notes, updatedAt }: NotesFormProps) {
              */
             key={savedNotes ?? ""}
             defaultValue={savedNotes ?? ""}
-            onInput={(e) => fit(e.currentTarget)}
             placeholder="Interview dates, contacts, next steps…"
-            rows={2}
             data-testid="notes-textarea"
             // send-381 — border-rust here means "currently editing", not
             // "currently focused", so a keyboard user tabbing away and back
@@ -269,7 +257,7 @@ export function NotesForm({ applicationId, notes, updatedAt }: NotesFormProps) {
             // to tell whether THIS field held focus. box-sizing: border-box
             // (globals.css) means the extra 1.5px grows inward, not outward
             // — no layout shift on focus.
-            className="min-h-[60px] w-full flex-1 resize-y overflow-hidden border-[1.5px] border-rust bg-card px-3 py-2 font-body text-[13px] text-ink outline-none focus:border-[3px]"
+            className="border-rust focus:border-[3px]"
           />
           <div className="flex flex-shrink-0 flex-col gap-1.5">
             <button

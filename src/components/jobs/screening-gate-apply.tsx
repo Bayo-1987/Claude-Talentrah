@@ -10,6 +10,7 @@ import { applyWithScreeningAction, type ScreeningAnswerInput } from "@/lib/appli
 import type { CountryState } from "@/lib/jobs/country-events";
 import { MAX_ASSESSMENT_FILES } from "@/lib/employer/assessment-document";
 import { MinimalRichEditor } from "@/components/rich-text/minimal-rich-editor";
+import { TextArea } from "@/components/ui/text-area";
 
 /**
  * send-373 — matches `application_screening_answers`'s own real DB check
@@ -334,16 +335,12 @@ export function ScreeningGateApply({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="assessment-response-text" className="font-body text-[13.5px] text-ink">
-              Your response
-            </label>
-            <textarea
+            <TextArea
               id="assessment-response-text"
+              label="Your response"
               value={responseText}
               onChange={(e) => setResponseText(e.target.value)}
-              rows={4}
               placeholder="Write your answer here, or attach a file / link below instead."
-              className="w-full border-[1.5px] border-ink bg-card px-3 py-2 font-body text-[14px] text-ink outline-none focus:border-rust"
             />
           </div>
 

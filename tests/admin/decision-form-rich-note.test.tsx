@@ -19,7 +19,8 @@ describe("DecisionForm richNote prop", () => {
     const html = renderToStaticMarkup(
       <DecisionForm id="row-1" action={NOOP_ACTION} options={OPTIONS} notePlaceholder="Why?" />,
     );
-    expect(html).toContain('<textarea name="note"');
+    // The shared TextArea carries an id before the name, so the attribute order is not part of the contract; the field is.
+    expect(html).toMatch(/<textarea[^>]*\bname="note"/);
     expect(html).not.toContain('role="toolbar"');
   });
 
@@ -48,6 +49,6 @@ describe("DecisionForm richNote prop", () => {
     const html = renderToStaticMarkup(
       <DecisionForm id="row-1" action={NOOP_ACTION} options={OPTIONS} notePlaceholder="Why?" richNote />,
     );
-    expect(html).not.toContain('<textarea name="note"');
+    expect(html).not.toMatch(/<textarea[^>]*\bname="note"/);
   });
 });
