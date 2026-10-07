@@ -126,28 +126,20 @@ export const ALLOWLIST: Record<string, number> = {
   "@/lib/resend/client :: tests/billing/purchase-receipt.test.ts": 1,
   "@/lib/resend/client :: tests/billing/renewal-failure-modes.test.ts": 1,
   "@/lib/resend/client :: tests/billing/resend-receipt-rls.test.ts": 1,
-  "@/lib/resend/client :: tests/billing/resend-receipt.test.ts": 1,
   "@/lib/resend/client :: tests/contact/contact-actions-wiring.test.ts": 1,
-  "@/lib/resend/client :: tests/contact/contact-message-field.test.tsx": 1,
-  "@/lib/resend/client :: tests/digest/proactive-alert-exclusion.test.ts": 1,
-  "@/lib/resend/client :: tests/jobs/expiry-reminders/send.test.ts": 1,
   "@/lib/resend/client :: tests/mentorship/application-decision-notifications.test.ts": 1,
   "@/lib/resend/client :: tests/mentorship/confirmation-notifications.test.ts": 1,
   "@/lib/resend/client :: tests/mentorship/late-payment-fulfilment.test.ts": 1,
   "@/lib/resend/client :: tests/mentorship/payment-idempotency.test.ts": 1,
   "@/lib/resend/client :: tests/mentorship/session-reminders.test.ts": 1,
   "@/lib/resend/client :: tests/notifications/employer-resume-view-notify.test.ts": 1,
-  "@/lib/resend/client :: tests/notifications/hired-moment-send.test.ts": 1,
-  "@/lib/resend/client :: tests/notifications/proactive-match-alert-eligibility.test.ts": 1,
-  "@/lib/resend/client :: tests/notifications/proactive-match-alert-gates.test.ts": 1,
   "@/lib/resend/client :: tests/notifications/referral-reward-run.test.ts": 1,
   "@/lib/resend/client :: tests/notifications/referral-reward-send.test.ts": 1,
-  "@/lib/resend/client :: tests/notifications/win-back-eligibility.test.ts": 1,
   "@/lib/resend/client :: tests/talent-directory/subscription-idempotency.test.ts": 1,
 };
 
 /** Must equal the sum of ALLOWLIST. Lower it with every conversion; raising it is a visible, reviewed act. */
-export const ALLOWLIST_CEILING = 139;
+export const ALLOWLIST_CEILING = 131;
 
 /** How many hand-written factories the scoped modules had when the ratchet was introduced. Never changes: the ceiling may not exceed it. */
 export const INITIAL_FACTORIES = 149;

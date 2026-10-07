@@ -13,7 +13,7 @@ const stampedUpdates = vi.hoisted(() => [] as { user_id: string; win_back_last_s
 
 vi.mock("@/lib/flags/read", () => ({ isFeatureEnabled: vi.fn(async () => true) }));
 
-vi.mock("@/lib/resend/client", () => ({
+vi.mock("@/lib/resend/client", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/resend/client")>()),
   getResendClient: () => ({
     emails: {
       send: async (payload: { to: string; subject: string }) => {
