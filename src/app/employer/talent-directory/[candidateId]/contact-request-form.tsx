@@ -6,6 +6,7 @@ import {
   type ContactRequestResult,
 } from "@/lib/talent-directory/actions";
 import { Button } from "@/components/ui";
+import { TextArea } from "@/components/ui/text-area";
 
 const initialState: { status: "idle" } | ContactRequestResult = { status: "idle" };
 
@@ -33,16 +34,12 @@ export function ContactRequestForm({ candidateId }: { candidateId: string }) {
 
   return (
     <form action={formAction} className="flex flex-col gap-2.5 border-[1.5px] border-ink bg-card p-4">
-      <label htmlFor="contact-message" className="font-body text-[13px] font-semibold text-ink-soft">
-        A short note introducing why you&apos;re reaching out
-      </label>
-      <textarea
+      <TextArea
         id="contact-message"
         name="message"
-        rows={4}
         required
+        label="A short note introducing why you're reaching out"
         placeholder="What the role is, and why their profile stood out."
-        className="border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[14px] text-ink outline-none placeholder:font-display placeholder:text-[13.5px] placeholder:italic placeholder:text-ink-soft focus:border-rust"
       />
       {state.status === "error" && <p className="text-[12.5px] text-rust">{state.message}</p>}
       <Button type="submit" disabled={pending} className="self-start">

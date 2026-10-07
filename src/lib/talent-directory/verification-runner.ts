@@ -3,6 +3,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { spendCredits, InsufficientCreditsError } from "@/lib/credits/spend";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
+import { formatDate } from "@/lib/format/datetime";
 import { gradeResumeForVerification } from "./verification";
 
 /**
@@ -16,17 +17,13 @@ import { gradeResumeForVerification } from "./verification";
  * (scholarships/farah.ts) is already its own plain, non-"use server" module
  * rather than living inline in a Server Action.
  *
- * THE CLAIM STEP IS THE REAL CONCURRENCY GUARD. A conditional UPDATE
- * (`talent_verification_status IN ('unverified','rejected')`, service role,
- * before anything else runs) is the same one-statement check-and-act shape
- * CLAUDE.md requires for anything gating on a compared value — two
- * concurrent requests can only ever have one succeed at claiming `pending`;
- * the loser is refused immediately, before it ever reaches the LLM call or
- * spendCredits. See tests/talent-directory/verification-race.test.ts, which
- * is what actually proves this rather than assuming it from the shape.
- * spendCredits' own atomic RPC (0035) is the second, independent layer —
- * proven generically by spend-race.test.ts and inherited here "for free",
- * the same way referral_leaderboard inherited 0036's self-referral guard.
+ * THE CLAIM STEP IS THE REAL CONCURRENCY GUARD, AND THE ATTEMPT LIMIT. claim_ai_talent_verification is one database call: it locks the person's profile row, refuses unless the profile is
+ * unverified or rejected, refuses once the person has two AI reviews resolved in the last 30 days (a flagged one counts, a released one does not), and otherwise sets the profile to pending and
+ * inserts the pending row. It is the same one-statement check-and-act shape CLAUDE.md requires for anything gating on a counted or compared value: two concurrent requests can only ever have one
+ * succeed, and the loser is refused immediately, before it ever reaches the LLM call or spendCredits. See tests/talent-directory/verification-race.test.ts and
+ * tests/talent-directory/ai-verification-attempt-limit.test.ts, which prove this rather than assuming it from the shape.
+ * spendCredits' own atomic RPC (0035) is the second, independent layer — proven generically by spend-race.test.ts and inherited here "for free", the same way referral_leaderboard
+ * inherited 0036's self-referral guard.
  */
 export interface VerificationActionResult {
   status: "success" | "error";
@@ -35,44 +32,32 @@ export interface VerificationActionResult {
   passed?: boolean;
 }
 
+/** What the person is told when they have used both AI resume reviews in the last 30 days. States the rule and the date the next one opens, and points to a review by a Talentrah mentor (the wording of the Resume reviewed by … badge), which has no such limit. */
+export function attemptLimitMessage(nextAllowedAt: string | null | undefined): string {
+  const date = formatDate(nextAllowedAt, { timeZone: "UTC" }) || null;
+  return `You've used both of your resume reviews by Farah (AI) in the past 30 days.${date ? ` The next one opens on ${date}.` : ""} If you'd rather not wait, you can ask a Talentrah mentor to review your resume.`;
+}
+
 export async function runTalentVerification(userId: string): Promise<VerificationActionResult> {
   const serviceClient = createServiceRoleClient();
   const cost = CREDIT_COSTS.talentDirectoryVerification;
 
-  const { data: claimed, error: claimError } = await serviceClient
-    .from("profiles")
-    .update({ talent_verification_status: "pending" })
-    .eq("id", userId)
-    .in("talent_verification_status", ["unverified", "rejected"])
-    .select("id")
-    .maybeSingle();
+  // One database call claims the profile, enforces the attempt limit and inserts the pending row: a limit read here and acted on afterwards would let two concurrent third attempts both through.
+  const { data: claimRows, error: claimError } = await serviceClient.rpc("claim_ai_talent_verification", { p_user_id: userId });
+  const claim = claimRows?.[0];
 
-  if (claimError) return { status: "error", message: "Something went wrong on our end." };
-  if (!claimed) {
-    return {
-      status: "error",
-      message: "A resume review is already pending, or your resume has already been reviewed.",
-    };
-  }
-
-  const { data: verification, error: insertError } = await serviceClient
-    .from("talent_verifications")
-    .insert({ user_id: userId, status: "pending" })
-    .select("id")
-    .single();
-
-  if (insertError || !verification) {
-    // No talent_verifications row was ever created, so there's nothing for
-    // release_talent_verification_claim's delete half to do — this reverts
-    // just the profiles claim directly rather than routing through it with
-    // a placeholder id.
-    await serviceClient
-      .from("profiles")
-      .update({ talent_verification_status: "unverified" })
-      .eq("id", userId)
-      .eq("talent_verification_status", "pending");
+  if (claimError || !claim) return { status: "error", message: "Something went wrong on our end." };
+  if (!claim.ok || !claim.verification_id) {
+    if (claim.reason === "limit_reached") return { status: "error", message: attemptLimitMessage(claim.next_allowed_at) };
+    if (claim.reason === "not_claimable") {
+      return {
+        status: "error",
+        message: "A resume review is already pending, or your resume has already been reviewed.",
+      };
+    }
     return { status: "error", message: "Something went wrong on our end." };
   }
+  const verification = { id: claim.verification_id };
 
   const { data: balanceRow } = await serviceClient
     .from("profiles")
@@ -140,13 +125,21 @@ export async function runTalentVerification(userId: string): Promise<Verificatio
     }
   }
 
-  const { data: resolvedOk } = await serviceClient.rpc("resolve_talent_verification", {
-    p_verification_id: verification.id,
-    p_user_id: userId,
-    p_verified: grade.passed,
-    p_score: grade.score,
-    p_feedback: grade.feedback,
-  });
+  // A flagged attempt is resolved by its own function, which records why it was refused (flag_source); every other result goes through the one resolver as before.
+  const { data: resolvedOk } = grade.flagged
+    ? await serviceClient.rpc("resolve_flagged_talent_verification", {
+        p_verification_id: verification.id,
+        p_user_id: userId,
+        p_feedback: grade.feedback,
+        p_flag_source: grade.flagSource ?? "pattern",
+      })
+    : await serviceClient.rpc("resolve_talent_verification", {
+        p_verification_id: verification.id,
+        p_user_id: userId,
+        p_verified: grade.passed,
+        p_score: grade.score,
+        p_feedback: grade.feedback,
+      });
 
   if (!resolvedOk) {
     if (!charged) return { status: "error", message: "Something went wrong on our end. You haven't been charged." };

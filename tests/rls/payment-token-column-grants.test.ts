@@ -27,7 +27,7 @@ const RESTRICTED: Record<string, readonly string[]> = {
   payment_transactions: ["authorization_code"],
   user_passes: ["authorization_code", "pending_renewal_reference"],
   talent_directory_subscriptions: ["authorization_code", "pending_renewal_reference"],
-  talent_verifications: ["reviewer_id", "reviewer_notes", "reviewer_paid_at", "reviewer_payout_ngn", "reviewer_payout_reference"],
+  talent_verifications: ["flag_source", "reviewer_id", "reviewer_notes", "reviewer_paid_at", "reviewer_payout_ngn", "reviewer_payout_reference"],
   ad_wallet_ledger: [],
 };
 const TABLES = Object.keys(RESTRICTED);

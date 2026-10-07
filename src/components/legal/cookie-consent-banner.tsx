@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { buttonClasses } from "@/lib/button-classes";
+import { COOKIE_CONSENT_STORAGE_KEY } from "./cookie-consent-script";
 
 /**
  * send-406 — a real, dismissible cookie/consent banner. Forward-looking
@@ -54,8 +55,16 @@ import { buttonClasses } from "@/lib/button-classes";
  * the whole problem: it pushes every sticky header down while visible,
  * never overlaps anything, and needs no z-index coordination with anything
  * else fixed on the page.
+ *
+ * ── S1-26 ITEM 3: IT NO LONGER APPEARS AFTER HYDRATION ─────────────────────
+ *
+ * Being in-flow is right; appearing AFTER the page had painted was the bug. It started hidden and showed once mounted, so on a slow phone the
+ * whole page painted, then dropped by the banner's height: CLS 0.16 to 0.19 on /, /jobs and a job page. It is now rendered on the server and
+ * is there at first paint. The visitor who already chose is handled before paint by a tiny script (./cookie-consent-script.ts) that marks
+ * <html data-cookie-consent="decided">, and one CSS rule (globals.css) hides the banner on that attribute: no flash, no shift. This
+ * component still removes itself once mounted if a choice is stored, and when a choice is made.
  */
-const STORAGE_KEY = "talentrah-cookie-consent";
+const STORAGE_KEY = COOKIE_CONSENT_STORAGE_KEY;
 type Consent = "accepted" | "rejected";
 
 function readStoredConsent(): Consent | null {
@@ -79,16 +88,12 @@ function storeConsent(value: Consent): void {
 }
 
 export function CookieConsentBanner() {
-  const [visible, setVisible] = useState(false);
+  // Visible from the server render: it is part of the first paint. A returning visitor never sees it, because the pre-paint script and one
+  // CSS rule hide it before paint (see the header and cookie-consent-script.ts); the effect below then removes it from the page for good.
+  // The read is deferred into a microtask (rather than called directly in the effect body): a direct synchronous setState call in an
+  // effect body risks the cascading-render pattern React's own lint rule warns against.
+  const [visible, setVisible] = useState(true);
 
-  // Starts hidden and only shows once mounted, matching MarketingStickyCta's
-  // own reasoning: never flash a banner a returning visitor already
-  // dismissed, and localStorage doesn't exist during server rendering
-  // anyway. The read itself is synchronous, but is deferred into a
-  // microtask (rather than called directly in the effect body) for the
-  // same reason MarketingStickyCta's own check is naturally async — a
-  // direct synchronous setState call in an effect body risks the
-  // cascading-render pattern React's own lint rule warns against.
   useEffect(() => {
     Promise.resolve().then(() => setVisible(readStoredConsent() === null));
   }, []);
@@ -115,7 +120,7 @@ export function CookieConsentBanner() {
           href="/legal/data-cookie-notice"
           className="text-rust underline underline-offset-2 hover:text-rust-hover"
         >
-          Learn more
+          Learn more about cookies
         </Link>
         .
       </p>
