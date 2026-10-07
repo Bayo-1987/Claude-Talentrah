@@ -340,6 +340,8 @@ jobs:
       - name: Seed demo data (full)
         env:
           SEED_APP_URL: http://localhost:3000
+          # CI-only fixtures instead of live job boards (scripts/seed-fixtures.ts): a fixed external job set, so counts and the feed length do not vary per run.
+          SEED_FIXTURES: "1"
         run: npm run seed
 
       # Regression tripwire, not a today-is-broken alarm — see
@@ -434,6 +436,8 @@ jobs:
       - name: Seed demo data
         env:
           SEED_APP_URL: http://localhost:3000
+          # CI-only fixtures instead of live job boards (scripts/seed-fixtures.ts), same as the unit job's seed.
+          SEED_FIXTURES: "1"
         run: npm run seed
 
       - name: Run Playwright suite
