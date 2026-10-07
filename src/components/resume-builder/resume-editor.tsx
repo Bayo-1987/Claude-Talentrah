@@ -18,6 +18,7 @@ import { useUnsavedGuard } from "@/components/resume-builder/use-unsaved-guard";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { chargeAnnouncement, creditsPhrase, priced } from "@/lib/credits/price-labels";
 import { MinimalRichEditor } from "@/components/rich-text/minimal-rich-editor";
+import { TextArea } from "@/components/ui/text-area";
 import { MinimalRichEditorList } from "@/components/rich-text/minimal-rich-editor-list";
 import {
   getExperienceBullets,
@@ -588,12 +589,13 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
       {/* Projects */}
       <section className="flex flex-col gap-2">
         <EyebrowLabel size="sm">Projects</EyebrowLabel>
-        <textarea
+        <TextArea
           id="projects-field"
+          label="Projects"
+          hideLabel
           value={content.projects.join("\n")}
           onChange={(e) => update("projects", e.target.value.split("\n").map((s) => s.trim()).filter(Boolean))}
-          rows={2}
-          className={`border-[1.5px] ${flaggedPaths.has("projects") ? "border-rust" : "border-ink"} bg-card p-3 font-body text-[14.5px] outline-none focus:border-rust`}
+          className={flaggedPaths.has("projects") ? "border-rust" : undefined}
           placeholder="One project per line"
         />
         {flaggedPaths.has("projects") && <ExampleFlagNotice text="Still the example projects list." />}
@@ -602,12 +604,13 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
       {/* Certifications */}
       <section className="flex flex-col gap-2">
         <EyebrowLabel size="sm">Certifications</EyebrowLabel>
-        <textarea
+        <TextArea
           id="certifications-field"
+          label="Certifications"
+          hideLabel
           value={content.certifications.join("\n")}
           onChange={(e) => update("certifications", e.target.value.split("\n").map((s) => s.trim()).filter(Boolean))}
-          rows={2}
-          className={`border-[1.5px] ${flaggedPaths.has("certifications") ? "border-rust" : "border-ink"} bg-card p-3 font-body text-[14.5px] outline-none focus:border-rust`}
+          className={flaggedPaths.has("certifications") ? "border-rust" : undefined}
           placeholder="One certification per line"
         />
         {flaggedPaths.has("certifications") && <ExampleFlagNotice text="Still the example certifications list." />}
@@ -718,14 +721,14 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
           {/* Awards */}
           <section className="flex flex-col gap-2">
             <EyebrowLabel size="sm">Awards</EyebrowLabel>
-            <textarea
+            <TextArea
               id="awards-field"
+              label="Awards"
+              hideLabel
               value={(content.awards ?? []).join("\n")}
               onChange={(e) =>
                 update("awards", e.target.value.split("\n").map((s) => s.trim()).filter(Boolean))
               }
-              rows={2}
-              className="border-[1.5px] border-ink bg-card p-3 font-body text-[14.5px] outline-none focus:border-rust"
               placeholder="One award per line"
             />
           </section>
@@ -733,14 +736,14 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
           {/* Publications */}
           <section className="flex flex-col gap-2">
             <EyebrowLabel size="sm">Publications</EyebrowLabel>
-            <textarea
+            <TextArea
               id="publications-field"
+              label="Publications"
+              hideLabel
               value={(content.publications ?? []).join("\n")}
               onChange={(e) =>
                 update("publications", e.target.value.split("\n").map((s) => s.trim()).filter(Boolean))
               }
-              rows={2}
-              className="border-[1.5px] border-ink bg-card p-3 font-body text-[14.5px] outline-none focus:border-rust"
               placeholder="One publication per line"
             />
           </section>
@@ -798,11 +801,11 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
                       }
                     />
                   </div>
-                  <textarea
+                  <TextArea
+                    label="What you did"
+                    hideLabel
                     value={entry.description ?? ""}
                     onChange={(e) => updateVolunteering(i, { description: e.target.value })}
-                    rows={2}
-                    className="border-[1.5px] border-ink bg-card p-3 font-body text-[14px] outline-none focus:border-rust"
                     placeholder="What you did"
                   />
                 </BorderedCard>
@@ -842,22 +845,15 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
                     />
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <label
-                      htmlFor={`custom-section-${i}-items`}
-                      className="font-body text-[13px] font-semibold text-ink-soft"
-                    >
-                      Items (one per line)
-                    </label>
-                    <textarea
+                    <TextArea
                       id={`custom-section-${i}-items`}
+                      label="Items (one per line)"
                       value={section.items.join("\n")}
                       onChange={(e) =>
                         updateCustomSection(i, {
                           items: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean),
                         })
                       }
-                      rows={3}
-                      className="border-[1.5px] border-ink bg-card p-3 font-body text-[14px] outline-none focus:border-rust"
                     />
                   </div>
                 </BorderedCard>

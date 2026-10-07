@@ -7,6 +7,7 @@ import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { runEligibilityCheckAction, draftSopAction } from "@/lib/scholarships/actions";
 import type { EligibilityCheckResult } from "@/lib/scholarships/farah";
 import { cn } from "@/lib/cn";
+import { TextArea } from "@/components/ui/text-area";
 
 const VERDICT_LABEL: Record<EligibilityCheckResult["verdict"], string> = {
   likely_eligible: "Likely eligible",
@@ -119,15 +120,11 @@ export function FarahActions({
 
       {open === "sop" && (
         <div className="flex flex-col gap-2">
-          <label htmlFor={`motivation-${scholarshipId}`} className="text-[13px] font-semibold text-ink-soft">
-            Why are you applying? (optional — Farah works from your resume otherwise)
-          </label>
-          <textarea
+          <TextArea
             id={`motivation-${scholarshipId}`}
+            label="Why are you applying? (optional — Farah works from your resume otherwise)"
             value={motivation}
             onChange={(e) => setMotivation(e.target.value)}
-            rows={3}
-            className="w-full border-[1.5px] border-ink bg-card px-3 py-2 font-body text-[13.5px] text-ink outline-none focus:border-rust"
             placeholder="A sentence or two in your own words."
           />
           <Button type="button" size="sm" disabled={pending} onClick={runSop} className="w-fit">
