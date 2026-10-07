@@ -30,7 +30,7 @@ describe("the back link", () => {
   it.each([
     ["/employer/talent-directory", "Talent Directory"],
     ["/employer/jobs", "Jobs Posted"],
-    ["/talent-directory/verify", "your resume review"],
+    ["/talent-directory/verify", "Talent Directory"],
   ])("from %s: '← Back to %s', a link to that path, at least 44px tall", async (from, label) => {
     const html = await render(from);
     expect(html).toMatch(new RegExp(`<a [^>]*href="${from.replace(/\//g, "\\/")}"[^>]*>`));

@@ -34,7 +34,7 @@ const BASE = "/how-we-review-resumes";
 const ALLOWED: Array<[string, string]> = [
   ["/employer/talent-directory", "Talent Directory"],
   ["/employer/jobs", "Jobs Posted"],
-  ["/talent-directory/verify", "your resume review"],
+  ["/talent-directory/verify", "Talent Directory"],
 ];
 
 describe("the allow-list", () => {
