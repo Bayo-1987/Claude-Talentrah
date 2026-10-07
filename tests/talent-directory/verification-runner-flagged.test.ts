@@ -1,8 +1,8 @@
 /**
  * What the verification runner does with a FLAGGED resume (one whose text tries to instruct the grader: src/lib/talent-directory/injection-flags.ts).
  *
- * Nothing was graded, so nothing is charged. The attempt is still RECORDED, as a rejected verification with its feedback, so the attempt limit that counts a person's verification rows counts it too:
- * the row is resolved (resolve_talent_verification), not released (release_talent_verification_claim deletes the row, which is what a failed grading call does).
+ * Nothing was graded, so nothing is charged. The attempt is still RECORDED, as a rejected verification with its feedback and the reason it was refused (flag_source), so the attempt limit that counts a person's
+ * AI review rows counts it too: the row is resolved (resolve_flagged_talent_verification), not released (release_talent_verification_claim deletes the row, which is what a failed grading call does).
  *
  * Unit test with a fake service client and a fake grader: it needs no database. The concurrency of the claim step is tested separately (verification-race.test.ts, database-backed).
  */
@@ -53,12 +53,14 @@ const { CREDIT_COSTS } = await import("@/lib/credits/costs");
 
 const FLAGGED = { score: 0, passed: false, flagged: true, feedback: "Your resume contains text that reads like instructions to the grader.", concerns: ["Found text that tells the grader what score to give."] };
 
+const CLAIMED = { data: [{ ok: true, verification_id: "v1", reason: null, next_allowed_at: null }], error: null };
+
 beforeEach(() => {
   calls.length = 0;
   balance = 100;
   spendCredits.mockReset().mockResolvedValue(undefined);
   grade.mockReset();
-  rpc.mockReset().mockResolvedValue({ data: true, error: null });
+  rpc.mockReset().mockImplementation(async (name: string) => (name === "claim_ai_talent_verification" ? CLAIMED : { data: true, error: null }));
 });
 
 describe("a flagged resume", () => {
@@ -68,14 +70,24 @@ describe("a flagged resume", () => {
     expect(spendCredits).not.toHaveBeenCalled();
   });
 
-  it("is still recorded: the attempt row is RESOLVED as rejected with score 0 and the feedback, never released (a release deletes the row)", async () => {
+  it("is still recorded: the attempt row is RESOLVED as rejected with the feedback and its flag source, never released (a release deletes the row)", async () => {
+    grade.mockResolvedValue({ ...FLAGGED, flagSource: "model" });
+    await runTalentVerification("user-1");
+    expect(rpc.mock.calls.filter((c) => c[0] === "claim_ai_talent_verification")).toHaveLength(1);
+    const resolve = rpc.mock.calls.filter((c) => c[0] === "resolve_flagged_talent_verification");
+    expect(resolve).toHaveLength(1);
+    expect(resolve[0][1]).toEqual({ p_verification_id: "v1", p_user_id: "user-1", p_feedback: FLAGGED.feedback, p_flag_source: "model" });
+    expect(rpc.mock.calls.filter((c) => c[0] === "resolve_talent_verification")).toHaveLength(0);
+    expect(rpc.mock.calls.filter((c) => c[0] === "release_talent_verification_claim")).toHaveLength(0);
+  });
+
+  it("records a pattern flag as 'pattern', and a flagged grade with no source recorded as 'pattern' (the pre-model check is the default reason)", async () => {
+    grade.mockResolvedValue({ ...FLAGGED, flagSource: "pattern" });
+    await runTalentVerification("user-1");
     grade.mockResolvedValue(FLAGGED);
     await runTalentVerification("user-1");
-    expect(calls).toContain("talent_verifications.insert");
-    const resolve = rpc.mock.calls.filter((c) => c[0] === "resolve_talent_verification");
-    expect(resolve).toHaveLength(1);
-    expect(resolve[0][1]).toMatchObject({ p_verification_id: "v1", p_user_id: "user-1", p_verified: false, p_score: 0, p_feedback: FLAGGED.feedback });
-    expect(rpc.mock.calls.filter((c) => c[0] === "release_talent_verification_claim")).toHaveLength(0);
+    const sources = rpc.mock.calls.filter((c) => c[0] === "resolve_flagged_talent_verification").map((c) => c[1].p_flag_source);
+    expect(sources).toEqual(["pattern", "pattern"]);
   });
 
   it("answers as a normal not-verified outcome (success, passed false, score 0) and says plainly that nothing was charged", async () => {
@@ -96,18 +108,19 @@ describe("a flagged resume", () => {
     expect(r.message).not.toMatch(/verif(?:ied|ication|ications|y|ying)/i);
   });
 
-  it("the stored feedback and the answer carry no attempt limit (none exists yet: 0b will add it)", async () => {
+  it("the stored feedback and the answer say nothing about the attempt limit (a flagged review neither teaches the limit nor hints at what the filter looks for)", async () => {
     grade.mockResolvedValue(FLAGGED);
     const r = await runTalentVerification("user-1");
-    const stored = rpc.mock.calls.find((c) => c[0] === "resolve_talent_verification")?.[1]?.p_feedback as string;
+    const stored = rpc.mock.calls.find((c) => c[0] === "resolve_flagged_talent_verification")?.[1]?.p_feedback as string;
     for (const text of [r.message, stored]) expect(text).not.toMatch(/per 30 days|30 days|attempts? (left|remaining)|limit|twice/i);
   });
 
   it("is never reported verified, even if a grade object said so (a flagged grade cannot pass)", async () => {
     grade.mockResolvedValue({ ...FLAGGED, passed: true });
     await runTalentVerification("user-1");
-    const resolve = rpc.mock.calls.find((c) => c[0] === "resolve_talent_verification");
-    expect(resolve?.[1]).toMatchObject({ p_verified: false });
+    // the flagged resolver has no verified parameter at all, and the ordinary resolver is not called for a flagged grade
+    expect(rpc.mock.calls.filter((c) => c[0] === "resolve_talent_verification")).toHaveLength(0);
+    expect(Object.keys(rpc.mock.calls.find((c) => c[0] === "resolve_flagged_talent_verification")?.[1] ?? {}).sort()).toEqual(["p_feedback", "p_flag_source", "p_user_id", "p_verification_id"]);
   });
 });
 
@@ -119,6 +132,18 @@ describe("everything else is unchanged", () => {
     expect(spendCredits).toHaveBeenCalledWith("user-1", CREDIT_COSTS.talentDirectoryVerification, "talent_directory_verification", "v1");
     expect(rpc.mock.calls.find((c) => c[0] === "resolve_talent_verification")?.[1]).toMatchObject({ p_verified: true, p_score: 85 });
     expect(r).toMatchObject({ status: "success", passed: true, score: 85 });
+  });
+
+  it("not enough credits: the claimed row is released (so a pending review does not block the next attempt), and nothing is graded or charged", async () => {
+    balance = CREDIT_COSTS.talentDirectoryVerification - 1;
+    const r = await runTalentVerification("user-1");
+    expect(r.status).toBe("error");
+    expect(r.message).toMatch(/Not enough credits/);
+    expect(grade).not.toHaveBeenCalled();
+    expect(spendCredits).not.toHaveBeenCalled();
+    const release = rpc.mock.calls.filter((c) => c[0] === "release_talent_verification_claim");
+    expect(release).toHaveLength(1);
+    expect(release[0][1]).toEqual({ p_user_id: "user-1", p_verification_id: "v1" });
   });
 
   it("a low unflagged grade is still charged (a graded attempt costs credits, as before)", async () => {

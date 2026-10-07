@@ -37,19 +37,23 @@ export interface VerificationGrade {
   concerns: string[];
   /** True when the resume contained text that tries to instruct the grader. Such a resume is never passed; `score` is 0 and `feedback` says what to remove. */
   flagged?: boolean;
+  /** Why it was flagged: "pattern" (instruction-like text found before the model ran) or "model" (the model reported it). Stored with the attempt (talent_verifications.flag_source). */
+  flagSource?: FlagSource;
 }
+
+export type FlagSource = "pattern" | "model";
 
 /** What the person is told when their resume was flagged. It names no text from the resume. */
 export const FLAGGED_FEEDBACK =
   "Your resume contains text that reads like instructions to the grader (for example, what score to give or to ignore the grading rules), which is not part of a career history, so it couldn't be graded. You haven't been charged. Remove that text and try again, or ask for “Resume reviewed by a Talentrah mentor”, where a person reads it.";
 
 /** One line per flagged resume: the source, the category NAMES and how many. Never the resume's text, a name or an id, so the hit rate can be watched after launch without logging personal data. */
-function logFlag(source: "pattern" | "model", categories: string[]): void {
+function logFlag(source: FlagSource, categories: string[]): void {
   console.warn(`[grader-guard] flagged source=${source} categories=${categories.join(",")} count=${categories.length}`);
 }
 
-function flaggedGrade(concerns: string[]): VerificationGrade {
-  return { score: 0, passed: false, flagged: true, feedback: FLAGGED_FEEDBACK, concerns };
+function flaggedGrade(concerns: string[], flagSource: FlagSource): VerificationGrade {
+  return { score: 0, passed: false, flagged: true, flagSource, feedback: FLAGGED_FEEDBACK, concerns };
 }
 
 const VERIFICATION_SCHEMA = {
@@ -94,7 +98,7 @@ export async function gradeResumeForVerification(resume: StructuredResume): Prom
   const flags = findInstructionLikeText(resume);
   if (flags.length > 0) {
     logFlag("pattern", flags);
-    return flaggedGrade(flags.map((f) => `Found ${INSTRUCTION_FLAG_DESCRIPTIONS[f]}.`));
+    return flaggedGrade(flags.map((f) => `Found ${INSTRUCTION_FLAG_DESCRIPTIONS[f]}.`), "pattern");
   }
 
   const raw = await generateWithFailover((provider) =>
@@ -116,7 +120,7 @@ export async function gradeResumeForVerification(resume: StructuredResume): Prom
   // Layer 3: the model's own report. "Yes" means never pass, whatever score it gave.
   if (parsed.instructions_to_grader === "found") {
     logFlag("model", ["model-reported"]);
-    return flaggedGrade(["The grader reported text in your resume that reads like instructions to it."]);
+    return flaggedGrade(["The grader reported text in your resume that reads like instructions to it."], "model");
   }
   const score = Math.max(0, Math.min(100, Math.round(parsed.score ?? 0)));
   return {
