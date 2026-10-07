@@ -136,7 +136,7 @@ describe("auto-apply", () => {
   });
   it("the quota is read for the SESSION user even when the click carries other ids (a job, a scholarship, an application id is never an account)", async () => {
     const seen: string[] = [];
-    const other = "11111111-1111-4111-8111-111111111111";
+    const other = "99999999-9999-4999-8999-999999999999";
     await run("auto-apply", fake({}), { jobId: other, scholarshipId: other, applicationId: other }, { getQuotaState: async (id: string) => { seen.push(id); return { submittedLast24h: 0, submittedLast7d: 0, dailyRemaining: 5, freeRemaining: 5, nextSubmissionCostsCredits: false, nextSubmissionCovered: false } as never; } });
     expect(seen).toEqual([U]);
   });
