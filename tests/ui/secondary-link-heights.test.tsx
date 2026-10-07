@@ -96,6 +96,15 @@ describe("every title link on a list, card or landing row (CI found two the name
   });
 });
 
+describe("the outbound 'View the official listing' link is at least 24px tall (QA run 6: 22.5px on the detail page)", () => {
+  it("on the scholarship detail page", () => {
+    expect(minHeightPx(classOfLinkWith(read("src/app/(app)/scholarships/[id]/page.tsx"), "href={scholarship.official_url}"))).toBeGreaterThanOrEqual(24);
+  });
+  it("on the scholarship card", () => {
+    expect(minHeightPx(classOfLinkWith(read("src/components/scholarships/scholarship-card.tsx"), "href={scholarship.official_url}"))).toBeGreaterThanOrEqual(24);
+  });
+});
+
 describe("the browser spec is in the normal e2e config, so CI runs it", () => {
   const spec = existsSync(path.join(ROOT, "e2e/secondary-link-heights.spec.ts")) ? read("e2e/secondary-link-heights.spec.ts") : "";
   it("exists, measures 24px with getBoundingClientRect, and covers the eight pages at both widths", () => {
