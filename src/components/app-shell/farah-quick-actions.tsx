@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { FARAH_QUICK_ACTIONS } from "@/lib/farah/quick-actions";
-import { farahAllowanceText, quickActionMode } from "@/lib/credits/price-labels";
+import { farahAllowanceText, farahChipCostLabel, quickActionMode } from "@/lib/credits/price-labels";
+import { panelChipCharge } from "@/lib/credits/farah-message-charge";
 
 /**
  * The line under Farah's greeting about the free-message allowance (0123) — and, once it is used up, what a
@@ -50,11 +51,17 @@ export function FarahAllowanceNote({
  */
 export function FarahQuickActions({
   freeRemaining,
+  balance,
+  actions = FARAH_QUICK_ACTIONS,
   allowanceLoading = false,
   pending,
   onSend,
   onPrefill,
 }: {
+  /** The chips to show: today's three by default, or a page's own (page-chips.ts). */
+  actions?: ReadonlyArray<{ key: string; label: string; href?: string | null }>;
+  /** The credit balance the shell shows, when known; only used for the cost label. */
+  balance?: number;
   /** `undefined` = not known yet (see quickActionMode); `null` = known, unrationed (a Pass holder). */
   freeRemaining: number | null | undefined;
   /**
@@ -69,9 +76,11 @@ export function FarahQuickActions({
   onPrefill: (actionKey: string) => void;
 }) {
   const mode = quickActionMode(freeRemaining);
+  // The cost label every chip shows BEFORE the click comes from the one function the gate also uses (farah-message-charge.ts); nothing else supplies chip cost text.
+  const cost = farahChipCostLabel(panelChipCharge(freeRemaining, balance));
   return (
     <div className="flex flex-col border-t border-dashed border-line pt-4">
-      {FARAH_QUICK_ACTIONS.map((action) =>
+      {actions.map((action) =>
         action.href ? (
           <Link
             key={action.key}
@@ -81,15 +90,22 @@ export function FarahQuickActions({
             {action.label}
           </Link>
         ) : (
-          <button
-            key={action.key}
-            type="button"
-            disabled={pending || allowanceLoading}
-            onClick={() => (mode === "send" ? onSend(action.key) : onPrefill(action.key))}
-            className="flex min-h-11 items-center py-1 text-left font-body text-[13.5px] font-semibold text-ink underline underline-offset-2 hover:text-rust disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {action.label}
-          </button>
+          <div key={action.key} className="flex flex-col">
+            <button
+              type="button"
+              disabled={pending || allowanceLoading}
+              aria-describedby={cost ? `farah-chip-cost-${action.key}` : undefined}
+              onClick={() => (mode === "send" ? onSend(action.key) : onPrefill(action.key))}
+              className="flex min-h-11 items-center py-1 text-left font-body text-[13.5px] font-semibold text-ink underline underline-offset-2 hover:text-rust disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {action.label}
+            </button>
+            {cost && (
+              <span id={`farah-chip-cost-${action.key}`} className="pb-1 font-body text-[12px] text-ink-soft">
+                {cost}
+              </span>
+            )}
+          </div>
         ),
       )}
     </div>

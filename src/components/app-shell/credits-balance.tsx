@@ -52,6 +52,12 @@ export function useDisplayedCreditsBalance(serverBalance: number): number {
   return displayedCreditsBalance(serverBalance, ctx?.override ?? null);
 }
 
+/** The balance the shell is showing, or undefined outside a provider (a test, a page that renders the panel alone): "not known", never a guess. */
+export function useKnownCreditsBalance(): number | undefined {
+  const ctx = useContext(CreditsBalanceContext);
+  return ctx ? displayedCreditsBalance(ctx.serverBalance, ctx.override) : undefined;
+}
+
 /** Tell the masthead the account's new balance. A no-op outside a provider. */
 export function useReportCreditsBalance(): (newBalance: number) => void {
   return useContext(CreditsBalanceContext)?.report ?? noop;

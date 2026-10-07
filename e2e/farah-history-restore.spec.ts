@@ -55,7 +55,8 @@ test.describe("Farah's thread after a reload", () => {
   });
 
   test("no thread at all: the greeting, and no Continue offer", async ({ authedPage }) => {
-    await authedPage.goto("/tracker");
+    // /settings is an unlisted route, so it keeps the panel's own greeting; the tracker now opens with its own page line.
+    await authedPage.goto("/settings");
     await expect(authedPage.getByText(/I can help you prep for an interview/)).toBeVisible();
     await expect(authedPage.getByText("Continue where you left off with Farah?")).toHaveCount(0);
   });

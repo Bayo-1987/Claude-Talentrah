@@ -11,6 +11,7 @@
  * gates (tailoring/gate.ts, farah/chat-gate.ts) and the Server Actions already do.
  */
 import { CREDIT_COSTS } from "@/lib/credits/costs";
+import type { FarahMessageCharge } from "@/lib/credits/farah-message-charge";
 import { formatWeekdayAtTime, viewerTimeZone } from "@/lib/format/datetime";
 
 export function creditsPhrase(n: number): string {
@@ -157,6 +158,26 @@ export function farahAllowanceText({
 
 export function farahAllowanceLine(freeRemaining: number): string {
   return farahAllowanceText({ freeRemaining })?.text ?? "";
+}
+
+/**
+ * The only text a Farah chip shows about cost, BEFORE the click, from the same charge the gate takes (farah-message-charge.ts). null = show nothing (the count is not known: the chip is disabled).
+ * "free", "included with your Pass", "1 credit", or "1 credit (you have 0)" for a message the gate would refuse. It reads the same inputs as farahAllowanceText and says the same price
+ * (tests/farah/chip-cost-agrees-with-allowance-line.test.ts holds the two together, state by state).
+ */
+export function farahChipCostLabel(charge: FarahMessageCharge): string | null {
+  switch (charge.kind) {
+    case "unknown":
+      return null;
+    case "free":
+      return "free";
+    case "pass":
+      return priceText({ cost: 0, passCovered: true });
+    case "credits":
+      return creditsPhrase(charge.credits);
+    case "insufficient":
+      return `${creditsPhrase(charge.required)} (you have ${charge.available})`;
+  }
 }
 
 /**

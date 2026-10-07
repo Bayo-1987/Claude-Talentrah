@@ -28,7 +28,7 @@ describe("the panel", () => {
   });
   it("sends the same request as before: the same endpoint and body fields", () => {
     expect(panel).toContain('"/api/farah/chat"');
-    expect(panel).toMatch(/JSON\.stringify\(\{ message: trimmed, quickAction, sessionId: sessionId\(\), jobId \}\)/);
+    expect(panel).toMatch(/JSON\.stringify\(\{ message: trimmed, quickAction, sessionId: sessionId\(\), jobId, \.\.\.ids \}\)/);
   });
 });
 
