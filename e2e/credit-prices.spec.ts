@@ -23,6 +23,7 @@
 import type { Page } from "@playwright/test";
 import { test, expect, admin, grantTestCredits, requireStubbedLlm, seedBaseResume } from "./fixtures/authed";
 import { CREDIT_COSTS } from "../src/lib/credits/costs";
+import { farahAllowanceText } from "../src/lib/credits/price-labels";
 
 const START = 200;
 const JD = `We are looking for an engineer to build and operate payment APIs at scale. You will work with Node.js,
@@ -319,9 +320,14 @@ test.describe("Farah quick actions", () => {
     await grantTestCredits(testUser.id, START);
     await useUpFreeFarahMessages(testUser.id, START);
     await page.goto("/settings");
-    // The allowance line names the price; each chip now also carries its own cost label ("1 credit"), so match the line's own sentence, not the bare price.
-    // The line reads "Each message costs …" or, while a next free message is dated, "… Until then, each message costs …": hence the case-insensitive match.
-    await expect(page.getByText(new RegExp(`each message costs ${CREDIT_COSTS.farahChatMessage} credit`, "i"))).toBeVisible();
+    // The allowance line, in the state this setup produces (three free messages used, so a dated next free message): one exact assertion, built from the same helper the page uses.
+    // Each chip also carries its own cost label ("1 credit"), so the line is found by its own opening sentence, and the price is read from the line itself, not by a loose match anywhere on the page.
+    const line = farahAllowanceText({ freeRemaining: 0, nextFreeMessageAt: "2999-01-01T10:00:00.000Z", now: new Date("2998-12-01T00:00:00.000Z"), timeZone: "UTC" })!;
+    const note = page.getByText(line.lead.trim(), { exact: false }).first();
+    await expect(note).toBeVisible();
+    await expect(note.locator("time")).toHaveCount(1); // the date line is present
+    await expect(note).toContainText(line.tail); // ". Until then, each message costs <price>." (the tail is price text from CREDIT_COSTS)
+    await expect(note).not.toContainText("You've used your free messages. Each message costs"); // not the undated wording
 
     const input = page.getByPlaceholder("Ask me anything…");
     for (const { label, prompt } of ACTIONS) {

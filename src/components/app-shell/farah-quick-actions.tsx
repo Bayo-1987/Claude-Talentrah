@@ -4,8 +4,8 @@ import { farahAllowanceText, farahChipCostLabel, quickActionMode } from "@/lib/c
 import { panelChipCharge } from "@/lib/credits/farah-message-charge";
 
 /**
- * The line under Farah's greeting about the free-message allowance (0123) — and, once it is used up, what a
- * further message costs (send-493). `null` (count unknown, or an active Pass) renders nothing: silence is
+ * The line under Farah's greeting about the free-message allowance (0123) — and, once it is used up, what each
+ * message costs (send-493): "Each message costs N credits.", or with a dated next free message "… Until then, each message costs N credits." `null` (count unknown, or an active Pass) renders nothing: silence is
  * correct there; it is only a hard 0 that must not read as broken, and must say the price.
  *
  * Plain body text, no pill/badge/meter, per the Editorial system's rule against gamification.
