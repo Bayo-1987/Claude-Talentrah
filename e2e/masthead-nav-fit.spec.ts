@@ -165,7 +165,7 @@ test.describe("the masthead nav fits where it is shown", () => {
       "Auto-Apply",
       "Resume Builder",
       "Scholarships",
-      "Resume review",
+      "Talent Directory",
       "Refer a Friend",
       "Mentorship",
       "Feedback",

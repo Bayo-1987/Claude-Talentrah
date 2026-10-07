@@ -18,8 +18,8 @@ export default function TalentDirectoryVerifyLoading() {
       <SkeletonStatus>Loading your Talent Directory profile…</SkeletonStatus>
 
       <div>
-        <EyebrowLabel>Talent Directory</EyebrowLabel>
-        <h1 className="mt-2 font-display text-[28px] font-semibold">Get your resume reviewed</h1>
+        <EyebrowLabel>How to get listed</EyebrowLabel>
+        <h1 className="mt-2 font-display text-[28px] font-semibold">Join the Talent Directory</h1>
       </div>
 
       <SkeletonCard lines={2} />
