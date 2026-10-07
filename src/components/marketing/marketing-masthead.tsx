@@ -4,7 +4,8 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { authLinkWithReturn } from "@/lib/auth/redirect-to";
-import { buttonClasses } from "@/components/ui";
+import { MarketingAuthActions } from "@/components/marketing/marketing-auth-actions";
+import { hasAuthCookie } from "@/lib/auth/session-cookie";
 
 const NAV_LINKS = [
   { href: "/#jobs", label: "Browse Jobs" },
@@ -38,6 +39,8 @@ const NAV_LINKS = [
 const subscribeNothing = () => () => {};
 const readSearch = () => window.location.search;
 const readNoSearch = () => "";
+const readSignedIn = () => hasAuthCookie(document.cookie);
+const readSignedInOnServer = (): boolean | null => null;
 
 export function MarketingMasthead() {
   /*
@@ -50,6 +53,13 @@ export function MarketingMasthead() {
   const search = useSyncExternalStore(subscribeNothing, readSearch, readNoSearch);
   const loginHref = authLinkWithReturn("/login", pathname, search);
   const signupHref = authLinkWithReturn("/signup", pathname, search);
+  /*
+   * HWR-2: `null` on the server and during hydration, then whether the browser holds Supabase's auth cookie. The server render is therefore always the signed-out one (the
+   * static pages stay static, no per-request work), and a signed-in visitor gets "Go to your dashboard" in place of the two auth buttons a moment after hydration: the same
+   * stated trade jd-demo-input.tsx makes. Cookie PRESENCE rather than the Supabase client keeps that client's bundle off every info page; /dashboard and the protected pages
+   * still check the real session on the server, so a stale cookie costs one redirect to /login and grants nothing.
+   */
+  const signedIn = useSyncExternalStore(subscribeNothing, readSignedIn, readSignedInOnServer);
   const [navOpen, setNavOpen] = useState(false);
   const navRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -163,33 +173,7 @@ export function MarketingMasthead() {
           )}
         </div>
 
-        <div className="flex items-center gap-4 max-sm:gap-2">
-          <Link href={loginHref} className={buttonClasses("ghost", "md", "whitespace-nowrap no-underline")}>
-            Log in
-          </Link>
-          <Link
-            href={signupHref}
-            aria-label="Get started for free"
-            className={buttonClasses(
-              "primary",
-              "md",
-              "min-h-11 px-[22px] py-[11px] text-[14px] whitespace-nowrap no-underline max-sm:px-4 max-sm:py-2.5",
-            )}
-          >
-            {/*
-              Below 640px the full label does not fit beside the logo, the menu and Log in (a 390px
-              phone has 350px of content once the bar's side padding is taken off; the full CTA alone
-              is 193px), and it used to wrap onto up to four lines and spill out of the 78px bar. So
-              the VISIBLE label is shortened there and the link keeps its full accessible name via
-              aria-label: the visible words are the start of the name (WCAG 2.5.3, label in name),
-              and the hidden-from-AT span means a screen reader never hears both.
-            */}
-            <span className="max-sm:hidden">Get started for free</span>
-            <span className="sm:hidden" aria-hidden="true">
-              Get started
-            </span>
-          </Link>
-        </div>
+        <MarketingAuthActions signedIn={signedIn} loginHref={loginHref} signupHref={signupHref} />
       </div>
     </header>
   );
