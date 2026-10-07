@@ -1,6 +1,19 @@
 import "server-only";
 import { cache } from "react";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { isQaAccount } from "@/lib/profile/qa-account";
+
+/** The identifying columns the two public reads below embed, so a QA mentor (owner-authorised test account on production) is neither priced nor counted. */
+const PRICE_SELECT = "base_price_ngn, display_name, profiles!mentor_profiles_user_id_fkey(first_name, last_name, email)";
+
+type PricedMentorRow = {
+  base_price_ngn: number | null;
+  display_name: string | null;
+  profiles: { first_name: string | null; last_name: string | null; email: string | null } | null;
+};
+
+const isQaMentor = (row: PricedMentorRow): boolean =>
+  isQaAccount({ email: row.profiles?.email, firstName: row.profiles?.first_name, lastName: row.profiles?.last_name, displayName: row.display_name });
 
 /**
  * send-393 — the real, current session-price range among mentors a
@@ -84,7 +97,7 @@ export const getApprovedMentorPriceRangeNgn = cache(async (): Promise<MentorPric
   try {
     const { data, error } = await supabase
       .from("mentor_profiles")
-      .select("base_price_ngn")
+      .select(PRICE_SELECT)
       .eq("status", "approved")
       .eq("self_paused", false)
       .not("base_price_ngn", "is", null)
@@ -92,7 +105,8 @@ export const getApprovedMentorPriceRangeNgn = cache(async (): Promise<MentorPric
 
     if (error) throw new Error(`getApprovedMentorPriceRangeNgn: ${error.message}`);
 
-    const prices = (data ?? [])
+    const prices = ((data ?? []) as PricedMentorRow[])
+      .filter((row) => !isQaMentor(row))
       .map((row) => row.base_price_ngn)
       // The query already excludes null and zero; keep that true here too, so a free or unpriced row can never become the minimum.
       .filter((price): price is number => price !== null && price > 0);
@@ -119,11 +133,11 @@ export const getApprovedMentorsOfferFreeSessions = cache(async (): Promise<boole
   try {
     const { data, error } = await supabase
       .from("mentor_profiles")
-      .select("base_price_ngn")
+      .select(PRICE_SELECT)
       .eq("status", "approved")
       .eq("self_paused", false);
     if (error) throw new Error(`getApprovedMentorsOfferFreeSessions: ${error.message}`);
-    return (data ?? []).some((row) => row.base_price_ngn === null || row.base_price_ngn === 0);
+    return ((data ?? []) as PricedMentorRow[]).filter((row) => !isQaMentor(row)).some((row) => row.base_price_ngn === null || row.base_price_ngn === 0);
   } catch (err) {
     console.error("[mentorship] could not read whether any approved mentor offers free sessions:", err);
     return false;

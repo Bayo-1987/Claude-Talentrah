@@ -4,6 +4,7 @@ import { getOptionalUser } from "@/lib/auth/require-user";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import type { MentorshipSessionType } from "@/lib/mentorship/pricing";
 import { countOpenSlotsByMentor } from "@/lib/mentorship/mentor-card";
+import { isQaAccount } from "@/lib/profile/qa-account";
 
 /**
  * All reads here go through the AUTHENTICATED client, not service role —
@@ -87,7 +88,15 @@ export async function browseMentors(): Promise<MentorListing[]> {
     ]),
   );
 
-  return rows.map((r) => {
+  // QA accounts (owner-authorised test accounts on production) are not listed. Matched by name here (display_name, or first + last): the session client cannot read
+  // another user's email. Only the LIST is filtered: a mentor's own profile page, read by id, is not a listing and QA's own booking journeys reach their QA mentor there.
+  const qaIds = new Set(
+    (names ?? [])
+      .filter((n) => isQaAccount({ displayName: n.display_name, firstName: n.first_name, lastName: n.last_name }))
+      .map((n) => n.user_id),
+  );
+
+  return rows.filter((r) => !qaIds.has(r.user_id)).map((r) => {
     const ratings = (r.mentorship_reviews ?? []).map((rev) => rev.rating);
     return {
       userId: r.user_id,
