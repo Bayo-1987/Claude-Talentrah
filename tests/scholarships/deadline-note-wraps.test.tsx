@@ -21,8 +21,8 @@ import { PublicScholarshipRow } from "@/components/scholarships/public-scholarsh
 import { ScholarshipCard } from "@/components/scholarships/scholarship-card";
 
 /** An invented long token in the shape of the real one (a parenthesised path with no spaces or hyphens to break at). */
-const TOKEN = "(example.test/admission/apply/firstyear/calendar_deadlines_for_the_fall_twenty_twenty_seven_enrollment_cycle_overview)";
-const NOTE = `Provider calendar ${TOKEN}, deadlines vary by partner.`;
+const LONG_UNBROKEN_RUN = "(example.test/admission/apply/firstyear/calendar_deadlines_for_the_fall_twenty_twenty_seven_enrollment_cycle_overview)";
+const NOTE = `Provider calendar ${LONG_UNBROKEN_RUN}, deadlines vary by partner.`;
 const STAMP = "2026-09-09T08:47:31.534Z";
 
 const base = {
@@ -64,29 +64,29 @@ const wraps = (cls: string) => cls.split(/\s+/).includes("wrap-anywhere");
 
 describe("a long deadline-note token wraps on every surface that renders it", () => {
   it("fixture check: the note reaches the markup (the assertions below are not vacuous)", () => {
-    expect(renderToStaticMarkup(<PublicScholarshipRow scholarship={row} />)).toContain(TOKEN);
+    expect(renderToStaticMarkup(<PublicScholarshipRow scholarship={row} />)).toContain(LONG_UNBROKEN_RUN);
   });
 
   it("PublicScholarshipRow (/scholarships/fully-funded, /scholarships/degree/[level])", () => {
     const html = renderToStaticMarkup(<PublicScholarshipRow scholarship={row} />);
-    expect(wraps(classHolding(html, TOKEN))).toBe(true);
+    expect(wraps(classHolding(html, LONG_UNBROKEN_RUN))).toBe(true);
   });
 
   it("DeadlineLine, calm and urgent (detail page, landing row)", () => {
     for (const urgent of [false, true]) {
       const html = renderToStaticMarkup(<DeadlineLine text={NOTE} urgent={urgent} />);
-      expect(wraps(classHolding(html, TOKEN)), `urgent=${urgent}`).toBe(true);
+      expect(wraps(classHolding(html, LONG_UNBROKEN_RUN)), `urgent=${urgent}`).toBe(true);
     }
   });
 
   it("DeadlineLine keeps a caller's calm class next to the wrapping class", () => {
     const html = renderToStaticMarkup(<DeadlineLine text={NOTE} urgent={false} calmClassName="text-ink-soft" valueDataAttr="value" />);
-    const cls = classHolding(html, TOKEN);
+    const cls = classHolding(html, LONG_UNBROKEN_RUN);
     expect(cls.split(/\s+/)).toEqual(expect.arrayContaining(["text-ink-soft", "wrap-anywhere"]));
   });
 
   it("ScholarshipCard (the signed-in list)", () => {
     const html = renderToStaticMarkup(<ScholarshipCard scholarship={row} save={null} creditsBalance={0} passCovered={false} origin="https://example.test" />);
-    expect(wraps(classHolding(html, TOKEN))).toBe(true);
+    expect(wraps(classHolding(html, LONG_UNBROKEN_RUN))).toBe(true);
   });
 });
