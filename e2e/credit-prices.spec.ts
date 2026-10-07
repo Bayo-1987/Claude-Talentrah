@@ -320,7 +320,8 @@ test.describe("Farah quick actions", () => {
     await useUpFreeFarahMessages(testUser.id, START);
     await page.goto("/settings");
     // The allowance line names the price; each chip now also carries its own cost label ("1 credit"), so match the line's own sentence, not the bare price.
-    await expect(page.getByText(new RegExp(`Each message costs ${CREDIT_COSTS.farahChatMessage} credit`))).toBeVisible();
+    // The line reads "Each message costs …" or, while a next free message is dated, "… Until then, each message costs …": hence the case-insensitive match.
+    await expect(page.getByText(new RegExp(`each message costs ${CREDIT_COSTS.farahChatMessage} credit`, "i"))).toBeVisible();
 
     const input = page.getByPlaceholder("Ask me anything…");
     for (const { label, prompt } of ACTIONS) {
