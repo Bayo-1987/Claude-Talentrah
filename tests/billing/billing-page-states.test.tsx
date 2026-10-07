@@ -29,7 +29,7 @@ const world = vi.hoisted(() => ({
   reads: [] as Array<{ table: string; calls: Array<[string, unknown[]]> }>,
   bound: [] as Array<{ action: string; args: unknown[] }>,
 }));
-vi.mock("@/lib/auth/require-user", () => ({
+vi.mock("@/lib/auth/require-user", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/auth/require-user")>()),
   requireUser: async () => ({ profile: { id: "u1", credits_balance: world.balance, country: "Nigeria" }, user: { id: "u1" } }),
 }));
 vi.mock("@/lib/billing/actions", () => {

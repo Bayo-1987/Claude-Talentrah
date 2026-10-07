@@ -12,7 +12,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 const state = vi.hoisted(() => ({ current: { status: "unverified", score: null as number | null } }));
 const { stub } = vi.hoisted(() => ({ stub: () => () => null }));
 
-vi.mock("@/lib/auth/require-user", () => ({ requireUser: async () => ({ user: { id: "u1" } }) }));
+vi.mock("@/lib/auth/require-user", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/auth/require-user")>()), requireUser: async () => ({ user: { id: "u1" } }) }));
 vi.mock("@/lib/talent-directory/queries", () => ({
   getOwnVerificationState: async () => ({
     ...state.current,

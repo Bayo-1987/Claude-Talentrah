@@ -30,7 +30,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 const USER_ID = "00000000-0000-0000-0000-0000000000aa";
 const BASE_RESUME_ID = "11111111-1111-1111-1111-111111111111";
 
-vi.mock("@/lib/auth/require-user", () => ({
+vi.mock("@/lib/auth/require-user", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/auth/require-user")>()),
   requireUser: async () => ({ user: { id: USER_ID } }),
 }));
 
