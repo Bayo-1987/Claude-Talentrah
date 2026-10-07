@@ -68,6 +68,8 @@ are the ones whose shared secret is the wrong mechanism, and they move to admin
 sessions in M2. Being signed in to the seeker app grants nothing at `/admin`;
 the guard never reads the Supabase session.
 
+**A setting that lives only in a dashboard (Supabase auth and email, redirect URLs, SMTP; Vercel environment variables; provider consoles) is not done until the owner confirms it live** — read [docs/owner-dashboard-steps.md](docs/owner-dashboard-steps.md) before a PR that depends on one.
+
 Phase 1 is feature-complete except for the employer side. Read [docs/phase-1-summary.md](docs/phase-1-summary.md) before assuming any feature's status — it is kept current and lists what shipped, what is deferred, and the open defects with their evidence. Two that shape most decisions:
 
 - **The employer side exists**: org onboarding, Company Profile, free job posting, Jobs Posted (Phase 1), plus **Ad Campaigns** (Phase 2 — ad wallet 0046, campaign state machine 0047/0048, Server Actions and review gate) and **Analytics** (0128 — `/employer/analytics` reads real `ad_events` rows, not a placeholder). Only **Billing** is still Phase 2 and deliberately **absent from the employer nav** rather than stubbed — don't add a placeholder page for it, and don't describe it as shipped. Analytics and Ad Campaigns are both in the nav because they're real, not because the rule changed. Building this surface is what exercised the org RLS policies for the first time and found the third hole in them (0028).
