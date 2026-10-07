@@ -5,7 +5,8 @@ import Link from "next/link";
 import { EyebrowLabel, FarahMark } from "@/components/ui";
 import { FARAH_QUICK_ACTIONS } from "@/lib/farah/quick-actions";
 import { FarahAllowanceNote, FarahQuickActions } from "@/components/app-shell/farah-quick-actions";
-import { chargeAnnouncement, quickActionMode } from "@/lib/credits/price-labels";
+import { chargeAnnouncement, farahFreeUsedAnnouncement, quickActionMode, readNextFreeMessageAt } from "@/lib/credits/price-labels";
+import { serverFailureText } from "@/lib/farah/panel-failure-text";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { renderFarahMarkdown } from "@/lib/farah/render-markdown";
 import { readFarahChatStream } from "@/lib/farah/read-chat-stream";
@@ -232,6 +233,8 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
    * see quickActionMode.
    */
   const [freeRemaining, setFreeRemaining] = useState<number | null | undefined>(undefined);
+  // When the next free message comes back (an ISO time), from the history route and the chat `done` event. null = no date to show. Display only.
+  const [nextFreeMessageAt, setNextFreeMessageAt] = useState<string | null>(null);
   // The history fetch settled without giving a count (a non-OK response or a network error): stop calling the
   // count "loading" so the chips fall back to prefill instead of staying disabled for the whole session.
   const [historyFailed, setHistoryFailed] = useState(false);
@@ -317,6 +320,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
         if (ignore) return;
         if (typeof data.freeMessagesRemaining === "number" || data.freeMessagesRemaining === null) {
           setFreeRemaining(data.freeMessagesRemaining);
+          setNextFreeMessageAt(readNextFreeMessageAt(data.nextFreeMessageAt));
         }
         if (data.hasUnreadNotification === true) setHasUnreadNotification(true);
         if (!Array.isArray(data.messages) || data.messages.length === 0) return;
@@ -394,7 +398,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}) as { error?: string });
-        setError(data.error ?? "Something went wrong — try again.");
+        setError(serverFailureText(res.status, data.error));
         setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
         return;
       }
@@ -411,7 +415,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
               : [...prev, { id: streamId, role: "farah", content: event.fullText, created_at: new Date().toISOString() }],
           );
         } else if (event.type === "error") {
-          setError(event.message ?? "Something went wrong — try again.");
+          setError(serverFailureText(null, event.message, event.kind));
           setMessages((prev) => prev.filter((m) => m.id !== optimisticId && m.id !== streamId));
           return;
         } else if (event.type === "done") {
@@ -422,6 +426,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
           );
           if (typeof event.freeMessagesRemaining === "number" || event.freeMessagesRemaining === null) {
             setFreeRemaining(event.freeMessagesRemaining ?? null);
+            setNextFreeMessageAt(readNextFreeMessageAt(event.nextFreeMessageAt));
           }
           // A paid message: tell the masthead its new balance (issue #605). null / absent = nothing spent.
           if (typeof event.creditsBalance === "number") reportCreditsBalance(event.creditsBalance);
@@ -431,9 +436,11 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
             setLastReplyTruncated(true);
             setAnnouncement("Farah's reply was cut off — no credits used");
           } else {
-            setAnnouncement(
-              chargeAnnouncement("Farah replied", typeof event.creditsBalance === "number" ? CREDIT_COSTS.farahChatMessage : 0),
-            );
+            const paid = typeof event.creditsBalance === "number";
+            const replied = chargeAnnouncement("Farah replied", paid ? CREDIT_COSTS.farahChatMessage : 0);
+            // The last free message just used: say so, with the date it comes back when the server gave one.
+            const freeUsed = farahFreeUsedAnnouncement({ freeRemaining: event.freeMessagesRemaining, paid, nextFreeMessageAt: event.nextFreeMessageAt });
+            setAnnouncement(freeUsed ? `${replied}. ${freeUsed}` : replied);
           }
         }
       }
@@ -581,7 +588,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
         silence is correct there, it's only a hard 0 with no warning that
         reads as broken.
       */}
-      <FarahAllowanceNote freeRemaining={freeRemaining} />
+      <FarahAllowanceNote freeRemaining={freeRemaining} nextFreeMessageAt={nextFreeMessageAt} />
 
       <div ref={scrollRef} className="flex max-h-80 flex-col gap-3 overflow-y-auto">
         {messages.length === 0 ? (
@@ -702,7 +709,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
       </div>
 
       {error && (
-        <p className="border border-rust bg-rust-soft px-2.5 py-2 text-[12px] text-rust">{error}</p>
+        <p role="alert" className="border border-rust bg-rust-soft px-2.5 py-2 text-[12px] text-rust">{error}</p>
       )}
 
       <FarahQuickActions

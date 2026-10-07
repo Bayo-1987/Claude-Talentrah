@@ -11,6 +11,7 @@
  * gates (tailoring/gate.ts, farah/chat-gate.ts) and the Server Actions already do.
  */
 import { CREDIT_COSTS } from "@/lib/credits/costs";
+import { formatWeekdayAtTime, viewerTimeZone } from "@/lib/format/datetime";
 
 export function creditsPhrase(n: number): string {
   return `${n} credit${n === 1 ? "" : "s"}`;
@@ -103,13 +104,84 @@ export function quickActionMode(freeRemaining: number | null | undefined): "send
   return freeRemaining === null || (typeof freeRemaining === "number" && freeRemaining > 0) ? "send" : "prefill";
 }
 
-export function farahAllowanceLine(freeRemaining: number): string {
+/** The allowance line split around its date, so a screen can render the date as a <time> element. `text` is the three parts joined. */
+export interface FarahAllowanceParts {
+  lead: string;
+  when: { iso: string; label: string } | null;
+  tail: string;
+  text: string;
+}
+
+/**
+ * What the panel keeps from `nextFreeMessageAt` on a response: an ISO instant (a date AND a time) as sent, anything else null. The foundation sends an
+ * ISO string or null; a value of any other shape is never guessed into a date.
+ */
+export function readNextFreeMessageAt(value: unknown): string | null {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T/.test(value)) return null;
+  return Number.isNaN(Date.parse(value)) ? null : value;
+}
+
+/**
+ * The line under Farah's greeting about the free-message allowance (0123), from what the foundation returns: `freeRemaining` (a number; `null` for an active
+ * Pass, `undefined` while unknown: both give no text) and `nextFreeMessageAt` (an ISO instant or null). The date is named only once the free messages are
+ * used up and only while it is in the future; null, unreadable or past means no date and no date sentence, never a guess. The date is in the viewer's zone
+ * (`timeZone`, default the browser's) as "Fri 9 Oct at 14:20", with no zone label. `now` is a parameter for tests.
+ */
+export function farahAllowanceText({
+  freeRemaining,
+  nextFreeMessageAt,
+  now = new Date(),
+  timeZone = viewerTimeZone(),
+}: {
+  freeRemaining: number | null | undefined;
+  nextFreeMessageAt?: unknown;
+  now?: Date;
+  timeZone?: string;
+}): FarahAllowanceParts | null {
+  if (freeRemaining === null || freeRemaining === undefined) return null;
   if (freeRemaining > 0) {
-    return `${freeRemaining} free message${freeRemaining === 1 ? "" : "s"} left in the last 30 days.`;
+    const text = `${freeRemaining} free message${freeRemaining === 1 ? "" : "s"} left.`;
+    return { lead: text, when: null, tail: "", text };
   }
-  return `You've used your free messages in the last 30 days — each further message costs ${creditsPhrase(
-    CREDIT_COSTS.farahChatMessage,
-  )}.`;
+  const price = creditsPhrase(CREDIT_COSTS.farahChatMessage);
+  const iso = readNextFreeMessageAt(nextFreeMessageAt);
+  const label = iso !== null && Date.parse(iso) > now.getTime() ? formatWeekdayAtTime(iso, { timeZone }) : "";
+  if (iso !== null && label !== "") {
+    const lead = "You've used your free messages. Your next free message is available on ";
+    const tail = `. Until then, each message costs ${price}.`;
+    return { lead, when: { iso, label }, tail, text: `${lead}${label}${tail}` };
+  }
+  const text = `You've used your free messages. Each message costs ${price}.`;
+  return { lead: text, when: null, tail: "", text };
+}
+
+export function farahAllowanceLine(freeRemaining: number): string {
+  return farahAllowanceText({ freeRemaining })?.text ?? "";
+}
+
+/**
+ * The polite announcement when the LAST free message was just used: the chat `done` event brought the count to 0 and the message was not a paid one.
+ * Says the date when there is a usable future one, otherwise only the price. Null in every other case (a paid message, free messages left, a Pass, unknown).
+ */
+export function farahFreeUsedAnnouncement({
+  freeRemaining,
+  paid,
+  nextFreeMessageAt,
+  now,
+  timeZone,
+}: {
+  freeRemaining: number | null | undefined;
+  paid: boolean;
+  nextFreeMessageAt?: unknown;
+  now?: Date;
+  timeZone?: string;
+}): string | null {
+  if (freeRemaining !== 0 || paid) return null;
+  const parts = farahAllowanceText({ freeRemaining, nextFreeMessageAt, now, timeZone });
+  if (!parts) return null;
+  return parts.when
+    ? `No free messages left. Your next free message is available on ${parts.when.label}.`
+    : `No free messages left. Each message costs ${creditsPhrase(CREDIT_COSTS.farahChatMessage)}.`;
 }
 
 /** The polite live-region text: the result and the charge together, e.g. "Rewritten — 2 credits used". */

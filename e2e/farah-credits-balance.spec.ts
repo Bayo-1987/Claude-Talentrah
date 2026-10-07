@@ -77,7 +77,7 @@ test.describe("the masthead credit balance after a Farah message", () => {
     await sendToFarah(authedPage, "Hello");
     // The reply finishing is what the free counter's update rides on; wait for it so "unchanged" is a
     // statement about the end state and not about a message still in flight.
-    await expect(authedPage.getByText("2 free messages left in the last 30 days.")).toBeVisible();
+    await expect(authedPage.getByText("2 free messages left.")).toBeVisible();
 
     await expect(pill(authedPage, 41)).toBeVisible();
     await expect(pill(authedPage, 40)).toHaveCount(0);

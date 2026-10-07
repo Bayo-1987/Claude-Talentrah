@@ -86,11 +86,11 @@ test.describe("a reply cut off by the output ceiling", () => {
     await requireStubbedLlm(page);
     await grantTestCredits(testUser.id, START);
     await page.goto("/tracker");
-    await expect(page.getByText("3 free messages left in the last 30 days.")).toBeVisible();
+    await expect(page.getByText("3 free messages left.")).toBeVisible();
 
     await ask(page, `Go deep ${STUB_LENGTH_TRIGGER}`);
     await expect(page.getByTestId("farah-truncated-note")).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText("3 free messages left in the last 30 days.")).toBeVisible();
+    await expect(page.getByText("3 free messages left.")).toBeVisible();
 
     const { count } = await admin
       .from("credit_gate_events")
