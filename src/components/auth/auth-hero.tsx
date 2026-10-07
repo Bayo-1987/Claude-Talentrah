@@ -4,7 +4,7 @@ import { EyebrowLabel, BorderedCard } from "@/components/ui";
 export function AuthHero() {
   return (
     <div className="flex h-full flex-col justify-between bg-ink p-10 text-paper md:p-14">
-      <Link href="/" className="flex items-center gap-2.5 no-underline">
+      <Link href="/" prefetch={false} className="flex items-center gap-2.5 no-underline">
         {/* eslint-disable-next-line @next/next/no-img-element -- static brand SVG, next/image's optimizer needs SVG allow-listing for no real benefit here */}
         <img
           src="/talentrah-mark-reversed.svg"
