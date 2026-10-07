@@ -1,0 +1,391 @@
+[
+  {
+    "name": "email +qa- lower case",
+    "email": "x+qa-1@e.test",
+    "first": "A",
+    "last": "B",
+    "display": null,
+    "qa": true
+  },
+  {
+    "name": "email +QA- upper case",
+    "email": "X+QA-1@E.TEST",
+    "first": "A",
+    "last": "B",
+    "display": null,
+    "qa": true
+  },
+  {
+    "name": "email +Qa- mixed case",
+    "email": "x+Qa-1@e.test",
+    "first": "A",
+    "last": "B",
+    "display": null,
+    "qa": true
+  },
+  {
+    "name": "email +qa without the dash is not the tag",
+    "email": "x+qa1@e.test",
+    "first": "A",
+    "last": "B",
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "email +qa at the end, no dash",
+    "email": "x+qa@e.test",
+    "first": "A",
+    "last": "B",
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "email with aqa- but no +qa-",
+    "email": "maqa-lid@example.test",
+    "first": "A",
+    "last": "B",
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "email qa-team (no plus)",
+    "email": "qa-team@example.test",
+    "first": "A",
+    "last": "B",
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "email john.qa-test (no plus)",
+    "email": "john.qa-test@example.test",
+    "first": "A",
+    "last": "B",
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "first QA",
+    "email": null,
+    "first": "QA",
+    "last": null,
+    "display": null,
+    "qa": true
+  },
+  {
+    "name": "first QA Tester",
+    "email": null,
+    "first": "QA Tester",
+    "last": null,
+    "display": null,
+    "qa": true
+  },
+  {
+    "name": "first lower case qa",
+    "email": null,
+    "first": "qa",
+    "last": null,
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "first lower case qa x",
+    "email": null,
+    "first": "qa x",
+    "last": null,
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "first Qa x",
+    "email": null,
+    "first": "Qa x",
+    "last": null,
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "first QA x",
+    "email": null,
+    "first": "QA x",
+    "last": null,
+    "display": null,
+    "qa": true
+  },
+  {
+    "name": "first QAx (no space)",
+    "email": null,
+    "first": "QAx",
+    "last": null,
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "first QA with one trailing space",
+    "email": null,
+    "first": "QA ",
+    "last": null,
+    "display": null,
+    "qa": true
+  },
+  {
+    "name": "first empty string",
+    "email": null,
+    "first": "",
+    "last": null,
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "first null",
+    "email": null,
+    "first": null,
+    "last": null,
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "real name Qasim Khan",
+    "email": null,
+    "first": "Qasim",
+    "last": "Khan",
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "real name Qa Hoang",
+    "email": null,
+    "first": "Qa Hoang",
+    "last": null,
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "real name QAnon",
+    "email": null,
+    "first": "QAnon",
+    "last": null,
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "real name Qadir Bello",
+    "email": null,
+    "first": "Qadir",
+    "last": "Bello",
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "real name Qaisar",
+    "email": null,
+    "first": "Qaisar",
+    "last": null,
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "real name Qa'id",
+    "email": null,
+    "first": "Qa'id",
+    "last": null,
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "real name Aqa Lead",
+    "email": null,
+    "first": "Aqa",
+    "last": "Lead",
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "real name Quality Assurance",
+    "email": null,
+    "first": "Quality",
+    "last": "Assurance",
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "first name A, last name QA is not QA",
+    "email": null,
+    "first": "A",
+    "last": "QA",
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "empty first name, last name QA: the full name is QA",
+    "email": null,
+    "first": "",
+    "last": "QA",
+    "qa": true
+  },
+  {
+    "name": "null first name, last name QA: the full name is QA",
+    "email": null,
+    "first": null,
+    "last": "QA",
+    "qa": true
+  },
+  {
+    "name": "first ' QA ' trims to QA",
+    "email": null,
+    "first": " QA ",
+    "last": "Lead",
+    "qa": true
+  },
+  {
+    "name": "display QA Board",
+    "email": null,
+    "first": null,
+    "last": null,
+    "display": "QA Board",
+    "qa": true
+  },
+  {
+    "name": "display QA",
+    "email": null,
+    "first": null,
+    "last": null,
+    "display": "QA",
+    "qa": true
+  },
+  {
+    "name": "display QAnon",
+    "email": null,
+    "first": null,
+    "last": null,
+    "display": "QAnon",
+    "qa": false
+  },
+  {
+    "name": "display Qa Hoang",
+    "email": null,
+    "first": null,
+    "last": null,
+    "display": "Qa Hoang",
+    "qa": false
+  },
+  {
+    "name": "display QA with trailing spaces only",
+    "email": null,
+    "first": null,
+    "last": null,
+    "display": "  QA  ",
+    "qa": true
+  },
+  {
+    "name": "every argument null",
+    "email": null,
+    "first": null,
+    "last": null,
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "every argument empty",
+    "email": "",
+    "first": "",
+    "last": "",
+    "display": "",
+    "qa": false
+  },
+  {
+    "name": "plain leading space ' QA x'",
+    "email": null,
+    "first": " QA x",
+    "last": null,
+    "display": null,
+    "qa": true
+  },
+  {
+    "name": "spaces on both sides '  QA x  '",
+    "email": null,
+    "first": "  QA x  ",
+    "last": null,
+    "display": null,
+    "qa": true
+  },
+  {
+    "name": "trailing spaces '  QA  '",
+    "email": null,
+    "first": "  QA  ",
+    "last": null,
+    "display": null,
+    "qa": true
+  },
+  {
+    "name": "leading tab",
+    "email": null,
+    "first": "\tQA x",
+    "last": null,
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "trailing tab",
+    "email": null,
+    "first": "QA\t",
+    "last": null,
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "leading newline",
+    "email": null,
+    "first": "\nQA x",
+    "last": null,
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "leading carriage return",
+    "email": null,
+    "first": "\rQA x",
+    "last": null,
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "space then tab",
+    "email": null,
+    "first": " \tQA x",
+    "last": null,
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "leading no-break space",
+    "email": null,
+    "first": "\u00a0QA x",
+    "last": null,
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "display name with a leading tab",
+    "email": null,
+    "first": null,
+    "last": null,
+    "display": "\tQA x",
+    "qa": false
+  },
+  {
+    "name": "display name with a plain leading space",
+    "email": null,
+    "first": null,
+    "last": null,
+    "display": " QA x",
+    "qa": true
+  },
+  {
+    "name": "display name with a leading no-break space",
+    "email": null,
+    "first": null,
+    "last": null,
+    "display": "\u00a0QA x",
+    "qa": false
+  }
+]
