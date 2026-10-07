@@ -10,11 +10,11 @@
  * How it reaches the database: the CLI names the stack's Postgres container supabase_db_<project>; the script goes in on stdin of `psql` run inside it. No password, no URL, no hosted project involved:
  * the only database this can reach is a container on this machine.
  */
-import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { compareRoundTrip, parseSnapshots, roundTripScript } from "../support/privilege-round-trip";
+import { runRoundTripScript as runScript } from "../support/psql-lock-retry";
 
 const ROOT = join(__dirname, "../..");
 const read = (p: string) => readFileSync(join(ROOT, p), "utf8");
@@ -22,25 +22,6 @@ const read = (p: string) => readFileSync(join(ROOT, p), "utf8");
 const TABLES = ["mentorship_sessions", "mentor_profiles"] as const;
 const MIGRATIONS = ["supabase/migrations/0224_mentorship_sessions_column_grants.sql", "supabase/migrations/0225_mentor_profiles_column_grants.sql"];
 const ROLLBACKS = ["supabase/rollbacks/0224_mentorship_sessions_column_grants.rollback.sql", "supabase/rollbacks/0225_mentor_profiles_column_grants.rollback.sql"];
-
-function dbContainer(): string {
-  const names = execFileSync("docker", ["ps", "--format", "{{.Names}}"], { encoding: "utf8" })
-    .split("\n")
-    .map((n) => n.trim())
-    .filter((n) => /^supabase_db_/.test(n));
-  if (names.length !== 1) throw new Error(`expected exactly one running supabase_db_* container (the local stack's Postgres), found ${names.length}: ${names.join(", ") || "none"}`);
-  return names[0];
-}
-
-function runScript(script: string): string {
-  const container = dbContainer();
-  return execFileSync("docker", ["exec", "-i", container, "psql", "-U", "postgres", "-d", "postgres", "-X", "-A", "-t", "-v", "ON_ERROR_STOP=1"], {
-    input: script,
-    encoding: "utf8",
-    maxBuffer: 16 * 1024 * 1024,
-    timeout: 120_000,
-  });
-}
 
 describe.skipIf(process.env.CI !== "true")("0224 and 0225: rollback and re-apply on the local stack (CI only)", () => {
   it("the files it runs are the ones on disk, in the order the numbers say", () => {
