@@ -5,7 +5,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 
-vi.mock("next/navigation", () => ({ usePathname: () => null }));
+vi.mock("next/navigation", () => ({ usePathname: () => null, useSearchParams: () => null }));
 const { FarahPanel } = await import("@/components/app-shell/farah-panel");
 
 const render = (content: string) =>

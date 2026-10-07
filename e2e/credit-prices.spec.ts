@@ -293,6 +293,7 @@ test.describe("bullet rewrite", () => {
 });
 
 test.describe("Farah quick actions", () => {
+  // /settings is an UNLISTED route: it keeps the three generic chips. A listed page (the tracker, billing, jobs...) shows its own chips (src/lib/farah/page-chips.ts).
   const ACTIONS = [
     { label: "Job Interview Prep", prompt: "Help me prep for a job interview." },
     { label: "Career Advisor", prompt: "I'd like some career advice." },
@@ -302,7 +303,7 @@ test.describe("Farah quick actions", () => {
   test("with free messages left, a chip sends straight away and says nothing about price", async ({ authedPage: page, testUser }) => {
     await requireStubbedLlm(page);
     await grantTestCredits(testUser.id, START);
-    await page.goto("/tracker");
+    await page.goto("/settings");
     await expect(page.getByText("3 free messages left.")).toBeVisible();
 
     await page.getByRole("button", { name: "Career Advisor" }).click();
@@ -317,7 +318,7 @@ test.describe("Farah quick actions", () => {
     await requireStubbedLlm(page);
     await grantTestCredits(testUser.id, START);
     await useUpFreeFarahMessages(testUser.id, START);
-    await page.goto("/tracker");
+    await page.goto("/settings");
     await expect(page.getByText(new RegExp(`${CREDIT_COSTS.farahChatMessage} credit`))).toBeVisible();
 
     const input = page.getByPlaceholder("Ask me anything…");
@@ -345,7 +346,7 @@ test.describe("Farah quick actions", () => {
     await requireStubbedLlm(page);
     await grantTestCredits(testUser.id, START);
     await useUpFreeFarahMessages(testUser.id, START);
-    await page.goto("/tracker");
+    await page.goto("/settings");
 
     await page.getByRole("button", { name: "Career Advisor" }).click();
     await expect(page.getByPlaceholder("Ask me anything…")).toHaveValue("I'd like some career advice.");
