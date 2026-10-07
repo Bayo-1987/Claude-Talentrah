@@ -169,7 +169,10 @@ describe("a realistic conversation, not just the theoretical maximum", () => {
       historyMessageMaxChars: MAX_HISTORY_MESSAGE_CHARS,
     });
 
-    expect(realistic).toBeLessThan(4000);
+    // A growth alarm, not a provider limit: the real limits are PROVIDER_TPM_LIMIT (8,000) and REQUEST_TOKEN_CEILING (7,000), and the tests above pin the
+    // worst case under the ceiling. This one says "a normal turn is far under it" and trips when the system prompt grows. It was 3,994 tokens against a limit
+    // of 4,000. The draft-first rule and the length exemption added 119, so a normal turn is now 4,113; the limit is set just above that, on purpose.
+    expect(realistic).toBeLessThan(4150);
   });
 });
 
