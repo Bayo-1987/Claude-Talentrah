@@ -173,6 +173,14 @@ describe("the flag is CI-only: read nowhere in production code, set only on the 
     const jobs = (parse(readFileSync(path.join(dir, "ci.yml"), "utf8")) as { jobs: Record<string, { steps?: { run?: string; env?: Record<string, string> }[] }> }).jobs;
     const withFlag = Object.values(jobs).flatMap((j) => (j.steps ?? []).filter((s) => s.env && "SEED_FIXTURES" in s.env));
     expect(withFlag.length).toBe(2);
+    // Skipping the live scholarship ingestion removes the only thing that put the catalog into the e2e database: every job that sets the flag
+    // must seed the catalog itself, before the seed step (found by the first CI run of the draft: every scholarship spec failed on a missing row).
+    for (const job of Object.values(jobs)) {
+      const steps = job.steps ?? [];
+      const at = steps.findIndex((s) => s.env && "SEED_FIXTURES" in s.env);
+      if (at === -1) continue;
+      expect(steps.slice(0, at).some((s) => s.run === "npm run seed:catalog"), "a job with SEED_FIXTURES must run `npm run seed:catalog` before the seed step").toBe(true);
+    }
     for (const step of withFlag) {
       expect(step.run).toBe("npm run seed");
       expect(step.env?.SEED_FIXTURES).toBe("1");
