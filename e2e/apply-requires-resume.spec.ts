@@ -72,27 +72,40 @@ test.describe("apply requires a base resume", () => {
   test("feed: every internal card offers 'Add a resume to apply', never a bare Apply, with no base resume", async ({
     authedPage,
   }) => {
-    // The loop below makes a few awaited reads per card on the feed, so its time is (cards on the feed) x (round trips) and grows with the data. It ran
-    // in 31.7-32.3 s against the 30 s default and failed twice on main (11:37Z, and on its re-run at 12:04Z) with nothing wrong on the page. 90 s is the
-    // same allowance e2e/signup-code.spec.ts takes for a long journey.
-    test.setTimeout(90_000);
+    // ONE browser call looks at every card, so the time does not grow with the board. The default /jobs tab renders the whole scored board (up to 2000 cards), and the CI
+    // database holds whatever the live external boards returned when `npm run seed` ran its real ingestion; the old per-card loop (three awaited reads per card) took 3-5 s
+    // in most runs and ~32 s, a failure at the 30 s default, in others. 60 s is the margin kept until ten green runs on main; then this goes back to the default.
+    test.setTimeout(60_000);
     await authedPage.goto("/jobs");
     await expect(authedPage.getByTestId(ROUTE_LOADING_TESTID)).toHaveCount(0, { timeout: 15000 });
 
     const cards = authedPage.getByTestId("job-card");
-    const count = await cards.count();
-    expect(count, "the feed should render at least one card").toBeGreaterThan(0);
+    await expect(cards.first(), "the feed should render at least one card").toBeVisible();
 
-    let checkedInternal = 0;
-    for (let i = 0; i < count; i++) {
-      const card = cards.nth(i);
-      const isExternal = (await card.getByText("sourced externally").count()) > 0;
-      if (isExternal) continue;
-      checkedInternal++;
-      await expect(card.getByRole("link", { name: "Add a resume to apply" })).toBeVisible();
-      await expect(card.getByRole("button", { name: "Apply", exact: true })).toHaveCount(0);
-    }
-    expect(checkedInternal, "no internal job card was on the feed to check").toBeGreaterThan(0);
+    // Every card, no bound: an internal one (no "sourced externally" text) must show the "Add a resume to apply" link and must not have a bare "Apply" button.
+    const inspect = () =>
+      cards.evaluateAll((els) => {
+        const shown = (e: Element) => e.getClientRects().length > 0 && getComputedStyle(e).visibility !== "hidden";
+        let internalCount = 0;
+        const offenders: string[] = [];
+        els.forEach((el, i) => {
+          if ((el.textContent ?? "").includes("sourced externally")) return;
+          internalCount++;
+          const hasGate = [...el.querySelectorAll("a")].some((a) => (a.textContent ?? "").trim() === "Add a resume to apply" && shown(a));
+          const bareApply = [...el.querySelectorAll("button")].some((b) => (b.textContent ?? "").trim() === "Apply" || b.getAttribute("aria-label") === "Apply");
+          const title = (el.querySelector("h2, h3")?.textContent ?? "").trim().slice(0, 60);
+          if (!hasGate) offenders.push(`card ${i} "${title}": no 'Add a resume to apply' link`);
+          if (bareApply) offenders.push(`card ${i} "${title}": a bare Apply button`);
+        });
+        return { total: els.length, internalCount, offenders };
+      });
+
+    // Polled so a card that finishes rendering a moment late is retried; the failure message lists the offending cards.
+    await expect.poll(async () => (await inspect()).offenders, { message: "internal cards that offer a bare Apply, or lack 'Add a resume to apply'", timeout: 15000 }).toEqual([]);
+
+    const { total, internalCount } = await inspect();
+    test.info().annotations.push({ type: "feed-cards", description: `${total} cards on the feed, ${internalCount} internal` });
+    expect(internalCount, "no internal job card was on the feed to check").toBeGreaterThan(0);
   });
 
   test("job detail page, no screening questions: shows the gate instead of the plain apply form", async ({
