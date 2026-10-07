@@ -83,8 +83,15 @@ test("QA Seeker: creates an account on /signup with the form, then reaches the c
     await shot(page, info, "2-signup-filled-password-hidden");
     await page.getByRole("button", { name: "Create a free account" }).click();
 
-    await page.waitForURL(/\/signup\/check-email/, { timeout: 30_000 });
+    await page.waitForURL(/\/(signup\/check-email|onboarding)/, { timeout: 30_000 });
     expect(page.url()).not.toContain("@");
+    if (/\/onboarding/.test(page.url())) {
+      // The CI/local stack has [auth.email] enable_confirmations = false (supabase/config.toml), so signing up signs the person straight in. Production
+      // requires the emailed code, and that screen is covered against a minted code by signup-code.spec.ts. Found by CI run 37537700703.
+      info.annotations.push({ type: "note", description: "stack has email confirmations off: signup went straight to onboarding; the code screen was not reachable here" });
+      await shot(page, info, "3-onboarding-straight-after-signup");
+      return;
+    }
     await expect(page.getByLabel("6-digit code")).toBeVisible();
     await shot(page, info, "3-check-email-page");
 
