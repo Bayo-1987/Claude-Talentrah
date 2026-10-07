@@ -107,9 +107,11 @@ export async function* askFarahChatStream(
     signal?: AbortSignal;
     /** Asked just before the fallback provider would be used (see generateChatStreamWithFailover). Absent: the fallback is used as before. */
     allowFallback?: () => Promise<boolean> | boolean;
+    /** Server-built facts for the model (billing-facts.ts, page-facts.ts), already assembled by the route from its own catalog and this user's own account. */
+    facts?: string;
   } = {},
 ): AsyncGenerator<string> {
-  const system = buildFarahChatSystemPrompt({ quickAction: opts.quickAction, extraContext });
+  const system = buildFarahChatSystemPrompt({ quickAction: opts.quickAction, extraContext, facts: opts.facts });
   const startedAt = performance.now();
   let served: ServedBy | undefined;
   let chunks = 0;
