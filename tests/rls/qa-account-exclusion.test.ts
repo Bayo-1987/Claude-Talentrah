@@ -125,7 +125,7 @@ describe("public.is_qa_account — the rule", () => {
   // ONE shared table: tests/fixtures/qa-exclusion-cases.json is read by this test (the real SQL function) and by the TypeScript helper's test. Each row's "qa" was MEASURED on the real
   // function, not assumed. Whitespace is written as JSON escapes in the file so nothing can hide a tab or a no-break space.
   it.each(qaCases.map((c) => [c.name, c] as const))("%s", async (_name, c) => {
-    expect(await call(c.email, c.first, c.last, c.display)).toBe(c.qa);
+    expect(await call(c.email, c.first, c.last, c.display ?? null)).toBe(c.qa);
   });
 
   it("the shared table is alive: it holds both outcomes and every real-name row is false", () => {
