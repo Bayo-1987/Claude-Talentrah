@@ -18,7 +18,7 @@ test("the allowance line counts down from 3 as free messages are used", async ({
   const shot = async (step: string) => info.attach(step, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
   await requireStubbedLlm(page);
   await grantTestCredits(testUser.id, 50);
-  await page.goto("/tracker");
+  await page.goto("/settings");
   await expect(page.getByText("3 free messages left.")).toBeVisible();
   await shot("1-three-left");
 
@@ -36,7 +36,7 @@ test("with the free messages used, the line says when the next one is available 
   );
   if (error) throw error;
 
-  await page.goto("/tracker");
+  await page.goto("/settings");
   const note = page.getByText(/You.ve used your free messages\./).first();
   await expect(note).toBeVisible();
   await expect(note).toContainText("Your next free message is available on");
