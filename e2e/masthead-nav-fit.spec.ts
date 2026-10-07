@@ -165,7 +165,7 @@ test.describe("the masthead nav fits where it is shown", () => {
       "Auto-Apply",
       "Resume Builder",
       "Scholarships",
-      "Resume review",
+      "Talent Directory",
       "Refer a Friend",
       "Mentorship",
       "Feedback",
@@ -177,5 +177,26 @@ test.describe("the masthead nav fits where it is shown", () => {
         `${label} is unreachable at 900px — it is in neither the bar nor the menu`,
       ).toBeVisible();
     }
+  });
+  test("the menu at 360px shows Talent Directory inside the viewport, and the page does not scroll sideways", async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 360, height: 800 });
+    await login(page);
+
+    const trigger = page.getByRole("button", { name: "Main menu" });
+    await expect(trigger).toBeVisible();
+    const menu = page.getByRole("menu").first();
+    await expect(async () => {
+      await trigger.click();
+      await expect(menu).toBeVisible({ timeout: 1000 });
+    }).toPass({ timeout: 15_000 });
+
+    const item = menu.getByRole("menuitem", { name: "Talent Directory" });
+    await expect(item).toBeVisible();
+    const box = await item.boundingBox();
+    expect(box, "Talent Directory has no box at 360px").not.toBeNull();
+    expect(box!.x, "Talent Directory starts left of the viewport at 360px").toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width, "Talent Directory runs past the right edge at 360px").toBeLessThanOrEqual(360);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth), "the page scrolls sideways at 360px").toBeLessThanOrEqual(360);
+    await testInfo.attach("menu-360px", { body: await page.screenshot(), contentType: "image/png" });
   });
 });
