@@ -29,7 +29,7 @@ export default function NotFound() {
             head back home or keep browsing open roles.
           </p>
           <div className="flex flex-wrap gap-4">
-            <Link href="/" className={buttonClasses("primary", "md", "no-underline")}>
+            <Link href="/" prefetch={false} className={buttonClasses("primary", "md", "no-underline")}>
               Go home
             </Link>
             <Link href="/jobs" className={buttonClasses("secondary", "md", "no-underline")}>

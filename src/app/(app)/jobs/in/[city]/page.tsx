@@ -98,6 +98,7 @@ export default async function CityJobsPage({ params }: { params: Promise<{ city:
     <div className="flex max-w-[820px] flex-col gap-6">
       <Link
         href={session ? "/jobs" : "/"}
+        prefetch={false}
         className="inline-flex min-h-10 min-w-10 items-center self-start text-[13px] font-semibold text-ink-soft no-underline hover:text-rust"
       >
         ← Talentrah home
