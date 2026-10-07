@@ -14,7 +14,7 @@ vi.mock("@/lib/flags/read", () => ({
 const sentEmails = vi.hoisted(() => [] as { to: string; text: string; subject: string }[]);
 const resendConfigured = vi.hoisted(() => ({ value: true }));
 
-vi.mock("@/lib/resend/client", () => ({
+vi.mock("@/lib/resend/client", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/resend/client")>()),
   getResendClient: () =>
     resendConfigured.value
       ? {

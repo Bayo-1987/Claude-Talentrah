@@ -73,7 +73,7 @@ vi.mock("@/lib/supabase/service-role", () => ({
 
 vi.mock("@/lib/paystack/client", () => ({ verifyTransaction: h.verify }));
 vi.mock("@/lib/mentorship/refund-alert", () => ({ alertDeletedUserPayment: h.alertDeleted, alertPaymentNeedsRefund: h.alertMentor }));
-vi.mock("@/lib/resend/client", () => ({ getResendClient: () => null }));
+vi.mock("@/lib/resend/client", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/resend/client")>()), getResendClient: () => null }));
 vi.mock("@/lib/analytics/posthog", () => ({ captureEvent: vi.fn() }));
 
 const REF = "credit_pack_deleted-user-ref";
