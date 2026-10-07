@@ -11,7 +11,7 @@
  *
  * Client-safe and dependency-free on purpose: pure string work, importable from anywhere.
  */
-export type FarahDataSource = "resume" | "job_posting" | "context";
+export type FarahDataSource = "resume" | "job_posting" | "scholarship" | "context";
 
 export const DATA_BLOCK_OPEN = "<untrusted_data";
 export const DATA_BLOCK_CLOSE = "</untrusted_data>";
@@ -54,7 +54,7 @@ export function labelAsData(source: FarahDataSource, text: string, maxChars?: nu
   return `${DATA_BLOCK_OPEN} source="${source}">\n${inner}\n${DATA_BLOCK_CLOSE}`;
 }
 
-const OPEN_TAG = /^<untrusted_data source="(?:resume|job_posting|context)">\n/;
+const OPEN_TAG = /^<untrusted_data source="(?:resume|job_posting|scholarship|context)">\n/;
 
 /** True when `text` is nothing but well-formed blocks (as produced by labelAsData) separated by one blank line. */
 export function isOnlyDataBlocks(text: string): boolean {

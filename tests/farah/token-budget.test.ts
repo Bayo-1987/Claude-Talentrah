@@ -41,6 +41,10 @@ import {
   estimateWorstCaseRequestTokens,
 } from "@/lib/farah/token-budget";
 import { FARAH_SYSTEM_PROMPT } from "@/lib/farah/system-prompt";
+import { FARAH_CHIPS } from "@/lib/farah/chip-registry";
+import { MAX_FACTS_CHARS } from "@/lib/farah/billing-facts";
+import { MAX_PAGE_DATA_CHARS, MAX_PAGE_FACTS_CHARS } from "@/lib/farah/page-facts";
+import { labelAsData } from "@/lib/farah/data-block";
 import { buildFarahChatSystemPrompt } from "@/lib/farah/chat-prompt";
 import { DATA_BLOCK_OVERHEAD_CHARS } from "@/lib/farah/data-block";
 import { FARAH_QUICK_ACTIONS } from "@/lib/farah/quick-actions";
@@ -59,6 +63,19 @@ const SYSTEM_PROMPT_CHARS = Math.max(
     (key) => buildFarahChatSystemPrompt({ quickAction: key }).length,
   ),
 );
+/** The longest prompt a PAGE chip can produce: a chip that carries server-built facts is measured with the facts block at its largest allowed size. Counted in the worst case below, not in the realistic one. */
+const PAGE_CHIP_PROMPT_CHARS = Math.max(
+  0,
+  // The page chips too: facts at the largest allowed size, and (for the pages that have third-party data) the labelled data block at ITS largest.
+  ...FARAH_CHIPS.filter((c) => c.surface === "page").map(
+    (c) =>
+      buildFarahChatSystemPrompt({
+        quickAction: c.key,
+        facts: c.facts ? "x".repeat(c.facts === "billing" ? MAX_FACTS_CHARS : MAX_PAGE_FACTS_CHARS) : undefined,
+        extraContext: c.facts && c.facts !== "billing" ? labelAsData("context", "x".repeat(MAX_PAGE_DATA_CHARS)) : undefined,
+      }).length,
+  ),
+);
 /** What the prompt was before send-500, for the historical BEFORE_THE_FIX scenario below. */
 const ORIGINAL_SYSTEM_PROMPT_CHARS = FARAH_SYSTEM_PROMPT.length;
 
@@ -75,7 +92,7 @@ const BEFORE_THE_FIX = {
 
 /** The constants as they are now — read from the module, never retyped. */
 const AFTER_THE_FIX = {
-  systemPromptChars: SYSTEM_PROMPT_CHARS,
+  systemPromptChars: Math.max(SYSTEM_PROMPT_CHARS, PAGE_CHIP_PROMPT_CHARS),
   historyTurns: HISTORY_TURNS,
   maxMessageChars: MAX_MESSAGE_LENGTH,
   maxExtraContextChars: MAX_EXTRA_CONTEXT_CHARS,
@@ -171,8 +188,9 @@ describe("a realistic conversation, not just the theoretical maximum", () => {
 
     // A growth alarm, not a provider limit: the real limits are PROVIDER_TPM_LIMIT (8,000) and REQUEST_TOKEN_CEILING (7,000), and the tests above pin the
     // worst case under the ceiling. This one says "a normal turn is far under it" and trips when the system prompt grows. It was 3,994 tokens against a limit
-    // of 4,000. The draft-first rule and the length exemption added 119, so a normal turn is now 4,113; the limit is set just above that, on purpose.
-    expect(realistic).toBeLessThan(4150);
+    // of 4,000. The draft-first rule and the length exemption added 119 (4,113); the page-chips rebuild shortened the shared prompt by 110 to make room for the facts rule,
+    // so a normal turn is now 4,003 (measured, scratchpad raw/page-chips-token-measure); the limit is set 37 above that, on purpose.
+    expect(realistic).toBeLessThan(4040);
   });
 });
 
