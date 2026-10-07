@@ -163,6 +163,14 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
    */
   const [prefilled, setPrefilled] = useState<{ text: string; quickAction?: string; jobId?: string; ids?: PageContext } | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // A prefilled chip belongs to the page it was clicked on: the panel persists across client navigation, so on a route change forget it (the typed text stays and then goes as free text), or Send on page B would go out with page A's chip key and ids.
+  // Adjusting state while rendering (not in an effect), so there is no frame where page B shows page A's chip.
+  const routeKey = `${pathname ?? ""}?${searchParams?.toString() ?? ""}`;
+  const [prefilledRoute, setPrefilledRoute] = useState(routeKey);
+  if (prefilledRoute !== routeKey) {
+    setPrefilledRoute(routeKey);
+    setPrefilled(null);
+  }
   /** The polite live region's text: each reply and what it cost, e.g. "Farah replied — 1 credit used". */
   const [announcement, setAnnouncement] = useState("");
   /** The last reply was cut off by the output ceiling: shown under it, cleared on the next send. */

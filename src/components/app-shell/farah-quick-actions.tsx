@@ -90,7 +90,7 @@ export function FarahQuickActions({
             {action.label}
           </Link>
         ) : (
-          <div key={action.key} className="flex min-h-11 items-center justify-between gap-3">
+          <div key={action.key} className="flex flex-col">
             <button
               type="button"
               disabled={pending || allowanceLoading}
@@ -101,7 +101,7 @@ export function FarahQuickActions({
               {action.label}
             </button>
             {cost && (
-              <span id={`farah-chip-cost-${action.key}`} className="flex-shrink-0 font-body text-[12px] text-ink-soft">
+              <span id={`farah-chip-cost-${action.key}`} className="pb-1 font-body text-[12px] text-ink-soft">
                 {cost}
               </span>
             )}

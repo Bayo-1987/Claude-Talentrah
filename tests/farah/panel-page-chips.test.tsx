@@ -55,6 +55,20 @@ describe("the cost label before the click (the same function the gate uses)", ()
   });
 });
 
+describe("the cost label sits UNDER the chip, so the chip text keeps the full column", () => {
+  it("each chip is a column: the button, then the cost line, with no side-by-side row", () => {
+    const h = renderToStaticMarkup(<FarahQuickActions freeRemaining={0} balance={0} pending={false} onSend={noop} onPrefill={noop} />);
+    // wrapper is a column; the cost span follows the button inside it and carries the same id the button points at
+    expect(h).toMatch(/<div class="flex flex-col[^"]*"><button[^>]*aria-describedby="farah-chip-cost-interview-prep"[^>]*>Job Interview Prep<\/button><span id="farah-chip-cost-interview-prep"[^>]*>1 credit \(you have 0\)<\/span><\/div>/);
+    expect(h).not.toMatch(/justify-between/);
+    expect(h).not.toMatch(/flex-shrink-0/);
+  });
+  it("the cost line is 12px ink-soft, as the allowance line is", () => {
+    const h = renderToStaticMarkup(<FarahQuickActions freeRemaining={2} pending={false} onSend={noop} onPrefill={noop} />);
+    expect(h).toMatch(/<span id="farah-chip-cost-career-advisor" class="[^"]*text-\[12px\][^"]*text-ink-soft[^"]*">free<\/span>/);
+  });
+});
+
 describe("useKnownCreditsBalance (what the chips' cost label reads)", () => {
   it("is the balance the shell shows inside the provider, and undefined (not known, never a guess) outside it", async () => {
     const { CreditsBalanceProvider, useKnownCreditsBalance } = await import("@/components/app-shell/credits-balance");

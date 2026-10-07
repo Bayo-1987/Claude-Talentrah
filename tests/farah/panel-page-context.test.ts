@@ -24,3 +24,15 @@ describe("the panel sends the page's ids with a chip click", () => {
     expect(panel).toMatch(/JSON\.stringify\(\{ message: trimmed, quickAction, sessionId: sessionId\(\), jobId, \.\.\.ids \}\)/);
   });
 });
+
+describe("a prefilled chip belongs to the page it was clicked on", () => {
+  it("is forgotten when the route (path or query) changes, so Send on page B never goes out with page A's chip key and ids", () => {
+    // the route as one string; when it differs from the route the chip was remembered on, the chip is dropped in the same render
+    expect(panel).toMatch(/const routeKey = `\$\{pathname \?\? ""\}\?\$\{searchParams\?\.toString\(\) \?\? ""\}`;/);
+    expect(panel).toMatch(/if \(prefilledRoute !== routeKey\) \{\s*setPrefilledRoute\(routeKey\);\s*setPrefilled\(null\);\s*\}/);
+  });
+  it("is declared after the state it clears (a use-before-declare would throw at render)", () => {
+    expect(panel.indexOf("const [prefilled, setPrefilled]")).toBeGreaterThan(-1);
+    expect(panel.indexOf("if (prefilledRoute !== routeKey)")).toBeGreaterThan(panel.indexOf("const [prefilled, setPrefilled]"));
+  });
+});
