@@ -65,7 +65,7 @@ export function ScholarshipCard({
           <h3 className="text-[18px]">
             <Link
               href={`/scholarships/${scholarship.id}`}
-              className="text-ink no-underline hover:text-rust hover:underline"
+              className="inline-flex min-h-6 items-center text-ink no-underline hover:text-rust hover:underline"
             >
               {scholarship.program_name}
             </Link>

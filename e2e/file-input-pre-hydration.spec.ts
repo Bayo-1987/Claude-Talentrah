@@ -3,7 +3,7 @@ import { test, expect, type Page } from "@playwright/test";
 /**
  * Issue #591 — a file chosen BEFORE the page hydrates must not be lost, on every file input in the app.
  *
- * Each trial holds every `/_next/static/chunks/**` request behind a gate (the page stays server-rendered markup),
+ * Each trial holds every `/_next/static/chunks/*.js` script request behind a gate (the page stays server-rendered markup, with its CSS),
  * picks a file, releases the gate, WAITS FOR HYDRATION (React stamps `__reactProps` on hydrated nodes) and then checks
  * the component acted on the file. Two ways of picking: programmatic (`setInputFiles`), and for the label-wrapped
  * inputs a real click on the label, which opens the native chooser with no JavaScript (the way a mouse or touch user
@@ -37,7 +37,8 @@ async function stalledPick(page: Page, t: Target, mode: "programmatic" | "label-
   await page.route("**/api/**", (route) => route.fulfill({ status: 500, contentType: "application/json", body: "{}" }));
   let release!: () => void;
   const gate = new Promise<void>((resolve) => (release = resolve));
-  await page.route("**/_next/static/chunks/**", async (route) => {
+  // Script chunks only (see banner-crop-picker.spec.ts): a held stylesheet stalls the parser at any inline script in front of the page content, and shows nothing to interact with.
+  await page.route(/\/_next\/static\/chunks\/.*\.js(\?.*)?$/, async (route) => {
     await gate;
     await route.continue();
   });

@@ -14,7 +14,7 @@ import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { priced } from "@/lib/credits/price-labels";
 
 const tables = vi.hoisted(() => ({ rows: {} as Record<string, unknown[]> }));
-vi.mock("@/lib/auth/require-user", () => ({
+vi.mock("@/lib/auth/require-user", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/auth/require-user")>()),
   requireUser: async () => ({ profile: { id: "u1", credits_balance: 12, country: "Nigeria" }, user: { id: "u1" } }),
 }));
 vi.mock("@/lib/billing/actions", () => ({ initiatePurchaseAction: async () => {}, cancelAutoRenewAction: async () => {} }));

@@ -26,7 +26,7 @@ export function DeadlineLine({
     <>
       {labelled && <span className={labelClassName}>Deadline:</span>}
       {labelled && " "}
-      <span className={urgent ? "font-semibold text-rust" : calmClassName} data-deadline={valueDataAttr}>
+      <span className={`wrap-anywhere ${urgent ? "font-semibold text-rust" : (calmClassName ?? "")}`.trim()} data-deadline={valueDataAttr}>
         {text}
       </span>
     </>

@@ -15,7 +15,7 @@ const NAV_LINKS = [
   { href: "/auto-apply", label: "Auto-Apply" },
   { href: "/resume-builder", label: "Resume Builder" },
   { href: "/scholarships", label: "Scholarships" },
-  { href: "/talent-directory/verify", label: "Resume review" },
+  { href: "/talent-directory/verify", label: "Talent Directory" },
   { href: "/refer", label: "Refer a Friend" },
   { href: "/mentorship", label: "Mentorship" },
   { href: "/feedback", label: "Feedback" },
@@ -738,7 +738,7 @@ export function Masthead({
             {navOpen && (
               <div
                 role="menu"
-                className="absolute top-[calc(100%+8px)] left-0 z-20 w-[240px] border-[1.5px] border-ink bg-card"
+                className="absolute top-[calc(100%+8px)] left-0 z-20 w-[240px] border-[1.5px] border-ink bg-card max-[400px]:fixed max-[400px]:inset-x-4 max-[400px]:top-[62px] max-[400px]:w-auto"
               >
                 {NAV_LINKS.map((link, i) => {
                   const active = pathname?.startsWith(link.href);

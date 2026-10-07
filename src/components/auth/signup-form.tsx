@@ -139,7 +139,12 @@ export function SignupForm({
         <PasswordRequirements password={fields.password} />
       </div>
 
-      <label className="flex items-start gap-2.5 text-[13px] text-ink-soft">
+      {/*
+        The whole label is the click target and at least 44px tall (the 16px box stays 16px: a bigger box is not a bigger target), S1-26 item 3.
+        The sentence is ONE inline span: as separate flex items (text, link, text, link, ".") it broke at 360px as "...Privacy Policy" with a
+        stranded "." on its own line. "Privacy Policy." is kept together by a nowrap span around the link and its full stop.
+      */}
+      <label className="flex min-h-11 items-start gap-2.5 py-1.5 text-[13px] text-ink-soft">
         <input
           key={submitCount}
           ref={termsRef}
@@ -152,15 +157,19 @@ export function SignupForm({
           }
           className="mt-0.5 h-4 w-4 flex-shrink-0 accent-[var(--ink)]"
         />
-        I agree to Talentrah&apos;s{" "}
-        <a href="/legal/terms" className="underline">
-          Terms of Service
-        </a>{" "}
-        and{" "}
-        <a href="/legal/privacy" className="underline">
-          Privacy Policy
-        </a>
-        .
+        <span>
+          I agree to Talentrah&apos;s{" "}
+          <a href="/legal/terms" className="underline">
+            Terms of Service
+          </a>{" "}
+          and{" "}
+          <span className="whitespace-nowrap">
+            <a href="/legal/privacy" className="underline">
+              Privacy Policy
+            </a>
+            .
+          </span>
+        </span>
       </label>
 
       <Button type="submit" disabled={pending} className="mt-1">

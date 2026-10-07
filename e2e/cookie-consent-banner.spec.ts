@@ -132,3 +132,16 @@ test.describe("degrades quietly when localStorage is unavailable", () => {
     await expect(page.locator(BANNER)).toBeVisible();
   });
 });
+
+test.describe("a returning visitor (S1-26 item 3: the banner is server-rendered, so a stored choice is applied before first paint)", () => {
+  test("a stored choice hides the banner from the very first paint, with no flash", async ({ browser }) => {
+    const context = await browser.newContext();
+    await context.addInitScript(() => window.localStorage.setItem("talentrah-cookie-consent", "accepted"));
+    const page = await context.newPage();
+    await page.goto("/", { waitUntil: "commit" });
+    // before React hydrates, the pre-paint script has already marked the page and the CSS rule hides the banner
+    await page.waitForFunction(() => document.documentElement.getAttribute("data-cookie-consent") === "decided");
+    await expect(page.getByTestId("cookie-consent-banner")).toBeHidden();
+    await context.close();
+  });
+});

@@ -30,7 +30,7 @@ export function PublicScholarshipRow({ scholarship }: { scholarship: Scholarship
         <h3 className="text-[17px]">
           <Link
             href={`/scholarships/${scholarship.id}`}
-            className="text-ink no-underline hover:text-rust hover:underline"
+            className="inline-flex min-h-6 items-center text-ink no-underline hover:text-rust hover:underline"
           >
             {scholarship.program_name}
           </Link>
@@ -56,7 +56,7 @@ export function PublicScholarshipRow({ scholarship }: { scholarship: Scholarship
 
       <span className="text-[13px] text-ink-soft">
         <span className="font-semibold">Deadline:</span>{" "}
-        <span className={urgent ? "font-semibold text-rust" : undefined}>
+        <span className={`wrap-anywhere${urgent ? " font-semibold text-rust" : ""}`}>
           {scholarship.application_deadline
             ? formatDeadline(scholarship.application_deadline)
             : deadlineNoteOrFallback(scholarship)}

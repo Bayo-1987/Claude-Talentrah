@@ -56,13 +56,7 @@ vi.mock("@/lib/passes/entitlement", () => ({ hasActivePass }));
 vi.mock("@/lib/farah/client", () => ({ askFarahChatStream }));
 vi.mock("@/lib/farah/session-events", () => ({ logFarahSessionMessage }));
 vi.mock("@/lib/farah/spend-tally", async () => (await import("./support/route-mocks")).safeSpendTally());
-vi.mock("@/lib/farah/chat-gate", () => ({
-  checkFarahChatAllowance,
-  commitFarahChatAllowance,
-  farahChatFreeMessagesRemaining,
-  farahChatNextFreeMessageAt,
-  InsufficientCreditsError: class InsufficientCreditsError extends Error {},
-}));
+vi.mock("@/lib/farah/chat-gate", async () => (await import("./support/route-mocks")).safeChatGate({ checkFarahChatAllowance, commitFarahChatAllowance, farahChatFreeMessagesRemaining, farahChatNextFreeMessageAt }));
 
 const { GET } = await import("@/app/api/farah/history/route");
 const { POST } = await import("@/app/api/farah/chat/route");

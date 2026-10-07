@@ -116,7 +116,7 @@ function ListingRow({ listing }: { listing: LandingListing }) {
           <h3 className="text-[17px]">
             <Link
               href={`/scholarships/${listing.id}`}
-              className="text-ink no-underline hover:text-rust hover:underline"
+              className="inline-flex min-h-6 items-center text-ink no-underline hover:text-rust hover:underline"
             >
               {listing.program_name}
             </Link>

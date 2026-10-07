@@ -324,7 +324,7 @@ export function ApplicantList({
                   <p className="mt-0.5 font-body text-[12.5px] text-ink-soft">
                     Applied {applicant.applied_at ? formatTrackerDate(applicant.applied_at) : "—"}
                   </p>
-                  {applicant.resumeReview !== null && <ResumeReviewedBadge method={applicant.resumeReview} reviewedAt={applicant.resumeReviewedAt} className="mt-0.5" />}
+                  {applicant.resumeReview !== null && <ResumeReviewedBadge method={applicant.resumeReview} reviewedAt={applicant.resumeReviewedAt} from="/employer/jobs" className="mt-0.5" />}
                   {applicant.screeningPassed !== null && (
                     <p
                       className={`mt-0.5 text-[12.5px] font-semibold ${

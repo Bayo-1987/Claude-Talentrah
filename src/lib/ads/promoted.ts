@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { isQaUserId } from "@/lib/profile/qa-account-server";
 
 /**
  * The seeker side of ad campaigns: which jobs are promoted for this person,
@@ -107,6 +108,8 @@ export async function recordPromotedImpressions(
   promoted: PromotedJob[],
 ): Promise<void> {
   if (promoted.length === 0) return;
+  // QA accounts do not count toward the campaign analytics an employer sees (qa-account-server.ts: one cached PK select, after the response).
+  if (await isQaUserId(userId)) return;
   const admin = createServiceRoleClient();
 
   await Promise.all(
@@ -146,6 +149,7 @@ export async function recordAdEvent(params: {
   eventType: "click" | "apply";
   surface: string;
 }): Promise<void> {
+  if (await isQaUserId(params.userId)) return;
   const admin = createServiceRoleClient();
   try {
     const { error } = await admin.rpc("record_ad_event", {

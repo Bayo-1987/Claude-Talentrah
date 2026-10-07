@@ -20,6 +20,7 @@ import {
   type TailoringPricing,
 } from "@/lib/credits/price-labels";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
+import { TextArea } from "@/components/ui/text-area";
 
 type ApiResult = {
   resumeId: string;
@@ -372,14 +373,15 @@ export function TailorForm({
                           <label htmlFor={checkboxId} className="block cursor-pointer font-semibold text-ink">
                             {additionTarget(addition, result.tailoredResume)}
                           </label>
-                          <textarea
+                          <TextArea
+                            label={`Edit suggested text for ${additionTarget(addition, result.tailoredResume)}`}
+                            hideLabel
+                            autoGrow
+                            wrapperClassName="mt-1"
                             value={editedTexts[addition.id] ?? addition.text}
                             onChange={(e) =>
                               setEditedTexts((prev) => ({ ...prev, [addition.id]: e.target.value }))
                             }
-                            rows={2}
-                            aria-label={`Edit suggested text for ${additionTarget(addition, result.tailoredResume)}`}
-                            className="mt-1 block w-full resize-y border border-line bg-paper p-1.5 font-body text-[13.5px] text-ink outline-none focus:border-rust"
                           />
                           <span className="mt-0.5 block text-[12px] italic text-ink-soft">{addition.reason}</span>
                         </div>
@@ -510,17 +512,18 @@ export function TailorForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <textarea
+      <TextArea
+        label="Job description"
+        hideLabel
+        minRows={10}
         value={jdText}
         onChange={(e) => {
           setJdText(e.target.value);
           setConfirming(false);
         }}
-        rows={10}
         required
         minLength={50}
         placeholder="Paste the full job description here…"
-        className="border-[1.5px] border-ink bg-card p-4 font-body text-[14.5px] outline-none focus:border-rust"
       />
       <label className="flex items-center gap-2 text-[13.5px] text-ink-soft">
         <input

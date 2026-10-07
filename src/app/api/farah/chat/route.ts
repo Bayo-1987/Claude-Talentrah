@@ -21,7 +21,10 @@ import {
   releaseFarahChatAllowance,
   InsufficientCreditsError,
 } from "@/lib/farah/chat-gate";
-import { chipEntryPoint } from "@/lib/farah/chip-registry";
+import { chipEntryPoint, chipFacts } from "@/lib/farah/chip-registry";
+import { buildBillingFacts } from "@/lib/farah/billing-facts";
+import { loadPageFacts } from "@/lib/farah/page-facts-load";
+import { FARAH_CHAT_FREE_ALLOWANCE, FARAH_CHAT_FREE_WINDOW_DAYS } from "@/lib/farah/free-allowance";
 import { labelAsData } from "@/lib/farah/data-block";
 import {
   FAILED_ATTEMPT_ESTIMATE_NANO,
@@ -81,6 +84,9 @@ async function handlePost(request: Request, held: { release?: () => Promise<void
   // enforced as a pairing here — this route just grounds whatever jobId it
   // gets, silently skipping if the lookup below comes up empty.
   const jobId = typeof body.jobId === "string" ? body.jobId : undefined;
+  // The other ids a page chip's click can carry (a scholarship, an application). Only strings are kept; the loader validates each as a uuid and loads the record through THIS user's own access.
+  const scholarshipId = typeof body.scholarshipId === "string" ? body.scholarshipId : undefined;
+  const applicationId = typeof body.applicationId === "string" ? body.applicationId : undefined;
 
   if (!message) {
     return NextResponse.json({ error: "Say something for Farah to respond to." }, { status: 400 });
@@ -248,8 +254,35 @@ async function handlePost(request: Request, held: { release?: () => Promise<void
     }
   }
 
+  // A billing chip carries the server's own facts: catalog prices, packs, Passes, and THIS user's balance and free-message count exactly as the gate read them just now.
+  // Nothing in the request body is an input here (only `quickAction`, a key looked up in the registry): a price or balance the client sends is never read.
+  const factsKind = chipFacts(quickAction);
+  let pageFacts: { facts: string; data?: string } | undefined;
+  if (factsKind !== undefined && factsKind !== "billing") {
+    // The page's facts: this user's own records (through the session client above) and the server's own catalog and configuration. A failure to load them never breaks the chat: the model simply gets no facts
+    // (and its page rule says to say so), and the log line carries no content.
+    try {
+      pageFacts = await loadPageFacts({ kind: factsKind, supabase, userId: user.id, ids: { jobId, scholarshipId, applicationId } });
+    } catch {
+      console.error(`[farah-page-facts] loading the ${factsKind} facts failed`);
+    }
+  }
+  const facts =
+    pageFacts?.facts ??
+    (factsKind === "billing"
+      ? buildBillingFacts({
+          balance: allowance.creditsAvailableAtCheck,
+          farahFreeAllowance: FARAH_CHAT_FREE_ALLOWANCE,
+          farahFreeWindowDays: FARAH_CHAT_FREE_WINDOW_DAYS,
+          // The gate reports free messages left AFTER this one for a free message; a Pass-covered account has no count to quote.
+          farahFreeLeft: allowance.isPassCovered ? null : allowance.isFreeAllowance && allowance.freeMessagesRemaining !== null ? allowance.freeMessagesRemaining + 1 : 0,
+        })
+      : undefined);
+  // Text a third party wrote (a scholarship's terms, a posting's title and company) is DATA, labelled as such; it is never part of the facts.
+  const pageDataBlock = pageFacts?.data ? labelAsData(factsKind === "scholarships" ? "scholarship" : "context", pageFacts.data) : undefined;
+
   const extraContext =
-    [resumeContext, jobContext].filter((part): part is string => !!part).join("\n\n") || undefined;
+    [resumeContext, jobContext, pageDataBlock].filter((part): part is string => !!part).join("\n\n") || undefined;
 
   const turns: FarahChatTurn[] = [
     ...[...(historyRows ?? [])]
@@ -326,6 +359,7 @@ async function handlePost(request: Request, held: { release?: () => Promise<void
         try {
           for await (const chunk of askFarahChatStream(turns, extraContext, undefined, {
             quickAction,
+            facts,
             // The model call stops when the reader goes away; an aborted call ends in the error path below, which saves and charges nothing.
             signal: request.signal,
             // The ceiling is checked again, with a fresh read, just before the fallback provider would be used; a counter that cannot be read means no fallback.

@@ -23,7 +23,7 @@ const state = vi.hoisted(() => ({
   profiles: [] as Array<{ id: string; email: string; first_name: string | null }>,
 }));
 
-vi.mock("@/lib/resend/client", () => ({
+vi.mock("@/lib/resend/client", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/resend/client")>()),
   getResendClient: () =>
     state.mailerConfigured
       ? {

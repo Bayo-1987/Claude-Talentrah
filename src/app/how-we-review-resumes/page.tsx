@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import Link from "next/link";
 import { pageMetadata } from "@/lib/seo/site";
 import { MarketingMasthead } from "@/components/marketing/marketing-masthead";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { HowWeReviewBackLink } from "@/components/talent-directory/how-we-review-back-link";
 
 /**
  * "How we review resumes" (VERIFY-1 Phase 0a): the one page that says what a Talent Directory resume review checks today and what it does not. The badge on a
@@ -23,6 +25,10 @@ export default function HowWeReviewResumesPage() {
       <MarketingMasthead />
       <main id="main-content">
         <Container className="flex max-w-[760px] flex-col gap-8 py-12">
+          {/* "← Back to ..." when the visitor arrived from an allow-listed page (HWR-1). A client island in Suspense, so this page stays static: nothing here reads the request. */}
+          <Suspense fallback={null}>
+            <HowWeReviewBackLink />
+          </Suspense>
           <div>
             <EyebrowLabel>Resume reviews</EyebrowLabel>
             <h1 className="mt-2 font-display text-[34px] leading-[1.15] font-medium text-ink">How we review resumes</h1>

@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { initialModerationState, type ModerationState } from "@/lib/admin/moderation/state";
 import { Button } from "@/components/ui";
 import { MinimalRichEditor } from "@/components/rich-text/minimal-rich-editor";
+import { TextArea } from "@/components/ui/text-area";
 
 type Action = (prev: ModerationState, formData: FormData) => Promise<ModerationState>;
 
@@ -79,11 +80,12 @@ export function DecisionForm({
           minHeightClassName="min-h-[60px]"
         />
       ) : (
-        <textarea
+        <TextArea
+          id={`${id}-${noteName}`}
           name={noteName}
-          rows={2}
+          label="Note"
+          hideLabel
           placeholder={notePlaceholder}
-          className="border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[14px] text-ink outline-none placeholder:font-display placeholder:text-[13.5px] placeholder:italic placeholder:text-ink-soft focus:border-rust"
         />
       )}
 

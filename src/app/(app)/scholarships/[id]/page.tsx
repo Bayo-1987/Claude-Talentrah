@@ -166,7 +166,7 @@ export default async function ScholarshipDetailPage({
           href={scholarship.official_url}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex w-fit items-center gap-1.5 font-body text-[15px] font-semibold text-rust underline underline-offset-2 hover:text-rust-hover"
+          className="inline-flex min-h-6 w-fit items-center gap-1.5 font-body text-[15px] font-semibold text-rust underline underline-offset-2 hover:text-rust-hover"
         >
           View the official listing
           <svg width="13" height="13" viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -307,7 +307,7 @@ export default async function ScholarshipDetailPage({
             <Link
               key={l.href}
               href={l.href}
-              className="text-rust underline underline-offset-2 hover:text-rust-hover"
+              className="inline-flex min-h-6 items-center text-rust underline underline-offset-2 hover:text-rust-hover"
             >
               {l.label}
             </Link>

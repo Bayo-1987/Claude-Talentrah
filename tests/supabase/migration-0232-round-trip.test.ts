@@ -9,33 +9,15 @@
  * CI only, for the reasons the 0224/0225 round trip gives: it needs the local stack's Postgres (a container this machine started; no password, no URL, no hosted project involved), and WITH CI=true anything that stops
  * the run FAILS the test, because a round trip that quietly did not run would look exactly like one that passed.
  */
-import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { compareRoundTrip, parseSnapshots } from "../support/privilege-round-trip";
+import { runRoundTripScript as runScript } from "../support/psql-lock-retry";
 import { MIGRATION, ROLLBACK, TABLES, objectLines, script } from "../support/migration-0232-round-trip";
 
 const ROOT = join(__dirname, "../..");
 const read = (p: string) => readFileSync(join(ROOT, p), "utf8");
-
-function dbContainer(): string {
-  const names = execFileSync("docker", ["ps", "--format", "{{.Names}}"], { encoding: "utf8" })
-    .split("\n")
-    .map((n) => n.trim())
-    .filter((n) => /^supabase_db_/.test(n));
-  if (names.length !== 1) throw new Error(`expected exactly one running supabase_db_* container (the local stack's Postgres), found ${names.length}: ${names.join(", ") || "none"}`);
-  return names[0];
-}
-
-function runScript(script: string): string {
-  return execFileSync("docker", ["exec", "-i", dbContainer(), "psql", "-U", "postgres", "-d", "postgres", "-X", "-A", "-t", "-v", "ON_ERROR_STOP=1"], {
-    input: script,
-    encoding: "utf8",
-    maxBuffer: 16 * 1024 * 1024,
-    timeout: 120_000,
-  });
-}
 
 describe.skipIf(process.env.CI !== "true")("0232: rollback and re-apply on the local stack (CI only)", () => {
   it("the files it runs are the ones on disk", () => {

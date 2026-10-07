@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { readHasSession } from "@/lib/supabase/read-has-session";
 import Link from "next/link";
 import { EyebrowLabel } from "@/components/ui";
 import { JdDemoExample } from "./jd-demo-example";
@@ -10,6 +10,7 @@ import { JdDemoRefusal } from "./jd-demo-refusal";
 import { DEMO_CAPTION_SIGNED_OUT } from "@/lib/demo/copy";
 import { isDemoRefusalReason, type DemoRefusalReason } from "@/lib/demo/refusal-copy";
 import { fetchWithTimeout, fetchErrorMessage } from "@/lib/forms/fetch-with-timeout";
+import { TextArea } from "@/components/ui/text-area";
 
 // Quick, unauthenticated actions only — "Talk to a mentor" isn't one: booking
 // a real mentor needs an account and a session to book, not a single click
@@ -86,10 +87,9 @@ export function JdDemoInput() {
 
   useEffect(() => {
     let cancelled = false;
-    createClient()
-      .auth.getSession()
-      .then(({ data }) => {
-        if (!cancelled) setSession(!!data.session);
+    readHasSession()
+      .then((hasSession) => {
+        if (!cancelled) setSession(hasSession);
       })
       .catch(() => {
         // Unknown reads as signed-out: the anonymous path is the one that
@@ -140,10 +140,7 @@ export function JdDemoInput() {
      */
     let signedIn = session;
     if (signedIn === null) {
-      const { data } = await createClient()
-        .auth.getSession()
-        .catch(() => ({ data: { session: null } }));
-      signedIn = !!data.session;
+      signedIn = await readHasSession().catch(() => false);
       setSession(signedIn);
     }
 
@@ -228,9 +225,6 @@ export function JdDemoInput() {
       >
         <EyebrowLabel className="mb-3 block">Paste a job description</EyebrowLabel>
         <div className="mb-4 flex items-start gap-3.5 border-b border-dashed border-line pb-4">
-          <label htmlFor="jd-demo" className="sr-only">
-            Job description
-          </label>
           {/*
             A textarea, not an input. The floor is 50 characters and a real
             job description is thousands — a single-line box that scrolls
@@ -239,14 +233,18 @@ export function JdDemoInput() {
             in this codebase fetches a URL, so it was advertising a capability
             that does not exist.
           */}
-          <textarea
+          <TextArea
             id="jd-demo"
+            label="Job description"
+            hideLabel
+            compact
+            maxHeight={240}
+            wrapperClassName="flex-1"
+            className="font-display text-[16px] italic text-ink-soft placeholder:text-ink-soft disabled:opacity-60 sm:text-[15.5px]"
             value={value}
             onChange={(e) => setValue(e.target.value)}
             disabled={busy}
-            rows={2}
             placeholder="Paste the job description here and Farah will tailor a resume to it…"
-            className="flex-1 resize-y border-none bg-transparent font-display text-[15.5px] italic text-ink-soft outline-none placeholder:text-ink-soft disabled:opacity-60"
           />
           <button
             type="submit"
@@ -280,14 +278,14 @@ export function JdDemoInput() {
             <Link
               key={action.label}
               href={action.href}
-              className="font-body text-[13.5px] font-bold text-rust underline underline-offset-3"
+              className="inline-flex min-h-6 items-center font-body text-[13.5px] font-bold text-rust underline underline-offset-3"
             >
               {action.label}
             </Link>
           ))}
           <Link
             href="/jobs"
-            className="font-body text-[13.5px] font-semibold text-ink-soft underline underline-offset-3"
+            className="inline-flex min-h-6 items-center font-body text-[13.5px] font-semibold text-ink-soft underline underline-offset-3"
           >
             Browse jobs instead →
           </Link>
@@ -312,7 +310,7 @@ export function JdDemoInput() {
           </p>
           <Link
             href="/resume-builder"
-            className="text-[13.5px] font-bold text-rust underline underline-offset-3"
+            className="inline-flex min-h-6 items-center text-[13.5px] font-bold text-rust underline underline-offset-3"
           >
             Build or upload your resume →
           </Link>

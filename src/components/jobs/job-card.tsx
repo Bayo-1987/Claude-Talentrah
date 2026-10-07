@@ -177,7 +177,7 @@ export function JobCard({
               <Link
                 href={`/jobs/${job.id}`}
                 data-ad-click={isSponsored ? "true" : undefined}
-                className="text-ink no-underline hover:text-rust hover:underline"
+                className="inline-flex min-h-6 items-center text-ink no-underline hover:text-rust hover:underline"
               >
                 {job.title}
               </Link>

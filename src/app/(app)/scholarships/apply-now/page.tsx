@@ -71,6 +71,7 @@ export default async function ScholarshipApplyNowPage() {
       />
       <Link
         href={session ? "/scholarships" : "/"}
+        prefetch={false}
         className="inline-flex min-h-10 min-w-10 items-center self-start text-[13px] font-semibold text-ink-soft no-underline hover:text-rust"
       >
         ← Talentrah home

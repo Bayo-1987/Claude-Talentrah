@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const send = vi.hoisted(() => vi.fn());
 const client = vi.hoisted(() => ({ value: null as null | { emails: { send: typeof send } } }));
-vi.mock("@/lib/resend/client", () => ({ getResendClient: () => client.value }));
+vi.mock("@/lib/resend/client", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/resend/client")>()), getResendClient: () => client.value }));
 
 import { sendAdminAlert } from "@/lib/admin/alert-email";
 

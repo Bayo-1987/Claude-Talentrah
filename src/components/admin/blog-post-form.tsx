@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { TextField, Button, EyebrowLabel } from "@/components/ui";
+import { TextArea } from "@/components/ui/text-area";
 import type { BlogActionState } from "@/lib/admin/blog/actions";
 
 const initial: BlogActionState = { status: "idle" };
@@ -106,30 +107,28 @@ export function BlogPostForm({ action, post, previewHtml, submitLabel }: Props) 
           </div>
           <TextField label="Author" name="author" defaultValue={post?.author ?? "The Talentrah Team"} required error={err("author")} />
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="body" className="font-body text-[13px] font-semibold">
-              Body
-            </label>
-            <textarea
-              id="body"
-              name="body"
-              defaultValue={post?.body}
-              required
-              rows={22}
-              className="border-[1.5px] border-ink bg-card p-3 font-mono text-[13.5px] leading-[1.6]"
-            />
-            <p className="text-[12.5px] text-ink-soft">
-              Markdown. Headings with ##, bullets with -, bold with **. Raw HTML is stripped.
-              To embed a live scholarship fact card (provider, deadline, a link — always current,
-              never frozen at publish time), put{" "}
-              <code className="bg-paper-alt px-1">
-                [[scholarship:&lt;its id&gt;]]
-              </code>{" "}
-              on its own line. If the listing later closes, it falls back to a plain notice
-              automatically.
-            </p>
-            {err("body") && <p className="text-[12.5px] text-rust">{err("body")}</p>}
-          </div>
+          <TextArea
+            id="body"
+            name="body"
+            label="Body"
+            defaultValue={post?.body}
+            required
+            minRows={22}
+            mono
+            error={err("body") ?? undefined}
+            help={
+              <>
+                Markdown. Headings with ##, bullets with -, bold with **. Raw HTML is stripped.
+                To embed a live scholarship fact card (provider, deadline, a link — always current,
+                never frozen at publish time), put{" "}
+                <code className="bg-paper-alt px-1">
+                  [[scholarship:&lt;its id&gt;]]
+                </code>{" "}
+                on its own line. If the listing later closes, it falls back to a plain notice
+                automatically.
+              </>
+            }
+          />
 
           <Button type="submit" disabled={pending} className="self-start">
             {pending ? "Saving…" : submitLabel}

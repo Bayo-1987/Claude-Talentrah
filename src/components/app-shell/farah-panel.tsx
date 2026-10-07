@@ -2,10 +2,12 @@
 
 import { Fragment, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { EyebrowLabel, FarahMark } from "@/components/ui";
-import { FARAH_QUICK_ACTIONS } from "@/lib/farah/quick-actions";
+import { pageContextForPath, panelChipsForPath, type PageContext } from "@/lib/farah/page-chips";
 import { FarahAllowanceNote, FarahQuickActions } from "@/components/app-shell/farah-quick-actions";
-import { chargeAnnouncement, quickActionMode } from "@/lib/credits/price-labels";
+import { chargeAnnouncement, farahFreeUsedAnnouncement, quickActionMode, readNextFreeMessageAt } from "@/lib/credits/price-labels";
+import { serverFailureText } from "@/lib/farah/panel-failure-text";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { renderFarahMarkdown } from "@/lib/farah/render-markdown";
 import { readFarahChatStream } from "@/lib/farah/read-chat-stream";
@@ -145,6 +147,11 @@ function JobSeedMarker({
  */
 export function FarahPanel({ firstName, initialMessages, initialJobSeed }: FarahPanelProps) {
   const reportCreditsBalance = useReportCreditsBalance();
+  // The page's own chips and opening line (page-chips.ts): an unlisted route gets today's three and the panel's own greeting. A click carries the ids the route carries; the server validates and loads each (never trusted from here).
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const pageChips = panelChipsForPath(pathname, searchParams);
+  const { jobId: pageJobId, ...pageIds } = pageContextForPath(pathname, searchParams);
   const [messages, setMessages] = useState<FarahMessage[]>(initialMessages ?? []);
   const [input, setInput] = useState("");
   /*
@@ -153,8 +160,16 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
    * action — with the same quickAction key and job context a direct click would have carried — rather than as
    * anonymous free text. Forgotten the moment the text is edited or sent.
    */
-  const [prefilled, setPrefilled] = useState<{ text: string; quickAction?: string; jobId?: string } | null>(null);
+  const [prefilled, setPrefilled] = useState<{ text: string; quickAction?: string; jobId?: string; ids?: PageContext } | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // A prefilled chip belongs to the page it was clicked on: the panel persists across client navigation, so on a route change forget it (the typed text stays and then goes as free text), or Send on page B would go out with page A's chip key and ids.
+  // Adjusting state while rendering (not in an effect), so there is no frame where page B shows page A's chip.
+  const routeKey = `${pathname ?? ""}?${searchParams?.toString() ?? ""}`;
+  const [prefilledRoute, setPrefilledRoute] = useState(routeKey);
+  if (prefilledRoute !== routeKey) {
+    setPrefilledRoute(routeKey);
+    setPrefilled(null);
+  }
   /** The polite live region's text: each reply and what it cost, e.g. "Farah replied — 1 credit used". */
   const [announcement, setAnnouncement] = useState("");
   /** The last reply was cut off by the output ceiling: shown under it, cleared on the next send. */
@@ -232,6 +247,8 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
    * see quickActionMode.
    */
   const [freeRemaining, setFreeRemaining] = useState<number | null | undefined>(undefined);
+  // When the next free message comes back (an ISO time), from the history route and the chat `done` event. null = no date to show. Display only.
+  const [nextFreeMessageAt, setNextFreeMessageAt] = useState<string | null>(null);
   // The history fetch settled without giving a count (a non-OK response or a network error): stop calling the
   // count "loading" so the chips fall back to prefill instead of staying disabled for the whole session.
   const [historyFailed, setHistoryFailed] = useState(false);
@@ -317,6 +334,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
         if (ignore) return;
         if (typeof data.freeMessagesRemaining === "number" || data.freeMessagesRemaining === null) {
           setFreeRemaining(data.freeMessagesRemaining);
+          setNextFreeMessageAt(readNextFreeMessageAt(data.nextFreeMessageAt));
         }
         if (data.hasUnreadNotification === true) setHasUnreadNotification(true);
         if (!Array.isArray(data.messages) || data.messages.length === 0) return;
@@ -363,7 +381,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, pending, awaitingFirstToken]);
 
-  async function send(text: string, quickAction?: string, jobId?: string) {
+  async function send(text: string, quickAction?: string, jobId?: string, ids?: PageContext) {
     const trimmed = prepareMessage(text);
     if (!trimmed || pending) return;
     setError(null);
@@ -389,12 +407,12 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
       const res = await fetch("/api/farah/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: trimmed, quickAction, sessionId: sessionId(), jobId }),
+        body: JSON.stringify({ message: trimmed, quickAction, sessionId: sessionId(), jobId, ...ids }),
       });
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}) as { error?: string });
-        setError(data.error ?? "Something went wrong — try again.");
+        setError(serverFailureText(res.status, data.error));
         setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
         return;
       }
@@ -411,7 +429,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
               : [...prev, { id: streamId, role: "farah", content: event.fullText, created_at: new Date().toISOString() }],
           );
         } else if (event.type === "error") {
-          setError(event.message ?? "Something went wrong — try again.");
+          setError(serverFailureText(null, event.message, event.kind));
           setMessages((prev) => prev.filter((m) => m.id !== optimisticId && m.id !== streamId));
           return;
         } else if (event.type === "done") {
@@ -422,6 +440,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
           );
           if (typeof event.freeMessagesRemaining === "number" || event.freeMessagesRemaining === null) {
             setFreeRemaining(event.freeMessagesRemaining ?? null);
+            setNextFreeMessageAt(readNextFreeMessageAt(event.nextFreeMessageAt));
           }
           // A paid message: tell the masthead its new balance (issue #605). null / absent = nothing spent.
           if (typeof event.creditsBalance === "number") reportCreditsBalance(event.creditsBalance);
@@ -431,9 +450,11 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
             setLastReplyTruncated(true);
             setAnnouncement("Farah's reply was cut off — no credits used");
           } else {
-            setAnnouncement(
-              chargeAnnouncement("Farah replied", typeof event.creditsBalance === "number" ? CREDIT_COSTS.farahChatMessage : 0),
-            );
+            const paid = typeof event.creditsBalance === "number";
+            const replied = chargeAnnouncement("Farah replied", paid ? CREDIT_COSTS.farahChatMessage : 0);
+            // The last free message just used: say so, with the date it comes back when the server gave one.
+            const freeUsed = farahFreeUsedAnnouncement({ freeRemaining: event.freeMessagesRemaining, paid, nextFreeMessageAt: event.nextFreeMessageAt });
+            setAnnouncement(freeUsed ? `${replied}. ${freeUsed}` : replied);
           }
         }
       }
@@ -450,7 +471,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
   function submitCurrent() {
     // Untouched prefilled text goes out as the quick action that prefilled it; anything edited is free text.
     if (prefilled && input.trim() === prefilled.text) {
-      void send(prefilled.text, prefilled.quickAction, prefilled.jobId);
+      void send(prefilled.text, prefilled.quickAction, prefilled.jobId, prefilled.ids);
     } else {
       void send(input);
     }
@@ -479,13 +500,13 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
    * One entry point for every chip that would START a conversation turn: send it while the message is free,
    * prefill the input once it would cost credits (see quickActionMode). The user then presses Send.
    */
-  function sendOrPrefill(text: string, quickAction?: string, jobId?: string) {
+  function sendOrPrefill(text: string, quickAction?: string, jobId?: string, ids?: PageContext) {
     if (quickActionMode(freeRemaining) === "send") {
-      void send(text, quickAction, jobId);
+      void send(text, quickAction, jobId, ids);
       return;
     }
     setInput(text);
-    setPrefilled({ text, quickAction, jobId });
+    setPrefilled({ text, quickAction, jobId, ids });
     inputRef.current?.focus();
   }
 
@@ -581,7 +602,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
         silence is correct there, it's only a hard 0 with no warning that
         reads as broken.
       */}
-      <FarahAllowanceNote freeRemaining={freeRemaining} />
+      <FarahAllowanceNote freeRemaining={freeRemaining} nextFreeMessageAt={nextFreeMessageAt} />
 
       <div ref={scrollRef} className="flex max-h-80 flex-col gap-3 overflow-y-auto">
         {messages.length === 0 ? (
@@ -626,11 +647,17 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
                 genuinely page-agnostic, not job-feed-specific wording that
                 happens to also render on /settings or /mentorship/apply.
               */}
-              <p className="font-display text-[14.5px] italic leading-relaxed text-ink-soft">
-                &ldquo;Hi {firstName} — I can help you prep for an interview,
-                think through your next career move, or get ready for a
-                salary conversation. What do you need?&rdquo;
-              </p>
+              {pageChips.openingLine ? (
+                <p className="font-display text-[14.5px] italic leading-relaxed text-ink-soft">
+                  &ldquo;Hi {firstName}. {pageChips.openingLine}&rdquo;
+                </p>
+              ) : (
+                <p className="font-display text-[14.5px] italic leading-relaxed text-ink-soft">
+                  &ldquo;Hi {firstName} — I can help you prep for an interview,
+                  think through your next career move, or get ready for a
+                  salary conversation. What do you need?&rdquo;
+                </p>
+              )}
               {/*
                 The quiet line the earlier-conversation fix is actually about.
                 Only offered here, on the pristine arrival view — once the
@@ -702,20 +729,23 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
       </div>
 
       {error && (
-        <p className="border border-rust bg-rust-soft px-2.5 py-2 text-[12px] text-rust">{error}</p>
+        <p role="alert" className="border border-rust bg-rust-soft px-2.5 py-2 text-[12px] text-rust">{error}</p>
       )}
 
       <FarahQuickActions
         freeRemaining={freeRemaining}
+        actions={pageChips.chips}
+        collapsed={messages.length > 0}
+        collapsedLabel={pageChips.openingLine ? "Ask about this page" : "Quick questions"}
         allowanceLoading={allowanceLoading}
         pending={pending}
         onSend={(key) => {
-          const action = FARAH_QUICK_ACTIONS.find((x) => x.key === key);
-          if (action?.starterPrompt) void send(action.starterPrompt, action.key);
+          const action = pageChips.chips.find((x) => x.key === key);
+          if (action?.starterPrompt) void send(action.starterPrompt, action.key, pageJobId, pageIds);
         }}
         onPrefill={(key) => {
-          const action = FARAH_QUICK_ACTIONS.find((x) => x.key === key);
-          if (action?.starterPrompt) sendOrPrefill(action.starterPrompt, action.key);
+          const action = pageChips.chips.find((x) => x.key === key);
+          if (action?.starterPrompt) sendOrPrefill(action.starterPrompt, action.key, pageJobId, pageIds);
         }}
       />
 
