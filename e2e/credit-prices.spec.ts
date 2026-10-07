@@ -319,7 +319,8 @@ test.describe("Farah quick actions", () => {
     await grantTestCredits(testUser.id, START);
     await useUpFreeFarahMessages(testUser.id, START);
     await page.goto("/settings");
-    await expect(page.getByText(new RegExp(`${CREDIT_COSTS.farahChatMessage} credit`))).toBeVisible();
+    // The allowance line names the price; each chip now also carries its own cost label ("1 credit"), so match the line's own sentence, not the bare price.
+    await expect(page.getByText(new RegExp(`Each message costs ${CREDIT_COSTS.farahChatMessage} credit`))).toBeVisible();
 
     const input = page.getByPlaceholder("Ask me anything…");
     for (const { label, prompt } of ACTIONS) {
