@@ -7,7 +7,7 @@ import { renderToString } from "react-dom/server";
 import { RATE_LIMITS } from "@/lib/api/rate-limit";
 
 const world = vi.hoisted(() => ({ rows: {} as Record<string, unknown[]>, bound: [] as Array<{ action: string; args: unknown[] }> }));
-vi.mock("@/lib/auth/require-user", () => ({ requireUser: async () => ({ profile: { id: "u1", credits_balance: 12, country: "Nigeria" }, user: { id: "u1" } }) }));
+vi.mock("@/lib/auth/require-user", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/auth/require-user")>()), requireUser: async () => ({ profile: { id: "u1", credits_balance: 12, country: "Nigeria" }, user: { id: "u1" } }) }));
 vi.mock("@/lib/billing/actions", () => ({ initiatePurchaseAction: Object.assign(async () => {}, { bind: () => async () => {} }), cancelAutoRenewAction: Object.assign(async () => {}, { bind: () => async () => {} }) }));
 vi.mock("@/lib/billing/receipt-actions", () => ({
   resendReceiptAction: Object.assign(async () => {}, { bind: (_t: unknown, ...args: unknown[]) => { world.bound.push({ action: "resendReceipt", args }); return async () => {}; } }),

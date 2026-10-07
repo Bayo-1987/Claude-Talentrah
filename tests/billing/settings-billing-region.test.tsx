@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 
 const profile = vi.hoisted(() => ({ value: {} as Record<string, unknown> }));
-vi.mock("@/lib/auth/require-user", () => ({ requireUser: async () => ({ profile: profile.value, user: { id: "u1" } }) }));
+vi.mock("@/lib/auth/require-user", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/auth/require-user")>()), requireUser: async () => ({ profile: profile.value, user: { id: "u1" } }) }));
 vi.mock("@/app/(app)/settings/settings-form", () => ({ SettingsForm: () => null }));
 // The page also reads what stands in the way of deleting the account (ACCT-1); this suite is about the billing-region row, so that read is faked.
 vi.mock("@/lib/account-deletion/queries", () => ({

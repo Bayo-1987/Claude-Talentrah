@@ -20,25 +20,7 @@ export const ALLOWLIST: Record<string, number> = {
   "@/lib/api/rate-limit :: tests/resume-builder/import-route-parse-fallback.test.ts": 1,
   "@/lib/api/rate-limit :: tests/tailoring/malformed-body.test.ts": 1,
   "@/lib/api/rate-limit :: tests/tailoring/route-credits-balance.test.ts": 1,
-  "@/lib/auth/require-user :: tests/auth/onboarding-employer-passthrough.test.tsx": 1,
-  "@/lib/auth/require-user :: tests/auto-apply/pending-banner-count.test.tsx": 1,
-  "@/lib/auth/require-user :: tests/auto-apply/queue-read-gate.test.tsx": 1,
-  "@/lib/auth/require-user :: tests/billing/billing-page-copy.test.tsx": 1,
-  "@/lib/auth/require-user :: tests/billing/billing-page-states.test.tsx": 1,
-  "@/lib/auth/require-user :: tests/billing/resend-receipt-ui.test.tsx": 1,
-  "@/lib/auth/require-user :: tests/billing/settings-billing-region.test.tsx": 1,
-  "@/lib/auth/require-user :: tests/format/sessions-pages-dates.test.tsx": 1,
-  "@/lib/auth/require-user :: tests/jobs/feed-metadata.test.ts": 1,
-  "@/lib/auth/require-user :: tests/mentorship/application-validation.test.ts": 1,
-  "@/lib/auth/require-user :: tests/mentorship/mentor-sessions-page-buckets.test.tsx": 1,
   "@/lib/auth/require-user :: tests/mentorship/own-profile-details-read.test.ts": 1,
-  "@/lib/auth/require-user :: tests/mentorship/sessions-page-buckets.test.tsx": 1,
-  "@/lib/auth/require-user :: tests/mentorship/sessions-page-pay-cancel.test.tsx": 1,
-  "@/lib/auth/require-user :: tests/referrals/page-metadata-and-loading.test.tsx": 1,
-  "@/lib/auth/require-user :: tests/resume/resume-builder-notice-wiring.test.tsx": 1,
-  "@/lib/auth/require-user :: tests/scholarships/list-metadata.test.ts": 1,
-  "@/lib/auth/require-user :: tests/talent-directory/verify-page-status-copy.test.tsx": 1,
-  "@/lib/auth/require-user :: tests/tracker/page-metadata.test.ts": 1,
   "@/lib/credits/gate-events :: tests/farah/chat-done-balance.test.ts": 1,
   "@/lib/credits/gate-events :: tests/farah/free-claim-gate.test.ts": 1,
   "@/lib/credits/gate-events :: tests/farah/message-charge-agreement.test.ts": 1,
@@ -139,7 +121,7 @@ export const ALLOWLIST: Record<string, number> = {
 };
 
 /** Must equal the sum of ALLOWLIST. Lower it with every conversion; raising it is a visible, reviewed act. */
-export const ALLOWLIST_CEILING = 131;
+export const ALLOWLIST_CEILING = 113;
 
 /** How many hand-written factories the scoped modules had when the ratchet was introduced. Never changes: the ceiling may not exceed it. */
 export const INITIAL_FACTORIES = 149;

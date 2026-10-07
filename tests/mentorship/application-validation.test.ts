@@ -14,7 +14,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const world = vi.hoisted(() => ({ writes: [] as Array<{ op: "insert" | "update"; row: Record<string, unknown> }>, nameWarning: null as string | null }));
 
-vi.mock("@/lib/auth/require-user", () => ({ requireUser: async () => ({ user: { id: "user-1" } }) }));
+vi.mock("@/lib/auth/require-user", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/auth/require-user")>()), requireUser: async () => ({ user: { id: "user-1" } }) }));
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     from: (table: string) => {
