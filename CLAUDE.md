@@ -68,7 +68,7 @@ are the ones whose shared secret is the wrong mechanism, and they move to admin
 sessions in M2. Being signed in to the seeker app grants nothing at `/admin`;
 the guard never reads the Supabase session.
 
-**A setting that lives only in a dashboard (Supabase auth and email, redirect URLs, SMTP; Vercel environment variables; provider consoles) is not done until the owner confirms it live** — read [docs/owner-dashboard-steps.md](docs/owner-dashboard-steps.md) before a PR that depends on one.
+Any change that needs a dashboard-only setting: follow [docs/owner-dashboard-steps.md](docs/owner-dashboard-steps.md); the item isn't done until the owner confirms it's live.
 
 Phase 1 is feature-complete except for the employer side. Read [docs/phase-1-summary.md](docs/phase-1-summary.md) before assuming any feature's status — it is kept current and lists what shipped, what is deferred, and the open defects with their evidence. Two that shape most decisions:
 
