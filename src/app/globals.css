@@ -179,3 +179,8 @@
     margin: 0;
   }
 }
+
+/* A returning visitor who already chose never sees the cookie banner: the inline script in layout.tsx marks <html> before first paint. */
+html[data-cookie-consent="decided"] [data-testid="cookie-consent-banner"] {
+  display: none;
+}

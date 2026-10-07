@@ -24,7 +24,9 @@ test("a file chosen BEFORE hydration still opens the crop dialog (the change eve
   // nothing is listening to yet.
   let release!: () => void;
   const gate = new Promise<void>((resolve) => (release = resolve));
-  await page.route("**/_next/static/chunks/**", async (route) => {
+  // Script chunks only, not the stylesheet: the page paints nothing until its CSS arrives, and an inline script placed ahead of the page content (the cookie banner's pre-paint
+  // script, layout.tsx) waits for a pending stylesheet, so holding the CSS too keeps the parser from ever reaching the input. Slow JavaScript with CSS delivered is the case this guards.
+  await page.route(/\/_next\/static\/chunks\/.*\.js(\?.*)?$/, async (route) => {
     await gate;
     await route.continue();
   });
