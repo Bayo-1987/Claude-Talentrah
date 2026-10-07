@@ -160,6 +160,13 @@ describe("refer: the reward, the cap and the meaning of activated are the config
   it("the reward arrives at activation, not at signup", () => expect(out.facts).toMatch(/Nothing is paid at signup|paid when .* activate/i));
 });
 
+describe("the facts cap is enforced, not just observed", () => {
+  it("a facts block over the cap throws instead of reaching the model (here: far more top matches than the loader ever reads)", () => {
+    const many = Array.from({ length: 200 }, () => ({ score: 90, explanation: EXPL, title: "T", companyName: "C" }));
+    expect(() => build({ kind: "jobs", top: many })).toThrow(/over the cap of 1500/);
+  });
+});
+
 describe("every facts block is plain, bounded, and cannot close its own block", () => {
   const inputs: PageFactsInput[] = [
     { kind: "jobs", thisJob: { score: 80, explanation: EXPL }, top: [{ score: 90, explanation: EXPL, title: "T", companyName: "C" }] },
