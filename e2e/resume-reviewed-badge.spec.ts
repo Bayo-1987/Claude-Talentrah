@@ -182,7 +182,7 @@ test.describe("the resume-reviewed badge", () => {
         expect(box!.height, "the control is at least 32px tall").toBeGreaterThanOrEqual(32);
         await summary.click();
         await expect(aiCard.getByText("We checked that the resume is complete, specific and consistent. We did not check identity, employment history or skills.")).toBeVisible();
-        await expect(aiCard.getByRole("link", { name: "How we review" })).toHaveAttribute("href", "/how-we-review-resumes");
+        await expect(aiCard.getByRole("link", { name: "How we review" })).toHaveAttribute("href", "/how-we-review-resumes?from=%2Femployer%2Ftalent-directory");
         await expect(page).toHaveURL(/\/employer\/talent-directory$/);
 
         // The title is still the way into the candidate.
@@ -230,12 +230,60 @@ test.describe("the resume-reviewed badge", () => {
 
         const summary = page.getByText("What this means").first();
         await summary.click();
-        await expect(page.getByRole("link", { name: "How we review" }).first()).toHaveAttribute("href", "/how-we-review-resumes");
+        await expect(page.getByRole("link", { name: "How we review" }).first()).toHaveAttribute("href", "/how-we-review-resumes?from=%2Femployer%2Fjobs");
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
         expect(overflow, "no horizontal scroll").toBeLessThanOrEqual(0);
       });
     });
   }
+
+  test("HWR-1: a signed-in employer opens How we review from the directory, clicks Back, and is on the directory, still signed in", async ({ page, baseURL }) => {
+    await signedIn(page, baseURL);
+    await page.goto("/employer/talent-directory");
+    const aiCard = page.locator("li", { hasText: `${AI_NAME.first} ${AI_NAME.last}` });
+    await aiCard.getByText("What this means").click();
+    await aiCard.getByRole("link", { name: "How we review" }).click();
+    await expect(page).toHaveURL(/\/how-we-review-resumes\?from=%2Femployer%2Ftalent-directory$/);
+    await expect(page.getByRole("heading", { name: "How we review resumes" })).toBeVisible();
+    const back = page.getByRole("link", { name: "← Back to Talent Directory" });
+    await expect(back).toBeVisible();
+    await expect(back).toHaveAttribute("href", "/employer/talent-directory");
+    await back.click();
+    await expect(page).toHaveURL(/\/employer\/talent-directory$/);
+    // Still signed in: the directory itself, not the login page.
+    await expect(page.getByRole("heading", { name: "Search candidates with a reviewed resume." })).toBeVisible();
+  });
+
+  test("HWR-1: from the candidate's page and the applicant list, Back goes to the directory and to Jobs Posted (no id in the URL)", async ({ page, baseURL }) => {
+    await signedIn(page, baseURL);
+    await page.goto(`/employer/talent-directory/${fx.aiId}`);
+    await page.getByText("What this means").click();
+    await page.getByRole("link", { name: "How we review" }).click();
+    await expect(page).toHaveURL(/\/how-we-review-resumes\?from=%2Femployer%2Ftalent-directory$/);
+    expect(page.url()).not.toContain(fx.aiId);
+    await page.getByRole("link", { name: "← Back to Talent Directory" }).click();
+    await expect(page).toHaveURL(/\/employer\/talent-directory$/);
+
+    await page.goto(`/employer/jobs/${fx.jobId}/applicants`);
+    await page.getByText("What this means").first().click();
+    await page.getByRole("link", { name: "How we review" }).first().click();
+    await expect(page).toHaveURL(/\/how-we-review-resumes\?from=%2Femployer%2Fjobs$/);
+    expect(page.url()).not.toContain(fx.jobId);
+    await page.getByRole("link", { name: "← Back to Jobs Posted" }).click();
+    await expect(page).toHaveURL(/\/employer\/jobs$/);
+  });
+
+  test("HWR-1: with no from, or a hostile one, the page shows no Back link", async ({ browser }) => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    for (const query of ["", "?from=//evil.example", "?from=http://evil.example", "?from=javascript:alert(1)", `?from=/employer/talent-directory/${fx.aiId}`]) {
+      await page.goto(`/how-we-review-resumes${query}`);
+      await expect(page.getByRole("heading", { name: "How we review resumes" })).toBeVisible();
+      await page.waitForTimeout(500);
+      await expect(page.getByRole("link", { name: /Back to/ }), `a Back link appeared for ${query || "no from"}`).toHaveCount(0);
+    }
+    await context.close();
+  });
 
   test("the 'How we review' page reads signed out", async ({ browser }) => {
     const context = await browser.newContext();

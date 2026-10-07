@@ -8,7 +8,8 @@ import { isOnTalentDirectoryWaitlist } from "@/lib/talent-directory/waitlist-run
 import { TalentDirectoryPreviewPanel } from "@/components/employer/talent-directory-preview-panel";
 import { EyebrowLabel, BorderedCard, Button } from "@/components/ui";
 import { ResumeReviewedBadge } from "@/components/talent-directory/resume-reviewed-badge";
-import { HOW_WE_REVIEW_PATH, reviewMethodFromType } from "@/lib/talent-directory/review-badge";
+import { reviewMethodFromType } from "@/lib/talent-directory/review-badge";
+import { howWeReviewHref } from "@/lib/talent-directory/how-we-review-link";
 import { formatDate } from "@/lib/format/datetime";
 
 export const metadata = { title: "Talent Directory — Talentrah" };
@@ -72,7 +73,7 @@ export default async function EmployerTalentDirectoryPage({
       <h1 className="font-display text-[28px] font-semibold">Search candidates with a reviewed resume.</h1>
       <p className="text-[13px] text-ink-soft">
         Each candidate&apos;s resume was reviewed by Farah (AI) or a Talentrah mentor.{" "}
-        <Link href={HOW_WE_REVIEW_PATH} className="font-semibold text-rust underline underline-offset-2">
+        <Link href={howWeReviewHref("/employer/talent-directory")} className="font-semibold text-rust underline underline-offset-2">
           How we review
         </Link>
       </p>
@@ -126,7 +127,7 @@ export default async function EmployerTalentDirectoryPage({
                       {c.remoteReady && " · Remote-ready"}
                       {c.availableForHire && " · Available now"}
                     </p>
-                    <ResumeReviewedBadge method={reviewMethodFromType(c.reviewType)} reviewedAt={c.verifiedAt} className="relative z-10" />
+                    <ResumeReviewedBadge method={reviewMethodFromType(c.reviewType)} reviewedAt={c.verifiedAt} from="/employer/talent-directory" className="relative z-10" />
                   </BorderedCard>
                 </li>
               ))}
