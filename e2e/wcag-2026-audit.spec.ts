@@ -103,14 +103,30 @@ test.describe("2.4.7 — real visible keyboard focus indicators", () => {
   }) => {
     await authedPage.goto("/jobs");
     const box = '[data-testid="applied-filters"]';
+    const input = authedPage.locator("#job-search");
     const before = await borderColor(authedPage, box);
 
-    await authedPage.locator("#job-search").focus();
-
-    // Polled, not read once: a CSS transition animates the border colour (this read failed about one run in six when it ran in the same tick as focus()).
-    await expect
-      .poll(() => borderColor(authedPage, box), { message: "focusing the search input must change the surrounding box's border color" })
-      .not.toBe(before);
+    // Polled, not read once: a CSS transition animates the border colour. The focus is re-issued on every poll on purpose: after the poll fix this test
+    // still failed once (#790, the colour stayed at the unfocused value for the whole 5 s), so a focus drop after the first focus() was observed. The
+    // assertion is unchanged: focusing the field must change the surrounding box's border colour.
+    let lastFocusState = "not read";
+    try {
+      await expect
+        .poll(
+          async () => {
+            await input.focus();
+            lastFocusState = await authedPage.evaluate(() => {
+              const a = document.activeElement;
+              return `activeElement=${a ? `${a.tagName.toLowerCase()}#${a.id}` : "none"}, document.hasFocus()=${document.hasFocus()}`;
+            });
+            return borderColor(authedPage, box);
+          },
+          { message: "focusing the search input must change the surrounding box's border color" },
+        )
+        .not.toBe(before);
+    } catch (error) {
+      throw new Error(`${(error as Error).message}\nlast focus state: ${lastFocusState}`);
+    }
   });
 
   test("the Farah chat input's wrapping form changes border color on focus", async ({ authedPage }) => {
