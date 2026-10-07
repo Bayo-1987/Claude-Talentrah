@@ -72,6 +72,10 @@ test.describe("apply requires a base resume", () => {
   test("feed: every internal card offers 'Add a resume to apply', never a bare Apply, with no base resume", async ({
     authedPage,
   }) => {
+    // The loop below makes a few awaited reads per card on the feed, so its time is (cards on the feed) x (round trips) and grows with the data. It ran
+    // in 31.7-32.3 s against the 30 s default and failed twice on main (11:37Z, and on its re-run at 12:04Z) with nothing wrong on the page. 90 s is the
+    // same allowance e2e/signup-code.spec.ts takes for a long journey.
+    test.setTimeout(90_000);
     await authedPage.goto("/jobs");
     await expect(authedPage.getByTestId(ROUTE_LOADING_TESTID)).toHaveCount(0, { timeout: 15000 });
 
