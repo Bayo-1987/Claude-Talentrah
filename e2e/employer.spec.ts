@@ -20,7 +20,7 @@ import { runCleanups } from "../tests/support/teardown";
 import { deleteOrgsCascade } from "../tests/support/delete-orgs";
 
 test.describe("employer surface", () => {
-  test.afterEach(async () => {
+  test.afterEach(async ({ testUser }) => {
     /*
      * Was two bare deletes, and it did not work. The comment below it was
      * right that organisations do not cascade from their creator, and missed
@@ -44,7 +44,8 @@ test.describe("employer surface", () => {
         const { data: orgs, error } = await admin
           .from("organizations")
           .select("id")
-          .like("name", "E2E Employer Co%");
+          // Only THIS test's organisations (every name ends in the test user's id prefix): a bare "E2E Employer Co%" deleted the organisation another worker's test was still using.
+          .like("name", `E2E Employer Co%${testUser.id.slice(0, 8)}`);
         if (error) throw new Error(`listing organisations: ${error.message}`);
         await deleteOrgsCascade(admin, (orgs ?? []).map((o) => o.id));
       },
@@ -67,7 +68,7 @@ test.describe("employer surface", () => {
     const orgName = `E2E Employer Co ${testUser.id.slice(0, 8)}`;
     await authedPage.goto("/employer");
     await authedPage.getByLabel("Company name").fill(orgName);
-    await authedPage.getByLabel("Company website domain").fill("e2e-employer.example");
+    await authedPage.getByLabel("Company website domain").fill(`e2e-employer-${testUser.id.slice(0, 8)}.example`);
     await authedPage.getByRole("button", { name: "Create company" }).click();
     await expect(authedPage).toHaveURL(/\/employer\/jobs$/);
 
@@ -135,7 +136,7 @@ test.describe("employer surface", () => {
     // Deliberately a domain the throwaway account's email is NOT at, so this
     // exercises the unverified path — which is the one a real first-time
     // employer without a matching work email actually hits.
-    await authedPage.getByLabel("Company website domain").fill("e2e-employer.example");
+    await authedPage.getByLabel("Company website domain").fill(`e2e-employer-${testUser.id.slice(0, 8)}.example`);
     await authedPage.getByRole("button", { name: "Create company" }).click();
 
     await expect(authedPage).toHaveURL(/\/employer\/jobs$/);
@@ -264,7 +265,7 @@ test.describe("employer surface", () => {
     const orgName = `E2E Employer Co ZB${testUser.id.slice(0, 8)}`;
     await authedPage.goto("/employer/onboarding");
     await authedPage.getByLabel("Company name").fill(orgName);
-    await authedPage.getByLabel("Company website domain").fill("e2e-employer-zb.example");
+    await authedPage.getByLabel("Company website domain").fill(`e2e-employer-zb-${testUser.id.slice(0, 8)}.example`);
     await authedPage.getByRole("button", { name: "Create company" }).click();
     await expect(authedPage).toHaveURL(/\/employer\/jobs$/);
 
@@ -371,7 +372,7 @@ test.describe("employer surface", () => {
     const orgName = `E2E Employer Co ${testUser.id.slice(0, 8)}`;
     await authedPage.goto("/employer");
     await authedPage.getByLabel("Company name").fill(orgName);
-    await authedPage.getByLabel("Company website domain").fill("e2e-employer.example");
+    await authedPage.getByLabel("Company website domain").fill(`e2e-employer-${testUser.id.slice(0, 8)}.example`);
     await authedPage.getByRole("button", { name: "Create company" }).click();
     await expect(authedPage).toHaveURL(/\/employer\/jobs$/);
 
