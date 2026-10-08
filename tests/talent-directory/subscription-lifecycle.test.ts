@@ -26,6 +26,8 @@ const world = vi.hoisted(() => ({
   refundAlerts: [] as Array<{ reference: string; reason: string }>,
   /** When set, the activation RPC answers this instead of the model (a race outcome, an empty answer, a database error). */
   activateOverride: null as null | { data: unknown; error: null | { message: string } },
+  /** The arguments of every activation call as they travel over the wire: JSON, which DROPS a property whose value is undefined (PostgREST then cannot find a function that has no default for it). */
+  activateWire: [] as Array<Record<string, unknown>>,
 }));
 
 /** A model of public.activate_talent_directory_subscription (0228): the same four outcomes and the same rules, over the in-memory rows. */
@@ -82,6 +84,7 @@ vi.mock("@/lib/supabase/service-role", () => ({
   createServiceRoleClient: () => ({
     rpc: async (name: string, args?: Record<string, unknown>) => {
       if (name === "talent_directory_listed_count") return { data: 25, error: null };
+      if (name === "activate_talent_directory_subscription") world.activateWire.push(JSON.parse(JSON.stringify(args ?? {})));
       if (name === "activate_talent_directory_subscription") return world.activateOverride ?? { data: [activate(args ?? {})], error: null };
       return { data: null, error: { message: `unexpected rpc ${name}` } };
     },
@@ -183,6 +186,7 @@ beforeEach(() => {
   world.paystackCalls = 0;
   world.refundAlerts = [];
   world.activateOverride = null;
+  world.activateWire = [];
   world.verify = { status: "success", amount: 20_000_000, currency: "NGN", channel: "bank", authorization: null };
 });
 afterEach(() => vi.useRealTimers());
@@ -241,6 +245,18 @@ describe("(b) the paid period starts when payment is confirmed, not when Subscri
     expect(sub.status).toBe("active");
     const expected = T0 + 3 * 3600_000 + 30 * DAY;
     expect(Math.abs(new Date(String(sub.expires_at)).getTime() - expected), "expires_at was fixed at the click, so three hours of the paid month were lost").toBeLessThan(5_000);
+  });
+
+  it("the activation call carries ALL FOUR arguments over the wire, including for a payment with no card token (null, never undefined): a dropped argument is PGRST202 after the money is taken", async () => {
+    // A mobile-money or bank-transfer payment has no reusable authorization, so authorizationCode is null. JSON drops an undefined property, and the function (0228) has no defaults,
+    // so an omitted p_authorization_code is "function not found" and the confirmation would throw for ever while the customer has paid.
+    world.verify = { ...world.verify, channel: "mobile_money", authorization: null };
+    await click().catch(() => undefined);
+    await fulfillPayment(String(txns()[0].paystack_reference));
+    expect(world.activateWire).toHaveLength(1);
+    expect(Object.keys(world.activateWire[0]).sort()).toEqual(["p_authorization_code", "p_auto_renew", "p_payment_transaction_id", "p_subscription_id"]);
+    expect(world.activateWire[0].p_authorization_code).toBeNull();
+    expect(world.activateWire[0].p_auto_renew).toBe(false);
   });
 
   it("a card payment that renews automatically: next_renewal_date is the day the period really ends", async () => {
@@ -330,6 +346,18 @@ describe("the daily lapse", () => {
     const out = await lapseEndedTalentDirectorySubscriptions();
     expect(out).toEqual({ lapsed: 2, error: null });
     expect(subs().map((x) => x.status)).toEqual(["lapsed", "lapsed"]);
+  });
+
+  it("is idempotent: a second run right after the first lapses nothing and changes no row", async () => {
+    subs().push(
+      activeRow({ id: "a", organization_id: "org-a" }),
+      activeRow({ id: "renewing", organization_id: "org-b", auto_renew_status: "active", expires_at: new Date(T0 - 2 * 3600_000).toISOString() }),
+    );
+    expect((await lapseEndedTalentDirectorySubscriptions()).lapsed).toBe(1);
+    const afterFirst = JSON.stringify(subs());
+    expect(await lapseEndedTalentDirectorySubscriptions()).toEqual({ lapsed: 0, error: null });
+    expect(JSON.stringify(subs())).toBe(afterFirst);
+    expect(subs().map((x) => x.status)).toEqual(["lapsed", "active"]);
   });
 
   it("does NOT lapse a row that is waiting on its automatic renewal, nor one that is still running", async () => {

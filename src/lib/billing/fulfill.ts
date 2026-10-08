@@ -245,7 +245,10 @@ export async function fulfillPayment(
     const { data: activation, error: activationError } = await supabase.rpc("activate_talent_directory_subscription", {
       p_subscription_id: transaction.product_id,
       p_auto_renew: isReusableCard,
-      p_authorization_code: authorizationCode ?? undefined,
+      // NULL, never undefined: JSON drops an undefined property, activate_talent_directory_subscription has no defaults, and PostgREST then answers PGRST202 (function not found)
+      // for every payment without a card token (mobile money, bank transfer): the customer would have paid and the confirmation would throw for ever. The generated type marks the
+      // argument optional, hence the cast. (tests/talent-directory/subscription-lifecycle.test.ts pins all four keys on the wire.)
+      p_authorization_code: authorizationCode as string,
       p_payment_transaction_id: transaction.id,
     });
     if (activationError) {

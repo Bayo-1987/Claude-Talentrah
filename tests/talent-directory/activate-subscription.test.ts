@@ -57,8 +57,9 @@ const activate = async (id: string, auto = false, code?: string) => {
   const { data, error } = await admin.rpc("activate_talent_directory_subscription", {
     p_subscription_id: id,
     p_auto_renew: auto,
-    p_authorization_code: code,
-    p_payment_transaction_id: undefined as unknown as string,
+    // Every argument is sent, null where there is no value: JSON drops an undefined property and the function has no defaults (PostgREST answers PGRST202).
+    p_authorization_code: (code ?? null) as unknown as string,
+    p_payment_transaction_id: null as unknown as string,
   });
   expect(error).toBeNull();
   return data![0];
@@ -136,6 +137,41 @@ describe("the one active slot", () => {
     const other = await newSub(b, "active", { expires: -5 * DAY });
     await activate(await newSub(a, "pending_payment"));
     expect((await row(other)).status).toBe("active");
+  });
+});
+
+describe("concurrent activation (the money path: a double webhook, or two payments for one organisation)", () => {
+  it("the SAME pending row activated by eight deliveries at once: exactly one activates, the rest answer not_pending, expires_at is set once", async () => {
+    const org = await newOrg();
+    const sub = await newSub(org, "pending_payment");
+    const results = await Promise.all(Array.from({ length: 8 }, () => activate(sub)));
+    expect(results.filter((r) => r.activated)).toHaveLength(1);
+    expect(results.filter((r) => !r.activated).every((r) => r.reason === "not_pending")).toBe(true);
+    const stored = await row(sub);
+    expect(stored.status).toBe("active");
+    const { count } = await admin.from("talent_directory_subscriptions").select("id", { count: "exact", head: true }).eq("organization_id", org).eq("status", "active");
+    expect(count).toBe(1);
+  });
+
+  it("TWO different pending rows of one organisation activated at once: exactly one wins, the other is refused as already_active and stays pending (never two active rows)", async () => {
+    const org = await newOrg();
+    const a = await newSub(org, "pending_payment");
+    const b = await newSub(org, "pending_payment");
+    const results = await Promise.all([activate(a), activate(b), activate(a), activate(b), activate(a), activate(b)]);
+    const winners = results.filter((r) => r.activated);
+    expect(winners).toHaveLength(1);
+    for (const r of results.filter((x) => !x.activated)) expect(["already_active", "not_pending"]).toContain(r.reason);
+    const statuses = [(await row(a)).status, (await row(b)).status].sort();
+    expect(statuses).toEqual(["active", "pending_payment"]);
+    const { count } = await admin.from("talent_directory_subscriptions").select("id", { count: "exact", head: true }).eq("organization_id", org).eq("status", "active");
+    expect(count).toBe(1);
+  });
+
+  it("activations for DIFFERENT organisations do not block each other: all succeed", async () => {
+    const orgs = await Promise.all(Array.from({ length: 4 }, () => newOrg()));
+    const subs = await Promise.all(orgs.map((o) => newSub(o, "pending_payment")));
+    const results = await Promise.all(subs.map((s) => activate(s)));
+    expect(results.every((r) => r.activated)).toBe(true);
   });
 });
 
