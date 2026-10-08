@@ -37,8 +37,13 @@ export interface PaymentStatusBucket {
 
 export interface FinancialHealth {
   payments: PaymentStatusBucket[];
+  /** Every pending payment, whatever its age (the Finance page shows the breakdown). */
   pendingCount: number;
-  /** Pending payments older than a day — an outcome nobody has learned. */
+  /** Pending for less than 30 minutes: a checkout that may still be open. Counted nowhere. */
+  pendingRecent: number;
+  /** Pending between 30 minutes and 24 hours: the number in the navigation badge. */
+  pendingCounted: number;
+  /** Pending for more than 24 hours — an outcome nobody has learned. Out of the badge, but always shown as its own line: it may be a real charge whose webhook was lost. */
   stalePending: number;
   creditsByReason: { reason: string; entries: number; net: number }[];
   passesByStatus: Record<string, number>;
@@ -56,6 +61,23 @@ export interface FinancialHealth {
  * lookup below depends on reaching a record being a deliberate act rather than
  * a click from a list you were already staring at.
  */
+export const PENDING_OPEN_CHECKOUT_MS = 30 * 60 * 1000;
+export const PENDING_STALE_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Which band a pending payment is in. "recent" (under 30 minutes): the checkout may still be open, so it is not waiting on anybody. "counted" (30 minutes to 24 hours inclusive): started and not
+ * settled, which is either a slow rail or a webhook that did not arrive: the navigation badge. "stale" (over 24 hours): out of the badge, never out of sight. An unreadable date is counted,
+ * not dropped.
+ */
+export function classifyPending(createdAt: string, now: number = Date.now()): "recent" | "counted" | "stale" {
+  const t = new Date(createdAt).getTime();
+  if (Number.isNaN(t)) return "counted";
+  const age = now - t;
+  if (age < PENDING_OPEN_CHECKOUT_MS) return "recent";
+  if (age > PENDING_STALE_MS) return "stale";
+  return "counted";
+}
+
 export async function financialHealth(): Promise<FinancialHealth> {
   const supabase = createServiceRoleClient();
 
@@ -64,9 +86,11 @@ export async function financialHealth(): Promise<FinancialHealth> {
     .select("status, rail, amount, currency, created_at");
   if (payError) throw payError;
 
-  const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
+  const now = Date.now();
   const buckets = new Map<string, PaymentStatusBucket>();
   let pendingCount = 0;
+  let pendingRecent = 0;
+  let pendingCounted = 0;
   let stalePending = 0;
 
   for (const p of payments ?? []) {
@@ -86,7 +110,10 @@ export async function financialHealth(): Promise<FinancialHealth> {
 
     if (p.status === "pending") {
       pendingCount += 1;
-      if (new Date(p.created_at).getTime() < dayAgo) stalePending += 1;
+      const band = classifyPending(p.created_at, now);
+      if (band === "recent") pendingRecent += 1;
+      else if (band === "stale") stalePending += 1;
+      else pendingCounted += 1;
     }
   }
 
@@ -125,6 +152,8 @@ export async function financialHealth(): Promise<FinancialHealth> {
       (a, b) => (a.status === "pending" ? -1 : 0) - (b.status === "pending" ? -1 : 0) || b.count - a.count,
     ),
     pendingCount,
+    pendingRecent,
+    pendingCounted,
     stalePending,
     creditsByReason: [...byReason.entries()]
       .map(([reason, e]) => ({ reason, ...e }))
