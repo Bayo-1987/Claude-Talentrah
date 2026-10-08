@@ -2,6 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { chargeAuthorization, verifyTransaction, isDecline } from "@/lib/paystack/client";
+import { isTerminalPaystackFailure, isUnrecognisedPaystackStatus } from "@/lib/paystack/status";
 import { getResendClient } from "@/lib/resend/client";
 import { visibleName } from "@/lib/profile/name";
 import { absoluteUrl } from "@/lib/seo/site";
@@ -355,7 +356,20 @@ async function chargeOne(
       });
       return;
     }
-    // Not a success — clear it so the fresh attempt below owns the state.
+    if (settled && !isTerminalPaystackFailure(settled.status)) {
+      /*
+       * Paystack answered about the PREVIOUS attempt and it is not finished (pending, processing, ongoing, queued, abandoned, or a status nobody has seen): that first charge may still
+       * complete, so a fresh charge now could bill the customer twice for one period. Keep the reference, charge nothing, and count it as one more indeterminate attempt (bounded: at
+       * MAX_INDETERMINATE_RENEWAL_ATTEMPTS the Pass lapses with the reference kept for a human). Only a terminal failure (failed, reversed) or Paystack saying it has no such reference
+       * releases the reference below.
+       */
+      if (isUnrecognisedPaystackStatus(settled.status)) {
+        console.warn(`[pass-renewal] unrecognised Paystack status "${String(settled.status).slice(0, 40)}" for ${row.pending_renewal_reference}; treating it as unfinished.`);
+      }
+      await recordIndeterminate(supabase, row, summary, row.pending_renewal_reference, null);
+      return;
+    }
+    // A terminal failure (or no such reference): clear it so the fresh attempt below owns the state.
     await supabase
       .from("user_passes")
       .update({ pending_renewal_reference: null })

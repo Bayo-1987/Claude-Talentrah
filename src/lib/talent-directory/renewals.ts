@@ -2,6 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { chargeAuthorization, verifyTransaction, isDecline } from "@/lib/paystack/client";
+import { isTerminalPaystackFailure, isUnrecognisedPaystackStatus } from "@/lib/paystack/status";
 
 /**
  * The Talent Directory subscription renewal job — a structural fork of
@@ -160,6 +161,14 @@ async function chargeOne(
         subscriptionId: row.id,
         message: `NEEDS RECONCILIATION: amount/currency mismatch on reference ${row.pending_renewal_reference}.`,
       });
+      return;
+    }
+    if (settled && !isTerminalPaystackFailure(settled.status)) {
+      // The previous attempt is not finished (see src/lib/paystack/status.ts and renewals.ts): keep the reference, charge nothing, count one more indeterminate attempt.
+      if (isUnrecognisedPaystackStatus(settled.status)) {
+        console.warn(`[talent-directory-renewal] unrecognised Paystack status "${String(settled.status).slice(0, 40)}" for ${row.pending_renewal_reference}; treating it as unfinished.`);
+      }
+      await recordIndeterminate(supabase, row, summary, row.pending_renewal_reference, null);
       return;
     }
     await supabase.from("talent_directory_subscriptions").update({ pending_renewal_reference: null }).eq("id", row.id);

@@ -4,6 +4,7 @@ import { getResendClient } from "@/lib/resend/client";
 import { visibleName } from "@/lib/profile/name";
 import { buildPurchaseReceiptEmail } from "@/lib/billing/receipt-email";
 import { verifyTransaction } from "@/lib/paystack/client";
+import { isTerminalPaystackFailure, isUnrecognisedPaystackStatus } from "@/lib/paystack/status";
 import { captureEvent } from "@/lib/analytics/posthog";
 import { alertDeletedUserPayment, alertPaymentNeedsRefund } from "@/lib/mentorship/refund-alert";
 
@@ -12,14 +13,6 @@ export interface FulfillResult {
   status: "success" | "already_processed" | "failed" | "not_found" | "needs_refund" | "processing";
 }
 
-/**
- * What Paystack's verify answer means for a payment we are waiting on. Only these two are the end of a payment that never succeeded: "failed" and "reversed" (a refund or a chargeback).
- * Everything else that is not "success" is NOT a failure, however it is named: "abandoned" (the customer has not completed it, and the link still works), "pending" and "ongoing"
- * (in progress), "processing" (pending, for direct debit), "queued" (bulk charge). A status nobody has seen before is treated the same way, because the cost of waiting on a payment that
- * never completes is a row that stays pending (the reconcile job and the Finance page deal with it), while the cost of calling a payment failed that then completes is a customer who paid and received nothing.
- */
-const TERMINAL_FAILURE_STATUSES: ReadonlySet<string> = new Set(["failed", "reversed"]);
-const KNOWN_NON_TERMINAL_STATUSES: ReadonlySet<string> = new Set(["abandoned", "pending", "ongoing", "processing", "queued"]);
 
 /**
  * Idempotent — called from both the Paystack webhook (production) and the
@@ -65,9 +58,9 @@ export async function fulfillPayment(
 
   const verified = await verifyTransaction(reference);
   if (verified.status !== "success") {
-    if (!TERMINAL_FAILURE_STATUSES.has(verified.status)) {
+    if (!isTerminalPaystackFailure(verified.status)) {
       // Not finished (or not recognised): the row stays `pending`, so the webhook (or the buyer coming back) can still fulfil it once Paystack says success.
-      if (!KNOWN_NON_TERMINAL_STATUSES.has(verified.status)) {
+      if (isUnrecognisedPaystackStatus(verified.status)) {
         console.warn(`[fulfill] unrecognised Paystack status "${String(verified.status).slice(0, 40)}" for ${reference}; leaving the payment pending.`);
       }
       return { status: "processing" };
