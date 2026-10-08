@@ -73,3 +73,26 @@ describe("feedback form", () => {
     expect(form).toContain('key={selectKey(state.values, "category")}');
   });
 });
+
+describe("admin New listing form (scholarships)", () => {
+  const actions = read("src/lib/scholarships/admin-actions.ts");
+  const form = read("src/app/admin/(protected)/scholarships/new/admin-scholarship-form.tsx");
+  const FIELDS = ["provider", "programName", "hostInstitution", "degreeLevels", "fundingType", "fundingCovers", "fieldTags", "eligibilityNationalities", "eligibilityPriorDegree", "eligibilityAge", "eligibilityOther", "applicationDeadline", "cycleYear", "deadlineNote", "officialUrl", "sourceName", "reviewNote"];
+  it("all four create errors (validation, deadline note refused at save, note rule from the database, other save failure) hand the typed values back; a success hands none", () => {
+    expect(actions).toContain('{ multi: ["degreeLevels"] }');
+    for (const f of FIELDS) expect(actions, f).toContain(`"${f}"`);
+    expect(count(actions, "values: typed")).toBe(4);
+    expect(read("src/lib/scholarships/admin-state.ts")).toContain("values?: SubmittedValues");
+  });
+  it("every text field, the reviewer note and the rich editor default to the returned values; the Funding select is keyed; the degree checkboxes are ticked from the list", () => {
+    for (const f of ["provider", "programName", "hostInstitution", "fundingCovers", "fieldTags", "eligibilityNationalities", "eligibilityPriorDegree", "eligibilityAge", "applicationDeadline", "cycleYear", "deadlineNote", "officialUrl", "sourceName", "reviewNote", "eligibilityOther"]) {
+      expect(form, f).toContain(`inputValue(state.values, "${f}")`);
+    }
+    expect(form).toContain('key={selectKey(state.values, "fundingType")}');
+    expect(form).toContain('defaultChecked={inputList(state.values, "degreeLevels").includes(value)}');
+  });
+  it("the Deadline note counter follows the returned note instead of dropping to 0", () => {
+    expect(form).toContain('setNoteLength((state.values?.deadlineNote ?? "").trim().length)');
+    expect(form).not.toContain("setNoteLength(0)");
+  });
+});

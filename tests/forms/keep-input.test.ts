@@ -5,7 +5,7 @@
  * Secrets never travel back: a field whose name looks like a password, token or code is refused, and a File is never echoed.
  */
 import { describe, expect, it } from "vitest";
-import { inputValue, selectKey, submittedValues } from "@/lib/forms/keep-input";
+import { inputList, inputValue, selectKey, submittedValues } from "@/lib/forms/keep-input";
 
 function form(entries: Record<string, string | File>) {
   const fd = new FormData();
@@ -59,5 +59,31 @@ describe("selectKey", () => {
   it("is stable for the same value, and does not collide across fields", () => {
     expect(selectKey({ roleId: "r1" }, "roleId")).toBe(selectKey({ roleId: "r1" }, "roleId"));
     expect(selectKey({ a: "x" }, "a")).not.toBe(selectKey({ a: "x" }, "b"));
+  });
+});
+
+describe("multi-value fields (checkbox groups)", () => {
+  function multi(pairs: [string, string][]) {
+    const fd = new FormData();
+    for (const [k, v] of pairs) fd.append(k, v);
+    return fd;
+  }
+  it("a listed multi field comes back as ALL its values, comma-joined, in submitted order (getAll, not get)", () => {
+    const v = submittedValues(multi([["degreeLevels", "msc"], ["degreeLevels", "phd"], ["provider", "P"]]), ["provider", "degreeLevels"], { multi: ["degreeLevels"] });
+    expect(v).toEqual({ provider: "P", degreeLevels: "msc,phd" });
+  });
+  it("nothing ticked is an empty string; a File entry in a multi field is skipped", () => {
+    expect(submittedValues(multi([["provider", "P"]]), ["degreeLevels"], { multi: ["degreeLevels"] })).toEqual({ degreeLevels: "" });
+    const fd = multi([["degreeLevels", "msc"]]);
+    fd.append("degreeLevels", new File(["x"], "f.txt"));
+    expect(submittedValues(fd, ["degreeLevels"], { multi: ["degreeLevels"] })).toEqual({ degreeLevels: "msc" });
+  });
+  it("without the multi option a repeated field keeps only the first value (the old, single-value behaviour)", () => {
+    expect(submittedValues(multi([["degreeLevels", "msc"], ["degreeLevels", "phd"]]), ["degreeLevels"])).toEqual({ degreeLevels: "msc" });
+  });
+  it("inputList splits the joined value back into the ticked values; undefined or empty is none", () => {
+    expect(inputList({ degreeLevels: "msc,phd" }, "degreeLevels")).toEqual(["msc", "phd"]);
+    expect(inputList({ degreeLevels: "" }, "degreeLevels")).toEqual([]);
+    expect(inputList(undefined, "degreeLevels")).toEqual([]);
   });
 });

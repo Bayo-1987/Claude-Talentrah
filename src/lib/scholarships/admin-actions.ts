@@ -7,6 +7,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { upsertScholarships } from "./ingest";
 import { deadlineNoteRuleMessage, handEntryNoteRefusal } from "./public-deadline-note";
 import { manualScholarshipSchema, toNormalizedScholarship } from "./schemas";
+import { submittedValues } from "@/lib/forms/keep-input";
 import type { AdminScholarshipState, PendingScholarship } from "./admin-state";
 
 /*
@@ -122,12 +123,20 @@ export async function loadQueueAction(
   return { status: "idle", pending: await loadPending(), unlocked: true };
 }
 
+/** The fields of the New listing form handed back on an error (never a secret: there is no password field here). */
+const SCHOLARSHIP_FORM_FIELDS = [
+  "provider", "programName", "hostInstitution", "degreeLevels", "fundingType", "fundingCovers", "fieldTags", "eligibilityNationalities", "eligibilityPriorDegree",
+  "eligibilityAge", "eligibilityOther", "applicationDeadline", "cycleYear", "deadlineNote", "officialUrl", "sourceName", "reviewNote",
+] as const;
+
 export async function createScholarshipAction(
   _prev: AdminScholarshipState,
   formData: FormData,
 ): Promise<AdminScholarshipState> {
   const admin = await requirePermission("scholarships");
 
+  // Handed back with every error so the form keeps what was typed (the degree levels are a checkbox group); a success hands none.
+  const typed = submittedValues(formData, SCHOLARSHIP_FORM_FIELDS, { multi: ["degreeLevels"] });
   const parsed = manualScholarshipSchema.safeParse({
     provider: formData.get("provider"),
     programName: formData.get("programName"),
@@ -153,6 +162,7 @@ export async function createScholarshipAction(
   if (!parsed.success) {
     return {
       status: "error",
+      values: typed,
       error: "Check the highlighted fields.",
       fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
       pending: await loadPending(),
@@ -165,6 +175,7 @@ export async function createScholarshipAction(
   if (noteRefusal) {
     return {
       status: "error",
+      values: typed,
       error: "Check the highlighted fields.",
       fieldErrors: { deadlineNote: [noteRefusal] },
       pending: await loadPending(),
@@ -184,6 +195,7 @@ export async function createScholarshipAction(
     if (noteMessage) {
       return {
         status: "error",
+        values: typed,
         error: "Check the highlighted fields.",
         fieldErrors: { deadlineNote: [noteMessage] },
         pending: await loadPending(),
@@ -192,6 +204,7 @@ export async function createScholarshipAction(
     }
     return {
       status: "error",
+      values: typed,
       error: "Couldn't save that listing. The error is in the server log.",
       pending: await loadPending(),
       unlocked: true,
