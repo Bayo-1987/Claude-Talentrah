@@ -61,6 +61,7 @@ one morning by two sessions that each did exactly that. Ask, wait for the number
 | 0243 | session to be named, the Promoted strip (assigned by the owner on 8 Oct 2026; no file yet) | reserved | reserved |
 | 0244 | session to be named, the skills check (assigned by the owner on 8 Oct 2026; no file yet) | reserved | reserved |
 | 0245 | session to be named, references (assigned by the owner on 8 Oct 2026; no file yet) | reserved | reserved |
+| 0247 | S1, Plan B: payment_transactions records what the daily Paystack check found (`reconcile_checked_at`, `reconcile_result`, `reconcile_attempts`), no grant to an API role (assigned by the owner on 8 Oct 2026; `supabase/migrations/0247_payment_reconcile_columns.sql`; additive, so it is applied before the code that uses it merges) | not applied (merged, not applied) | not applied (merged, not applied) |
 
 The times are the ledger's own version stamps (UTC, 2 to 4 Oct 2026), read from `supabase_migrations.schema_migrations` on both projects. A row says "applied" only because
 that ledger shows it; "reserved" means the owner assigned the number and no ledger has it; "proposed" means the owner named the number but the migration file does not exist yet.

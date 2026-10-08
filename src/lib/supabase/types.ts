@@ -2560,6 +2560,9 @@ export type Database = {
           product_id: string | null
           product_type: Database["public"]["Enums"]["payment_product_type"]
           rail: string
+          reconcile_attempts: number
+          reconcile_checked_at: string | null
+          reconcile_result: string | null
           renewal_for_pass_id: string | null
           status: Database["public"]["Enums"]["payment_status"]
           user_id: string | null
@@ -2576,6 +2579,9 @@ export type Database = {
           product_id?: string | null
           product_type: Database["public"]["Enums"]["payment_product_type"]
           rail?: string
+          reconcile_attempts?: number
+          reconcile_checked_at?: string | null
+          reconcile_result?: string | null
           renewal_for_pass_id?: string | null
           status?: Database["public"]["Enums"]["payment_status"]
           user_id?: string | null
@@ -2592,6 +2598,9 @@ export type Database = {
           product_id?: string | null
           product_type?: Database["public"]["Enums"]["payment_product_type"]
           rail?: string
+          reconcile_attempts?: number
+          reconcile_checked_at?: string | null
+          reconcile_result?: string | null
           renewal_for_pass_id?: string | null
           status?: Database["public"]["Enums"]["payment_status"]
           user_id?: string | null
