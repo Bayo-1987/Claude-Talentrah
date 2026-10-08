@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { updateCompanyProfileAction, type EmployerActionState } from "@/lib/employer/actions";
+import { inputValue } from "@/lib/forms/keep-input";
 import { BorderedCard, Button, TextField } from "@/components/ui";
 
 export function CompanyProfileForm({
@@ -21,6 +22,7 @@ export function CompanyProfileForm({
     updateCompanyProfileAction,
     null,
   );
+  const values = state && "error" in state ? state.values : undefined;
   const error = state && "error" in state ? state.error : null;
   const saved = state && "ok" in state;
 
@@ -39,12 +41,12 @@ export function CompanyProfileForm({
 
       <BorderedCard className="p-6">
         <form action={formAction} className="flex flex-col gap-5">
-          <TextField label="Company name" name="name" required defaultValue={initial.name} />
+          <TextField label="Company name" name="name" required defaultValue={inputValue(values, "name", initial.name)} />
           <div className="flex flex-col gap-1.5">
             <TextField
               label="Company website domain"
               name="domain"
-              defaultValue={initial.domain}
+              defaultValue={inputValue(values, "domain", initial.domain)}
               placeholder="e.g. zariadigital.com"
             />
             <p className="font-body text-[12.5px] text-ink-soft">{verificationNote}</p>
@@ -52,14 +54,14 @@ export function CompanyProfileForm({
           <TextField
             label="What the company does"
             name="description"
-            defaultValue={initial.description}
+            defaultValue={inputValue(values, "description", initial.description)}
             placeholder="One or two sentences"
           />
           <TextField
             label="Logo URL (optional)"
             name="logoUrl"
             type="url"
-            defaultValue={initial.logoUrl}
+            defaultValue={inputValue(values, "logoUrl", initial.logoUrl)}
             placeholder="https://"
           />
           <div>
