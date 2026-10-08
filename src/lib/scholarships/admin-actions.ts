@@ -5,7 +5,7 @@ import { recordAdminAction } from "@/lib/admin/audit";
 
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { upsertScholarships } from "./ingest";
-import { deadlineNoteRuleMessage } from "./public-deadline-note";
+import { deadlineNoteRuleMessage, handEntryNoteRefusal } from "./public-deadline-note";
 import { manualScholarshipSchema, toNormalizedScholarship } from "./schemas";
 import type { AdminScholarshipState, PendingScholarship } from "./admin-state";
 
@@ -155,6 +155,18 @@ export async function createScholarshipAction(
       status: "error",
       error: "Check the highlighted fields.",
       fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
+      pending: await loadPending(),
+      unlocked: true,
+    };
+  }
+
+  // A listing added by hand has no verified deadline, so a deadline note on it could never be approved (0217): refuse at save, with approval's own message, before anything is written.
+  const noteRefusal = handEntryNoteRefusal(parsed.data.deadlineNote);
+  if (noteRefusal) {
+    return {
+      status: "error",
+      error: "Check the highlighted fields.",
+      fieldErrors: { deadlineNote: [noteRefusal] },
       pending: await loadPending(),
       unlocked: true,
     };
