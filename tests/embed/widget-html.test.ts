@@ -154,3 +154,34 @@ describe("renderWidgetHtml: nothing to show", () => {
     expect(html).not.toContain("<li");
   });
 });
+
+describe("renderWidgetHtml: long unbroken data never widens the frame (QA, 320 px)", () => {
+  const long = "A" + "very".repeat(18); // 73 characters, no space or hyphen to break at
+  const html = renderWidgetHtml(
+    parseWidgetPayload({
+      org: { name: long, logo_url: "https://cdn.example.com/a.png" },
+      jobs: [{ id: ID_A, title: long, location: long, work_type: "remote", employment_type: "full_time", posted_at: "2026-10-02T09:30:00.000Z" }],
+    }),
+  );
+  const css = /<style>([^<]*)<\/style>/.exec(html)![1];
+  /** The declarations of every rule whose selector list contains exactly `selector`, joined. */
+  const rule = (selector: string) =>
+    css
+      .split("}")
+      .map((r) => r.split("{"))
+      .filter(([sel, body]) => body !== undefined && sel.split(",").map((x) => x.trim()).includes(selector))
+      .map(([, body]) => body)
+      .join(";");
+
+  it("the job title link, the meta line, the company heading and the neutral note all break anywhere", () => {
+    for (const sel of ["a", ".m", "h1", ".n"]) expect(rule(sel), sel).toMatch(/overflow-wrap:\s*anywhere/);
+  });
+
+  it("the heading sits in a flex row, so its text box may shrink below its content (min-width:0)", () => {
+    expect(css).toMatch(/header\s*>\s*h1[^{]*\{[^}]*min-width:\s*0|h1\s*\{[^}]*min-width:\s*0/);
+  });
+
+  it("the long token is still printed in full (wrapped by CSS, never truncated)", () => {
+    expect(html).toContain(long);
+  });
+});

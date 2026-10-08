@@ -65,16 +65,16 @@ const esc = (s: string): string => s.replace(/[&<>"']/g, (c) => ESCAPES[c]);
 const CSS = `
 *{box-sizing:border-box}
 body{margin:0;padding:16px;background:#fbf8f2;color:#2b231d;font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-h1{margin:0;font:600 19px/1.25 Georgia,"Times New Roman",serif}
+h1{margin:0;min-width:0;overflow-wrap:anywhere;font:600 19px/1.25 Georgia,"Times New Roman",serif}
 header{display:flex;align-items:center;gap:12px;padding-bottom:12px;border-bottom:1.5px solid #2b231d}
 header img{width:40px;height:40px;object-fit:contain;flex:none}
 ul{list-style:none;margin:0;padding:0}
 li{padding:12px 0;border-bottom:1px solid #cbbfae}
-a{display:inline-flex;align-items:center;min-height:24px;color:#2b231d;text-decoration:underline;text-underline-offset:2px}
+a{display:inline-flex;align-items:center;min-height:24px;max-width:100%;overflow-wrap:anywhere;color:#2b231d;text-decoration:underline;text-underline-offset:2px}
 a:hover{color:#a4471f}
 .t{font:600 16px/1.3 Georgia,"Times New Roman",serif}
-.m{margin:2px 0 0;color:#5b4f44;font-size:13.5px}
-.n{margin:16px 0;color:#5b4f44}
+.m{margin:2px 0 0;overflow-wrap:anywhere;color:#5b4f44;font-size:13.5px}
+.n{margin:16px 0;overflow-wrap:anywhere;color:#5b4f44}
 footer{display:flex;flex-wrap:wrap;gap:4px 16px;justify-content:space-between;padding-top:12px;font-size:13px;color:#5b4f44}
 footer a{color:inherit}
 `.replace(/\n/g, "");
