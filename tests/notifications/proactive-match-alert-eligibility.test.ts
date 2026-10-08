@@ -29,7 +29,7 @@ const scoreByJob = vi.hoisted(() => new Map<string, number>());
  * — i.e. the unique-constraint conflict this alert relies on to dedupe. */
 const preLockedPairs = vi.hoisted(() => new Set<string>());
 
-vi.mock("@/lib/flags/read", () => ({ isFeatureEnabled: vi.fn(async () => true) }));
+vi.mock("@/lib/flags/read", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/flags/read")>()), isFeatureEnabled: vi.fn(async () => true) }));
 
 vi.mock("@/lib/resend/client", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/resend/client")>()),
   getResendClient: () => ({
