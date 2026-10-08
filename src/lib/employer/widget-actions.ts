@@ -15,9 +15,32 @@ import { revalidateEmbed } from "@/lib/embed/revalidate";
 export type WidgetSettingsState = { error: string } | { ok: true } | null;
 
 // The table is not in the generated Database types until they are regenerated after 0237 is applied.
+type DbError = { message: string; code?: string };
 type WidgetsTable = {
-  upsert(row: { organization_id: string; enabled: boolean; max_items: number }, options: { onConflict: string }): PromiseLike<{ error: { message: string } | null }>;
+  update(values: { enabled: boolean; max_items: number }): { eq(column: string, value: string): { select(columns: string): PromiseLike<{ data: Array<{ organization_id: string }> | null; error: DbError | null }> } };
+  insert(row: { organization_id: string; enabled: boolean; max_items: number }): PromiseLike<{ error: DbError | null }>;
 };
+
+/**
+ * UPDATE FIRST, THEN INSERT, NEVER AN UPSERT. 0237 grants `authenticated` UPDATE on (enabled, max_items) only and INSERT on (organization_id, enabled, max_items). An upsert is
+ * INSERT ... ON CONFLICT DO UPDATE SET organization_id, enabled, max_items, which also updates organization_id, so Postgres refuses the whole statement (found by QA on a real stack).
+ */
+async function writeWidgetRow(table: WidgetsTable, organizationId: string, enabled: boolean, maxItems: number): Promise<DbError | null> {
+  const update = async () => table.update({ enabled, max_items: maxItems }).eq("organization_id", organizationId).select("organization_id");
+
+  const first = await update();
+  if (first.error) return first.error;
+  if (first.data && first.data.length > 0) return null;
+
+  const inserted = await table.insert({ organization_id: organizationId, enabled, max_items: maxItems });
+  if (!inserted.error) return null;
+  // Two members saving the first row at the same moment: the other insert won (unique violation). The row exists now, so update it.
+  if (inserted.error.code === "23505") {
+    const second = await update();
+    return second.error ?? (second.data && second.data.length > 0 ? null : inserted.error);
+  }
+  return inserted.error;
+}
 
 export async function saveJobWidgetSettingsAction(_prev: WidgetSettingsState, form: FormData): Promise<WidgetSettingsState> {
   const { organization } = await requireEmployer();
@@ -31,7 +54,7 @@ export async function saveJobWidgetSettingsAction(_prev: WidgetSettingsState, fo
 
   const supabase = await createClient();
   const table = (supabase as unknown as { from(name: string): WidgetsTable }).from("employer_widgets");
-  const { error } = await table.upsert({ organization_id: organization.id, enabled, max_items: maxItems }, { onConflict: "organization_id" });
+  const error = await writeWidgetRow(table, organization.id, enabled, maxItems);
   if (error) {
     console.error("[employer-widget] save failed", organization.id, error.message);
     return { error: "We couldn't save the widget settings. Try again in a moment." };
