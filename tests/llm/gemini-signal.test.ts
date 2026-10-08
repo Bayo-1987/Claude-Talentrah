@@ -9,6 +9,7 @@
  *      and a reply that completes with a live signal is still a finished reply (onFinish and onUsage are called).
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fakeSecret } from "../support/fake-secret";
 
 let streamImpl: (config: Record<string, unknown>) => Promise<AsyncGenerator<Record<string, unknown>>>;
 let capturedConfig: Record<string, unknown> | undefined;
@@ -51,7 +52,7 @@ async function collect(provider: InstanceType<typeof GeminiProvider>, opts: neve
 }
 
 beforeEach(() => {
-  process.env.GEMINI_API_KEY = "test-gemini-key-not-real";
+  process.env.GEMINI_API_KEY = fakeSecret("token");
   capturedConfig = undefined;
 });
 
