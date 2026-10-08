@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { updateScholarshipAction } from "@/lib/scholarships/admin-edit-action";
 import { initialEditScholarshipState } from "@/lib/scholarships/admin-edit-state";
@@ -52,6 +52,13 @@ export function EditScholarshipForm({ id, published, initial }: { id: string; pu
   }
   const counter = noteCounter(noteLength);
 
+  // The banner is at the top of a long form and Save is at the bottom: bring a refused save into view.
+  const bannerRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (state.status === "idle") return;
+    bannerRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [state]);
+
   return (
     <BorderedCard className="max-w-[720px] p-6">
       <form action={formAction} className="flex flex-col gap-5">
@@ -63,7 +70,7 @@ export function EditScholarshipForm({ id, published, initial }: { id: string; pu
           </p>
         )}
         {state.status === "error" && state.error && (
-          <p className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust" role="alert">
+          <p ref={bannerRef} className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust" role="alert">
             {state.error}
           </p>
         )}

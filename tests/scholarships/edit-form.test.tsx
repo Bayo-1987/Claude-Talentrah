@@ -70,6 +70,15 @@ describe("EditScholarshipForm", () => {
   });
 });
 
+describe("a refused save is brought into view (as on the New listing form, #849)", () => {
+  it("the error banner sits at the top of a long form and Save at the bottom, so it scrolls into view when a save is refused", () => {
+    const source = readFileSync(join(__dirname, "../../src/app/admin/(protected)/scholarships/[id]/edit/edit-scholarship-form.tsx"), "utf8");
+    expect(source).toMatch(/scrollIntoView\(\{ block: "center"/);
+    expect(source).toContain("ref={bannerRef}");
+    expect(source).toMatch(/if \(state\.status === "idle"\) return;/);
+  });
+});
+
 describe("the form is a client component and must stay free of server-only code", () => {
   it("imports only the client-safe constants module (not admin-edit, which pulls in the ingest writer and the service-role client)", async () => {
     const source = readFileSync(join(__dirname, "../../src/app/admin/(protected)/scholarships/[id]/edit/edit-scholarship-form.tsx"), "utf8");
