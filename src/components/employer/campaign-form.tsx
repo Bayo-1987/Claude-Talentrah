@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { BorderedCard, Button, TextField } from "@/components/ui";
 import type { EmployerActionState } from "@/lib/employer/actions";
+import { inputValue, selectKey } from "@/lib/forms/keep-input";
 
 export interface CampaignFormValues {
   name: string;
@@ -40,6 +41,8 @@ export function CampaignForm({
 }) {
   const [state, formAction, pending] = useActionState<EmployerActionState, FormData>(action, null);
   const error = state && "error" in state ? state.error : null;
+  // A refused submission hands the typed values back and React 19 resets the form after the action, so those are the defaults (owner rule: an error keeps what was typed).
+  const values = state && "error" in state ? state.values : undefined;
   const saved = state !== null && "ok" in state;
 
   // Mirrored into state purely to show the runtime below the fields. The
@@ -77,7 +80,7 @@ export function CampaignForm({
             label="Campaign name"
             name="name"
             required
-            defaultValue={initial?.name}
+            defaultValue={inputValue(values, "name", initial?.name)}
             placeholder="e.g. Backend Engineer — Lagos push"
           />
 
@@ -101,10 +104,11 @@ export function CampaignForm({
               </>
             ) : (
               <select
+                key={selectKey(values, "jobPostingId")}
                 id="jobPostingId"
                 name="jobPostingId"
                 required
-                defaultValue={initial?.jobPostingId ?? ""}
+                defaultValue={inputValue(values, "jobPostingId", initial?.jobPostingId)}
                 className="min-h-11 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-rust"
               >
                 <option value="">Choose a job</option>
@@ -124,7 +128,7 @@ export function CampaignForm({
               type="number"
               min={1}
               required
-              defaultValue={initial?.dailyRateNgn}
+              defaultValue={inputValue(values, "dailyRate", initial?.dailyRateNgn?.toString())}
               onChange={(e) => setDaily(Number(e.currentTarget.value) || 0)}
               placeholder="e.g. 2000"
             />
@@ -134,7 +138,7 @@ export function CampaignForm({
               type="number"
               min={1}
               required
-              defaultValue={initial?.totalBudgetNgn}
+              defaultValue={inputValue(values, "totalBudget", initial?.totalBudgetNgn?.toString())}
               onChange={(e) => setTotal(Number(e.currentTarget.value) || 0)}
               placeholder="e.g. 30000"
             />
@@ -167,12 +171,12 @@ export function CampaignForm({
               label="End date (optional)"
               name="endsOn"
               type="date"
-              defaultValue={initial?.endsOn ?? undefined}
+              defaultValue={inputValue(values, "endsOn", initial?.endsOn)}
             />
             <TextField
               label="Target locations (optional)"
               name="targetLocations"
-              defaultValue={initial?.targetLocations?.join(", ")}
+              defaultValue={inputValue(values, "targetLocations", initial?.targetLocations?.join(", "))}
               placeholder="Lagos, Abuja"
             />
           </div>
