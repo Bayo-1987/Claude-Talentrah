@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { submittedValues } from "@/lib/forms/keep-input";
 import { normalizeName } from "@/lib/profile/name";
 import { settingsSchema } from "./settings-schemas";
 import type { SettingsActionState } from "./settings-state";
@@ -10,6 +11,8 @@ export async function updateProfileAction(
   _prevState: SettingsActionState,
   formData: FormData,
 ): Promise<SettingsActionState> {
+  // Handed back with every error so the form keeps what was typed; a success hands none (the saved profile is the new default).
+  const typed = submittedValues(formData, ["firstName", "lastName", "country"]);
   const parsed = settingsSchema.safeParse({
     firstName: formData.get("firstName"),
     lastName: formData.get("lastName"),
@@ -19,6 +22,7 @@ export async function updateProfileAction(
   if (!parsed.success) {
     return {
       status: "error",
+      values: typed,
       error: "Check the highlighted fields below.",
       fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
     };
@@ -29,7 +33,7 @@ export async function updateProfileAction(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return { status: "error", error: "Sign in again — your session has expired." };
+    return { status: "error", error: "Sign in again — your session has expired.", values: typed };
   }
 
   /*
@@ -64,6 +68,7 @@ export async function updateProfileAction(
     console.error("[settings:update]", error);
     return {
       status: "error",
+      values: typed,
       error:
         error.code === "23514"
           ? "That name isn't valid — it needs at least one visible character."
@@ -74,7 +79,7 @@ export async function updateProfileAction(
   if (!updated?.length) {
     // No error and no rows: the row is not this user's, or is gone. Not a
     // success, and it must not be reported as one.
-    return { status: "error", error: "We couldn't find your profile to update." };
+    return { status: "error", error: "We couldn't find your profile to update.", values: typed };
   }
 
   /*
