@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { EyebrowLabel, FarahMark } from "@/components/ui";
@@ -52,6 +52,8 @@ export interface FarahPanelProps {
    */
   initialJobSeed?: FarahJobSeed;
 }
+
+const subscribeNothing = () => () => {};
 
 /**
  * The four job-seed actions (two real chat starters, tailor, cover letter) —
@@ -252,6 +254,9 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
   const [freeRemaining, setFreeRemaining] = useState<number | null | undefined>(undefined);
   // When the next free message comes back (an ISO time), from the history route and the chat `done` event. null = no date to show. Display only.
   const [nextFreeMessageAt, setNextFreeMessageAt] = useState<string | null>(null);
+  // False on the server and during hydration, true in the browser afterwards. The date is written in the READER's zone ("Fri 9 Oct at 14:20 WAT"), which only the browser knows, so it is
+  // never rendered on the server: the first client render is the same undated sentence the server sent, and there is no hydration mismatch.
+  const mounted = useSyncExternalStore(subscribeNothing, () => true, () => false);
   // The history fetch settled without giving a count (a non-OK response or a network error): stop calling the
   // count "loading" so the chips fall back to prefill instead of staying disabled for the whole session.
   const [historyFailed, setHistoryFailed] = useState(false);
@@ -605,7 +610,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
         silence is correct there, it's only a hard 0 with no warning that
         reads as broken.
       */}
-      <FarahAllowanceNote freeRemaining={freeRemaining} nextFreeMessageAt={nextFreeMessageAt} />
+      <FarahAllowanceNote freeRemaining={freeRemaining} nextFreeMessageAt={mounted ? nextFreeMessageAt : null} />
 
       <div ref={scrollRef} className="flex max-h-80 flex-col gap-3 overflow-y-auto">
         {messages.length === 0 ? (

@@ -29,14 +29,14 @@ describe("FarahAllowanceNote", () => {
   });
   it("used up with a future time: the sentence reads in order and the date is a <time> with the ISO instant", () => {
     const html = render({ freeRemaining: 0, nextFreeMessageAt: FUTURE, now: NOW, timeZone: "Africa/Lagos" });
-    expect(html).toContain(`<time dateTime="${FUTURE}">Fri 9 Oct at 14:20</time>`);
-    expect(html.replace(/<[^>]+>/g, "").replace(/&#x27;/g, "'")).toMatch(/^You've used your free messages\. Your next free message is available on Fri 9 Oct at 14:20\. Until then, each message costs \d+ credits?\.$/);
+    expect(html).toContain(`<time dateTime="${FUTURE}">Fri 9 Oct at 14:20 WAT</time>`);
+    expect(html.replace(/<[^>]+>/g, "").replace(/&#x27;/g, "'")).toMatch(/^You've used your free messages for now\. Free messages come back 30 days after you use them; your next one is on Fri 9 Oct at 14:20 WAT\. Until then, each message costs \d+ credits?\.$/);
   });
   it("used up with null, a past time or junk: no <time>, no date sentence", () => {
     for (const v of [null, "2026-10-01T00:00:00.000Z", "soon"]) {
       const html = render({ freeRemaining: 0, nextFreeMessageAt: v, now: NOW, timeZone: "Africa/Lagos" });
       expect(html).not.toContain("<time");
-      expect(html).not.toMatch(/available on/);
+      expect(html).not.toMatch(/your next one is on/);
     }
   });
   it("an active Pass (null) and an unknown count (undefined) render nothing", () => {
@@ -51,7 +51,7 @@ describe("the panel's wiring", () => {
   });
   it("the history fetch keeps nextFreeMessageAt through readNextFreeMessageAt and hands it to the note", () => {
     expect(flat).toMatch(/readNextFreeMessageAt\(data\.nextFreeMessageAt\)/);
-    expect(flat).toMatch(/<FarahAllowanceNote freeRemaining=\{freeRemaining\} nextFreeMessageAt=\{nextFreeMessageAt\} \/>/);
+    expect(flat).toMatch(/<FarahAllowanceNote freeRemaining=\{freeRemaining\} nextFreeMessageAt=\{mounted \? nextFreeMessageAt : null\} \/>/); // the state still reaches the note, only after mount (no hydration mismatch)
   });
   it("the done event keeps it too, and the last-free-message announcement is built from the event", () => {
     expect(flat).toMatch(/readNextFreeMessageAt\(event\.nextFreeMessageAt\)/);
@@ -66,5 +66,17 @@ describe("the panel's wiring", () => {
     const catchBlock = /\} catch \{ setError\("Couldn't reach Farah — check your connection and try again\."\);/;
     expect(flat).toMatch(catchBlock);
     expect(flat).not.toMatch(/Couldn't reach Farah[^;]*(NOTHING_CHARGED|withNothingChargedNote|serverFailureText)/);
+  });
+});
+
+describe("no hydration mismatch: the date is formatted in the browser only", () => {
+  it("the panel passes the note NO date until it has mounted (the server snapshot is false, the client's is true), so the server render and the first client render are the same undated sentence", () => {
+    expect(flat).toContain("useSyncExternalStore(");
+    expect(flat).toMatch(/nextFreeMessageAt=\{mounted \? nextFreeMessageAt : null\}/);
+  });
+  it("the undated server render is the same whatever the viewer's zone is", () => {
+    const a = render({ freeRemaining: 0, nextFreeMessageAt: null, now: NOW, timeZone: "Africa/Lagos" });
+    const b = render({ freeRemaining: 0, nextFreeMessageAt: null, now: NOW, timeZone: "America/Toronto" });
+    expect(a).toBe(b);
   });
 });

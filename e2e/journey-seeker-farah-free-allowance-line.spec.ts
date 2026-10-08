@@ -2,7 +2,7 @@
  * QA journey (UNRUN when written: authored on a machine with no local stack; CI is its first run): the line under Farah's greeting about the free allowance.
  *
  * What a seeker reads, step by step: a new account sees "3 free messages left."; after one real message through the panel (stub model) it reads "2 free messages
- * left."; with all three used it says the free messages are used and, when a date is known, "Your next free message is available on <weekday time>. Until then,
+ * left."; with all three used it says the free messages are used and, when a date is known, "Your next one is on <weekday time>. Until then,
  * each message costs N credits." Copy from src/lib/credits/price-labels.ts (farahAllowanceText) on main 0dc417f. Clicks and typing only; every step screenshotted.
  */
 import { test, expect, admin, grantTestCredits, requireStubbedLlm } from "./fixtures/authed";
@@ -37,9 +37,10 @@ test("with the free messages used, the line says when the next one is available 
   if (error) throw error;
 
   await page.goto("/settings");
-  const note = page.getByText(/You.ve used your free messages\./).first();
+  const note = page.getByText(/You.ve used your free messages for now\./).first();
   await expect(note).toBeVisible();
-  await expect(note).toContainText("Your next free message is available on");
+  await expect(note).toContainText("Free messages come back 30 days after you use them; your next one is on");
+  await expect(note.locator("time"), "the time is followed by the zone's name (WAT, UTC, BST, ... whatever the browser's zone is called)").toContainText(/ at \d{2}:\d{2} [A-Za-z]/);
   await expect(note).toContainText(/Until then, each message costs \d+ credits?\./);
   await shot("1-used-up-with-next-free-date");
 });

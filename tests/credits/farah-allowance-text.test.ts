@@ -62,12 +62,12 @@ describe("farahAllowanceText: used up (rows 4 and 5)", () => {
     const f = await fn("farahAllowanceText");
     const lagos = f({ freeRemaining: 0, nextFreeMessageAt: FUTURE, now: NOW, timeZone: "Africa/Lagos" });
     expect(lagos?.text).toBe(
-      `You've used your free messages. Your next free message is available on Fri 9 Oct at 14:20. Until then, each message costs ${price}.`,
+      `You've used your free messages for now. Free messages come back 30 days after you use them; your next one is on Fri 9 Oct at 14:20 WAT. Until then, each message costs ${price}.`,
     );
-    expect(lagos?.when).toEqual({ iso: FUTURE, label: "Fri 9 Oct at 14:20" });
+    expect(lagos?.when).toEqual({ iso: FUTURE, label: "Fri 9 Oct at 14:20 WAT" });
     expect(`${lagos?.lead}${lagos?.when?.label}${lagos?.tail}`).toBe(lagos?.text);
     const toronto = f({ freeRemaining: 0, nextFreeMessageAt: FUTURE, now: NOW, timeZone: "America/Toronto" });
-    expect(toronto?.text).toContain("Fri 9 Oct at 09:20");
+    expect(toronto?.text).toContain("Fri 9 Oct at 09:20 EDT");
   });
   it.each([
     ["null", null],
@@ -90,9 +90,28 @@ describe("farahAllowanceText: used up (rows 4 and 5)", () => {
     const parts = f({ freeRemaining: 0, nextFreeMessageAt: "2026-10-06T12:00:01.000Z", now: NOW, timeZone: "Africa/Lagos" });
     expect(parts?.when?.iso).toBe("2026-10-06T12:00:01.000Z");
   });
-  it("has no zone label in the date", async () => {
+  it("names the viewer's own zone after the time, from the zone itself (never a hard-coded WAT), and says why the date is that far away", async () => {
     const f = await fn("farahAllowanceText");
-    expect(f({ freeRemaining: 0, nextFreeMessageAt: FUTURE, now: NOW, timeZone: "Africa/Lagos" })?.text).not.toMatch(/WAT|GMT|UTC/);
+    const text = (timeZone: string) => f({ freeRemaining: 0, nextFreeMessageAt: FUTURE, now: NOW, timeZone })?.text ?? "";
+    expect(text("Africa/Lagos")).toContain("Fri 9 Oct at 14:20 WAT");
+    expect(text("America/Toronto")).toContain("Fri 9 Oct at 09:20 EDT");
+    expect(text("Europe/London")).toContain("Fri 9 Oct at 14:20 BST");
+    expect(text("Asia/Kathmandu")).toContain("Fri 9 Oct at 19:05 Nepal time"); // only an offset name exists: the long generic name is the clean fallback
+    expect(text("Africa/Lagos")).toContain("Free messages come back 30 days after you use them");
+  });
+  it("the 30 days in the sentence is the allowance window itself, so the sentence cannot drift from the rule", async () => {
+    const { FARAH_CHAT_FREE_WINDOW_DAYS } = await import("@/lib/farah/free-allowance");
+    const f = await fn("farahAllowanceText");
+    expect(f({ freeRemaining: 0, nextFreeMessageAt: FUTURE, now: NOW, timeZone: "Africa/Lagos" })?.text).toContain(`${FARAH_CHAT_FREE_WINDOW_DAYS} days after you use them`);
+  });
+  it("the date shown is the OLDEST counted message plus 30 days (nextFreeMessageAt, then the line, in the viewer's zone)", async () => {
+    const { nextFreeMessageAt } = await import("@/lib/farah/free-allowance");
+    const f = await fn("farahAllowanceText");
+    const used = ["2026-09-12T05:01:00.000Z", "2026-09-20T10:00:00.000Z", "2026-09-30T08:30:00.000Z"]; // three counted free messages
+    const next = nextFreeMessageAt(used, NOW);
+    expect(next?.toISOString()).toBe("2026-10-12T05:01:00.000Z"); // 12 Sep 05:01Z + 30 days
+    const line = f({ freeRemaining: 0, nextFreeMessageAt: next?.toISOString(), now: NOW, timeZone: "Africa/Lagos" });
+    expect(line?.when?.label).toBe("Mon 12 Oct at 06:01 WAT");
   });
 });
 
@@ -124,7 +143,7 @@ describe("farahFreeUsedAnnouncement: row 11, the last free message was just used
   it("a free message that left 0 announces the date", async () => {
     const a = await fn("farahFreeUsedAnnouncement");
     expect(a({ freeRemaining: 0, paid: false, nextFreeMessageAt: FUTURE, now: NOW, timeZone: "Africa/Lagos" })).toBe(
-      "No free messages left. Your next free message is available on Fri 9 Oct at 14:20.",
+      "No free messages left. Your next free message is available on Fri 9 Oct at 14:20 WAT.",
     );
   });
   it("with no usable date it says only the price, never a date", async () => {

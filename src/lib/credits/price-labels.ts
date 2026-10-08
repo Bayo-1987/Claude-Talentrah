@@ -11,7 +11,8 @@
  * gates (tailoring/gate.ts, farah/chat-gate.ts) and the Server Actions already do.
  */
 import { CREDIT_COSTS } from "@/lib/credits/costs";
-import { formatWeekdayAtTime, viewerTimeZone } from "@/lib/format/datetime";
+import { formatWeekdayAtTimeZoned, viewerTimeZone } from "@/lib/format/datetime";
+import { FARAH_CHAT_FREE_WINDOW_DAYS } from "@/lib/farah/free-allowance";
 
 export function creditsPhrase(n: number): string {
   return `${n} credit${n === 1 ? "" : "s"}`;
@@ -125,7 +126,8 @@ export function readNextFreeMessageAt(value: unknown): string | null {
  * The line under Farah's greeting about the free-message allowance (0123), from what the foundation returns: `freeRemaining` (a number; `null` for an active
  * Pass, `undefined` while unknown: both give no text) and `nextFreeMessageAt` (an ISO instant or null). The date is named only once the free messages are
  * used up and only while it is in the future; null, unreadable or past means no date and no date sentence, never a guess. The date is in the viewer's zone
- * (`timeZone`, default the browser's) as "Fri 9 Oct at 14:20", with no zone label. `now` is a parameter for tests.
+ * (`timeZone`, default the browser's) as "Fri 9 Oct at 14:20 West Africa time", with the zone's own name, and the sentence says why it is that far away (a free message comes back 30
+ * days after it was used: the window constant, not a typed number). `now` is a parameter for tests.
  */
 export function farahAllowanceText({
   freeRemaining,
@@ -145,9 +147,9 @@ export function farahAllowanceText({
   }
   const price = creditsPhrase(CREDIT_COSTS.farahChatMessage);
   const iso = readNextFreeMessageAt(nextFreeMessageAt);
-  const label = iso !== null && Date.parse(iso) > now.getTime() ? formatWeekdayAtTime(iso, { timeZone }) : "";
+  const label = iso !== null && Date.parse(iso) > now.getTime() ? formatWeekdayAtTimeZoned(iso, { timeZone }) : "";
   if (iso !== null && label !== "") {
-    const lead = "You've used your free messages. Your next free message is available on ";
+    const lead = `You've used your free messages for now. Free messages come back ${FARAH_CHAT_FREE_WINDOW_DAYS} days after you use them; your next one is on `;
     const tail = `. Until then, each message costs ${price}.`;
     return { lead, when: { iso, label }, tail, text: `${lead}${label}${tail}` };
   }
