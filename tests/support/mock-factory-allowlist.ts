@@ -34,17 +34,6 @@ export const ALLOWLIST: Record<string, number> = {
   "@/lib/farah/spend-tally :: tests/farah/chat-route-failed-requests-charge-nothing.test.ts": 1,
   "@/lib/farah/spend-tally :: tests/farah/chat-route-spend-ceiling.test.ts": 1,
   "@/lib/farah/spend-tally :: tests/setup.ts": 1,
-  "@/lib/flags/read :: tests/auto-apply-digest/flag-gate.test.ts": 1,
-  "@/lib/flags/read :: tests/auto-apply-digest/send.test.ts": 1,
-  "@/lib/flags/read :: tests/digest/flag-gate.test.ts": 1,
-  "@/lib/flags/read :: tests/digest/proactive-alert-exclusion.test.ts": 1,
-  "@/lib/flags/read :: tests/digest/verification-gate.test.ts": 1,
-  "@/lib/flags/read :: tests/jobs/enrich-thin-stub-guard.test.ts": 1,
-  "@/lib/flags/read :: tests/jobs/enrich-thin.test.ts": 1,
-  "@/lib/flags/read :: tests/jobs/supersession-ingest.test.ts": 1,
-  "@/lib/flags/read :: tests/notifications/proactive-match-alert-eligibility.test.ts": 1,
-  "@/lib/flags/read :: tests/notifications/proactive-match-alert-gates.test.ts": 1,
-  "@/lib/flags/read :: tests/notifications/win-back-eligibility.test.ts": 1,
   "@/lib/llm :: tests/employer/draft-job-action.test.ts": 1,
   "@/lib/llm :: tests/employer/draft-job.test.ts": 1,
   "@/lib/llm :: tests/employer/job-import/extract.test.ts": 1,
@@ -70,7 +59,7 @@ export const ALLOWLIST: Record<string, number> = {
 };
 
 /** Must equal the sum of ALLOWLIST. Lower it with every conversion; raising it is a visible, reviewed act. */
-export const ALLOWLIST_CEILING = 62;
+export const ALLOWLIST_CEILING = 51;
 
 /** How many hand-written factories the scoped modules had when the ratchet was introduced. Never changes: the ceiling may not exceed it. */
 export const INITIAL_FACTORIES = 149;
