@@ -44,7 +44,7 @@ async function fillListing(page: Page, n: "A" | "B", note: string) {
   await page.getByLabel("Age requirement (optional)").fill("under 35");
   await page.getByRole("textbox", { name: /Other eligibility notes/ }).click();
   await page.getByRole("textbox", { name: /Other eligibility notes/ }).pressSequentially(note);
-  await page.getByLabel("Deadline note — shown when there's no single date").fill(`Rolling ${n}`);
+  // No Deadline note: a note on a hand-added listing is refused at save (a verified deadline is required, #837); that refusal is covered by e2e/admin-scholarship-deadline-note.spec.ts.
   await page.getByLabel("Official source URL").fill(`https://example.org/qa-${n.toLowerCase()}-${tag}`);
   await page.getByLabel("Source name").fill(`QA Source ${n}`);
 }
