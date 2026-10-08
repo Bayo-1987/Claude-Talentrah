@@ -107,3 +107,36 @@ describe("job posting form (selects)", () => {
     }
   });
 });
+
+describe("settings form (profile)", () => {
+  const actions = read("src/lib/profile/settings-actions.ts");
+  const form = read("src/app/(app)/settings/settings-form.tsx");
+  it("every save error (validation, expired session, refused write, no row) hands the typed name and country back; a success hands none", () => {
+    expect(actions).toContain('const typed = submittedValues(formData, ["firstName", "lastName", "country"]);');
+    expect(count(actions, "values: typed")).toBe(4);
+    expect(read("src/lib/profile/settings-state.ts")).toContain("values?: SubmittedValues");
+    expect(actions.slice(actions.indexOf('status: "success"'))).not.toContain("values:");
+  });
+  it("the names default to the returned values over the saved profile; the Country <select> is keyed by the returned value", () => {
+    expect(form).toContain('inputValue(state.values, "firstName", firstName)');
+    expect(form).toContain('inputValue(state.values, "lastName", lastName)');
+    expect(form).toContain('inputValue(state.values, "country", country ?? "")');
+    expect(form).toContain('key={selectKey(state.values, "country")}');
+  });
+});
+
+describe("company profile form (employer)", () => {
+  const actions = read("src/lib/employer/actions.ts");
+  const form = read("src/components/employer/company-profile-form.tsx");
+  it("both error returns (name required, save failed) hand the typed values back; the saved state hands none", () => {
+    expect(actions).toContain('const typed = submittedValues(form, ["name", "domain", "description", "logoUrl"]);');
+    expect(actions).toContain('{ error: "Company name is required.", values: typed }');
+    expect(actions).toContain("{ error: `Couldn't save your profile: ${error.message}`, values: typed }");
+    expect(actions).toContain("{ error: string; values?: SubmittedValues }");
+  });
+  it("the four fields default to the returned values, falling back to the saved profile", () => {
+    for (const f of ["name", "domain", "description", "logoUrl"]) {
+      expect(form, f).toContain(`inputValue(values, "${f}", initial.${f})`);
+    }
+  });
+});

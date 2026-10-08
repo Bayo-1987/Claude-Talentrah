@@ -140,10 +140,13 @@ function JobSeedMarker({
  * (app)/layout.tsx, because both run the length of the COLUMN and this
  * component is only ever as tall as its content. What stays here is what marks
  * where Farah's content begins: the 3px rust top rule and the mark beside the
- * eyebrow. Farah's turns are set in
- * italic Newsreader (matching the greeting copy this replaced); the user's
- * are plain body text — that typographic split is the only visual
- * differentiation, on purpose, rather than chat-bubble styling.
+ * eyebrow. Farah's replies and the user's messages are both regular body text
+ * (IBM Plex Sans; italic only for emphasis inside a reply, owner 8 Oct): the
+ * differentiation is the user's right alignment and Farah's marginalia column,
+ * on purpose, rather than chat-bubble styling or a different typeface. The
+ * panel's ASIDES (greeting, allowance line, "Farah is thinking…", the cut-off
+ * note, "Continue where you left off?") keep the italic Newsreader that
+ * CLAUDE.md reserves for quiet, secondary text.
  */
 export function FarahPanel({ firstName, initialMessages, initialJobSeed }: FarahPanelProps) {
   const reportCreditsBalance = useReportCreditsBalance();
