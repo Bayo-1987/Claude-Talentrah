@@ -51,6 +51,27 @@ export async function pendingScholarships(): Promise<PendingScholarship[]> {
   }));
 }
 
+/** Published listings, newest edit first, for the "Published" section of /admin/scholarships (each can be edited; saving takes it back to review). Capped: it is a work list, not a catalogue. */
+export async function publishedScholarships(limit = 100): Promise<PendingScholarship[]> {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("scholarships")
+    .select("id, provider, program_name, application_deadline, official_url, last_checked_at")
+    .eq("moderation_status", "verified")
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    provider: r.provider,
+    programName: r.program_name,
+    deadline: r.application_deadline,
+    url: r.official_url,
+    lastCheckedAt: r.last_checked_at,
+  }));
+}
+
 export interface ReportedPosting {
   jobPostingId: string;
   title: string;
