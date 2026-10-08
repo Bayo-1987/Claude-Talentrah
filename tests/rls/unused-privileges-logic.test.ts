@@ -3,7 +3,7 @@
  * cannot be passing because the rule is blind), and that the things the rule must NOT report are not reported.
  */
 import { describe, expect, it } from "vitest";
-import { anonWriteFindings, serviceOnlyFunctionFindings, unusedPrivilegeFindings, type SnapshotRow } from "../support/unused-privileges";
+import { anonWriteFindings, maintainFindings, serviceOnlyFunctionFindings, unusedPrivilegeFindings, type SnapshotRow } from "../support/unused-privileges";
 
 const row = (source: string, object_name: string, grantee: string, privilege_type: string): SnapshotRow => ({ source, object_name, grantee, privilege_type });
 const CLEAN: SnapshotRow[] = [
@@ -49,5 +49,19 @@ describe("anonWriteFindings: a planted anon write grant is reported", () => {
   });
   it("does NOT report authenticated's writes, and does not report another role's default", () => {
     expect(anonWriteFindings([...CLEAN, row("table", "applications", "authenticated", "DELETE"), row("default", "role supabase_admin, schema public", "anon", "INSERT")])).toEqual([]);
+  });
+});
+
+describe("maintainFindings: a planted MAINTAIN grant is reported", () => {
+  it("reports nothing for a clean snapshot", () => expect(maintainFindings(CLEAN)).toEqual([]));
+  for (const who of ["anon", "authenticated", "public"]) {
+    it(`reports MAINTAIN held by ${who} on a table, on a column and in the postgres default`, () => {
+      expect(maintainFindings([...CLEAN, row("table", "feedback", who, "MAINTAIN")])).toEqual([`table feedback: ${who} MAINTAIN`]);
+      expect(maintainFindings([...CLEAN, row("column", "profiles.id", who, "MAINTAIN")])).toHaveLength(1);
+      expect(maintainFindings([...CLEAN, row("default", "role postgres, schema public", who, "MAINTAIN")])).toHaveLength(1);
+    });
+  }
+  it("does NOT report service_role, another role's default, nor other privileges", () => {
+    expect(maintainFindings([...CLEAN, row("table", "profiles", "service_role", "MAINTAIN"), row("default", "role supabase_admin, schema public", "anon", "MAINTAIN"), row("table", "profiles", "anon", "SELECT")])).toEqual([]);
   });
 });

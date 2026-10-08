@@ -38,3 +38,11 @@ export function anonWriteFindings(rows: SnapshotRow[]): string[] {
     .filter((r) => r.source === "table" || r.source === "column" || (r.source === "default" && r.object_name === POSTGRES_PUBLIC_DEFAULTS))
     .map(label);
 }
+
+/** MAINTAIN (VACUUM, ANALYZE, REINDEX, CLUSTER, LOCK TABLE; PostgreSQL 17 and later) held by anon, authenticated or PUBLIC on a public table, at column level, or in the postgres role's default privileges. */
+export function maintainFindings(rows: SnapshotRow[]): string[] {
+  return rows
+    .filter((r) => r.privilege_type === "MAINTAIN" && reachesAnonOrAuthenticated(r.grantee))
+    .filter((r) => r.source === "table" || r.source === "column" || (r.source === "default" && r.object_name === POSTGRES_PUBLIC_DEFAULTS))
+    .map(label);
+}
