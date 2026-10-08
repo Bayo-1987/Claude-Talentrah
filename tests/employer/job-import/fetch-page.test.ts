@@ -17,12 +17,23 @@ vi.mock("@/lib/employer/job-import/robots", () => ({
 // including a redirect target — so the guard itself is mocked to keep this
 // file's tests fast, deterministic, and independent of what any real
 // hostname happens to resolve to today.
-vi.mock("@/lib/security/ssrf-guard", () => ({
-  checkUrlIsSafeToFetch: vi.fn(),
-}));
+// pinnedFetch (tests/security/pinned-fetch.test.ts covers resolve-once-and-connect-to-that-address with real sockets) is replaced by a stand-in that asks `guard.check` before every call and then
+// uses the stubbed global fetch, so these tests keep proving fetchJobPage's own wiring: every hop, the first and each redirect target, goes through it, and a refusal never reaches the network.
+const guard = vi.hoisted(() => ({ check: vi.fn() }));
+vi.mock("@/lib/security/pinned-fetch", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/security/pinned-fetch")>("@/lib/security/pinned-fetch");
+  return {
+    ...actual,
+    pinnedFetch: async (url: string | URL, init?: unknown) => {
+      const verdict = await guard.check(new URL(String(url)));
+      if (!verdict.allowed) throw new actual.SsrfBlockedError(verdict.reason ?? "blocked");
+      return globalThis.fetch(String(url), init as RequestInit);
+    },
+  };
+});
 
 const { isUrlAllowedByRobots } = await import("@/lib/employer/job-import/robots");
-const { checkUrlIsSafeToFetch } = await import("@/lib/security/ssrf-guard");
+const checkUrlIsSafeToFetch = guard.check;
 const { fetchJobPage, htmlToPlainText } = await import("@/lib/employer/job-import/fetch-page");
 
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -95,6 +106,7 @@ describe("fetchJobPage", () => {
     fetchMock.mockRejectedValue(new Error("ECONNREFUSED"));
     const result = await fetchJobPage("https://example.com/careers/down");
     expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason, "a network failure must not read as an SSRF refusal").toMatch(/Couldn't reach/i);
   });
 
   it("refuses a non-HTML response (e.g. a PDF or an API's JSON)", async () => {
@@ -151,6 +163,7 @@ describe("fetchJobPage — SSRF guard (real finding: a pasted URL could target a
     });
     const result = await fetchJobPage("http://127.0.0.1:8080/internal-admin");
     expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason, "a refused address must read as a refusal, not as a page that is down").toMatch(/non-public network/i);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

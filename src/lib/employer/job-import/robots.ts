@@ -1,4 +1,5 @@
 import "server-only";
+import { pinnedFetch } from "@/lib/security/pinned-fetch";
 
 /**
  * robots.txt gate for "Import from URL" (send-136).
@@ -48,6 +49,9 @@ import "server-only";
  */
 
 const ROBOTS_FETCH_TIMEOUT_MS = 5000;
+const ROBOTS_MAX_REDIRECTS = 3;
+/** robots.txt is small; a larger answer is cut here, not read without limit. */
+const ROBOTS_MAX_BODY_BYTES = 512 * 1024;
 
 interface RobotsRule {
   path: string;
@@ -160,18 +164,30 @@ export function isPathDisallowed(robotsTxt: string, path: string): boolean {
  * (no robots.txt) vs fail-closed (`*` group disallows) split.
  */
 export async function isUrlAllowedByRobots(url: URL): Promise<boolean> {
-  const robotsUrl = new URL("/robots.txt", url.origin);
+  let robotsUrl = new URL("/robots.txt", url.origin);
   try {
-    const res = await fetch(robotsUrl.toString(), {
-      signal: AbortSignal.timeout(ROBOTS_FETCH_TIMEOUT_MS),
-      headers: { "User-Agent": "TalentrahJobImportBot/1.0 (+employer-initiated, single-page fetch)" },
-    });
-    // No robots.txt (404, or any non-2xx) is not a refusal — see header.
-    if (!res.ok) return true;
-    const body = await res.text();
-    return !isPathDisallowed(body, url.pathname + url.search);
+    // Through pinnedFetch, hop by hop: this request goes to a host the employer typed, BEFORE the page fetch has run its own checks, so it needs the same protection (a plain fetch here followed redirects
+    // anywhere and resolved the name itself). A refused or failed hop fails open exactly like an unreachable robots.txt: the page fetch right after has its own refusal.
+    for (let hop = 0; hop <= ROBOTS_MAX_REDIRECTS; hop++) {
+      const res = await pinnedFetch(robotsUrl.toString(), {
+        signal: AbortSignal.timeout(ROBOTS_FETCH_TIMEOUT_MS),
+        headers: { "User-Agent": "TalentrahJobImportBot/1.0 (+employer-initiated, single-page fetch)" },
+        maxBodyBytes: ROBOTS_MAX_BODY_BYTES,
+      });
+      if ([301, 302, 303, 307, 308].includes(res.status)) {
+        const location = res.headers.get("location");
+        if (!location) return true;
+        robotsUrl = new URL(location, robotsUrl);
+        continue;
+      }
+      // No robots.txt (404, or any non-2xx) is not a refusal — see header.
+      if (!res.ok) return true;
+      const body = await res.text();
+      return !isPathDisallowed(body, url.pathname + url.search);
+    }
+    return true; // too many redirects: unreadable, so open
   } catch {
-    // Unreachable robots.txt (DNS/timeout/network error) fails open for the
+    // Unreachable robots.txt (DNS/timeout/network error, or a refused address) fails open for the
     // same reason a 404 does — see header. A transient robots.txt outage
     // should not be indistinguishable from "this site refuses automated
     // access", and the actual page fetch right after this has its own

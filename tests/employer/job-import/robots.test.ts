@@ -7,7 +7,22 @@
  * second host (robots.txt lives at the origin root, not the page's own URL).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { isPathDisallowed, isUrlAllowedByRobots } from "@/lib/employer/job-import/robots";
+
+// The robots.txt request goes through pinnedFetch (tests/security/pinned-fetch.test.ts covers resolve-once-and-connect-to-that-address with real sockets). Here it is a stand-in that asks `guard.check` first and
+// then uses the stubbed global fetch, so these tests prove robots.ts's own wiring: every hop goes through it, a refused address fails open, a redirect is followed hop by hop, and nothing follows a redirect on its own.
+const guard = vi.hoisted(() => ({ check: vi.fn() }));
+vi.mock("@/lib/security/pinned-fetch", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/security/pinned-fetch")>("@/lib/security/pinned-fetch");
+  return {
+    ...actual,
+    pinnedFetch: async (url: string | URL, init?: unknown) => {
+      const verdict = await guard.check(new URL(String(url)));
+      if (!verdict.allowed) throw new actual.SsrfBlockedError(verdict.reason ?? "blocked");
+      return globalThis.fetch(String(url), init as RequestInit);
+    },
+  };
+});
+const { isPathDisallowed, isUrlAllowedByRobots } = await import("@/lib/employer/job-import/robots");
 
 describe("isPathDisallowed — the parser/matcher, no network", () => {
   it("blocks a path under a Disallow rule in the wildcard group", () => {
@@ -82,6 +97,7 @@ describe("isUrlAllowedByRobots — with network mocked", () => {
   beforeEach(() => {
     fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
+    guard.check.mockReset().mockResolvedValue({ allowed: true });
   });
 
   afterEach(() => {
@@ -122,5 +138,37 @@ describe("isUrlAllowedByRobots — with network mocked", () => {
     });
     const allowed = await isUrlAllowedByRobots(new URL("https://example.com/careers/backend-engineer"));
     expect(allowed).toBe(true);
+  });
+
+  it("fails CLOSED through a redirect too: a robots.txt that redirects to another host is read there, hop by hop", async () => {
+    fetchMock
+      .mockResolvedValueOnce({ ok: false, status: 301, headers: new Headers({ location: "https://www.example.com/robots.txt" }), text: async () => "" })
+      .mockResolvedValueOnce({ ok: true, status: 200, headers: new Headers(), text: async () => "User-agent: *\nDisallow: /job/\n" });
+    const allowed = await isUrlAllowedByRobots(new URL("https://example.com/job/12345"));
+    expect(allowed).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(guard.check).toHaveBeenCalledTimes(2);
+  });
+
+  it("a robots.txt that redirects to a non-public address is NOT fetched: the hop is refused before any request, and the answer fails open (the page fetch has its own refusal)", async () => {
+    guard.check.mockImplementation(async (u: URL) => (u.hostname === "169.254.169.254" ? { allowed: false, reason: "metadata" } : { allowed: true }));
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 302, headers: new Headers({ location: "http://169.254.169.254/latest/meta-data/" }), text: async () => "" });
+    const allowed = await isUrlAllowedByRobots(new URL("https://example.com/job/12345"));
+    expect(allowed).toBe(true);
+    expect(fetchMock, "the redirect target was requested").toHaveBeenCalledTimes(1);
+  });
+
+  it("a host that resolves to a non-public address never gets its robots.txt requested", async () => {
+    guard.check.mockResolvedValue({ allowed: false, reason: "loopback" });
+    const allowed = await isUrlAllowedByRobots(new URL("http://internal.example/job/1"));
+    expect(allowed).toBe(true);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("gives up after a few redirects instead of following forever, and fails open", async () => {
+    fetchMock.mockImplementation(async () => ({ ok: false, status: 302, headers: new Headers({ location: "https://example.com/robots.txt" }), text: async () => "" }));
+    const allowed = await isUrlAllowedByRobots(new URL("https://example.com/job/1"));
+    expect(allowed).toBe(true);
+    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(4);
   });
 });
