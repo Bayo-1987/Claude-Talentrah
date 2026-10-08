@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { createScholarshipAction, loadQueueAction } from "@/lib/scholarships/admin-actions";
 import { initialAdminScholarshipState } from "@/lib/scholarships/admin-state";
@@ -39,6 +39,13 @@ export function AdminScholarshipForm() {
     setEditorGeneration(nextEditorGeneration(seenState, state, editorGeneration));
     setNoteLength((state.values?.deadlineNote ?? "").trim().length); // the form was reset: the counter follows the field (the returned note after an error, 0 after a save)
   }
+
+  // The banner is at the top of a long form and Save is at the bottom: bring the result into view whenever a save finishes.
+  const bannerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (state.status === "idle") return;
+    bannerRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [state]);
 
   const counter = noteCounter(noteLength);
   const [queueState, queueAction, queuePending] = useActionState(
@@ -132,30 +139,26 @@ export function AdminScholarshipForm() {
         <form action={formAction} className="flex flex-col gap-5">
           <EyebrowLabel>New listing</EyebrowLabel>
 
-          {state.status === "success" &&
-            (state.returnedToReview ? (
-              /*
-                Deliberately louder than the ordinary success note. This path
-                means a listing that was live a moment ago is now hidden — the
-                operator edited a published listing rather than adding a new
-                one, and that is not what they think they just did.
-              */
-              <p className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust">
-                That matched a listing already published, and the content
-                differs — so it&apos;s been taken off the catalog and put back in
-                the queue above. Re-approve it to make it visible again.
+          <div ref={bannerRef} className="scroll-mt-24">
+            {state.status !== "idle" && (
+              <p
+                role={state.status === "error" ? "alert" : "status"}
+                className={
+                  "border-[1.5px] px-3.5 py-2.5 text-[13.5px] " +
+                  (state.status === "error" || state.returnedToReview
+                    ? "border-rust bg-rust-soft text-rust"
+                    : "border-ink bg-card text-ink")
+                }
+              >
+                {state.status === "error"
+                  ? state.error
+                  : state.returnedToReview
+                    ? /* Deliberately louder than the ordinary success note: a listing that was live a moment ago is now hidden, because the operator edited a published listing rather than adding a new one. */
+                      "That matched a listing already published, and the content differs — so it’s been taken off the catalog and put back in the queue above. Re-approve it to make it visible again."
+                    : "Saved as pending. It won’t appear in the public catalog until it’s approved."}
               </p>
-            ) : (
-              <p className="border-[1.5px] border-ink bg-card px-3.5 py-2.5 text-[13.5px] text-ink">
-                Saved as pending. It won&apos;t appear in the public catalog until
-                it&apos;s approved.
-              </p>
-            ))}
-          {state.status === "error" && (
-            <p className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust">
-              {state.error}
-            </p>
-          )}
+            )}
+          </div>
 
           <TextField
             label="Provider"
