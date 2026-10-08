@@ -43,6 +43,11 @@ describe("ci.yml e2e shards", () => {
     expect(shard.name).toContain(`/${SHARDS}`);
   });
 
+  it("the shards do not wait for the unit job: they have no needs, so they start together with it", () => {
+    expect(shard.needs).toBeUndefined();
+    expect(shard.if).toBeUndefined();
+  });
+
   it("one failing shard does not cancel the others", () => {
     expect(shard.strategy?.["fail-fast"]).toBe(false);
   });
