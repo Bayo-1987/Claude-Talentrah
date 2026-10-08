@@ -162,6 +162,54 @@ export function formatWeekdayAtTime(value: DateInput, options: FormatOptions = {
   return `${weekday} ${day} ${MONTHS[month - 1]} at ${hour}:${minute}`;
 }
 
+/**
+ * `formatWeekdayAtTime` followed by the zone's own short name: "Fri 9 Oct at 14:20 WAT", "... 09:20 EDT", "... 14:20 BST". The name comes from the browser's own Intl data
+ * (`zoneShortName`), never from a typed-in table, and is the name in force AT THAT INSTANT (daylight saving included). An unusable zone falls back to the same default zone as
+ * `formatWeekdayAtTime`, and the name is THAT zone's. "" when the value is not an instant. For text that names a moment the reader will act on (Farah's "your next one is on ...");
+ * format it in the browser, not on the server (the server's zone is not the reader's).
+ */
+export function formatWeekdayAtTimeZoned(value: DateInput, options: FormatOptions = {}): string {
+  const base = formatWeekdayAtTime(value, options);
+  const date = toInstant(value);
+  if (!base || !date) return "";
+  return `${base} ${zoneShortName(usableZone(options.timeZone), date)}`;
+}
+
+/**
+ * Regional English locales tried in this order for a zone's short name: ICU names a zone's abbreviation (WAT, EAT, SAST, BST, EDT, AEST ...) only in a locale of the region that uses
+ * it, and answers a bare offset ("GMT+1") otherwise, so the first locale that gives a real name wins.
+ */
+const SHORT_NAME_LOCALES = ["en-NG", "en-KE", "en-ZA", "en-GH", "en-GB", "en-US", "en-CA", "en-AU", "en-NZ", "en-IN", "en-SG", "en-AE"] as const;
+const OFFSET_ONLY = /^(GMT|UTC)[+\-\u2212]\d/;
+const shortNameFormatters = new Map<string, Intl.DateTimeFormat>();
+
+function shortNameIn(locale: string, timeZone: string, at: Date): string | undefined {
+  const key = `${locale}|${timeZone}`;
+  let fmt = shortNameFormatters.get(key);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat(locale, { timeZone, timeZoneName: "short" });
+    shortNameFormatters.set(key, fmt);
+  }
+  return fmt.formatToParts(at).find((p) => p.type === "timeZoneName")?.value;
+}
+
+/**
+ * The zone's short name at an instant: "WAT" for Africa/Lagos, "EAT" for Nairobi, "SAST" for Johannesburg, "BST" or "GMT" for London depending on the date, "EDT" or "EST" for New
+ * York. Where no regional locale has a real short name (Asia/Kathmandu is only "GMT+5:45") it falls back to the long generic name in the house's lower-case style ("Nepal time").
+ */
+export function zoneShortName(timeZone: string, at: Date): string {
+  if (UTC_ZONE_IDS.has(timeZone)) return "UTC";
+  try {
+    for (const locale of SHORT_NAME_LOCALES) {
+      const name = shortNameIn(locale, timeZone, at);
+      if (name && !OFFSET_ONLY.test(name)) return name;
+    }
+  } catch {
+    // an unusable zone: fall through to the generic name, which has its own fallback
+  }
+  return timeZoneGenericName(timeZone, at);
+}
+
 /** The viewer's own IANA zone name, or undefined when the runtime will not say. Read on the client; pass it to the formatters' `timeZone`. */
 export function viewerTimeZone(): string | undefined {
   try {

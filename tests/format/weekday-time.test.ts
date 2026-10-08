@@ -12,6 +12,8 @@ import { loadModule } from "../support/load-module";
 
 interface Mod {
   formatWeekdayAtTime?: (v: Date | string | number | null | undefined, o?: { timeZone?: string }) => string;
+  formatWeekdayAtTimeZoned?: (v: Date | string | number | null | undefined, o?: { timeZone?: string }) => string;
+  zoneShortName?: (timeZone: string, at: Date) => string;
   viewerTimeZone?: () => string | undefined;
 }
 async function fn<K extends keyof Mod>(name: K): Promise<NonNullable<Mod[K]>> {
@@ -79,5 +81,61 @@ describe("viewerTimeZone", () => {
     const z = await fn("viewerTimeZone");
     const name = z();
     if (name !== undefined) expect(() => new Intl.DateTimeFormat("en-US", { timeZone: name })).not.toThrow();
+  });
+});
+
+describe("formatWeekdayAtTimeZoned (the same text, then the zone's own name)", () => {
+  it("adds the name of the zone it formatted in, taken from the zone and not typed in", async () => {
+    const f = await fn("formatWeekdayAtTimeZoned");
+    expect(f(INSTANT, { timeZone: "Africa/Lagos" })).toBe("Fri 9 Oct at 14:20 WAT");
+    expect(f(INSTANT, { timeZone: "America/Toronto" })).toBe("Fri 9 Oct at 09:20 EDT");
+    expect(f(INSTANT, { timeZone: "UTC" })).toBe("Fri 9 Oct at 13:20 UTC");
+  });
+  it("an unusable zone falls back to the same default zone as formatWeekdayAtTime, and names THAT zone", async () => {
+    const f = await fn("formatWeekdayAtTimeZoned");
+    expect(f(INSTANT, { timeZone: "Not/AZone" })).toBe("Fri 9 Oct at 14:20 WAT");
+    expect(f(INSTANT)).toBe("Fri 9 Oct at 14:20 WAT");
+  });
+  it("nothing for a value that is not an instant", async () => {
+    const f = await fn("formatWeekdayAtTimeZoned");
+    expect(f("2026-10-09")).toBe("");
+    expect(f(null)).toBe("");
+  });
+});
+
+describe("zoneShortName: the zone's own short name in a regional English locale, a clean fallback where there is only an offset", () => {
+  const SUMMER = new Date("2026-07-11T05:01:00.000Z");
+  const WINTER = new Date("2026-01-11T05:01:00.000Z");
+  it.each([
+    ["Africa/Lagos", SUMMER, "WAT"],
+    ["Africa/Nairobi", SUMMER, "EAT"],
+    ["Africa/Johannesburg", SUMMER, "SAST"],
+    ["Africa/Accra", SUMMER, "GMT"],
+    ["Europe/London", SUMMER, "BST"],
+    ["Europe/London", WINTER, "GMT"],
+    ["America/New_York", SUMMER, "EDT"],
+    ["America/New_York", WINTER, "EST"],
+    ["UTC", SUMMER, "UTC"],
+  ])("%s reads %s", async (zone, at, expected) => {
+    const f = await fn("zoneShortName");
+    expect(f(zone, at)).toBe(expected);
+  });
+  it("Asia/Kathmandu has only an offset in a short name (GMT+5:45), so it falls back to the long generic name", async () => {
+    const f = await fn("zoneShortName");
+    expect(f("Asia/Kathmandu", SUMMER)).toBe("Nepal time");
+  });
+  it("a date across a daylight-saving change gets the name in force AT THAT INSTANT (London: BST on 25 Oct 00:30Z, GMT on 25 Oct 02:00Z)", async () => {
+    const f = await fn("zoneShortName");
+    expect(f("Europe/London", new Date("2026-10-25T00:30:00.000Z"))).toBe("BST");
+    expect(f("Europe/London", new Date("2026-10-25T02:00:00.000Z"))).toBe("GMT");
+    const z = await fn("formatWeekdayAtTimeZoned");
+    expect(z("2026-10-25T00:30:00.000Z", { timeZone: "Europe/London" })).toBe("Sun 25 Oct at 01:30 BST");
+    expect(z("2026-10-25T02:00:00.000Z", { timeZone: "Europe/London" })).toBe("Sun 25 Oct at 02:00 GMT");
+  });
+  it("never answers with a bare offset such as GMT+1 or UTC+5:45", async () => {
+    const f = await fn("zoneShortName");
+    for (const zone of ["Africa/Lagos", "Asia/Kathmandu", "Asia/Dubai", "Asia/Kolkata", "Australia/Sydney", "America/Sao_Paulo", "Pacific/Auckland"]) {
+      expect(f(zone, SUMMER), zone).not.toMatch(/^(GMT|UTC)[+\-−]\d/);
+    }
   });
 });
