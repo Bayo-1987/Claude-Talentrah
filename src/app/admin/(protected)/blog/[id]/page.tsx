@@ -66,6 +66,7 @@ export default async function EditBlogPostPage({ params }: { params: Promise<{ i
           author: post.author,
           body: post.body,
         }}
+        published={published}
         previewHtml={previewHtml}
         submitLabel="Save changes"
       />

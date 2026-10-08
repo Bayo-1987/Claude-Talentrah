@@ -174,7 +174,8 @@ test.describe("blog admin", () => {
     await page.getByRole("button", { name: "write" }).click();
     await page.getByLabel("Title").fill("E2E lifecycle post (edited)");
     await page.getByRole("button", { name: "Save changes" }).click();
-    await expect(page.getByText("Saved.")).toBeVisible();
+    // The result is the message beside the button ("Saved · draft, not public yet" for a draft), not the old "Saved." banner at the top.
+    await expect(page.getByRole("status").filter({ hasText: "Saved · draft, not public yet" })).toBeVisible();
     expect(await auditFor("blog.update", id), "no audit row for update").toHaveLength(1);
 
     // ---- PUBLISH -----------------------------------------------------------
