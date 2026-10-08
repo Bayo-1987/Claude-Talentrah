@@ -56,6 +56,8 @@ export interface BlogActionState {
   fieldErrors?: Record<string, string[]>;
   /** Returned with an error so the form keeps what the operator typed (React 19 resets the form after any action). */
   values?: SubmittedValues;
+  /** Returned with a successful update: the slug that was just saved, for the "View post" link (it may have been renamed). */
+  savedSlug?: string;
 }
 
 function revalidateBlog(slug?: string) {
@@ -83,7 +85,7 @@ export async function createPostAction(
   if (!parsed.success) {
     return {
       status: "error",
-      message: "Check the fields below.",
+      message: "Check the highlighted fields.",
       fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
       values: submittedValues(formData, BLOG_FIELDS),
     };
@@ -135,7 +137,7 @@ export async function updatePostAction(
   if (!parsed.success) {
     return {
       status: "error",
-      message: "Check the fields below.",
+      message: "Check the highlighted fields.",
       fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
       values: submittedValues(formData, BLOG_FIELDS),
     };
@@ -175,7 +177,7 @@ export async function updatePostAction(
 
   revalidateBlog(parsed.data.slug);
   if (before?.slug && before.slug !== parsed.data.slug) revalidatePath(`/blog/${before.slug}`);
-  return { status: "success", message: "Saved." };
+  return { status: "success", message: "Saved.", savedSlug: parsed.data.slug };
 }
 
 /**
