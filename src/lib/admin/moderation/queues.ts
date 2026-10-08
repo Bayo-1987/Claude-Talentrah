@@ -604,7 +604,7 @@ export async function queueCounts(): Promise<{
     feedback: feedback.length,
     courses,
     ops,
-    finance: finance.pendingCount,
+    finance: finance.pendingCounted, // 30 min to 24 h only; the stale (> 24 h) line lives on the Finance page
     employerVerification: employerVerification.length,
     jobReview: jobReview.length,
     mentorReview: mentorReview.length,
