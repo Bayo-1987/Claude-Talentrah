@@ -39,20 +39,8 @@ export const ALLOWLIST: Record<string, number> = {
   "@/lib/credits/spend :: tests/tailoring/commit-balance.test.ts": 1,
   "@/lib/credits/spend :: tests/talent-directory/verification-runner-flagged.test.ts": 1,
   "@/lib/farah/client :: tests/farah/chat-route-allowance-skip.test.ts": 1,
-  "@/lib/farah/client :: tests/farah/chat-route-charge-edges.test.ts": 1,
-  "@/lib/farah/client :: tests/farah/chat-route-data-block.test.ts": 1,
-  "@/lib/farah/client :: tests/farah/chat-route-done-balance.test.ts": 1,
   "@/lib/farah/client :: tests/farah/chat-route-failed-requests-charge-nothing.test.ts": 1,
-  "@/lib/farah/client :: tests/farah/chat-route-job-seed.test.ts": 1,
-  "@/lib/farah/client :: tests/farah/chat-route-length-stop.test.ts": 1,
-  "@/lib/farah/client :: tests/farah/chat-route-multiline.test.ts": 1,
-  "@/lib/farah/client :: tests/farah/chat-route-signal.test.ts": 1,
   "@/lib/farah/client :: tests/farah/chat-route-spend-ceiling.test.ts": 1,
-  "@/lib/farah/client :: tests/farah/free-claim-end-to-end.test.ts": 1,
-  "@/lib/farah/client :: tests/farah/free-claim-route.test.ts": 1,
-  "@/lib/farah/client :: tests/farah/next-free-message-end-to-end.test.ts": 1,
-  "@/lib/farah/client :: tests/farah/next-free-message-wiring.test.ts": 1,
-  "@/lib/farah/client :: tests/farah/rewrite-bullet.test.ts": 1,
   "@/lib/farah/session-events :: tests/farah/chat-route-charge-edges.test.ts": 1,
   "@/lib/farah/session-events :: tests/farah/chat-route-data-block.test.ts": 1,
   "@/lib/farah/session-events :: tests/farah/chat-route-done-balance.test.ts": 1,
@@ -121,7 +109,7 @@ export const ALLOWLIST: Record<string, number> = {
 };
 
 /** Must equal the sum of ALLOWLIST. Lower it with every conversion; raising it is a visible, reviewed act. */
-export const ALLOWLIST_CEILING = 113;
+export const ALLOWLIST_CEILING = 101;
 
 /** How many hand-written factories the scoped modules had when the ratchet was introduced. Never changes: the ceiling may not exceed it. */
 export const INITIAL_FACTORIES = 149;
