@@ -10,6 +10,7 @@ import { DEGREE_LEVEL_LABEL, FUNDING_TYPE_LABEL } from "@/lib/scholarships/types
 import { noteCounter } from "@/lib/scholarships/public-deadline-note";
 import { TextField, SelectField, Button, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { MinimalRichEditor } from "@/components/rich-text/minimal-rich-editor";
+import { TextArea } from "@/components/ui/text-area";
 
 /** The stored listing as the form's text values. */
 export interface EditInitial {
@@ -33,8 +34,6 @@ export interface EditInitial {
 }
 
 const FUNDING_OPTIONS = FUNDING_TYPE_VALUES.map((value) => ({ value, label: FUNDING_TYPE_LABEL[value] }));
-const AREA_CLASS =
-  "border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none placeholder:font-display placeholder:text-[14px] placeholder:italic placeholder:text-ink-soft focus:border-rust";
 
 /**
  * Edit a scholarship listing (owner, 8 Oct 2026): the add-by-hand form's fields, pre-filled. For a PUBLISHED listing the warning is shown BEFORE the operator saves.
@@ -125,12 +124,7 @@ export function EditScholarshipForm({ id, published, initial }: { id: string; pu
         <TextField label="Official source URL" name="officialUrl" type="url" defaultValue={initial.officialUrl} required error={state.fieldErrors?.officialUrl?.[0]} />
         <TextField label="Source name" name="sourceName" defaultValue={initial.sourceName} error={state.fieldErrors?.sourceName?.[0]} />
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="reviewNote" className="font-body text-[13px] font-semibold text-ink-soft">
-            Reviewer note (optional) — what you changed or checked
-          </label>
-          <textarea id="reviewNote" name="reviewNote" rows={3} defaultValue={initial.reviewNote} className={AREA_CLASS} />
-        </div>
+        <TextArea label="Reviewer note (optional) — what you changed or checked" id="reviewNote" name="reviewNote" defaultValue={initial.reviewNote} />
 
         <div className="flex flex-wrap items-center gap-4">
           <Button type="submit" disabled={pending}>
