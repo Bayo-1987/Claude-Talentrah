@@ -78,7 +78,8 @@ test.describe("employer job-list widget", () => {
 
     // Framed from another origin: a page served from a different http origin (an employer's own site; intercepted, so no network is needed) embeds the widget. (A bare about:blank parent is
     // not a network origin, so `frame-ancestors *` does not apply to it: not a realistic host.)
-    const outerOrigin = "http://employer-site.example";
+    // The host is a DIFFERENT loopback origin, not a public name: Chrome's Local Network Access check blocks a public page from framing localhost, which is a test-environment artefact (in production both are public).
+    const outerOrigin = "http://127.0.0.1:3999";
     const outsider = await browser.newPage();
     try {
       await outsider.route(`${outerOrigin}/**`, (route) =>
