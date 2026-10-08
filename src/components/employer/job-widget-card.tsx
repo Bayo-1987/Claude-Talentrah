@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { saveJobWidgetSettingsAction, type WidgetSettingsState } from "@/lib/employer/widget-actions";
 import { BorderedCard, Button, SelectField } from "@/components/ui";
+import { TextArea } from "@/components/ui/text-area";
 
 const COUNTS = Array.from({ length: 20 }, (_, i) => String(i + 1));
 
@@ -77,14 +78,17 @@ export function JobWidgetCard({
 
       <div className="mt-7 border-t border-line pt-5">
         <h3 className="font-body text-[13px] font-bold tracking-[0.08em] text-ink uppercase">Your code</h3>
-        <textarea
-          readOnly
-          rows={3}
-          value={snippet}
-          aria-label="Embed code for your website"
-          className="mt-2 w-full border-[1.5px] border-ink bg-card p-3 font-mono text-[12.5px] text-ink"
-          onFocus={(e) => e.currentTarget.select()}
-        />
+        <div className="mt-2">
+          <TextArea
+            label="Embed code for your website"
+            hideLabel
+            readOnly
+            mono
+            minRows={4}
+            value={snippet}
+            onFocus={(e) => e.currentTarget.select()}
+          />
+        </div>
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <Button type="button" variant="secondary" onClick={copy}>
             Copy code
