@@ -23,6 +23,9 @@ const askFarahChatStream = vi.fn();
 const readSpendNano = vi.fn();
 const addSpendNano = vi.fn();
 const markHalfwayWarned = vi.fn();
+const claimAlertAttempt = vi.fn();
+const markAlertSent = vi.fn();
+const sendSpendAlert = vi.fn();
 const inserted: Array<Record<string, unknown>> = [];
 
 function chainable(chainResult: Record<string, unknown>, singleResult?: Record<string, unknown>): unknown {
@@ -65,7 +68,8 @@ vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => f
 vi.mock("@/lib/farah/client", () => ({ askFarahChatStream }));
 vi.mock("@/lib/farah/session-events", () => ({ logFarahSessionMessage: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("@/lib/farah/chat-gate", async () => (await import("./support/route-mocks")).safeChatGate({ checkFarahChatAllowance, commitFarahChatAllowance }));
-vi.mock("@/lib/farah/spend-tally", () => ({ readSpendNano, addSpendNano, markHalfwayWarned }));
+vi.mock("@/lib/farah/spend-tally", () => ({ readSpendNano, addSpendNano, markHalfwayWarned, claimAlertAttempt, markAlertSent }));
+vi.mock("@/lib/farah/spend-alert", () => ({ sendSpendAlert }));
 const { POST } = await import("@/app/api/farah/chat/route");
 
 const ENV = "FARAH_DAILY_SPEND_CEILING_USD";
@@ -87,6 +91,7 @@ const ceilingNano = async () => {
   return Math.round(m.DEFAULT_DAILY_CEILING_USD * m.NANO_PER_USD);
 };
 const INTERNAL_ERROR_TEXT = "failed on internal-db-7 while reading the usage table";
+const parseEvents = (text: string) => text.split("\n").filter(Boolean).map((l) => JSON.parse(l)) as Array<{ type: string }>;
 const spendLines = (spy: { mock: { calls: unknown[][] } }) => spy.mock.calls.map((c) => String(c[0])).filter((l) => l.startsWith("[farah-spend"));
 let savedEnv: string | undefined;
 let warn: ReturnType<typeof vi.spyOn>;
@@ -105,6 +110,9 @@ beforeEach(() => {
   readSpendNano.mockReset().mockResolvedValue(0);
   addSpendNano.mockReset().mockResolvedValue(0);
   markHalfwayWarned.mockReset().mockResolvedValue(true);
+  claimAlertAttempt.mockReset().mockResolvedValue(false);
+  markAlertSent.mockReset().mockResolvedValue(true);
+  sendSpendAlert.mockReset().mockResolvedValue(true);
   warn = vi.spyOn(console, "warn").mockImplementation(() => {});
   errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -502,5 +510,84 @@ describe("the 50% warning is one content-free line per day", () => {
     markHalfwayWarned.mockResolvedValue(true);
     await (await POST(request())).text();
     expect(spendLines(warn)).toHaveLength(0);
+  });
+});
+
+describe("the operator is emailed at 80% of the ceiling and when it is reached, and a failed send is not lost", () => {
+  it("at 80%: the request is served as usual, the 80% alert is sent once with the figures, and only then recorded as sent", async () => {
+    const ceiling = await ceilingNano();
+    readSpendNano.mockResolvedValue(ceiling * 0.8);
+    claimAlertAttempt.mockResolvedValue(true);
+    const res = await POST(request());
+    const events = parseEvents(await res.text());
+    expect(events.some((e) => e.type === "done")).toBe(true);
+    expect(sendSpendAlert).toHaveBeenCalledTimes(1);
+    expect(sendSpendAlert).toHaveBeenCalledWith("eighty", ceiling * 0.8, ceiling);
+    expect(claimAlertAttempt).toHaveBeenCalledWith("eighty");
+    expect(markAlertSent).toHaveBeenCalledWith("eighty");
+    expect(sendSpendAlert.mock.invocationCallOrder[0]).toBeLessThan(markAlertSent.mock.invocationCallOrder[0]);
+  });
+
+  it("below 80%, or when no attempt is available (already sent today, used up, or one in flight): nothing is sent", async () => {
+    const ceiling = await ceilingNano();
+    readSpendNano.mockResolvedValue(ceiling * 0.8 - 1);
+    claimAlertAttempt.mockResolvedValue(true);
+    await (await POST(request())).text();
+    expect(claimAlertAttempt).not.toHaveBeenCalled();
+    readSpendNano.mockResolvedValue(ceiling * 0.9);
+    claimAlertAttempt.mockResolvedValue(false);
+    await (await POST(request())).text();
+    expect(sendSpendAlert).not.toHaveBeenCalled();
+    expect(markAlertSent).not.toHaveBeenCalled();
+  });
+
+  it("at the ceiling: still the resting answer (503, no model call), and the 'reached' alert is sent and recorded", async () => {
+    const ceiling = await ceilingNano();
+    readSpendNano.mockResolvedValue(ceiling);
+    claimAlertAttempt.mockResolvedValue(true);
+    const res = await POST(request());
+    expect(res.status).toBe(503);
+    expect(await res.json()).toMatchObject({ code: "farah_daily_ceiling" });
+    expect(askFarahChatStream).not.toHaveBeenCalled();
+    expect(sendSpendAlert).toHaveBeenCalledTimes(1);
+    expect(sendSpendAlert).toHaveBeenCalledWith("reached", ceiling, ceiling);
+    expect(markAlertSent).toHaveBeenCalledWith("reached");
+  });
+
+  it("a send that fails or throws changes neither answer and is NOT recorded as sent (the day's alert stays open for a later attempt)", async () => {
+    const ceiling = await ceilingNano();
+    claimAlertAttempt.mockResolvedValue(true);
+    sendSpendAlert.mockResolvedValue(false);
+    readSpendNano.mockResolvedValue(ceiling * 0.85);
+    const ok = await POST(request());
+    expect(parseEvents(await ok.text()).some((e) => e.type === "done")).toBe(true);
+    sendSpendAlert.mockRejectedValue(new Error("mail down"));
+    readSpendNano.mockResolvedValue(ceiling);
+    expect((await POST(request())).status).toBe(503);
+    expect(sendSpendAlert).toHaveBeenCalledTimes(2);
+    expect(markAlertSent).not.toHaveBeenCalled();
+    expect(spendLines(errorSpy).filter((l) => l.startsWith("[farah-spend:alert-not-sent]"))).toEqual([
+      "[farah-spend:alert-not-sent] level=eighty",
+      "[farah-spend:alert-not-sent] level=reached",
+    ]);
+  });
+
+  it("a counter that cannot be asked for an attempt changes neither answer and sends nothing", async () => {
+    const ceiling = await ceilingNano();
+    claimAlertAttempt.mockRejectedValue(Object.assign(new Error("boom"), { code: "42P01" }));
+    readSpendNano.mockResolvedValue(ceiling * 0.85);
+    expect(parseEvents(await (await POST(request())).text()).some((e) => e.type === "done")).toBe(true);
+    readSpendNano.mockResolvedValue(ceiling);
+    expect((await POST(request())).status).toBe(503);
+    expect(sendSpendAlert).not.toHaveBeenCalled();
+  });
+
+  it("the alert adds no log line of its own on the success path (each branch still writes exactly one content-free line)", async () => {
+    const ceiling = await ceilingNano();
+    readSpendNano.mockResolvedValue(ceiling * 0.85);
+    claimAlertAttempt.mockResolvedValue(true);
+    await (await POST(request())).text();
+    expect(spendLines(warn).filter((l) => /alert|eighty|80/i.test(l))).toHaveLength(0);
+    expect(spendLines(errorSpy).filter((l) => /alert/i.test(l))).toHaveLength(0);
   });
 });

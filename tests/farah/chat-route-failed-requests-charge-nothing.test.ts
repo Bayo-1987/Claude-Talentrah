@@ -89,6 +89,9 @@ vi.mock("@/lib/farah/spend-tally", () => ({
   },
   addSpendNano: async (n: number) => (spentNano += n),
   markHalfwayWarned: async () => false,
+  // the alert attempt functions (0235); never reached in this file, but the ceiling's alert path asks for them whenever the spend crosses a level
+  claimAlertAttempt: async () => false,
+  markAlertSent: async () => false,
 }));
 
 const { POST } = await import("@/app/api/farah/chat/route");
