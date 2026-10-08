@@ -94,6 +94,8 @@ describe("admin New listing form (scholarships)", () => {
   it("the Deadline note counter follows the returned note instead of dropping to 0", () => {
     expect(form).toContain('setNoteLength((state.values?.deadlineNote ?? "").trim().length)');
     expect(form).not.toContain("setNoteLength(0)");
+  });
+});
 
 describe("settings form (profile)", () => {
   const actions = read("src/lib/profile/settings-actions.ts");
