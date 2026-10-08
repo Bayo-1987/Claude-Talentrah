@@ -105,7 +105,7 @@ export function MarketingMasthead() {
         page always renders.
       */}
       <div className="mx-auto flex h-[78px] max-w-[1120px] items-center justify-between px-10 max-sm:px-5">
-        <Link href="/" className="flex min-h-11 flex-shrink-0 items-center no-underline">
+        <Link href="/" prefetch={false} className="flex min-h-11 flex-shrink-0 items-center no-underline">
           {/* eslint-disable-next-line @next/next/no-img-element -- static brand SVG, next/image's optimizer needs SVG allow-listing for no real benefit here */}
           <img
             src="/talentrah-horizontal.svg"

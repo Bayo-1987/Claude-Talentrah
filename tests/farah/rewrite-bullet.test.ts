@@ -8,7 +8,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const askFarah = vi.fn();
-vi.mock("@/lib/farah/client", () => ({ askFarah: (...args: unknown[]) => askFarah(...args) }));
+vi.mock("@/lib/farah/client", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/farah/client")>()), askFarah: (...args: unknown[]) => askFarah(...args) }));
 
 const { rewriteBullet } = await import("@/lib/farah/rewrite-bullet");
 

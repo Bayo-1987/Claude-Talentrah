@@ -9,7 +9,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       </div>
       <div className="flex flex-col">
         <header className="flex items-center justify-between border-b border-line px-6 py-5 md:hidden">
-          <Link href="/" className="flex items-center no-underline">
+          <Link href="/" prefetch={false} className="flex items-center no-underline">
             {/* eslint-disable-next-line @next/next/no-img-element -- static brand SVG, next/image's optimizer needs SVG allow-listing for no real benefit here */}
             <img
               src="/talentrah-horizontal.svg"

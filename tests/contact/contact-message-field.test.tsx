@@ -14,7 +14,7 @@ import { CONTACT_HONEYPOT_FIELD, contactSchema } from "@/lib/contact/schemas";
 const send = vi.fn<(payload: unknown) => Promise<{ data: { id: string }; error: null }>>(async () => ({ data: { id: "mock" }, error: null }));
 const consume = vi.fn<(ip: string) => Promise<{ allowed: boolean }>>(async () => ({ allowed: true }));
 
-vi.mock("@/lib/resend/client", () => ({
+vi.mock("@/lib/resend/client", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/resend/client")>()),
   getResendClient: () => ({ emails: { send } }),
   getContactRecipient: () => "support@talentrah.test",
 }));

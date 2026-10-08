@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
+import { readHasSession } from "@/lib/supabase/read-has-session";
 import { buttonClasses } from "@/lib/button-classes";
 
 /**
@@ -45,10 +45,13 @@ export function MarketingStickyCta() {
 
   useEffect(() => {
     let cancelled = false;
-    const supabase = createClient();
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!cancelled) setVisible(!session);
-    });
+    readHasSession()
+      .then((hasSession) => {
+        if (!cancelled) setVisible(!hasSession);
+      })
+      .catch(() => {
+        // The client could not load or be built: stay hidden (visible === null), the same as while the answer is pending.
+      });
     return () => {
       cancelled = true;
     };

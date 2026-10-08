@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { FarahMark } from "@/components/ui/farah-mark";
 import { dismissFarahHintAction } from "@/lib/profile/settings-actions";
 import { scrollToFarahPanel } from "@/lib/farah/scroll-to-panel";
@@ -72,10 +72,36 @@ export function FarahFirstVisitHint() {
     });
   }
 
+  /*
+   * From 760px up the card sits under the masthead, and "under the masthead" is a moving position: the cookie banner is IN the page flow above the sticky masthead,
+   * so while it is showing (every fresh profile) the masthead's bottom is about 145px, and once it scrolls away or is answered, about 70px. A constant 84px left the
+   * card's first ~61px hidden behind the masthead (QA run 8). So the top is the masthead's MEASURED bottom plus a gap, never above the old 84px, kept in step with
+   * scrolling and resizing. Written straight to the element: no state, no re-render per scroll event. Below 760px the card is anchored to the bottom bar and the inline
+   * top is cleared. The class's own 84px still places the first server-rendered paint.
+   */
+  const cardRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const wide = window.matchMedia("(min-width: 760px)");
+    function place() {
+      const card = cardRef.current;
+      if (!card) return;
+      const masthead = document.querySelector<HTMLElement>('[data-testid="masthead"]');
+      card.style.top = wide.matches && masthead ? `${Math.max(84, Math.ceil(masthead.getBoundingClientRect().bottom) + 14)}px` : "";
+    }
+    place();
+    window.addEventListener("scroll", place, { passive: true });
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place);
+      window.removeEventListener("resize", place);
+    };
+  }, [gone]);
+
   if (gone) return null;
 
   return (
     <div
+      ref={cardRef}
       data-testid="farah-first-visit-hint"
       /*
        * role="status" rather than a dialog. It is not modal, it traps nothing,

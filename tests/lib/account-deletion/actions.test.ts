@@ -50,7 +50,7 @@ vi.mock("@/lib/supabase/server", () => ({
 vi.mock("@/lib/supabase/service-role", () => ({
   createServiceRoleClient: () => ({ rpc: h.serviceRpc, auth: { admin: { updateUserById: h.updateUser } } }),
 }));
-vi.mock("@/lib/resend/client", () => ({ sendDeletionLifecycleEmail: h.lifecycle }));
+vi.mock("@/lib/resend/client", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/resend/client")>()), sendDeletionLifecycleEmail: h.lifecycle }));
 vi.mock("@/lib/paystack/client", () => ({
   deactivateAuthorization: h.deactivate,
   PaystackDeclineError: class extends Error {

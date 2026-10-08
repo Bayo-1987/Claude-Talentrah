@@ -45,7 +45,7 @@ export function ConfirmDeletionPanel({
         <p className="font-body text-[14px] text-ink-soft">
           If you change your mind, sign in before then and choose to restore it. We&rsquo;ve emailed you the same details.
         </p>
-        <Link href="/" className="font-body text-[14px] text-rust underline">
+        <Link href="/" prefetch={false} className="font-body text-[14px] text-rust underline">
           Back to the home page
         </Link>
       </div>
