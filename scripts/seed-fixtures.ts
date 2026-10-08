@@ -100,6 +100,9 @@ export function buildFixtureJobRows(now: Date): JobInsert[] {
 
 const FAR_FUTURE_DAYS = 365;
 
+/** The latest date a closed fixture row may carry: the day before this fixture set was written (7 Oct 2026). */
+const FIXTURE_CLOSED_DATE = "2026-10-06";
+
 /**
  * Catalog rows whose committed deadline was already past when this fixture set was written (checked 7 Oct 2026). They stay closed in fixture mode,
  * whatever day CI runs: which rows count as open must not depend on the calendar. Every other dated row is made relative.
@@ -118,6 +121,7 @@ export const ALWAYS_CLOSED_PROGRAMS: ReadonlySet<string> = new Set([
  */
 export function relativeDeadline(current: string | null, now: Date, programName: string): string | null {
   if (!current) return null;
-  if (ALWAYS_CLOSED_PROGRAMS.has(programName)) return current;
+  // A closed program keeps its past date, but never a later one: the committed catalog's Chevening date is 20 Oct 2026 (it still closes then for some countries), and the fixture row must be CLOSED on any run date.
+  if (ALWAYS_CLOSED_PROGRAMS.has(programName)) return current < FIXTURE_CLOSED_DATE ? current : FIXTURE_CLOSED_DATE;
   return new Date(now.getTime() + FAR_FUTURE_DAYS * DAY_MS).toISOString().slice(0, 10);
 }

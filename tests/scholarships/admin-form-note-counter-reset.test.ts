@@ -15,8 +15,8 @@ describe("the Deadline note counter after a save", () => {
     expect(block.length).toBeGreaterThan(20);
     expect(block).toContain("setEditorGeneration(");
   });
-  it("resets the counter to 0 in that block (no effect needed)", () => {
-    expect(block).toContain("setNoteLength(0)");
+  it("re-seeds the counter in that block from the field's new content (no effect needed): the returned note after an error, 0 after a save (a save returns no values)", () => {
+    expect(block).toContain('setNoteLength((state.values?.deadlineNote ?? "").trim().length)');
     expect(source).not.toMatch(/useEffect/);
   });
   it("the counter state is declared BEFORE the block that resets it", () => {

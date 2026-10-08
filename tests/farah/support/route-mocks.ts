@@ -11,6 +11,8 @@ export function safeSpendTally(opts: { spentNano?: number } = {}) {
     readSpendNano: async () => spent,
     addSpendNano: async (nano: number) => (spent += nano),
     markHalfwayWarned: async () => false,
+    claimAlertAttempt: async () => false,
+    markAlertSent: async () => false,
   };
 }
 
