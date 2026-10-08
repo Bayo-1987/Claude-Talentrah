@@ -411,18 +411,23 @@ jobs:
 
       - name: Install Playwright browsers
         # Normally about 22 seconds, but the download both hangs (a shard sat 23 minutes in it on 7 Oct) and is refused (cdn.playwright.dev 403, twice,
-        # 0.4 s, on #820). So: each attempt is cut off after 120 s, up to three attempts with a short sleep between them, and a third failure fails
+        # 0.4 s, on #820). So: each attempt is cut off after 300 s, up to three attempts with a short sleep between them, and a third failure fails
         # the step loudly. Plain shell, no third-party action; tests/ci/ci-timeouts.test.ts runs this script against a fake npx.
         #
         # What the first version of this retry missed (8 Oct, #831): `timeout` ends `npx`, but Playwright runs apt-get as root through a child, and that
         # child outlives the kill and keeps the apt lock. Attempts 2 and 3 then died in about 10 s each on "Could not get lock /var/lib/apt/lists/lock",
         # so a stalled apt-get update could never be retried. So after a failed attempt that a retry follows, any leftover apt-get or dpkg is stopped
         # (by name, TERM first), and the next attempt waits, at most 10 x 2 s, until none is left (then -9). Lock files are never deleted.
-        # Worst case: 3 x 120 s + 2 x 20 s of waiting + 5 s + 10 s of sleeping = 415 s, under the 8 minute step limit.
-        timeout-minutes: 8
+        #
+        # What the lock fix then showed (8 Oct, #844): on a slow day the Azure Ubuntu mirror serves the packages at a few MB a minute, so 3 attempts of
+        # 120 s each all ended mid-download, every one a little further on than the last (the packages already fetched stay in apt's cache), and none
+        # finished. A longer cut-off lets an attempt on a slow mirror complete; a hung one is still cut off, and the cleanup above still runs between
+        # attempts. So each attempt is cut off after 300 s. Worst case: 3 x 300 s + 2 x 20 s of waiting + 5 s + 10 s of sleeping = 955 s, under the
+        # 18 minute (1,080 s) step limit; with a shard's other steps (about 9 min) that is under the 30 minute job limit.
+        timeout-minutes: 18
         run: |
           for attempt in 1 2 3; do
-            if timeout 120 npx playwright install --with-deps chromium; then
+            if timeout 300 npx playwright install --with-deps chromium; then
               echo "playwright browsers installed on attempt ${attempt}"
               exit 0
             fi
