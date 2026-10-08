@@ -11,7 +11,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getOptionalUser = vi.fn();
-vi.mock("@/lib/auth/require-user", () => ({
+vi.mock("@/lib/auth/require-user", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/auth/require-user")>()),
   getOptionalUser: () => getOptionalUser(),
   requireUser: vi.fn(),
 }));

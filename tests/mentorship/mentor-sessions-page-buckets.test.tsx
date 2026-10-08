@@ -8,7 +8,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 
-vi.mock("@/lib/auth/require-user", () => ({ requireUser: async () => ({ user: { id: "mentor-1" } }) }));
+vi.mock("@/lib/auth/require-user", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/auth/require-user")>()), requireUser: async () => ({ user: { id: "mentor-1" } }) }));
 vi.mock("@/lib/mentorship/actions", () => ({ confirmMentorSessionAction: async () => {} }));
 
 const sessions = vi.hoisted(() => ({ rows: [] as unknown[] }));
