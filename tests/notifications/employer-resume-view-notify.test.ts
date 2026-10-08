@@ -37,7 +37,8 @@ for (const key of ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as c
 const sentEmails = vi.hoisted(() => [] as Array<{ to: string; subject: string }>);
 const resendConfigured = vi.hoisted(() => ({ value: true }));
 
-vi.mock("@/lib/resend/client", () => ({
+vi.mock("@/lib/resend/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/resend/client")>()),
   getResendClient: () =>
     resendConfigured.value
       ? {

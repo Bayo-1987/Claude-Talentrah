@@ -32,7 +32,8 @@ vi.mock("next/navigation", () => ({
     throw new Redirect(url);
   },
 }));
-vi.mock("@/lib/resend/client", () => ({ getResendClient: () => ({ emails: { send: world.send } }) }));
+vi.mock("@/lib/resend/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/resend/client")>()), getResendClient: () => ({ emails: { send: world.send } }) }));
 vi.mock("@/lib/api/rate-limit", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api/rate-limit")>("@/lib/api/rate-limit");
   return { ...actual, consumeRateLimit: async () => ({ allowed: true, used: 1, resetsAt: null }) };

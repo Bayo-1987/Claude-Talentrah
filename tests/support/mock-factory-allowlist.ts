@@ -79,26 +79,10 @@ export const ALLOWLIST: Record<string, number> = {
   "@/lib/passes/entitlement :: tests/farah/next-free-message.test.ts": 1,
   "@/lib/passes/entitlement :: tests/resume-builder/rewrite-bullet-balance.test.ts": 1,
   "@/lib/passes/entitlement :: tests/tailoring/commit-balance.test.ts": 1,
-  "@/lib/resend/client :: tests/billing/fulfill-amount-currency-guard.test.ts": 1,
-  "@/lib/resend/client :: tests/billing/fulfill-atomic-concurrency.test.ts": 1,
-  "@/lib/resend/client :: tests/billing/fulfill-posthog-instrumentation.test.ts": 1,
-  "@/lib/resend/client :: tests/billing/purchase-receipt.test.ts": 1,
-  "@/lib/resend/client :: tests/billing/renewal-failure-modes.test.ts": 1,
-  "@/lib/resend/client :: tests/billing/resend-receipt-rls.test.ts": 1,
-  "@/lib/resend/client :: tests/contact/contact-actions-wiring.test.ts": 1,
-  "@/lib/resend/client :: tests/mentorship/application-decision-notifications.test.ts": 1,
-  "@/lib/resend/client :: tests/mentorship/confirmation-notifications.test.ts": 1,
-  "@/lib/resend/client :: tests/mentorship/late-payment-fulfilment.test.ts": 1,
-  "@/lib/resend/client :: tests/mentorship/payment-idempotency.test.ts": 1,
-  "@/lib/resend/client :: tests/mentorship/session-reminders.test.ts": 1,
-  "@/lib/resend/client :: tests/notifications/employer-resume-view-notify.test.ts": 1,
-  "@/lib/resend/client :: tests/notifications/referral-reward-run.test.ts": 1,
-  "@/lib/resend/client :: tests/notifications/referral-reward-send.test.ts": 1,
-  "@/lib/resend/client :: tests/talent-directory/subscription-idempotency.test.ts": 1,
 };
 
 /** Must equal the sum of ALLOWLIST. Lower it with every conversion; raising it is a visible, reviewed act. */
-export const ALLOWLIST_CEILING = 90;
+export const ALLOWLIST_CEILING = 74;
 
 /** How many hand-written factories the scoped modules had when the ratchet was introduced. Never changes: the ceiling may not exceed it. */
 export const INITIAL_FACTORIES = 149;
