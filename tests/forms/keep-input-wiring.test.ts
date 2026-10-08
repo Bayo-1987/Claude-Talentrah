@@ -97,6 +97,17 @@ describe("admin New listing form (scholarships)", () => {
   });
 });
 
+describe("job posting form (selects)", () => {
+  const form = read("src/components/employer/job-posting-form.tsx");
+  it("the controlled Work type, Employment type and Seniority selects (and the one after them) are remounted each time the action settles, so the post-action form reset cannot leave them on their placeholder", () => {
+    expect(form).toContain("const [settled, setSettled] = useState(0);");
+    expect(form).toContain("setSettled(settled + 1)");
+    for (const name of ["workType", "employmentType", "seniority"]) {
+      expect(form, name).toMatch(new RegExp(`<ChoiceField key=\\{\`${name}-\\$\\{settled\\}\`\\} label="[^"]+" name="${name}"`));
+    }
+  });
+});
+
 describe("settings form (profile)", () => {
   const actions = read("src/lib/profile/settings-actions.ts");
   const form = read("src/app/(app)/settings/settings-form.tsx");
