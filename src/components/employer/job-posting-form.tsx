@@ -191,7 +191,7 @@ function formatExpiry(days: number): string {
   return formatDate(d);
 }
 
-function ExpiryField({ current, defaultDays }: { current: string | null; defaultDays?: number }) {
+function ExpiryField({ current, defaultDays, settled }: { current: string | null; defaultDays?: number; settled: number }) {
   // "keep" only exists while editing a posting that already has an expiry —
   // remapping a stored date onto the nearest preset would silently move it.
   // `defaultDays` is set by the create form only, so an existing posting with
@@ -209,6 +209,7 @@ function ExpiryField({ current, defaultDays }: { current: string | null; default
         Closes
       </label>
       <select
+        key={`expiresIn-${settled}`}
         id="expiresIn"
         name="expiresIn"
         value={choice}
@@ -763,7 +764,7 @@ export function JobPostingForm({
               value={seniority ?? ""}
               onChange={setSeniority}
             />
-            <ExpiryField current={initial?.expiresAt ?? null} defaultDays={defaultExpiryDays} />
+            <ExpiryField current={initial?.expiresAt ?? null} defaultDays={defaultExpiryDays} settled={settled} />
             <TextField
               label="Minimum years of experience"
               name="yearsExperienceMin"
