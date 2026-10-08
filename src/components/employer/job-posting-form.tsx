@@ -464,14 +464,10 @@ export function JobPostingForm({
 }) {
   const [state, formAction, pending] = useActionState<EmployerActionState, FormData>(action, null);
   const error = state && "error" in state ? state.error : null;
-  // React 19 resets the <form> when the action finishes, which puts a CONTROLLED <select> back on its first option while its state still holds the chosen one. Remounting the selects each time
-  // the action settles re-applies the state (text inputs are re-asserted by React on their own). Adjusted during render, not in an effect.
-  const [seenState, setSeenState] = useState(state);
+  // React 19 resets the <form> when the action finishes, which puts a CONTROLLED <select> back on its first option while its state still holds the chosen one. The selects are remounted
+  // FROM THE FORM'S OWN reset event, so the remount always lands after the reset: remounting on the render where the action's state changes lost the value whenever React committed that render
+  // together with (or before) the reset (measured in a browser: 25 of 25 lost). The controlled state never changes, so the remounted selects show the choice.
   const [settled, setSettled] = useState(0);
-  if (state !== seenState) {
-    setSeenState(state);
-    setSettled(settled + 1);
-  }
   // send-457 — on a page this long (title down through description,
   // screening questions, assessment), a rejected save renders this banner
   // above the whole form while the person is still scrolled down at the
@@ -647,6 +643,7 @@ export function JobPostingForm({
       <BorderedCard className="p-6">
         <form
           action={formAction}
+          onReset={() => setSettled((n) => n + 1)}
           className="flex flex-col gap-5"
           /*
            * send-445 — a plain single-line <input> inside a <form> with one
