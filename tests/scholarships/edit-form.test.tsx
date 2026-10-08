@@ -2,6 +2,8 @@
  * The edit-a-listing form (src/app/admin/(protected)/scholarships/[id]/edit/edit-scholarship-form.tsx), rendered to static markup: pre-filled with every stored field, "Save changes"
  * as its button, and for a PUBLISHED listing the owner's warning shown BEFORE saving (a pending listing shows none).
  */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
@@ -61,15 +63,15 @@ describe("EditScholarshipForm", () => {
     expect(pending).not.toContain("take this off the site");
   });
 
-  it("posts nothing to a server action by form `action` (it submits through its own handler so a refused save keeps what was typed)", () => {
-    expect(pending).not.toMatch(/<form[^>]*action=/);
+  it("submits through the form action (the keep-input helper hands the typed values back on an error, so no private submit handler is needed)", () => {
+    const source = readFileSync(join(__dirname, "../../src/app/admin/(protected)/scholarships/[id]/edit/edit-scholarship-form.tsx"), "utf8");
+    expect(source).toContain("<form action={formAction}");
+    expect(source).not.toContain("onSubmit");
   });
 });
 
 describe("the form is a client component and must stay free of server-only code", () => {
   it("imports only the client-safe constants module (not admin-edit, which pulls in the ingest writer and the service-role client)", async () => {
-    const { readFileSync } = await import("node:fs");
-    const { join } = await import("node:path");
     const source = readFileSync(join(__dirname, "../../src/app/admin/(protected)/scholarships/[id]/edit/edit-scholarship-form.tsx"), "utf8");
     expect(source).not.toMatch(/from "@\/lib\/scholarships\/admin-edit"/);
     expect(source).toMatch(/from "@\/lib\/scholarships\/admin-edit-constants"/);

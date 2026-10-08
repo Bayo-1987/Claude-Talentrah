@@ -1,9 +1,10 @@
 "use client";
 
-import { startTransition, useActionState, useState, type FormEvent } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { updateScholarshipAction } from "@/lib/scholarships/admin-edit-action";
 import { initialEditScholarshipState } from "@/lib/scholarships/admin-edit-state";
+import { inputList, inputValue, selectKey } from "@/lib/forms/keep-input";
 import { PUBLISHED_EDIT_WARNING } from "@/lib/scholarships/admin-edit-constants";
 import { DEGREE_LEVEL_VALUES, FUNDING_TYPE_VALUES } from "@/lib/scholarships/schemas";
 import { DEGREE_LEVEL_LABEL, FUNDING_TYPE_LABEL } from "@/lib/scholarships/types";
@@ -38,23 +39,22 @@ const FUNDING_OPTIONS = FUNDING_TYPE_VALUES.map((value) => ({ value, label: FUND
 /**
  * Edit a scholarship listing (owner, 8 Oct 2026): the add-by-hand form's fields, pre-filled. For a PUBLISHED listing the warning is shown BEFORE the operator saves.
  *
- * It submits through its own handler, not the form `action` prop: React 19 resets an uncontrolled form after an action settles, which would throw away what the operator typed
- * when a save is refused (a deadline note with no verified deadline, a bad date). Calling the action from `onSubmit` leaves the fields as they were.
+ * An error keeps what was typed through the shared helper (src/lib/forms/keep-input.ts): the action hands the submitted values back with every error and each field uses them as its default,
+ * falling back to the stored value. A save redirects, so there is no state to carry over.
  */
 export function EditScholarshipForm({ id, published, initial }: { id: string; published: boolean; initial: EditInitial }) {
   const [state, formAction, pending] = useActionState(updateScholarshipAction.bind(null, id), initialEditScholarshipState);
   const [noteLength, setNoteLength] = useState(initial.deadlineNote.trim().length);
-  const counter = noteCounter(noteLength);
-
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const data = new FormData(event.currentTarget);
-    startTransition(() => formAction(data));
+  const [seenState, setSeenState] = useState(state);
+  if (state !== seenState) {
+    setSeenState(state);
+    setNoteLength((state.values?.deadlineNote ?? initial.deadlineNote).trim().length); // the form was reset: the counter follows the field
   }
+  const counter = noteCounter(noteLength);
 
   return (
     <BorderedCard className="max-w-[720px] p-6">
-      <form onSubmit={onSubmit} className="flex flex-col gap-5">
+      <form action={formAction} className="flex flex-col gap-5">
         <EyebrowLabel>Edit listing</EyebrowLabel>
 
         {published && (
@@ -68,16 +68,16 @@ export function EditScholarshipForm({ id, published, initial }: { id: string; pu
           </p>
         )}
 
-        <TextField label="Provider" name="provider" defaultValue={initial.provider} required error={state.fieldErrors?.provider?.[0]} />
-        <TextField label="Programme name" name="programName" defaultValue={initial.programName} required error={state.fieldErrors?.programName?.[0]} />
-        <TextField label="Host institution (optional)" name="hostInstitution" defaultValue={initial.hostInstitution} error={state.fieldErrors?.hostInstitution?.[0]} />
+        <TextField label="Provider" name="provider" defaultValue={inputValue(state.values, "provider", initial.provider)} required error={state.fieldErrors?.provider?.[0]} />
+        <TextField label="Programme name" name="programName" defaultValue={inputValue(state.values, "programName", initial.programName)} required error={state.fieldErrors?.programName?.[0]} />
+        <TextField label="Host institution (optional)" name="hostInstitution" defaultValue={inputValue(state.values, "hostInstitution", initial.hostInstitution)} error={state.fieldErrors?.hostInstitution?.[0]} />
 
         <fieldset className="flex flex-col gap-2">
           <legend className="font-body text-[13px] font-semibold text-ink-soft">Degree levels</legend>
           <div className="flex flex-wrap gap-x-5 gap-y-2">
             {DEGREE_LEVEL_VALUES.map((value) => (
               <label key={value} className="inline-flex min-h-10 items-center gap-2 font-body text-[14px] text-ink">
-                <input type="checkbox" name="degreeLevels" value={value} defaultChecked={initial.degreeLevels.includes(value)} className="h-4 w-4 accent-[oklch(52%_0.14_40)]" />
+                <input type="checkbox" name="degreeLevels" value={value} defaultChecked={(state.values ? inputList(state.values, "degreeLevels") : initial.degreeLevels).includes(value)} className="h-4 w-4 accent-[oklch(52%_0.14_40)]" />
                 {DEGREE_LEVEL_LABEL[value]}
               </label>
             ))}
@@ -85,34 +85,34 @@ export function EditScholarshipForm({ id, published, initial }: { id: string; pu
           {state.fieldErrors?.degreeLevels?.[0] && <p className="text-[12.5px] text-rust">{state.fieldErrors.degreeLevels[0]}</p>}
         </fieldset>
 
-        <SelectField label="Funding" name="fundingType" options={FUNDING_OPTIONS} defaultValue={initial.fundingType} required error={state.fieldErrors?.fundingType?.[0]} />
-        <TextField label="What it covers (comma-separated)" name="fundingCovers" defaultValue={initial.fundingCovers} error={state.fieldErrors?.fundingCovers?.[0]} />
-        <TextField label="Field tags (comma-separated)" name="fieldTags" defaultValue={initial.fieldTags} error={state.fieldErrors?.fieldTags?.[0]} />
-        <TextField label="Eligible nationalities (comma-separated)" name="eligibilityNationalities" defaultValue={initial.eligibilityNationalities} error={state.fieldErrors?.eligibilityNationalities?.[0]} />
-        <TextField label="Prior degree required (optional)" name="eligibilityPriorDegree" defaultValue={initial.eligibilityPriorDegree} error={state.fieldErrors?.eligibilityPriorDegree?.[0]} />
-        <TextField label="Age requirement (optional)" name="eligibilityAge" defaultValue={initial.eligibilityAge} error={state.fieldErrors?.eligibilityAge?.[0]} />
+        <SelectField key={selectKey(state.values, "fundingType")} label="Funding" name="fundingType" options={FUNDING_OPTIONS} defaultValue={inputValue(state.values, "fundingType", initial.fundingType)} required error={state.fieldErrors?.fundingType?.[0]} />
+        <TextField label="What it covers (comma-separated)" name="fundingCovers" defaultValue={inputValue(state.values, "fundingCovers", initial.fundingCovers)} error={state.fieldErrors?.fundingCovers?.[0]} />
+        <TextField label="Field tags (comma-separated)" name="fieldTags" defaultValue={inputValue(state.values, "fieldTags", initial.fieldTags)} error={state.fieldErrors?.fieldTags?.[0]} />
+        <TextField label="Eligible nationalities (comma-separated)" name="eligibilityNationalities" defaultValue={inputValue(state.values, "eligibilityNationalities", initial.eligibilityNationalities)} error={state.fieldErrors?.eligibilityNationalities?.[0]} />
+        <TextField label="Prior degree required (optional)" name="eligibilityPriorDegree" defaultValue={inputValue(state.values, "eligibilityPriorDegree", initial.eligibilityPriorDegree)} error={state.fieldErrors?.eligibilityPriorDegree?.[0]} />
+        <TextField label="Age requirement (optional)" name="eligibilityAge" defaultValue={inputValue(state.values, "eligibilityAge", initial.eligibilityAge)} error={state.fieldErrors?.eligibilityAge?.[0]} />
 
         <MinimalRichEditor
           id="eligibilityOther"
           name="eligibilityOther"
           label="Other eligibility notes (optional)"
-          defaultValue={initial.eligibilityOther}
+          defaultValue={inputValue(state.values, "eligibilityOther", initial.eligibilityOther)}
           minHeightClassName="min-h-[76px]"
         />
 
         <div className="flex flex-wrap gap-4">
           <div className="min-w-[200px] flex-1">
-            <TextField label="Deadline (YYYY-MM-DD, optional)" name="applicationDeadline" defaultValue={initial.applicationDeadline} placeholder="2026-03-31" error={state.fieldErrors?.applicationDeadline?.[0]} />
+            <TextField label="Deadline (YYYY-MM-DD, optional)" name="applicationDeadline" defaultValue={inputValue(state.values, "applicationDeadline", initial.applicationDeadline)} placeholder="2026-03-31" error={state.fieldErrors?.applicationDeadline?.[0]} />
           </div>
           <div className="min-w-[140px] flex-1">
-            <TextField label="Cycle year (optional)" name="cycleYear" defaultValue={initial.cycleYear} placeholder="2026" error={state.fieldErrors?.cycleYear?.[0]} />
+            <TextField label="Cycle year (optional)" name="cycleYear" defaultValue={inputValue(state.values, "cycleYear", initial.cycleYear)} placeholder="2026" error={state.fieldErrors?.cycleYear?.[0]} />
           </div>
         </div>
 
         <TextField
           label="Deadline note — shown when there's no single date"
           name="deadlineNote"
-          defaultValue={initial.deadlineNote}
+          defaultValue={inputValue(state.values, "deadlineNote", initial.deadlineNote)}
           placeholder="Varies by partner institution"
           onChange={(e) => setNoteLength(e.target.value.trim().length)}
           error={state.fieldErrors?.deadlineNote?.[0]}
@@ -121,10 +121,10 @@ export function EditScholarshipForm({ id, published, initial }: { id: string; pu
           {counter.text}
         </p>
 
-        <TextField label="Official source URL" name="officialUrl" type="url" defaultValue={initial.officialUrl} required error={state.fieldErrors?.officialUrl?.[0]} />
-        <TextField label="Source name" name="sourceName" defaultValue={initial.sourceName} error={state.fieldErrors?.sourceName?.[0]} />
+        <TextField label="Official source URL" name="officialUrl" type="url" defaultValue={inputValue(state.values, "officialUrl", initial.officialUrl)} required error={state.fieldErrors?.officialUrl?.[0]} />
+        <TextField label="Source name" name="sourceName" defaultValue={inputValue(state.values, "sourceName", initial.sourceName)} error={state.fieldErrors?.sourceName?.[0]} />
 
-        <TextArea label="Reviewer note (optional) — what you changed or checked" id="reviewNote" name="reviewNote" defaultValue={initial.reviewNote} />
+        <TextArea label="Reviewer note (optional) — what you changed or checked" id="reviewNote" name="reviewNote" defaultValue={inputValue(state.values, "reviewNote", initial.reviewNote)} />
 
         <div className="flex flex-wrap items-center gap-4">
           <Button type="submit" disabled={pending}>
