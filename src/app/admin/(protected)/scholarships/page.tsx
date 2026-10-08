@@ -1,6 +1,6 @@
 import { requirePermission } from "@/lib/admin/require-admin";
 import Link from "next/link";
-import { pendingScholarships, publishedScholarships } from "@/lib/admin/moderation/queues";
+import { pendingScholarships } from "@/lib/admin/moderation/queues";
 import { decideScholarshipAction } from "@/lib/admin/moderation/actions";
 import { DecisionForm } from "@/components/admin/decision-form";
 import { Container, EyebrowLabel, BorderedCard, buttonClasses } from "@/components/ui";
@@ -27,7 +27,7 @@ export const metadata = {
  */
 export default async function ScholarshipQueuePage() {
   const admin = await requirePermission("scholarships");
-  const [queue, published] = await Promise.all([pendingScholarships(), publishedScholarships()]);
+  const queue = await pendingScholarships();
 
   return (
     <Container className="flex max-w-[900px] flex-col gap-8 py-12">
@@ -39,6 +39,14 @@ export default async function ScholarshipQueuePage() {
         newHref="/admin/scholarships/new"
         newLabel="Add one by hand"
       />
+
+      <p className="text-[14px] text-ink-soft">
+        To change a listing that is already live, open{" "}
+        <Link href="/admin/scholarships/published" className="font-semibold text-rust underline underline-offset-2">
+          Published listings
+        </Link>
+        .
+      </p>
 
       {queue.length === 0 ? (
         <QueueEmpty>Nothing pending. Newly ingested listings land here.</QueueEmpty>
@@ -93,36 +101,6 @@ export default async function ScholarshipQueuePage() {
         </ul>
       )}
 
-      {/*
-        Published listings (owner row, 8 Oct 2026): each can be edited from here. Saving an edit that changes a published listing takes it off the site until it is
-        re-approved, and the edit page says so BEFORE the operator saves.
-      */}
-      <section className="flex flex-col gap-4" aria-labelledby="published-heading">
-        <EyebrowLabel>Published listings</EyebrowLabel>
-        <h2 id="published-heading" className="font-display text-[22px] font-semibold leading-snug">
-          Live in the public catalog.
-        </h2>
-        {published.length === 0 ? (
-          <QueueEmpty>Nothing published yet.</QueueEmpty>
-        ) : (
-          <ul className="flex list-none flex-col gap-3 p-0">
-            {published.map((s) => (
-              <li key={s.id}>
-                <BorderedCard className="flex flex-wrap items-center justify-between gap-3 p-4">
-                  <div className="flex min-w-0 flex-col gap-0.5">
-                    <EyebrowLabel>{s.provider}</EyebrowLabel>
-                    <h3 className="font-display text-[17px] font-semibold leading-snug">{s.programName}</h3>
-                    <p className="text-[13px] text-ink-soft">Deadline {s.deadline ? formatDate(s.deadline) : "not stated"}</p>
-                  </div>
-                  <Link href={`/admin/scholarships/${s.id}/edit`} className={buttonClasses("secondary", "sm")}>
-                    Edit
-                  </Link>
-                </BorderedCard>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
     </Container>
   );
 }

@@ -20,7 +20,7 @@ const EDIT_BUTTON = /^Edit$/;
 const SAVE_EDIT_BUTTON = /^Save changes$/;
 const PUBLISHED_WARNING = /Saving will take this off the site until it.s re-approved/;
 const NOTE_MESSAGE = "A deadline note needs a verified-deadline date.";
-const LISTS_PUBLISHED_AT = "/admin/scholarships"; // where a published listing can be found and edited from (assumed: the same page)
+const LISTS_PUBLISHED_AT = "/admin/scholarships/published"; // where a published listing is found and edited from: its own page, because the review queue must lose a card once it is approved
 // ---------------------------------------------------------------------------------------
 
 const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL;
