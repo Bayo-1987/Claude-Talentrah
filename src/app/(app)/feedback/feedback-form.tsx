@@ -7,6 +7,7 @@ import { FEEDBACK_CATEGORIES } from "@/lib/feedback/schemas";
 import { SelectField, Button } from "@/components/ui";
 import { TextArea } from "@/components/ui/text-area";
 import { FIELD_LIMITS } from "@/lib/text-limits";
+import { inputValue, selectKey } from "@/lib/forms/keep-input";
 
 export interface FeedbackFormProps {
   /**
@@ -52,8 +53,10 @@ export function FeedbackForm({ pagePath }: FeedbackFormProps) {
         primitive's.
       */}
       <SelectField
+        key={selectKey(state.values, "category")}
         label="What's this about?"
         name="category"
+        defaultValue={inputValue(state.values, "category")}
         options={FEEDBACK_CATEGORIES}
         placeholder="Pick one…"
         required
@@ -64,6 +67,7 @@ export function FeedbackForm({ pagePath }: FeedbackFormProps) {
         label="Tell us what happened"
         name="message"
         minRows={7}
+        defaultValue={inputValue(state.values, "message")}
         required
         limit={FIELD_LIMITS.feedbackMessage}
         placeholder="The more specific, the more useful — what you were doing, and what you expected instead."

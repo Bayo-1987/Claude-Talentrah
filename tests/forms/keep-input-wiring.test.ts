@@ -44,3 +44,32 @@ describe("invite-operator form", () => {
     expect(form).not.toMatch(/type="password"|name="password"/);
   });
 });
+
+describe("contact form", () => {
+  const actions = read("src/lib/contact/actions.ts");
+  const form = read("src/app/contact/contact-form.tsx");
+  it("every error return (validation, rate limit, mailer not wired, send failed) hands the typed values back; the honeypot and the success hand none", () => {
+    expect(actions).toContain('const typed = submittedValues(formData, ["name", "email", "topic", "message"]);');
+    expect(count(actions, "values: typed")).toBe(4);
+    expect(read("src/lib/contact/schemas.ts")).toContain("values?: SubmittedValues");
+  });
+  it("name, email, message default to the returned values; the Topic <select> is keyed by it", () => {
+    for (const f of ["name", "email", "topic", "message"]) expect(form, f).toContain(`inputValue(state.values, "${f}")`);
+    expect(form).toContain('key={selectKey(state.values, "topic")}');
+  });
+});
+
+describe("feedback form", () => {
+  const actions = read("src/lib/feedback/actions.ts");
+  const form = read("src/app/(app)/feedback/feedback-form.tsx");
+  it("every error return (validation, expired session, insert failure) hands the category and the message back", () => {
+    expect(actions).toContain('const typed = submittedValues(formData, ["category", "message"]);');
+    expect(count(actions, "values: typed")).toBe(3);
+    expect(read("src/lib/feedback/state.ts")).toContain("values?: SubmittedValues");
+  });
+  it("the message defaults to the returned value; the category <select> is keyed by it", () => {
+    expect(form).toContain('inputValue(state.values, "message")');
+    expect(form).toContain('inputValue(state.values, "category")');
+    expect(form).toContain('key={selectKey(state.values, "category")}');
+  });
+});

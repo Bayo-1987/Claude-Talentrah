@@ -10,6 +10,7 @@ import {
 import { TextField, SelectField, Button } from "@/components/ui";
 import { TextArea } from "@/components/ui/text-area";
 import { FIELD_LIMITS } from "@/lib/text-limits";
+import { inputValue, selectKey } from "@/lib/forms/keep-input";
 
 export function ContactForm() {
   const [state, formAction, pending] = useActionState(
@@ -56,6 +57,7 @@ export function ContactForm() {
         label="Your name"
         name="name"
         autoComplete="name"
+        defaultValue={inputValue(state.values, "name")}
         required
         error={state.fieldErrors?.name?.[0]}
       />
@@ -64,12 +66,15 @@ export function ContactForm() {
         name="email"
         type="email"
         autoComplete="email"
+        defaultValue={inputValue(state.values, "email")}
         required
         error={state.fieldErrors?.email?.[0]}
       />
       <SelectField
+        key={selectKey(state.values, "topic")}
         label="Topic"
         name="topic"
+        defaultValue={inputValue(state.values, "topic")}
         options={CONTACT_TOPICS}
         required
         error={state.fieldErrors?.topic?.[0]}
@@ -78,6 +83,7 @@ export function ContactForm() {
         label="Message"
         name="message"
         minRows={6}
+        defaultValue={inputValue(state.values, "message")}
         required
         limit={FIELD_LIMITS.contactMessage}
         error={state.fieldErrors?.message?.[0]}
