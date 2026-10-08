@@ -230,7 +230,7 @@ function comparable(column: string, value: unknown): string {
 }
 
 /** Which content columns differ between what we are about to write and the stored row. */
-function changedColumns(
+export function changedColumns(
   row: Record<string, unknown>,
   existing: Record<string, unknown>,
 ): string[] {

@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { createScholarshipAction, loadQueueAction } from "@/lib/scholarships/admin-actions";
 import { initialAdminScholarshipState } from "@/lib/scholarships/admin-state";
 import { nextEditorGeneration } from "@/lib/scholarships/editor-generation";
+import { inputList, inputValue, selectKey } from "@/lib/forms/keep-input";
 import { DEGREE_LEVEL_VALUES, FUNDING_TYPE_VALUES } from "@/lib/scholarships/schemas";
 import { DEGREE_LEVEL_LABEL, FUNDING_TYPE_LABEL } from "@/lib/scholarships/types";
 import { TextField, SelectField, Button, EyebrowLabel, BorderedCard } from "@/components/ui";
@@ -36,8 +37,15 @@ export function AdminScholarshipForm() {
   if (state !== seenState) {
     setSeenState(state);
     setEditorGeneration(nextEditorGeneration(seenState, state, editorGeneration));
-    setNoteLength(0); // the form was reset (a save or a refusal): the counter goes with the empty field
+    setNoteLength((state.values?.deadlineNote ?? "").trim().length); // the form was reset: the counter follows the field (the returned note after an error, 0 after a save)
   }
+
+  // The banner is at the top of a long form and Save is at the bottom: bring the result into view whenever a save finishes.
+  const bannerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (state.status === "idle") return;
+    bannerRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [state]);
 
   const counter = noteCounter(noteLength);
   const [queueState, queueAction, queuePending] = useActionState(
@@ -131,34 +139,31 @@ export function AdminScholarshipForm() {
         <form action={formAction} className="flex flex-col gap-5">
           <EyebrowLabel>New listing</EyebrowLabel>
 
-          {state.status === "success" &&
-            (state.returnedToReview ? (
-              /*
-                Deliberately louder than the ordinary success note. This path
-                means a listing that was live a moment ago is now hidden — the
-                operator edited a published listing rather than adding a new
-                one, and that is not what they think they just did.
-              */
-              <p className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust">
-                That matched a listing already published, and the content
-                differs — so it&apos;s been taken off the catalog and put back in
-                the queue above. Re-approve it to make it visible again.
+          <div ref={bannerRef} className="scroll-mt-24">
+            {state.status !== "idle" && (
+              <p
+                role={state.status === "error" ? "alert" : "status"}
+                className={
+                  "border-[1.5px] px-3.5 py-2.5 text-[13.5px] " +
+                  (state.status === "error" || state.returnedToReview
+                    ? "border-rust bg-rust-soft text-rust"
+                    : "border-ink bg-card text-ink")
+                }
+              >
+                {state.status === "error"
+                  ? state.error
+                  : state.returnedToReview
+                    ? /* Deliberately louder than the ordinary success note: a listing that was live a moment ago is now hidden, because the operator edited a published listing rather than adding a new one. */
+                      "That matched a listing already published, and the content differs — so it's been taken off the catalog and put back in the queue above. Re-approve it to make it visible again."
+                    : "Saved as pending. It won't appear in the public catalog until it's approved."}
               </p>
-            ) : (
-              <p className="border-[1.5px] border-ink bg-card px-3.5 py-2.5 text-[13.5px] text-ink">
-                Saved as pending. It won&apos;t appear in the public catalog until
-                it&apos;s approved.
-              </p>
-            ))}
-          {state.status === "error" && (
-            <p className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust">
-              {state.error}
-            </p>
-          )}
+            )}
+          </div>
 
           <TextField
             label="Provider"
             name="provider"
+            defaultValue={inputValue(state.values, "provider")}
             placeholder="Petroleum Technology Development Fund (PTDF)"
             required
             error={state.fieldErrors?.provider?.[0]}
@@ -166,6 +171,7 @@ export function AdminScholarshipForm() {
           <TextField
             label="Programme name"
             name="programName"
+            defaultValue={inputValue(state.values, "programName")}
             placeholder="Overseas Scholarship Scheme"
             required
             error={state.fieldErrors?.programName?.[0]}
@@ -173,6 +179,7 @@ export function AdminScholarshipForm() {
           <TextField
             label="Host institution (optional)"
             name="hostInstitution"
+            defaultValue={inputValue(state.values, "hostInstitution")}
             error={state.fieldErrors?.hostInstitution?.[0]}
           />
 
@@ -190,6 +197,7 @@ export function AdminScholarshipForm() {
                     type="checkbox"
                     name="degreeLevels"
                     value={value}
+                    defaultChecked={inputList(state.values, "degreeLevels").includes(value)}
                     className="h-4 w-4 accent-[oklch(52%_0.14_40)]"
                   />
                   {DEGREE_LEVEL_LABEL[value]}
@@ -202,8 +210,10 @@ export function AdminScholarshipForm() {
           </fieldset>
 
           <SelectField
+            key={selectKey(state.values, "fundingType")}
             label="Funding"
             name="fundingType"
+            defaultValue={inputValue(state.values, "fundingType")}
             options={FUNDING_OPTIONS}
             placeholder="Fully or partially funded…"
             required
@@ -213,29 +223,34 @@ export function AdminScholarshipForm() {
           <TextField
             label="What it covers (comma-separated)"
             name="fundingCovers"
+            defaultValue={inputValue(state.values, "fundingCovers")}
             placeholder="Tuition, Stipend, Travel"
             error={state.fieldErrors?.fundingCovers?.[0]}
           />
           <TextField
             label="Field tags (comma-separated)"
             name="fieldTags"
+            defaultValue={inputValue(state.values, "fieldTags")}
             placeholder="Engineering, Geosciences"
             error={state.fieldErrors?.fieldTags?.[0]}
           />
           <TextField
             label="Eligible nationalities (comma-separated)"
             name="eligibilityNationalities"
+            defaultValue={inputValue(state.values, "eligibilityNationalities")}
             placeholder="Nigeria"
             error={state.fieldErrors?.eligibilityNationalities?.[0]}
           />
           <TextField
             label="Prior degree required (optional)"
             name="eligibilityPriorDegree"
+            defaultValue={inputValue(state.values, "eligibilityPriorDegree")}
             error={state.fieldErrors?.eligibilityPriorDegree?.[0]}
           />
           <TextField
             label="Age requirement (optional)"
             name="eligibilityAge"
+            defaultValue={inputValue(state.values, "eligibilityAge")}
             error={state.fieldErrors?.eligibilityAge?.[0]}
           />
 
@@ -255,6 +270,7 @@ export function AdminScholarshipForm() {
             id="eligibilityOther"
             name="eligibilityOther"
             label="Other eligibility notes (optional)"
+            defaultValue={inputValue(state.values, "eligibilityOther")}
             minHeightClassName="min-h-[76px]"
           />
 
@@ -263,6 +279,7 @@ export function AdminScholarshipForm() {
               <TextField
                 label="Deadline (YYYY-MM-DD, optional)"
                 name="applicationDeadline"
+                defaultValue={inputValue(state.values, "applicationDeadline")}
                 placeholder="2026-03-31"
                 error={state.fieldErrors?.applicationDeadline?.[0]}
               />
@@ -271,6 +288,7 @@ export function AdminScholarshipForm() {
               <TextField
                 label="Cycle year (optional)"
                 name="cycleYear"
+                defaultValue={inputValue(state.values, "cycleYear")}
                 placeholder="2026"
                 error={state.fieldErrors?.cycleYear?.[0]}
               />
@@ -280,6 +298,7 @@ export function AdminScholarshipForm() {
           <TextField
             label="Deadline note — shown when there's no single date"
             name="deadlineNote"
+            defaultValue={inputValue(state.values, "deadlineNote")}
             placeholder="Varies by partner institution"
             onChange={(e) => setNoteLength(e.target.value.trim().length)}
             error={state.fieldErrors?.deadlineNote?.[0]}
@@ -294,6 +313,7 @@ export function AdminScholarshipForm() {
           <TextField
             label="Official source URL"
             name="officialUrl"
+            defaultValue={inputValue(state.values, "officialUrl")}
             type="url"
             placeholder="https://provider.example/scholarship"
             required
@@ -302,6 +322,7 @@ export function AdminScholarshipForm() {
           <TextField
             label="Source name"
             name="sourceName"
+            defaultValue={inputValue(state.values, "sourceName")}
             placeholder="Manual entry"
             error={state.fieldErrors?.sourceName?.[0]}
           />
@@ -310,7 +331,7 @@ export function AdminScholarshipForm() {
             <label htmlFor="reviewNote" className="font-body text-[13px] font-semibold text-ink-soft">
               Reviewer note (optional) — what you checked
             </label>
-            <textarea id="reviewNote" name="reviewNote" rows={3} className={AREA_CLASS} />
+            <textarea id="reviewNote" name="reviewNote" rows={3} defaultValue={inputValue(state.values, "reviewNote")} className={AREA_CLASS} />
           </div>
 
           <Button type="submit" disabled={pending} className="mt-1 self-start">

@@ -13,8 +13,8 @@ import {
   MAX_INDETERMINATE_RENEWAL_ATTEMPTS,
 } from "@/lib/admin/ops/queries";
 import { QueueHeader } from "@/components/admin/queue-chrome";
-import { Container, EyebrowLabel, BorderedCard, Button, NairaAmount } from "@/components/ui";
-import { markMentorPaymentRefundedAction } from "@/lib/admin/ops/refund-actions";
+import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { MentorRefundList } from "@/components/admin/mentor-refund-list";
 import { formatDate, formatDateTime } from "@/lib/format/datetime";
 
 export const metadata = {
@@ -87,32 +87,7 @@ export default async function OpsPage() {
               <li>Refund the charge in the Paystack dashboard: search the reference under Transactions, then Refund.</li>
               <li>Come back here and press Mark refunded. It leaves this list and the nav badge. Marking it resolved never moves money.</li>
             </ol>
-            <ul className="flex list-none flex-col gap-3 p-0">
-              {refunds.map((r) => (
-                <li key={r.sessionId}>
-                  <BorderedCard className="flex flex-col gap-1.5 p-5">
-                    <div className="flex flex-wrap items-baseline justify-between gap-3">
-                      <span className="font-display text-[17px]">
-                        <NairaAmount amount={r.amountNgn} />
-                      </span>
-                      <span className="text-[13px] text-ink-soft">marked {formatDate(r.markedAt)}</span>
-                    </div>
-                    <p className="text-[13.5px] text-ink-soft">
-                      Session <code className="text-[12.5px]">{r.sessionId}</code> · slot started {formatDate(r.sessionStart)}
-                    </p>
-                    <p className="text-[13.5px] text-ink-soft">
-                      Paystack reference{" "}
-                      {r.reference ? <code className="text-[12.5px]">{r.reference}</code> : "none on record (check the payment rows)"}
-                    </p>
-                    <form action={markMentorPaymentRefundedAction.bind(null, r.sessionId)}>
-                      <Button type="submit" variant="secondary" size="sm">
-                        Mark refunded
-                      </Button>
-                    </form>
-                  </BorderedCard>
-                </li>
-              ))}
-            </ul>
+            <MentorRefundList rows={refunds} />
           </>
         )}
       </section>
