@@ -1790,11 +1790,14 @@ export type Database = {
           dedup_fingerprint: string
           description: string
           description_preview: string
+          employer_closed_at: string | null
           employment_type: Database["public"]["Enums"]["employment_type"] | null
           expires_at: string | null
           external_source: string | null
           external_url: string | null
           id: string
+          import_feed_id: string | null
+          import_key: string | null
           last_checked_at: string
           llm_enrichment_attempted_at: string | null
           location: string | null
@@ -1836,6 +1839,7 @@ export type Database = {
           dedup_fingerprint: string
           description: string
           description_preview?: string
+          employer_closed_at?: string | null
           employment_type?:
             | Database["public"]["Enums"]["employment_type"]
             | null
@@ -1843,6 +1847,8 @@ export type Database = {
           external_source?: string | null
           external_url?: string | null
           id?: string
+          import_feed_id?: string | null
+          import_key?: string | null
           last_checked_at?: string
           llm_enrichment_attempted_at?: string | null
           location?: string | null
@@ -1884,6 +1890,7 @@ export type Database = {
           dedup_fingerprint?: string
           description?: string
           description_preview?: string
+          employer_closed_at?: string | null
           employment_type?:
             | Database["public"]["Enums"]["employment_type"]
             | null
@@ -1891,6 +1898,8 @@ export type Database = {
           external_source?: string | null
           external_url?: string | null
           id?: string
+          import_feed_id?: string | null
+          import_key?: string | null
           last_checked_at?: string
           llm_enrichment_attempted_at?: string | null
           location?: string | null

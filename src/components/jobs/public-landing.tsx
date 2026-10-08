@@ -5,6 +5,7 @@ import { JOB_FRESHNESS_WINDOW_DAYS } from "@/lib/jobs/freshness";
 import { formatRelativeTime } from "@/lib/format-relative-time";
 import { LANDING_PAGE_MIN_ENTRIES } from "@/lib/seo/landing-pages";
 import type { Tables } from "@/lib/supabase/types";
+import { provenanceLabel } from "@/lib/jobs/link-out";
 
 /**
  * send-484 — the signed-out visitor's entry point at `/jobs`, replacing what used to be a redirect to
@@ -43,7 +44,7 @@ export interface LandingFacet {
 export type LandingJob = Pick<
   Tables<"job_postings">,
   "id" | "title" | "company_name" | "location" | "work_type" | "source_type" | "posted_at"
->;
+> & { import_feed_id?: string | null };
 
 /** The most rows the preview will ever render, whatever it is handed. */
 export const JOB_PREVIEW_MAX = 6;
@@ -56,7 +57,7 @@ const LOGIN_HREF = `/login?redirectTo=${encodeURIComponent("/jobs")}`;
 const SECTION = "flex flex-col gap-5 border-t border-line pt-10";
 
 function JobRow({ job }: { job: LandingJob }) {
-  const isExternal = job.source_type === "external";
+  const provenance = provenanceLabel(job);
   const workType = job.work_type ? WORK_TYPE_LABEL[job.work_type] : null;
   // A location of just "Remote" plus a "Remote" work type would read "Company · Remote · Remote".
   const workTypeAddsInfo = workType && !(job.location ?? "").toLowerCase().includes(workType.toLowerCase());
@@ -76,8 +77,8 @@ function JobRow({ job }: { job: LandingJob }) {
           <div className="mt-0.5 text-[13px] text-ink-soft">{meta.join(" · ")}</div>
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink-soft">
             {/* The signed-in card's own wording for an aggregated listing, so one concept has one term. */}
-            {isExternal ? (
-              <span className="border border-line px-2 py-0.5 font-display text-[10.5px] font-bold italic">sourced externally</span>
+            {provenance ? (
+              <span className="border border-line px-2 py-0.5 font-display text-[10.5px] font-bold italic">{provenance}</span>
             ) : (
               <span className="border border-line px-2 py-0.5 font-display text-[10.5px] font-bold italic">Posted on Talentrah</span>
             )}

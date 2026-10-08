@@ -19,7 +19,7 @@
  * string so the page and the share image, which are separate requests, read the same row.
  */
 export const JOB_DETAIL_COLUMNS =
-  "id, organization_id, claimed_by_organization_id, claimed_at, source_type, external_source, external_url, title, company_name, company_logo_url, banner_path, location, work_type, employment_type, seniority, years_experience_min, salary_min, salary_max, salary_currency, salary_unit, description, description_preview, structured_jd, status, posted_at, expires_at, closed_at, closing_date_source, last_checked_at, llm_enrichment_attempted_at, dedup_fingerprint, unlisted_at, removed_at, removed_by, removal_reason, superseded_at, superseded_by, admin_review_requested_at, admin_review_decision, admin_reviewed_at, admin_reviewed_by, created_at";
+  "id, organization_id, claimed_by_organization_id, claimed_at, source_type, external_source, external_url, title, company_name, company_logo_url, banner_path, location, work_type, employment_type, seniority, years_experience_min, salary_min, salary_max, salary_currency, salary_unit, description, description_preview, structured_jd, status, posted_at, expires_at, closed_at, closing_date_source, last_checked_at, llm_enrichment_attempted_at, dedup_fingerprint, unlisted_at, removed_at, removed_by, removal_reason, superseded_at, superseded_by, admin_review_requested_at, admin_review_decision, admin_reviewed_at, admin_reviewed_by, import_feed_id, created_at";
 
 /** What the employer's edit form loads: the fields the form edits, plus the ids the page needs to address the row. */
 export const JOB_EDIT_COLUMNS =

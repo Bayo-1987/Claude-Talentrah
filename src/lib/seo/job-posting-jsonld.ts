@@ -2,6 +2,7 @@ import type { Tables } from "@/lib/supabase/types";
 import { absoluteUrl } from "./site";
 import { stripMarkdownToPlainText } from "@/lib/jobs/extract-jd";
 import { resolveCountry } from "@/lib/jobs/countries";
+import { isLinkOutPosting } from "@/lib/jobs/link-out";
 
 /**
  * schema.org JobPosting markup, built to Google's own required/recommended
@@ -48,7 +49,7 @@ import { resolveCountry } from "@/lib/jobs/countries";
 
 // The page loads the row through JOB_DETAIL_COLUMNS (src/lib/jobs/job-columns.ts), which leaves out the text-search vector and one internal
 // admin column; nothing in here reads either, so the type does not carry them.
-type JobPosting = Omit<Tables<"job_postings">, "search_vector" | "admin_review_note">;
+type JobPosting = Omit<Tables<"job_postings">, "search_vector" | "admin_review_note" | "import_key" | "employer_closed_at">;
 
 /**
  * Google's employmentType values are CASE-SENSITIVE and are not our enum's
@@ -362,7 +363,8 @@ export function buildJobPostingJsonLd(job: JobPosting): Record<string, unknown> 
    * links out — so claiming a direct application flow would be untrue, and
    * Google treats it as a quality signal it can check.
    */
-  jsonLd.directApply = job.source_type === "internal";
+  // An imported posting is `internal` in storage but applied for on the employer's own site: not a direct application either.
+  jsonLd.directApply = !isLinkOutPosting(job);
 
   return jsonLd;
 }

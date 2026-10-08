@@ -10,6 +10,7 @@ import {
   validateBanner,
 } from "@/lib/employer/banner";
 import { reencodeBannerForStorage } from "@/lib/employer/banner-reencode";
+import { isImportedPosting } from "@/lib/jobs/link-out";
 
 /**
  * Upload (or replace) one job posting's banner.
@@ -87,7 +88,7 @@ export async function POST(request: Request) {
    */
   const { data: job, error: jobError } = await supabase
     .from("job_postings")
-    .select("id, organization_id, source_type")
+    .select("id, organization_id, source_type, import_feed_id")
     .eq("id", jobId)
     .maybeSingle();
 
@@ -97,7 +98,8 @@ export async function POST(request: Request) {
   }
   // Same answer for "no such posting" and "not yours": distinguishing them
   // would tell a stranger which ids exist.
-  if (!job || !job.organization_id || job.source_type !== "internal") {
+  // An IMPORTED posting is read-only in Talentrah (close and hide only): its content lives on the employer's own site.
+  if (!job || !job.organization_id || job.source_type !== "internal" || isImportedPosting(job)) {
     return NextResponse.json({ error: "That posting isn't yours to edit." }, { status: 404 });
   }
 
