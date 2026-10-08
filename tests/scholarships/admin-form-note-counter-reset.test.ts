@@ -17,7 +17,9 @@ describe("the Deadline note counter after a save", () => {
   });
   it("re-seeds the counter in that block from the field's new content (no effect needed): the returned note after an error, 0 after a save (a save returns no values)", () => {
     expect(block).toContain('setNoteLength((state.values?.deadlineNote ?? "").trim().length)');
-    expect(source).not.toMatch(/useEffect/);
+    // The counter is adjusted during render, not by an effect. (The banner scroll-into-view effect is allowed; it must not touch the counter or the editor key.)
+    const effectBodies = [...source.matchAll(/useEffect\(\(\) => \{([^]*?)\}, \[/g)].map((m) => m[1]).join("\n");
+    expect(effectBodies).not.toMatch(/setNoteLength|setEditorGeneration/);
   });
   it("the counter state is declared BEFORE the block that resets it", () => {
     expect(source.indexOf("const [noteLength, setNoteLength]")).toBeGreaterThan(-1);
