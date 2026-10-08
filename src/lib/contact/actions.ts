@@ -1,6 +1,7 @@
 "use server";
 
 import { getResendClient, getContactRecipient } from "@/lib/resend/client";
+import { submittedValues } from "@/lib/forms/keep-input";
 import { contactSchema, CONTACT_HONEYPOT_FIELD, type ContactActionState } from "./schemas";
 import { consumeContactRateLimit } from "./rate-limit";
 import { getRequestIp } from "@/lib/security/request-ip";
@@ -23,6 +24,8 @@ export async function sendContactMessageAction(
     return HONEYPOT_TRIPPED_RESPONSE;
   }
 
+  // Handed back with every error so the form keeps what was typed; the honeypot answer and a success hand none.
+  const typed = submittedValues(formData, ["name", "email", "topic", "message"]);
   const parsed = contactSchema.safeParse({
     name: formData.get("name"),
     email: formData.get("email"),
@@ -33,6 +36,7 @@ export async function sendContactMessageAction(
   if (!parsed.success) {
     return {
       status: "error",
+      values: typed,
       error: "Check the highlighted fields below.",
       fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
     };
@@ -49,6 +53,7 @@ export async function sendContactMessageAction(
   if (!rateLimit.allowed) {
     return {
       status: "error",
+      values: typed,
       error: "Too many messages from this connection — try again later.",
     };
   }
@@ -62,6 +67,7 @@ export async function sendContactMessageAction(
   if (!resend) {
     return {
       status: "error",
+      values: typed,
       error:
         "The contact form isn't wired up yet — please email us directly at " +
         getContactRecipient() +
@@ -80,6 +86,7 @@ export async function sendContactMessageAction(
   if (error) {
     return {
       status: "error",
+      values: typed,
       error: "Something went wrong sending your message — please try emailing us directly instead.",
     };
   }

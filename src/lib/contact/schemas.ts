@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { FIELD_LIMITS, fitsLimit } from "@/lib/text-limits";
+import type { SubmittedValues } from "@/lib/forms/keep-input";
 
 export const CONTACT_TOPICS = [
   "General question",
@@ -45,6 +46,8 @@ export interface ContactActionState {
   status: "idle" | "success" | "error";
   error: string | null;
   fieldErrors?: Record<string, string[]>;
+  /** Returned with an error so the form keeps what was typed (React 19 resets the form after any action). */
+  values?: SubmittedValues;
 }
 
 export const initialContactActionState: ContactActionState = {

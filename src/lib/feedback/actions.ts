@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { submittedValues } from "@/lib/forms/keep-input";
 import { feedbackSchema } from "./schemas";
 // State shape lives outside this file on purpose — a "use server" module may
 // export nothing but async functions. See state.ts.
@@ -10,6 +11,8 @@ export async function submitFeedbackAction(
   _prevState: FeedbackActionState,
   formData: FormData,
 ): Promise<FeedbackActionState> {
+  // Handed back with every error so the form keeps what was typed; a success hands none. pagePath is recomputed from the page, not echoed.
+  const typed = submittedValues(formData, ["category", "message"]);
   const parsed = feedbackSchema.safeParse({
     category: formData.get("category"),
     message: formData.get("message"),
@@ -19,6 +22,7 @@ export async function submitFeedbackAction(
   if (!parsed.success) {
     return {
       status: "error",
+      values: typed,
       error: "Check the highlighted fields below.",
       fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
     };
@@ -30,7 +34,7 @@ export async function submitFeedbackAction(
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { status: "error", error: "Sign in again — your session has expired." };
+    return { status: "error", error: "Sign in again — your session has expired.", values: typed };
   }
 
   /*
@@ -59,6 +63,7 @@ export async function submitFeedbackAction(
     console.error("[feedback:insert]", error);
     return {
       status: "error",
+      values: typed,
       error: "We couldn't save that just now. Try again in a moment.",
     };
   }
