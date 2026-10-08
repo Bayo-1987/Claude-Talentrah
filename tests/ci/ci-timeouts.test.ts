@@ -1,7 +1,7 @@
 /**
  * The required CI jobs have time limits. A hung step (on 7 Oct a shard sat 23 minutes in `npx playwright install` and starved a required check for a
  * whole PR) would otherwise hold a job until GitHub's six-hour default. The limits sit well above the measured times so a slow run is not killed:
- * unit 7.5-8.6 min against 25, a shard 9.8-12.2 min (setup included) against 30, the browser install about 22 s against 8 minutes.
+ * unit 7.5-8.6 min against 25, a shard 9.8-12.2 min (setup included) against 30, the browser install about 22 s against 18 minutes (it can be slow on a bad mirror day, see the install step).
  */
 import { spawnSync } from "node:child_process";
 import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -24,10 +24,16 @@ describe("ci.yml time limits", () => {
     expect(jobs["e2e-shard"]["timeout-minutes"]).toBe(30);
   });
 
-  it("the Playwright browser install step has a step limit of 8 minutes", () => {
+  it("the Playwright browser install step has a step limit of 18 minutes", () => {
     const install = (jobs["e2e-shard"].steps ?? []).find((s) => s.name === "Install Playwright browsers");
     expect(install, "the install step must keep its name or this guard cannot find it").toBeDefined();
-    expect(install?.["timeout-minutes"]).toBe(8);
+    expect(install?.["timeout-minutes"]).toBe(18);
+  });
+
+  it("the install step's worst case plus a normal shard's other steps (about 9 min) stays under the shard job limit", () => {
+    const installWorst = 3 * 300 + 2 * 20 + 15;
+    expect(installWorst / 60 + 9).toBeLessThan(jobs["e2e-shard"]["timeout-minutes"]!);
+    expect(installWorst).toBeLessThan(jobs["e2e-shard"].steps!.find((st) => st.name === "Install Playwright browsers")!["timeout-minutes"]! * 60);
   });
 
   it("the limits are above the measured times with room (a limit at or below them would kill a normal run)", () => {
@@ -100,10 +106,10 @@ describe("the Playwright install step's retry", () => {
     expect(r.out).toContain("failed after 3 attempts");
   });
 
-  it("every attempt is cut off by `timeout 120`, and three attempts plus the sleeps stay under the step's own limit", () => {
+  it("every attempt is cut off by `timeout 300` (a slow mirror makes progress across attempts: 8 Oct, #844), and three attempts plus the sleeps stay under the step's own limit", () => {
     const r = run(["fail", "fail", "ok"]);
-    expect(r.timeouts).toEqual(["120", "120", "120"]);
-    const worst = 3 * 120 + 5 + 10;
+    expect(r.timeouts).toEqual(["300", "300", "300"]);
+    const worst = 3 * 300 + 5 + 10;
     expect(worst).toBeLessThan(install()["timeout-minutes"]! * 60);
   });
 
@@ -156,7 +162,7 @@ describe("the Playwright install step's retry", () => {
   it("the worst case (every attempt times out, every cleanup waits its full bound) is still under the step's limit", () => {
     const r = run(["fail", "fail", "fail"], { APT_BUSY: "100000" });
     const waits = r.sleeps.reduce((a, b) => a + b, 0);
-    expect(3 * 120 + waits).toBeLessThan(install()["timeout-minutes"]! * 60);
+    expect(3 * 300 + waits).toBeLessThan(install()["timeout-minutes"]! * 60);
   });
 
   it("never deletes an apt lock file (a lock removed under a live apt corrupts the package state)", () => {
