@@ -5,6 +5,8 @@
  * person called "Qa Hoang" or "Qasim" is never hidden from a list. A name that is exactly "QA" counts; "QAnon", "QA-Team" and "Qatar Airways" do not
  * (the prefix is "QA" followed by a space). The SQL twin (S3-21's public.is_qa_account) must use the same rule; the table below is its fixture list.
  */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { isQaAccount, isQaName, QA_EMAIL_MARKER } from "@/lib/profile/qa-account";
 
@@ -41,16 +43,6 @@ describe("isQaName: trimming is SPACES ONLY, exactly as the SQL twin's btrim (S3
 });
 
 describe("isQaAccount: the account rule", () => {
-  it("an email containing +qa- is a QA account, in any case", () => {
-    expect(isQaAccount({ email: "hello+qa-seeker@talentrah.com" })).toBe(true);
-    expect(isQaAccount({ email: "Hello+QA-Employer@Talentrah.com" })).toBe(true);
-    expect(isQaAccount({ email: "someone+qa-1@gmail.com" })).toBe(true);
-  });
-  it("other plus-addresses and other 'qa' spellings are not", () => {
-    for (const email of ["hello+qa@talentrah.com", "hello+qatest@talentrah.com", "hello+tag@talentrah.com", "qa-team@talentrah.com", "hello@talentrah.com", "a.qa-b@gmail.com"]) {
-      expect(isQaAccount({ email }), email).toBe(false);
-    }
-  });
   it("the first name, the full visible name, the mentor display name and the leaderboard handle are each checked", () => {
     expect(isQaAccount({ firstName: "QA Seeker" })).toBe(true);
     expect(isQaAccount({ firstName: "QA", lastName: "Seeker" })).toBe(true); // stored as first "QA", last "Seeker": the full name "QA Seeker"
@@ -70,5 +62,26 @@ describe("isQaAccount: the account rule", () => {
   });
   it("one marker constant is the source of the email rule (the SQL twin quotes the same string)", () => {
     expect(QA_EMAIL_MARKER).toBe("+qa-");
+  });
+});
+
+/**
+ * The shared case table (tests/fixtures/qa-exclusion-cases.json, S3-21's pin, measured on the REAL SQL function public.is_qa_account by tests/rls/qa-account-exclusion.test.ts). This file
+ * used to carry its own copy of the email and name rows; it now reads the one table, so the JavaScript twin and the SQL function are held to the same 49 rows and cannot drift apart
+ * without one of the two tests failing. The fixture's `display` is the SQL function's fourth argument (the leaderboard display name); the JavaScript rule checks the mentor display
+ * name and the leaderboard name the same way, so it is passed to both. A row without a `display` key (JSON drops an undefined) means null.
+ */
+type Case = { name: string; email: string | null; first: string | null; last: string | null; display?: string | null; qa: boolean };
+const CASES = JSON.parse(readFileSync(join(__dirname, "../fixtures/qa-exclusion-cases.json"), "utf8")) as Case[];
+
+describe("isQaAccount agrees with the shared case table (the same rows the SQL function is measured on)", () => {
+  it("reads the whole table (not a vacuous loop)", () => {
+    expect(CASES.length).toBeGreaterThanOrEqual(49);
+    expect(CASES.some((c) => c.qa)).toBe(true);
+    expect(CASES.some((c) => !c.qa)).toBe(true);
+  });
+  it.each(CASES.map((c) => [c.name, c] as const))("%s", (_name, c) => {
+    const display = c.display ?? null;
+    expect(isQaAccount({ email: c.email, firstName: c.first, lastName: c.last, displayName: display, leaderboardName: display })).toBe(c.qa);
   });
 });
