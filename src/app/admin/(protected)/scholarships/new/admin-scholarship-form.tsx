@@ -25,6 +25,8 @@ export function AdminScholarshipForm() {
     createScholarshipAction,
     initialAdminScholarshipState,
   );
+  // Counted, not capped: truncating as they type would silently drop text; showing how far over they are lets them cut what they choose.
+  const [noteLength, setNoteLength] = useState(0);
   /*
    * The "Other eligibility notes" editor is uncontrolled, so the form reset that clears every native field after a submit cannot clear it. It is remounted (by key) each time a
    * save SUCCEEDS and left alone when the save fails, so a field error never costs the operator their text. Adjusted during render from the action's state, not in an effect.
@@ -34,9 +36,9 @@ export function AdminScholarshipForm() {
   if (state !== seenState) {
     setSeenState(state);
     setEditorGeneration(nextEditorGeneration(seenState, state, editorGeneration));
+    setNoteLength(0); // the form was reset (a save or a refusal): the counter goes with the empty field
   }
-  // Counted, not capped: truncating as they type would silently drop text; showing how far over they are lets them cut what they choose.
-  const [noteLength, setNoteLength] = useState(0);
+
   const counter = noteCounter(noteLength);
   const [queueState, queueAction, queuePending] = useActionState(
     loadQueueAction,
