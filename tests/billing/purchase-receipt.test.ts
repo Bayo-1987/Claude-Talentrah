@@ -40,7 +40,8 @@ interface SentEmail {
 // captured call fails to compile.
 const sendMock = vi.fn(async (payload: SentEmail) => ({ data: { id: payload.to }, error: null }));
 
-vi.mock("@/lib/resend/client", () => ({
+vi.mock("@/lib/resend/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/resend/client")>()),
   getResendClient: () => ({ emails: { send: sendMock } }),
   getContactRecipient: () => "support@talentrah.test",
 }));

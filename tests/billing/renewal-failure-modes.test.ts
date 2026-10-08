@@ -85,7 +85,8 @@ vi.mock("@/lib/paystack/client", async () => {
 
 // Email is stubbed out — the reminder stage is not under test and sending is
 // not something a test should do.
-vi.mock("@/lib/resend/client", () => ({ getResendClient: () => null }));
+vi.mock("@/lib/resend/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/resend/client")>()), getResendClient: () => null }));
 
 let userId: string;
 let passId: string;
