@@ -257,8 +257,18 @@ test("the shell is sticky everywhere, not only on the feed", async ({ page }) =>
   // every page under it — /tracker has no filter header of its own and must
   // still hold the other two.
   await page.goto("/tracker");
-  await page.mouse.wheel(0, 1500);
-  await page.waitForTimeout(600);
+  // Scroll until the page has actually scrolled, not once and then a fixed wait: a wheel event sent before the tracker's content has laid out (or while the scroll is still
+  // animating) is lost, which left scrollY at 0 in about 1 run in 25. The assertions below are unchanged.
+  await expect
+    .poll(
+      async () => {
+        await page.mouse.wheel(0, 1500);
+        return page.evaluate(() => Math.round(window.scrollY));
+      },
+      { timeout: 15_000, intervals: [250, 250, 500, 500, 1000] },
+    )
+    .toBeGreaterThan(400);
+  await page.waitForTimeout(300); // let a smooth scroll come to rest before reading positions
 
   const after = await page.evaluate(() => {
     const box = (sel: string) => {
