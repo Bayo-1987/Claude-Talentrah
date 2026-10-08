@@ -29,7 +29,7 @@ vi.mock("@/lib/supabase/service-role", () => {
 });
 vi.mock("@/lib/auth/signup-rate-limit", () => ({ consumeSignupRateLimit: async () => ({ allowed: true }) }));
 vi.mock("@/lib/security/request-ip", () => ({ getRequestIp: async () => "192.0.2.1" }));
-vi.mock("@/lib/analytics/posthog", () => ({ captureEvent: vi.fn() }));
+vi.mock("@/lib/analytics/posthog", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/analytics/posthog")>()), captureEvent: vi.fn() }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 vi.mock("next/headers", () => ({
   headers: async () => ({ get: () => null }),

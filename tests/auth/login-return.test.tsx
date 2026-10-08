@@ -152,7 +152,7 @@ describe("the actions: OAuth and email signup stash the destination", () => {
   vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => ({}) }));
   vi.mock("@/lib/auth/signup-rate-limit", () => ({ consumeSignupRateLimit: async () => ({ allowed: true }) }));
   vi.mock("@/lib/security/request-ip", () => ({ getRequestIp: async () => "192.0.2.1" }));
-  vi.mock("@/lib/analytics/posthog", () => ({ captureEvent: vi.fn() }));
+  vi.mock("@/lib/analytics/posthog", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/analytics/posthog")>()), captureEvent: vi.fn() }));
   vi.mock("next/navigation", () => ({ redirect: vi.fn((to: string) => { throw Object.assign(new Error("NEXT_REDIRECT"), { to }); }) }));
   vi.mock("next/headers", () => ({ headers: async () => ({ get: (n: string) => (n === "host" ? "talentrah.test" : null) }), cookies: async () => jar }));
 

@@ -18,7 +18,7 @@ vi.mock("@/lib/credits/spend", () => ({
 }));
 vi.mock("@/lib/credits/gate-events", () => ({ logCreditGateEvent: (...a: unknown[]) => logCreditGateEvent(...a) }));
 vi.mock("@/lib/passes/entitlement", () => ({ checkPassCoverage: vi.fn(), DAILY_CAP_MESSAGE: "cap" }));
-vi.mock("@/lib/analytics/posthog", () => ({ captureEvent: vi.fn() }));
+vi.mock("@/lib/analytics/posthog", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/analytics/posthog")>()), captureEvent: vi.fn() }));
 vi.mock("@/lib/supabase/service-role", () => ({
   createServiceRoleClient: () => ({
     from: () => ({ update: (...a: unknown[]) => ({ eq: () => (profileUpdate(...a), Promise.resolve({ error: null })) }) }),
