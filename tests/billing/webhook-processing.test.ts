@@ -81,6 +81,48 @@ describe("the webhook with a payment that is still processing", () => {
     expect(await grants(), "still once").toBe(1);
   });
 
+  it("logs ONE content-free line when it asks Paystack to retry (so the 503 is visible in the logs), with no reference, payload or person in it", async () => {
+    reference = `credit_pack_${randomUUID()}`;
+    const { data } = await admin
+      .from("payment_transactions")
+      .insert({ user_id: userId, rail: "paystack", amount: packPriceNgn, currency: "NGN", product_type: "credit_pack", product_id: packId, paystack_reference: reference, status: "pending" })
+      .select("id")
+      .single();
+    transactionId = data!.id;
+    verify.mockResolvedValue({ status: "processing", reference, amount: Math.round(packPriceNgn * 100), currency: "NGN", channel: "bank_transfer" });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const res = await deliver();
+      expect(res.status).toBe(503);
+      const lines = warn.mock.calls.map((args) => args.map(String).join(" "));
+      expect(lines.filter((l) => l.startsWith("[paystack-webhook]"))).toEqual(["[paystack-webhook] fulfilment still processing: asked Paystack to retry"]);
+      for (const line of lines) {
+        expect(line, "no reference in a log line").not.toContain(reference);
+        expect(line, "no user id in a log line").not.toContain(userId);
+      }
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("logs nothing from the webhook when the payment is fulfilled or failed (the line means a retry was requested)", async () => {
+    reference = `credit_pack_${randomUUID()}`;
+    const { data } = await admin
+      .from("payment_transactions")
+      .insert({ user_id: userId, rail: "paystack", amount: packPriceNgn, currency: "NGN", product_type: "credit_pack", product_id: packId, paystack_reference: reference, status: "pending" })
+      .select("id")
+      .single();
+    transactionId = data!.id;
+    verify.mockResolvedValue({ status: "success", reference, amount: Math.round(packPriceNgn * 100), currency: "NGN", channel: "card" });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      expect((await deliver()).status).toBe(200);
+      expect(warn.mock.calls.map((args) => args.map(String).join(" ")).filter((l) => l.startsWith("[paystack-webhook]"))).toEqual([]);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it("an invalid signature is still 401 and a failed payment is still answered 200 (retrying a failure helps nobody)", async () => {
     reference = `credit_pack_${randomUUID()}`;
     const { data } = await admin
