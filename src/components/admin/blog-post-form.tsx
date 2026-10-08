@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { TextField, Button, EyebrowLabel } from "@/components/ui";
 import { TextArea } from "@/components/ui/text-area";
 import type { BlogActionState } from "@/lib/admin/blog/actions";
+import { inputValue } from "@/lib/forms/keep-input";
 
 const initial: BlogActionState = { status: "idle" };
 
@@ -47,6 +48,8 @@ export function BlogPostForm({ action, post, previewHtml, submitLabel }: Props) 
   const [tab, setTab] = useState<"write" | "preview">("write");
 
   const err = (field: string) => state.fieldErrors?.[field]?.[0];
+  // A failed save hands the submitted values back, and React 19 resets the form after any action to its defaults, so those are the defaults (owner rule: an error keeps what was typed).
+  const keep = (field: "title" | "slug" | "description" | "author" | "body", fallback?: string) => inputValue(state.values, field, post?.[field], fallback);
 
   return (
     <div className="flex flex-col gap-6">
@@ -86,9 +89,9 @@ export function BlogPostForm({ action, post, previewHtml, submitLabel }: Props) 
       <div className={tab === "preview" ? "hidden" : "block"}>
         <form action={formAction} className="flex flex-col gap-5">
           {post && <input type="hidden" name="id" value={post.id} />}
-          <TextField label="Title" name="title" defaultValue={post?.title} required error={err("title")} />
+          <TextField label="Title" name="title" defaultValue={keep("title")} required error={err("title")} />
           <div className="flex flex-col gap-1.5">
-            <TextField label="Slug" name="slug" defaultValue={post?.slug} required error={err("slug")} />
+            <TextField label="Slug" name="slug" defaultValue={keep("slug")} required error={err("slug")} />
             <p className="text-[12.5px] text-ink-soft">
               Becomes the public URL: /blog/your-slug. Lowercase, hyphens, no spaces.
             </p>
@@ -97,7 +100,7 @@ export function BlogPostForm({ action, post, previewHtml, submitLabel }: Props) 
             <TextField
               label="Description"
               name="description"
-              defaultValue={post?.description}
+              defaultValue={keep("description")}
               required
               error={err("description")}
             />
@@ -105,13 +108,13 @@ export function BlogPostForm({ action, post, previewHtml, submitLabel }: Props) 
               The search result and share-card snippet. Around 155 characters reads best.
             </p>
           </div>
-          <TextField label="Author" name="author" defaultValue={post?.author ?? "The Talentrah Team"} required error={err("author")} />
+          <TextField label="Author" name="author" defaultValue={keep("author", "The Talentrah Team")} required error={err("author")} />
 
           <TextArea
             id="body"
             name="body"
             label="Body"
-            defaultValue={post?.body}
+            defaultValue={keep("body")}
             required
             minRows={22}
             mono

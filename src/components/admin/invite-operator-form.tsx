@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { inviteOperatorAction } from "@/lib/admin/operators/invite";
 import { initialOperatorActionState } from "@/lib/admin/operators/state";
 import { Button, TextField } from "@/components/ui";
+import { inputValue, selectKey } from "@/lib/forms/keep-input";
 
 /**
  * Invite a new operator.
@@ -17,6 +18,8 @@ import { Button, TextField } from "@/components/ui";
 export function InviteOperatorForm({ roles }: { roles: { id: string; name: string }[] }) {
   const [state, action, pending] = useActionState(inviteOperatorAction, initialOperatorActionState);
   const mine = state.targetId === "invite";
+  // A failed invite hands the typed values back and React 19 resets the form to its defaults after any action, so those are the defaults (owner rule: an error keeps what was typed).
+  // A sent invitation returns none, so the form starts clean.
 
   return (
     <form action={action} className="flex flex-col gap-4">
@@ -27,9 +30,10 @@ export function InviteOperatorForm({ roles }: { roles: { id: string; name: strin
           name="email"
           type="email"
           autoComplete="off"
+          defaultValue={inputValue(state.values, "email")}
           required
         />
-        <TextField id="invite-name" label="Display name" name="displayName" autoComplete="off" />
+        <TextField id="invite-name" label="Display name" name="displayName" autoComplete="off" defaultValue={inputValue(state.values, "displayName")} />
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -37,10 +41,11 @@ export function InviteOperatorForm({ roles }: { roles: { id: string; name: strin
           Role
         </label>
         <select
+          key={selectKey(state.values, "roleId")}
           id="invite-role"
           name="roleId"
           required
-          defaultValue=""
+          defaultValue={inputValue(state.values, "roleId")}
           className="min-h-11 border-[1.5px] border-ink bg-card px-3 font-body text-[14px] text-ink"
         >
           <option value="" disabled>
