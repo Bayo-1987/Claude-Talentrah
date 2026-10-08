@@ -70,6 +70,11 @@ describe("0241: the functions", () => {
     const applicants = flat.slice(flat.indexOf("create or replace function public.applicant_visible_marks"), flat.indexOf("-- ── privileges") > 0 ? flat.indexOf("revoke all on function public.verification_mark_is_live") : undefined);
     for (const needle of ["public.is_org_member(j.organization_id)", "a.applied_at is not null", "p.deletion_requested_at is null", "not public.is_qa_account(", "m.mark_type <> 'resume_reviewed' or p.talent_verification_status = 'verified'", "verification_mark_is_live(m.expires_at, pg_catalog.now())"]) expect(applicants).toContain(needle);
     expect(directory).not.toMatch(/resume_hash\s+as\s|, m\.resume_hash,|, m\.source_id|, m\.detail/);
+    // the applicants read is keyed by application and returns no user id: its return table, its select list and its ordering name none
+    const head = applicants.slice(0, applicants.indexOf("language plpgsql"));
+    expect(head).toContain("returns table ( application_id uuid,");
+    expect(head).not.toMatch(/candidate_id|user_id/);
+    expect(applicants).not.toMatch(/m\.user_id as|a\.user_id as|candidate_id/);
   });
   it("the liveness rule is strict: an expiry equal to the clock is NOT live", () => {
     expect(flat).toContain("select p_expires_at > p_now");

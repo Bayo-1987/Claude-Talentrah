@@ -11,8 +11,8 @@
 --   public.resolve_talent_verification   REPLACED: identical to 0142's, plus: when the review passed, it awards the resume_reviewed mark in the same function (same transaction as the status change).
 --   public.employer_visible_marks(candidate ids)  the directory read: earned AND live marks for profiles that pass the directory listing gate (opted in, verified, not QA, not deletion-requested), for a caller whose
 --                                      organisation holds an active Talent Directory subscription. Never returns the hash, the source, or anything score-like. changed_since_review is computed here.
---   public.applicant_visible_marks(job posting id)  the applicants read: the same marks for people who APPLIED to that job, for members of the job's own organisation. Consent basis = applying (0125/0126), so it does not
---                                      need the directory opt-in; it still excludes deletion-requested and QA accounts.
+--   public.applicant_visible_marks(job posting id)  the applicants read: the same marks for people who APPLIED to that job, for members of the job's own organisation, keyed by APPLICATION id (never by user id: the applicant list
+--                                      returns none, and a mark read must not hand it out). Consent basis = applying (0125/0126), so it does not need the directory opt-in; it still excludes deletion-requested and QA accounts.
 --
 -- BACKFILL. One resume_reviewed mark per profile that is verified today: earned_at = profiles.talent_verified_at (the date the badge shows today), review_type = the latest verified attempt's review_type (the way
 -- employer_job_applicants and talent_directory_search read it since 0234), resume_hash NULL (= unknown: no "changed since review" flag is shown for these until their next review). The backfill refuses to guess: a verified profile
@@ -218,7 +218,7 @@ $$;
 
 create or replace function public.applicant_visible_marks(p_job_posting_id uuid)
 returns table (
-  candidate_id uuid,
+  application_id uuid,
   mark_type text,
   field text,
   level text,
@@ -237,22 +237,25 @@ begin
     return;
   end if;
 
+  -- Keyed by APPLICATION, not by person: employer_job_applicants (0125/0170/0234) deliberately returns no user id, and this must not hand every applicant's user id to the employer's browser.
   return query
-    select x.candidate_id, x.mark_type, x.field, x.level, x.review_type, x.earned_at, x.expires_at, x.changed_since_review
+    select x.application_id, x.mark_type, x.field, x.level, x.review_type, x.earned_at, x.expires_at, x.changed_since_review
     from (
-      select distinct on (m.user_id, m.mark_type, coalesce(m.field, ''))
-             m.user_id as candidate_id, m.mark_type, m.field, m.level, m.review_type, m.earned_at, m.expires_at,
+      select distinct on (a.id, m.mark_type, coalesce(m.field, ''))
+             a.id as application_id, m.mark_type, m.field, m.level, m.review_type, m.earned_at, m.expires_at,
              (m.mark_type = 'resume_reviewed' and m.resume_hash is not null and coalesce(m.resume_hash <> public.resume_content_hash(m.user_id), false)) as changed_since_review
-      from public.verification_marks m
-      join public.profiles p on p.id = m.user_id
-      where m.user_id in (select a.user_id from public.applications a where a.job_posting_id = p_job_posting_id and a.applied_at is not null)
+      from public.applications a
+      join public.verification_marks m on m.user_id = a.user_id
+      join public.profiles p on p.id = a.user_id
+      where a.job_posting_id = p_job_posting_id
+        and a.applied_at is not null
         and p.deletion_requested_at is null
         and not public.is_qa_account(p.email, p.first_name, p.last_name, p.referral_leaderboard_display_name)
         and (m.mark_type <> 'resume_reviewed' or p.talent_verification_status = 'verified')
         and public.verification_mark_is_live(m.expires_at, pg_catalog.now())
-      order by m.user_id, m.mark_type, coalesce(m.field, ''), m.earned_at desc
+      order by a.id, m.mark_type, coalesce(m.field, ''), m.earned_at desc
     ) x
-    order by x.candidate_id, x.earned_at desc;
+    order by x.application_id, x.earned_at desc;
 end;
 $$;
 

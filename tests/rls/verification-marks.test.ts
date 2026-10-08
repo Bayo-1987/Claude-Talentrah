@@ -25,6 +25,9 @@ const tag = randomUUID().slice(0, 6);
 
 type MarkRow = { candidate_id: string; mark_type: string; field: string | null; level: string | null; review_type: string | null; earned_at: string; expires_at: string; changed_since_review: boolean };
 const CONTRACT_KEYS = ["candidate_id", "changed_since_review", "earned_at", "expires_at", "field", "level", "mark_type", "review_type"];
+/** The applicants read is keyed by APPLICATION and carries no user id at all (employer_job_applicants returns none either: 0125/0126). */
+const APPLICANT_KEYS = ["application_id", "changed_since_review", "earned_at", "expires_at", "field", "level", "mark_type", "review_type"];
+type AppMarkRow = Omit<MarkRow, "candidate_id"> & { application_id: string };
 
 const userIds: string[] = [];
 const orgIds: string[] = [];
@@ -34,6 +37,7 @@ let candQa: Authed; // a QA account, verified, opted in
 let employer: Authed; // member of the subscribed organisation (owner of the job)
 let employerNoSub: Authed; // member of an organisation without a subscription
 let jobId: string;
+const appOf: Record<string, string> = {}; // user id -> application id on the job
 let resumeId: string;
 
 async function pending(userId: string, type: "ai" | "human" = "ai") {
@@ -55,10 +59,11 @@ async function directory(client: Authed, ids: string[]): Promise<{ rows: MarkRow
   const { data, error } = await as(client).rpc("employer_visible_marks", { p_candidate_ids: ids });
   return { rows: (data ?? []) as MarkRow[], error: error?.message ?? null };
 }
-async function applicants(client: Authed): Promise<{ rows: MarkRow[]; error: string | null }> {
+async function applicants(client: Authed): Promise<{ rows: AppMarkRow[]; error: string | null }> {
   const { data, error } = await as(client).rpc("applicant_visible_marks", { p_job_posting_id: jobId });
-  return { rows: (data ?? []) as MarkRow[], error: error?.message ?? null };
+  return { rows: (data ?? []) as AppMarkRow[], error: error?.message ?? null };
 }
+const appIdsOf = (...users: Authed[]) => users.map((u) => appOf[u.id]).sort();
 
 beforeAll(async () => {
   [cand, candOptOut, candQa, employer, employerNoSub] = await Promise.all([
@@ -82,7 +87,8 @@ beforeAll(async () => {
   await admin.from("talent_directory_subscriptions").insert({ organization_id: o1!.id, plan_id: plan!.id, status: "active", expires_at: new Date(Date.now() + 30 * 24 * 3600_000).toISOString() });
   const { data: job } = await admin.from("job_postings").insert({ organization_id: o1!.id, source_type: "internal", status: "open", title: `Marks job ${tag}`, company_name: "Marks Co", description: "d", dedup_fingerprint: `marks-${tag}` }).select("id").single();
   jobId = job!.id;
-  await admin.from("applications").insert([cand, candOptOut, candQa].map((c) => ({ user_id: c.id, job_posting_id: jobId, applied_at: new Date().toISOString() })));
+  const { data: apps } = await admin.from("applications").insert([cand, candOptOut, candQa].map((c) => ({ user_id: c.id, job_posting_id: jobId, applied_at: new Date().toISOString() }))).select("id, user_id");
+  for (const a of apps ?? []) appOf[a.user_id as string] = a.id as string;
 
   // review the three candidates through the real function
   for (const c of [cand, candOptOut, candQa]) {
@@ -181,18 +187,22 @@ describe("the applicants read (applicant_visible_marks)", () => {
   it("returns marks for applicants of the member's own job, regardless of the directory opt-in, but not for the QA account", async () => {
     const r = await applicants(employer);
     expect(r.error).toBeNull();
-    expect(r.rows.map((x) => x.candidate_id).sort()).toEqual([cand.id, candOptOut.id].sort());
-    expect(Object.keys(r.rows[0]).sort()).toEqual(CONTRACT_KEYS);
+    expect(r.rows.map((x) => x.application_id).sort()).toEqual(appIdsOf(cand, candOptOut));
+    for (const row of r.rows) {
+      expect(Object.keys(row).sort()).toEqual(APPLICANT_KEYS);
+      expect(JSON.stringify(row)).not.toContain(cand.id); // no user id anywhere in the output
+      expect(JSON.stringify(row)).not.toContain(candOptOut.id);
+    }
   });
   it("returns nothing to a member of another organisation", async () => {
     expect((await applicants(employerNoSub)).rows).toEqual([]);
   });
   it("hides a resume_reviewed mark once the profile is no longer verified, and a deletion-requested applicant", async () => {
     await admin.from("profiles").update({ talent_verification_status: "rejected", talent_verified_at: null }).eq("id", candOptOut.id);
-    expect((await applicants(employer)).rows.map((x) => x.candidate_id)).toEqual([cand.id]);
+    expect((await applicants(employer)).rows.map((x) => x.application_id)).toEqual(appIdsOf(cand));
     await admin.from("profiles").update({ talent_verification_status: "verified", talent_verified_at: new Date().toISOString() }).eq("id", candOptOut.id);
     await admin.from("profiles").update({ deletion_requested_at: new Date().toISOString() }).eq("id", candOptOut.id);
-    expect((await applicants(employer)).rows.map((x) => x.candidate_id)).toEqual([cand.id]);
+    expect((await applicants(employer)).rows.map((x) => x.application_id)).toEqual(appIdsOf(cand));
     await admin.from("profiles").update({ deletion_requested_at: null }).eq("id", candOptOut.id);
   });
 });
@@ -213,7 +223,7 @@ describe("expiry: twelve months, with an injected clock", () => {
       const { error } = await admin.rpc("award_verification_mark", { p_user_id: candOptOut.id, p_mark_type: "resume_reviewed", p_field: null, p_level: null, p_review_type: "ai", p_source_id: null, p_resume_hash: null, p_earned_at: earned.toISOString() });
       expect(error, error?.message).toBeNull();
       await admin.from("profiles").update({ talent_directory_opt_in: true }).eq("id", candOptOut.id);
-      const rows = (await applicants(employer)).rows.filter((x) => x.candidate_id === candOptOut.id);
+      const rows = (await applicants(employer)).rows.filter((x) => x.application_id === appOf[candOptOut.id]);
       await admin.from("verification_marks").delete().eq("user_id", candOptOut.id).eq("earned_at", earned.toISOString());
       return rows.some((x) => new Date(x.earned_at).getTime() === earned.getTime());
     };
