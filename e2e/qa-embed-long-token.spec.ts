@@ -7,6 +7,8 @@ import { test, expect, admin } from "./fixtures/authed";
 import { deleteOrgsCascade, deletePostingsCascade } from "../tests/support/delete-orgs";
 
 test("the framed widget has no horizontal overflow at 320px with a long unbroken job title", async ({ authedPage: page, testUser }) => {
+  // The embed is the neutral page for everyone while the server-side switch is off, which would make this test pass for the wrong reason: run it against an app started with EMBED_WIDGET_ENABLED=1.
+  test.skip(process.env.EMBED_WIDGET_ENABLED !== "1", "the app under test must run with EMBED_WIDGET_ENABLED=1");
   const tag = randomUUID().slice(0, 6);
   const { data: org } = await admin.from("organizations").insert({ name: `E2E Widget Co QAL${tag}`, created_by: testUser.id, verified: true }).select("id").single();
   await admin.from("organization_members").insert({ organization_id: org!.id, user_id: testUser.id, role: "owner" });
