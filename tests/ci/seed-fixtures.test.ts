@@ -149,6 +149,9 @@ describe("scholarships: seo-landing-pages-sitemap, scholarships-public-landing, 
     const now = new Date("2026-10-07T12:00:00Z");
     expect(relativeDeadline(null, now, "Gates Cambridge Scholarship")).toBeNull();
     expect(relativeDeadline("2026-10-06", now, "Chevening Scholarships")).toBe("2026-10-06");
+    // The committed catalog's Chevening date moved to 20 Oct 2026 (it closes for other countries then); the fixture row still has to be CLOSED on any run date, so a closed program's date is capped at the fixture's closed date.
+    expect(relativeDeadline("2026-10-20", now, "Chevening Scholarships")).toBe("2026-10-06");
+    expect(relativeDeadline("2026-09-01", now, "Knight-Hennessy Scholars")).toBe("2026-09-01");
     expect(relativeDeadline("2026-12-08", now, "Gates Cambridge Scholarship")).toBe("2027-10-07");
     expect(relativeDeadline("2026-10-20", now, "Commonwealth Master's Scholarships")).toBe("2027-10-07");
   });

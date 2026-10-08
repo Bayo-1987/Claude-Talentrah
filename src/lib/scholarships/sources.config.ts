@@ -221,12 +221,13 @@ export const SEED_SCHOLARSHIPS: NormalizedScholarship[] = [
     eligibilityAge: null,
     eligibilityOther:
       "Must return to your home country for at least two years after the award ends.",
-    applicationDeadline: "2026-10-06",
+    applicationDeadline: "2026-10-20",
     cycleYear: 2027,
     officialUrl: "https://www.chevening.org/apply/",
     sourceName: "Chevening official site",
-    deadlineVerifiedAt: "2026-09-01T06:30:00.000Z",
-    deadlineNote: null,
+    // The stamp the live row holds (read by S3-21's dry run, 8 Oct): the daily recheck re-stamped it when it moved the date to 2026-10-20. Equal here, the ingest sees no change in this column.
+    deadlineVerifiedAt: "2026-10-08T07:09:06.680Z",
+    deadlineNote: "Deadline varies by country. Nigeria, India and Pakistan closed 6 Oct 2026; others close 20 Oct 2026, 11:00 UTC",
     reviewNote:
       "Checked 2026-09-01: apply page states applications open until 6 October 2026, 11:00 UTC, for 2027/28 study.",
   },

@@ -5,14 +5,19 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { consumeTripwireTouches } from "../support/tripwire";
+import { realRpcBuilder } from "./support/real-rpc-builder";
 
 const rpc = vi.fn();
-vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => ({ rpc }) }));
+// The fake answers the way the real client does: a thenable that is NOT a Promise (no .catch, no .finally), so code that leans on a Promise-only method fails here and not only against the real client
+// (the free-claim code did exactly that and passed every mocked test; see tests/farah/support/real-rpc-builder.ts). The tests below still script `rpc` as a vi.fn that returns a Promise; this adapter re-wraps it.
+vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => ({ rpc: (...args: unknown[]) => realRpcBuilder(rpc(...args) as Promise<unknown>) }) }));
 
 interface Tally {
   readSpendNano(): Promise<number>;
   addSpendNano(nano: number): Promise<number>;
   markHalfwayWarned(): Promise<boolean>;
+  claimAlertAttempt(level: "eighty" | "reached"): Promise<boolean>;
+  markAlertSent(level: "eighty" | "reached"): Promise<boolean>;
 }
 // The explicit way around the tripwire: the actual module, not the unsafe default.
 const actual = () => vi.importActual<Tally>("@/lib/farah/spend-tally");
@@ -45,12 +50,41 @@ describe("the real tally module, reached on purpose with importActual", () => {
     expect(rpc).toHaveBeenCalledWith("add_llm_usage", { p_bucket: "farah_chat_half_warned", p_nano: 1 });
   });
 
+  it("claimAlertAttempt asks the counter for an attempt: the alert name, at most 3 attempts a day, a 10 second lease; true only when the database says true", async () => {
+    const t = await actual();
+    rpc.mockResolvedValueOnce({ data: true, error: null });
+    expect(await t.claimAlertAttempt("eighty")).toBe(true);
+    expect(rpc).toHaveBeenLastCalledWith("claim_llm_alert_attempt", { p_alert: "eighty", p_max_attempts: 3, p_lease_seconds: 10 });
+    rpc.mockResolvedValueOnce({ data: false, error: null });
+    expect(await t.claimAlertAttempt("reached")).toBe(false);
+    expect(rpc).toHaveBeenLastCalledWith("claim_llm_alert_attempt", { p_alert: "reached", p_max_attempts: 3, p_lease_seconds: 10 });
+  });
+
+  it("claimAlertAttempt never turns an odd answer into permission to send: only the boolean true counts", async () => {
+    const t = await actual();
+    for (const data of [null, 1, "true", undefined]) {
+      rpc.mockResolvedValueOnce({ data, error: null });
+      await expect(t.claimAlertAttempt("eighty")).rejects.toBeTruthy();
+    }
+  });
+
+  it("markAlertSent records the send for that alert and returns whether this call was the one that recorded it", async () => {
+    const t = await actual();
+    rpc.mockResolvedValueOnce({ data: true, error: null });
+    expect(await t.markAlertSent("reached")).toBe(true);
+    expect(rpc).toHaveBeenLastCalledWith("mark_llm_alert_sent", { p_alert: "reached" });
+    rpc.mockResolvedValueOnce({ data: false, error: null });
+    expect(await t.markAlertSent("reached")).toBe(false);
+  });
+
   it("an rpc error is thrown, never turned into a number (the caller fails closed)", async () => {
     rpc.mockResolvedValue({ data: null, error: { message: "boom", code: "PGRST202" } });
     const t = await actual();
     await expect(t.readSpendNano()).rejects.toBeTruthy();
     await expect(t.addSpendNano(5)).rejects.toBeTruthy();
     await expect(t.markHalfwayWarned()).rejects.toBeTruthy();
+    await expect(t.claimAlertAttempt("eighty")).rejects.toBeTruthy();
+    await expect(t.markAlertSent("eighty")).rejects.toBeTruthy();
   });
 
   it("a failure carries the database error code, and a missing function or table is flagged as a likely missing migration", async () => {
@@ -87,5 +121,17 @@ describe("the tripwire itself", () => {
     const t = await import("@/lib/farah/spend-tally");
     await expect(t.readSpendNano()).rejects.toThrow(/safe route mocks/i);
     expect(consumeTripwireTouches()).toEqual(["readSpendNano"]); // consumed here so THIS test passes; any other test leaving a touch behind fails in afterEach
+  });
+});
+
+describe("the fake client answers like the real one", () => {
+  it("rpc() returns a thenable that has no .catch and no .finally and is not a Promise", async () => {
+    const { createServiceRoleClient } = await import("@/lib/supabase/service-role");
+    rpc.mockResolvedValueOnce({ data: 1, error: null });
+    const answer = (createServiceRoleClient().rpc as unknown as (fn: string, args: object) => Record<string, unknown>)("x", {});
+    expect(typeof answer.then).toBe("function");
+    expect(answer.catch).toBeUndefined();
+    expect(answer.finally).toBeUndefined();
+    expect(answer instanceof Promise).toBe(false);
   });
 });

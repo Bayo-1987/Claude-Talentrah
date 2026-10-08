@@ -384,11 +384,17 @@ jobs:
       fail-fast: false
       matrix:
         shard: [1, 2, 3]
-    # No longer needed for shared-database ordering (this job now has its own
-    # local Supabase stack, per the Stage 2 note above) — kept because failing
-    # fast on a typecheck/lint/unit-test break is still worth not spending the
-    # ~10 minutes this job takes to build and run Playwright.
-    needs: checks
+    # No `needs:`. This job used to wait for `checks` (typecheck, lint, unit
+    # tests) so a break there would not spend the ~10 minutes of a shard; but
+    # that put the unit job's ~8 minutes in front of every shard, and the two
+    # have nothing to share: each shard has its own local Supabase stack, its
+    # own build and its own seed. Running them side by side makes a PR's CI
+    # take about as long as the slower of the two instead of the sum. The cost
+    # is that a PR that fails typecheck or the unit tests still spends its
+    # shards' minutes (no billing on this public repo; the real limit is the
+    # 20 concurrent jobs GitHub allows on this plan). tests/ci/
+    # e2e-shards-workflow.test.ts pins that this job has no `needs:` so a
+    # later edit cannot quietly put the wait back.
     runs-on: ubuntu-latest
     # Measured 9.8-12.2 min per shard (setup included); 30 is about 2.5 times that. On 7 Oct one shard sat 23 minutes in the browser install and
     # starved a required check for the whole PR.
@@ -537,10 +543,10 @@ jobs:
   #
   # Result rule: green ONLY when every shard succeeded. A failed, cancelled or
   # skipped shard is red. Nothing skips e2e on purpose today (this workflow has
-  # no `paths:` filter and the shard job has no `if:`); the one way the shards
-  # skip is `needs: checks` failing, and that must be red here too, because a
-  # skipped required check can read as passing. `if: always()` makes this job
-  # run in all of those cases instead of being skipped itself.
+  # no `paths:` filter and the shard job has no `if:` or `needs:`); a skipped
+  # shard must still be red here, because a skipped required check can read as
+  # passing. `if: always()` makes this job run in that case too instead of
+  # being skipped itself.
   e2e:
     name: Playwright e2e
     needs: e2e-shard

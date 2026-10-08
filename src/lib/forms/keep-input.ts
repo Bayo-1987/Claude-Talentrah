@@ -14,15 +14,28 @@ export type SubmittedValues = Readonly<Record<string, string>>;
 
 const SECRET_NAME = /pass(word|phrase|code)?(?![a-z])|secret|token|otp|(^|[^a-z])pin([^a-z]|$)|cvv|cvc|card[-_ ]?(number|no|num)/i;
 
-/** The listed fields exactly as typed (no trimming): a field not submitted is an empty string, a File is an empty string. */
-export function submittedValues(formData: FormData, fields: readonly string[]): SubmittedValues {
+/**
+ * The listed fields exactly as typed (no trimming): a field not submitted is an empty string, a File is an empty string. A field named in `options.multi` is a checkbox group: ALL its
+ * submitted values (`getAll`), comma-joined in submitted order, nothing ticked being "" (read them back with `inputList`).
+ */
+export function submittedValues(formData: FormData, fields: readonly string[], options: { multi?: readonly string[] } = {}): SubmittedValues {
   const out: Record<string, string> = {};
   for (const field of fields) {
     if (SECRET_NAME.test(field)) throw new Error(`keep-input: "${field}" looks like a secret and is never echoed back`);
+    if (options.multi?.includes(field)) {
+      out[field] = formData.getAll(field).filter((v): v is string => typeof v === "string").join(",");
+      continue;
+    }
     const value = formData.get(field);
     out[field] = typeof value === "string" ? value : "";
   }
   return out;
+}
+
+/** The ticked values of a checkbox group handed back by `submittedValues(..., { multi })`: `defaultChecked={inputList(state.values, "degreeLevels").includes(value)}`. */
+export function inputList(values: SubmittedValues | undefined, field: string): string[] {
+  const joined = values?.[field] ?? "";
+  return joined === "" ? [] : joined.split(",");
 }
 
 /**
