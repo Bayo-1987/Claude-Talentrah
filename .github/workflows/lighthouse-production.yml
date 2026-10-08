@@ -1,0 +1,60 @@
+name: Lighthouse production budget (informational)
+
+# The PR job (lighthouse-budget.yml) audits the PR's own Vercel preview, which reads a small test database: it cannot say whether the real public
+# job-search page, /jobs/remote, is within budget. Production can. This runs the same four pages, the same pinned Lighthouse CI version and the
+# same budgets file (.lighthouserc.json) against https://www.talentrah.com.
+#
+# INFORMATIONAL: a scheduled workflow is not a pull-request check, so it can never gate or block a merge, and it is not one of the required
+# checks. A red run means a page on production fell below a budget; it is a signal to look at, with the Lighthouse report linked in the run log.
+#
+# FREQUENCY: once a day, never per PR (the cron below is one fixed minute and hour), plus by hand. Daily rather than per deploy, because a
+# per-deploy trigger needs a deploy webhook or a token this repository does not have.
+#
+# NO SECRET. Production has no Deployment Protection, so there is no bypass header and nothing under `secrets.` is read here.
+#
+# /jobs/remote is hardcoded HERE, on purpose (the opposite of the PR job): production holds hundreds of remote jobs, so a 404 on that page means
+# something is wrong, and this run should fail loudly instead of quietly auditing another page.
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  lighthouse-production:
+    name: Lighthouse CI against production
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Self-test the sitemap job-URL resolver
+        run: .github/scripts/test-resolve-sitemap-job-url.sh
+
+      - name: Resolve a real, currently-live job detail URL from production's sitemap
+        id: resolve_urls
+        run: |
+          set +e
+          OUTPUT=$(.github/scripts/resolve-sitemap-job-url.sh "https://www.talentrah.com")
+          STATUS=$?
+          echo "$OUTPUT"
+          if [ "$STATUS" -ne 0 ]; then
+            exit 1
+          fi
+          echo "$OUTPUT" >> "$GITHUB_OUTPUT"
+
+      # The exact version is pinned in the command itself and kept out of package.json on purpose, for the reason lighthouse-budget.yml gives.
+      - name: Run Lighthouse CI against the 4 key pages
+        run: |
+          npx --yes @lhci/cli@0.15.1 autorun \
+            --collect.url="https://www.talentrah.com/" \
+            --collect.url="https://www.talentrah.com/jobs/remote" \
+            --collect.url="${{ steps.resolve_urls.outputs.job_url }}" \
+            --collect.url="https://www.talentrah.com/mentorship" \
+            --collect.settings.chromeFlags="--headless --no-sandbox --disable-gpu"
