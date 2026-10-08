@@ -39,7 +39,7 @@ vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => (
 vi.mock("@/lib/paystack/client", () => ({ initializeTransaction: async () => ({}), NGN_CHANNELS: [] }));
 vi.mock("@/lib/mentorship/meeting-link", () => ({ generateMeetingLink: () => "" }));
 vi.mock("@/lib/mentorship/notifications", () => ({ notifySessionConfirmed: async () => {} }));
-vi.mock("@/lib/analytics/posthog", () => ({ captureEvent: () => {} }));
+vi.mock("@/lib/analytics/posthog", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/analytics/posthog")>()), captureEvent: () => {} }));
 vi.mock("@/lib/mentorship/unpaid-hold", () => ({ unpaidHoldLapsed: () => false }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 vi.mock("next/navigation", () => ({ redirect: () => {} }));

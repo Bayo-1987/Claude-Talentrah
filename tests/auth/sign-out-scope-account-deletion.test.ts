@@ -17,7 +17,7 @@ const redirect = vi.hoisted(() =>
 );
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ auth }) }));
 vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => ({}) }));
-vi.mock("@/lib/analytics/posthog", () => ({ captureEvent: vi.fn() }));
+vi.mock("@/lib/analytics/posthog", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/analytics/posthog")>()), captureEvent: vi.fn() }));
 vi.mock("@/lib/resend/client", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/resend/client")>()), sendDeletionLifecycleEmail: vi.fn() }));
 vi.mock("@/lib/paystack/client", () => ({ deactivateAuthorization: vi.fn() }));
 vi.mock("next/navigation", () => ({ redirect }));

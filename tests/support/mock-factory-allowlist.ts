@@ -5,18 +5,6 @@
  * hand-written factory fails, a converted file that is still listed fails, and the ceiling can never exceed what it started at.
  */
 export const ALLOWLIST: Record<string, number> = {
-  "@/lib/analytics/posthog :: tests/auth/login-return.test.tsx": 1,
-  "@/lib/analytics/posthog :: tests/auth/password-server-enforcement.test.ts": 1,
-  "@/lib/analytics/posthog :: tests/auth/sign-out-scope-account-deletion.test.ts": 1,
-  "@/lib/analytics/posthog :: tests/auth/sign-out-scope.test.ts": 1,
-  "@/lib/analytics/posthog :: tests/auth/signup-code-actions.test.ts": 1,
-  "@/lib/analytics/posthog :: tests/auth/weak-password-messages.test.ts": 1,
-  "@/lib/analytics/posthog :: tests/billing/deleted-user-payment.test.ts": 1,
-  "@/lib/analytics/posthog :: tests/billing/fulfill-posthog-instrumentation.test.ts": 1,
-  "@/lib/analytics/posthog :: tests/mentorship/application-validation.test.ts": 1,
-  "@/lib/analytics/posthog :: tests/mentorship/late-payment-fulfilment.test.ts": 1,
-  "@/lib/analytics/posthog :: tests/tailoring/commit-balance.test.ts": 1,
-  "@/lib/analytics/posthog :: tests/tailoring/posthog-instrumentation.test.ts": 1,
   "@/lib/api/rate-limit :: tests/resume-builder/import-route-parse-fallback.test.ts": 1,
   "@/lib/api/rate-limit :: tests/tailoring/malformed-body.test.ts": 1,
   "@/lib/api/rate-limit :: tests/tailoring/route-credits-balance.test.ts": 1,
@@ -82,7 +70,7 @@ export const ALLOWLIST: Record<string, number> = {
 };
 
 /** Must equal the sum of ALLOWLIST. Lower it with every conversion; raising it is a visible, reviewed act. */
-export const ALLOWLIST_CEILING = 74;
+export const ALLOWLIST_CEILING = 62;
 
 /** How many hand-written factories the scoped modules had when the ratchet was introduced. Never changes: the ceiling may not exceed it. */
 export const INITIAL_FACTORIES = 149;
