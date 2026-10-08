@@ -402,6 +402,13 @@ invocation counts and status classes for 12 hours, and each route drills into
 per-route external-API calls. That is the only view on Hobby that answers "did
 this cron run and what happened", and it is worth going to first next time.
 
+> **Update 8 Oct 2026:** the project moved from Hobby to Vercel Pro (the owner's confirmation, in the
+> approvals log of 8 Oct, 10:54Z; spend limit with alerts at 50/75/100%, production not paused at
+> the limit). The Hobby statements above (the cron limit, the one-hour runtime log retention, "Last 12
+> hours" and "Last day" gated behind Pro) describe the plan at the time this was written. Observed since
+> the switch: production runtime logs read back more than four hours on 8 Oct. Cron history still lives in
+> Observability → Cron Jobs.
+
 ### What did come out of it
 
 [PR #59](https://github.com/Bayo-1987/Claude-Talentrah/pull/59) — `ingestAllSources` catches per source and records the reason in
