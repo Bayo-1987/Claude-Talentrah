@@ -7,7 +7,12 @@
 #
 # Usage: resolve-sitemap-job-url.sh <preview-url>
 #   VERCEL_AUTOMATION_BYPASS_SECRET must be set in the environment.
-# On success, prints "job_url=<url>" to stdout and exits 0.
+# On success, prints "job_url=<url>" and "landing_url=<url>" to stdout and exits 0. Both are built from <preview-url>, never from the host the
+# sitemap prints.
+#   landing_url is the preview's own /jobs/remote when the preview's sitemap lists it, and the static /about page otherwise. The sitemap lists
+#   /jobs/remote only when the page itself would render (it needs LANDING_PAGE_MIN_ENTRIES remote jobs), and a preview reads a small test
+#   database that can fall below that, so a hardcoded /jobs/remote could 404 for a reason unrelated to the PR. It is always built from the
+#   PREVIEW's own host: the sitemap prints the site's canonical origin, which is not necessarily the preview.
 # On failure, prints an "::error::..." diagnostic to stdout and exits 1.
 #
 # `set +e`, not just `-uo pipefail`: GitHub Actions runs every `run:` block
@@ -43,10 +48,21 @@ if [ "$STATUS" != "200" ]; then
   exit 1
 fi
 
-JOB_URL=$(echo "$BODY" | grep -oE 'https://[^<]*/jobs/[0-9a-f-]{36}' | head -1)
-if [ -z "$JOB_URL" ]; then
+JOB_PATH=$(echo "$BODY" | grep -oE 'https://[^<]*/jobs/[0-9a-f-]{36}' | head -1 | grep -oE '/jobs/[0-9a-f-]{36}$')
+if [ -z "$JOB_PATH" ]; then
   echo "::error::No /jobs/<uuid> URL found in the preview's sitemap.xml — cannot pick a job detail page to audit."
   exit 1
 fi
 
+if echo "$BODY" | grep -qE '<loc>[^<]*/jobs/remote</loc>'; then
+  LANDING_URL="$PREVIEW_URL/jobs/remote"
+else
+  LANDING_URL="$PREVIEW_URL/about"
+fi
+
+# Built from the PREVIEW's host, like landing_url: the sitemap prints the site's canonical origin (the production host unless the preview sets its
+# own site URL), so using the printed URL would audit production's copy of the job, not the preview's.
+JOB_URL="$PREVIEW_URL$JOB_PATH"
+
 echo "job_url=$JOB_URL"
+echo "landing_url=$LANDING_URL"

@@ -1,6 +1,7 @@
 "use server";
 
 import { createHash } from "node:crypto";
+import { submittedValues, type SubmittedValues } from "@/lib/forms/keep-input";
 import {
   CLOSING_DATE_PASSED_MESSAGE,
   DEFAULT_NEW_POSTING_EXPIRY_DAYS,
@@ -49,7 +50,7 @@ const SCREENABLE_SKILL_SET = new Set(SKILL_VOCABULARY);
  * an employer just spent two minutes filling in is the difference between a
  * fixable mistake and a lost draft.
  */
-export type EmployerActionState = { error: string } | { ok: true } | null;
+export type EmployerActionState = { error: string; values?: SubmittedValues } | { ok: true } | null;
 
 async function getAuthedUser() {
   const supabase = await createClient();
@@ -336,8 +337,9 @@ export async function updateCompanyProfileAction(
   const { supabase, user } = await getAuthedUser();
   const { organization } = await requireEmployer();
 
+  const typed = submittedValues(form, ["name", "domain", "description", "logoUrl"]);
   const name = str(form, "name");
-  if (!name) return { error: "Company name is required." };
+  if (!name) return { error: "Company name is required.", values: typed };
 
   const claimedDomain = normalizeDomain(str(form, "domain"));
 
@@ -355,7 +357,7 @@ export async function updateCompanyProfileAction(
     })
     .eq("id", organization.id);
 
-  if (error) return { error: `Couldn't save your profile: ${error.message}` };
+  if (error) return { error: `Couldn't save your profile: ${error.message}`, values: typed };
 
   // Changing the domain re-runs verification in BOTH directions. Only lowering
   // it would let an employer verify with their real domain and then rename to
