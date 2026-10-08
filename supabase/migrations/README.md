@@ -70,6 +70,8 @@ filename disagreeing with `schema_migrations` forever.
 Via the Supabase MCP connector's `apply_migration` (pass the name without the
 `.sql` suffix), or `supabase db push` if the CLI is ever linked to the project.
 
+**Hosted applies (preview and production) now run as hash-pinned packages, not by hand.** Since early October each apply is a package built from that project's own preflight read, run in a fixed order with the owner's typed go for each run, and checked by hash at every step. The flow, the approval rule and the order relative to the merge are written down in [docs/production-migration-apply.md](../../docs/production-migration-apply.md) section 8 (written 8 Oct 2026, from the 0235, 0237, 0239 and 0240 runs).
+
 **The production ledger (`supabase_migrations.schema_migrations`) is the source of truth for what has been applied;** the order, number reservation and environments are in [docs/database-environments.md](../../docs/database-environments.md).
 
 ## The course catalog ships switched OFF
