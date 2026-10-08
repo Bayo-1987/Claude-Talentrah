@@ -342,6 +342,8 @@ jobs:
       - name: Seed demo data (full)
         env:
           SEED_APP_URL: http://localhost:3000
+          # CI-only fixtures instead of live job boards (scripts/seed-fixtures.ts): a fixed external job set, so counts and the feed length do not vary per run.
+          SEED_FIXTURES: "1"
         run: npm run seed
 
       # Regression tripwire, not a today-is-broken alarm — see
@@ -466,9 +468,16 @@ jobs:
           echo "App never came up." >&2
           exit 1
 
+      # The scholarship catalog (committed rows, no network). The unit job already runs this step. Here it used to come from the live scholarship
+      # ingestion call inside `npm run seed`, which SEED_FIXTURES=1 skips, so the e2e database needs the catalog seeded explicitly.
+      - name: Seed reference data (catalog)
+        run: npm run seed:catalog
+
       - name: Seed demo data
         env:
           SEED_APP_URL: http://localhost:3000
+          # CI-only fixtures instead of live job boards (scripts/seed-fixtures.ts), same as the unit job's seed.
+          SEED_FIXTURES: "1"
         run: npm run seed
 
       - name: Run Playwright suite (shard ${{ matrix.shard }} of 3)
