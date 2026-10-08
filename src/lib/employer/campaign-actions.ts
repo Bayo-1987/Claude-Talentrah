@@ -125,7 +125,9 @@ export async function createCampaignAction(
     if (error?.code === "42501") {
       return { error: "That job posting doesn't belong to your company.", values: typed };
     }
-    return { error: `Couldn't create the campaign: ${error?.message ?? "unknown error"}`, values: typed };
+    // The raw database text can name tables and constraints: it goes to the server log, the employer gets a plain sentence.
+    console.error(`[campaigns] create failed (org ${context.organization.id}): ${error?.message ?? "unknown error"}`);
+    return { error: "Couldn't create the campaign; nothing was changed. The error is in the server log.", values: typed };
   }
 
   revalidatePath("/employer/campaigns");
@@ -164,7 +166,10 @@ export async function updateCampaignAction(
     })
     .eq("id", campaignId);
 
-  if (error) return { error: `Couldn't save the campaign: ${error.message}`, values: typed };
+  if (error) {
+    console.error(`[campaigns] save failed (campaign ${campaignId}): ${error.message}`);
+    return { error: "Couldn't save the campaign; nothing was changed. The error is in the server log.", values: typed };
+  }
   revalidatePath(`/employer/campaigns/${campaignId}`);
   return { ok: true };
 }
