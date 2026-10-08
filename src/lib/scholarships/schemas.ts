@@ -120,6 +120,14 @@ export const manualScholarshipSchema = z.object({
 export type ManualScholarshipInput = z.input<typeof manualScholarshipSchema>;
 
 /**
+ * The same fields for EDITING a stored listing. The one difference: degree levels may be empty. A listing that came in through ingest often stores none, and an operator fixing
+ * its host or its notes must not be forced to invent a level; "pick at least one" is the rule for adding a listing by hand, not for editing what already exists.
+ */
+export const editScholarshipSchema = manualScholarshipSchema.extend({
+  degreeLevels: z.array(z.enum(DEGREE_LEVEL_VALUES)).default([]),
+});
+
+/**
  * The parsed form's one job: become the shape the writer already takes.
  *
  * `deadlineVerifiedAt` is hardcoded null rather than exposed as a field. It

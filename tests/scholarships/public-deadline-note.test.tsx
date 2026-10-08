@@ -137,7 +137,8 @@ describe("ratchet: no file in src/ reads `.deadline_note` except through publicD
     }
     return out;
   };
-  const ALLOWED = new Set(["src/lib/scholarships/public-deadline-note.ts"]);
+  // The admin edit page shows the STORED note to the operator who is editing it (never to the public, and behind the scholarships permission): it must see the raw value, stamp or no stamp.
+  const ALLOWED = new Set(["src/lib/scholarships/public-deadline-note.ts", "src/app/admin/(protected)/scholarships/[id]/edit/page.tsx"]);
 
   it("finds nothing else (the scan reads the real source tree, so it is not vacuous)", () => {
     const files = walk("src");
