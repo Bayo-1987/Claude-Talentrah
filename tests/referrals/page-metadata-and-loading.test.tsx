@@ -11,7 +11,7 @@ import ReferLoading from "@/app/(app)/refer/loading";
 import { ROUTE_LOADING_TESTID } from "@/components/ui/skeleton";
 
 const getOptionalUser = vi.fn();
-vi.mock("@/lib/auth/require-user", () => ({ getOptionalUser: () => getOptionalUser(), requireUser: vi.fn() }));
+vi.mock("@/lib/auth/require-user", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/auth/require-user")>()), getOptionalUser: () => getOptionalUser(), requireUser: vi.fn() }));
 
 type Meta = { title?: unknown; description?: string; alternates?: { canonical?: string } };
 async function pageModule() {

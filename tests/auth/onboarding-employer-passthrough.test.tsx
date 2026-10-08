@@ -10,7 +10,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({ resume: null as { id: string } | null, skippedAt: null as string | null, queried: 0 }));
-vi.mock("@/lib/auth/require-user", () => ({
+vi.mock("@/lib/auth/require-user", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/auth/require-user")>()),
   requireUser: async () => ({ user: { id: "u1" }, profile: { first_name: "Ada", onboarding_skipped_at: state.skippedAt } }),
 }));
 vi.mock("@/lib/supabase/server", () => ({

@@ -1,0 +1,47 @@
+{
+  "_about": "Own-origin gzip KB per request body (level 9), cache off, mobile viewport, 3.5 s settle, measured 7 Oct 2026 against a production build + seeded local stack (run twice, within 1 KB). Budget = measured +5 % rounded up (requests +3). See e2e/route-payload-budget.spec.ts; change a budget on purpose in the same PR.",
+  "routes": {
+    "/": {
+      "totalKB": 467,
+      "jsKB": 265,
+      "fontKB": 167,
+      "requests": 38,
+      "thirdParty": []
+    },
+    "/jobs": {
+      "totalKB": 544,
+      "jsKB": 344,
+      "fontKB": 167,
+      "requests": 42,
+      "thirdParty": []
+    },
+    "job-detail": {
+      "totalKB": 661,
+      "jsKB": 464,
+      "fontKB": 167,
+      "requests": 39,
+      "thirdParty": []
+    },
+    "/scholarships": {
+      "totalKB": 448,
+      "jsKB": 248,
+      "fontKB": 167,
+      "requests": 41,
+      "thirdParty": []
+    },
+    "/blog": {
+      "totalKB": 368,
+      "jsKB": 160,
+      "fontKB": 167,
+      "requests": 36,
+      "thirdParty": []
+    },
+    "/mentorship": {
+      "totalKB": 441,
+      "jsKB": 244,
+      "fontKB": 167,
+      "requests": 32,
+      "thirdParty": []
+    }
+  }
+}
