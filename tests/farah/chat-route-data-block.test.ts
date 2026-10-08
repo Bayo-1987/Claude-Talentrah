@@ -43,8 +43,8 @@ function fakeSupabase() {
 }
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => fakeSupabase() }));
 vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => fakeSupabase() }));
-vi.mock("@/lib/farah/client", () => ({ askFarahChatStream }));
-vi.mock("@/lib/farah/session-events", () => ({ logFarahSessionMessage: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("@/lib/farah/client", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/farah/client")>()), askFarahChatStream }));
+vi.mock("@/lib/farah/session-events", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/farah/session-events")>()), logFarahSessionMessage: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("@/lib/farah/spend-tally", async () => (await import("./support/route-mocks")).safeSpendTally());
 vi.mock("@/lib/farah/chat-gate", async () => (await import("./support/route-mocks")).safeChatGate({ checkFarahChatAllowance: vi.fn().mockResolvedValue({ isFreeAllowance: true, isPassCovered: false, creditsSpent: 0, creditsAvailableAtCheck: 0, freeMessagesRemaining: 2 }), commitFarahChatAllowance: vi.fn().mockResolvedValue({ balanceAfter: null }) }));
 const { POST } = await import("@/app/api/farah/chat/route");

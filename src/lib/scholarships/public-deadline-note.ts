@@ -41,6 +41,15 @@ export const NOTE_NEEDS_STAMP_MESSAGE =
   "A deadline note needs a verified-deadline date. A listing added by hand has none, so remove the note or approve it through a source that verifies the deadline.";
 export const NOTE_TOO_LONG_MESSAGE = `Keep the note to ${DEADLINE_NOTE_MAX_LENGTH} characters or fewer`;
 
+/**
+ * A listing added BY HAND never has a verified deadline, and a verified listing may carry a deadline note only if its deadline was verified (0217). So a note on a hand-entered
+ * listing is refused at SAVE, with the message approval gives, instead of being saved as pending and refused later. Returns the message, or null when there is no note to refuse.
+ */
+export function handEntryNoteRefusal(note: string | null | undefined): string | null {
+  return note != null && note.trim() !== "" ? NOTE_NEEDS_STAMP_MESSAGE : null;
+}
+
+
 /** Turns a database error string naming one of the two rules into the sentence an operator should read; null for any other error. */
 export function deadlineNoteRuleMessage(errorText: string | null | undefined): string | null {
   if (!errorText) return null;

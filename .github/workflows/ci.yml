@@ -263,6 +263,8 @@ jobs:
   checks:
     name: Typecheck, lint, unit tests
     runs-on: ubuntu-latest
+    # Measured 7.5-8.6 min; 25 is roughly three times that. A hung step must fail this required check, not hold it for the six-hour default.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
 
@@ -340,6 +342,8 @@ jobs:
       - name: Seed demo data (full)
         env:
           SEED_APP_URL: http://localhost:3000
+          # CI-only fixtures instead of live job boards (scripts/seed-fixtures.ts): a fixed external job set, so counts and the feed length do not vary per run.
+          SEED_FIXTURES: "1"
         run: npm run seed
 
       # Regression tripwire, not a today-is-broken alarm — see
@@ -386,6 +390,9 @@ jobs:
     # ~10 minutes this job takes to build and run Playwright.
     needs: checks
     runs-on: ubuntu-latest
+    # Measured 9.8-12.2 min per shard (setup included); 30 is about 2.5 times that. On 7 Oct one shard sat 23 minutes in the browser install and
+    # starved a required check for the whole PR.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
 
@@ -397,7 +404,44 @@ jobs:
       - run: npm ci
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+        # Normally about 22 seconds, but the download both hangs (a shard sat 23 minutes in it on 7 Oct) and is refused (cdn.playwright.dev 403, twice,
+        # 0.4 s, on #820). So: each attempt is cut off after 120 s, up to three attempts with a short sleep between them, and a third failure fails
+        # the step loudly. Plain shell, no third-party action; tests/ci/ci-timeouts.test.ts runs this script against a fake npx.
+        #
+        # What the first version of this retry missed (8 Oct, #831): `timeout` ends `npx`, but Playwright runs apt-get as root through a child, and that
+        # child outlives the kill and keeps the apt lock. Attempts 2 and 3 then died in about 10 s each on "Could not get lock /var/lib/apt/lists/lock",
+        # so a stalled apt-get update could never be retried. So after a failed attempt that a retry follows, any leftover apt-get or dpkg is stopped
+        # (by name, TERM first), and the next attempt waits, at most 10 x 2 s, until none is left (then -9). Lock files are never deleted.
+        # Worst case: 3 x 120 s + 2 x 20 s of waiting + 5 s + 10 s of sleeping = 415 s, under the 8 minute step limit.
+        timeout-minutes: 8
+        run: |
+          for attempt in 1 2 3; do
+            if timeout 120 npx playwright install --with-deps chromium; then
+              echo "playwright browsers installed on attempt ${attempt}"
+              exit 0
+            fi
+            echo "::warning::playwright install attempt ${attempt} of 3 failed"
+            if [ "${attempt}" -lt 3 ]; then
+              sudo pkill -x apt-get || true
+              sudo pkill -x dpkg || true
+              leftover=1
+              for _ in 1 2 3 4 5 6 7 8 9 10; do
+                if sudo pgrep -x apt-get >/dev/null || sudo pgrep -x dpkg >/dev/null; then
+                  sleep 2
+                else
+                  leftover=0
+                  break
+                fi
+              done
+              if [ "${leftover}" = 1 ]; then
+                sudo pkill -9 -x apt-get || true
+                sudo pkill -9 -x dpkg || true
+              fi
+              sleep $((attempt * 5))
+            fi
+          done
+          echo "::error::playwright install failed after 3 attempts"
+          exit 1
 
       # pdftoppm: e2e/resume-print-margins.spec.ts rasterises a printed PDF to
       # measure the white space at each page break. Without it that spec skips
@@ -446,9 +490,16 @@ jobs:
           echo "App never came up." >&2
           exit 1
 
+      # The scholarship catalog (committed rows, no network). The unit job already runs this step. Here it used to come from the live scholarship
+      # ingestion call inside `npm run seed`, which SEED_FIXTURES=1 skips, so the e2e database needs the catalog seeded explicitly.
+      - name: Seed reference data (catalog)
+        run: npm run seed:catalog
+
       - name: Seed demo data
         env:
           SEED_APP_URL: http://localhost:3000
+          # CI-only fixtures instead of live job boards (scripts/seed-fixtures.ts), same as the unit job's seed.
+          SEED_FIXTURES: "1"
         run: npm run seed
 
       - name: Run Playwright suite (shard ${{ matrix.shard }} of 3)

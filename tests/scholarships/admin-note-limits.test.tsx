@@ -97,7 +97,8 @@ describe("saving a listing the database refuses", () => {
     ["scholarships_verified_note_needs_stamp", /needs a verified-deadline date/],
   ])("%s becomes a field message on the deadline note", async (constraint, pattern) => {
     h.upsert.mockResolvedValue({ error: violation(constraint).message, returnedToReview: [] });
-    const s = await createScholarshipAction(state, form({ provider: "Example Foundation", programName: "Example Scholarship", hostInstitution: "", degreeLevels: "msc", fieldTags: "", fundingType: "full", fundingCovers: "", eligibilityNationalities: "", eligibilityPriorDegree: "", eligibilityAge: "", eligibilityOther: "", applicationDeadline: "", cycleYear: "", officialUrl: "https://example.test/x", sourceName: "", deadlineNote: "A note.", reviewNote: "" }));
+    // A non-empty note on a hand-entered listing is now refused at save, before the database is asked (hand-entry-deadline-note.test.ts), so the 600-character mapping is exercised with no note: the database rule is the backstop.
+    const s = await createScholarshipAction(state, form({ provider: "Example Foundation", programName: "Example Scholarship", hostInstitution: "", degreeLevels: "msc", fieldTags: "", fundingType: "full", fundingCovers: "", eligibilityNationalities: "", eligibilityPriorDegree: "", eligibilityAge: "", eligibilityOther: "", applicationDeadline: "", cycleYear: "", officialUrl: "https://example.test/x", sourceName: "", deadlineNote: constraint === "scholarships_deadline_note_max_600" ? "" : "A note.", reviewNote: "" }));
     expect(s.status).toBe("error");
     expect(s.fieldErrors?.deadlineNote?.[0]).toMatch(pattern);
     expect(s.error).not.toMatch(/server log/);

@@ -5,6 +5,7 @@ import { requirePermission } from "@/lib/admin/require-admin";
 import { recordAdminAction } from "@/lib/admin/audit";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import type { OperatorActionState } from "./state";
+import { submittedValues } from "@/lib/forms/keep-input";
 
 /**
  * Invite a new operator by email.
@@ -46,12 +47,14 @@ export async function inviteOperatorAction(
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const displayName = String(formData.get("displayName") ?? "").trim();
   const roleId = String(formData.get("roleId") ?? "");
+  // Handed back with every error so the form keeps what was typed; a success returns none and the form starts clean.
+  const typed = submittedValues(formData, ["email", "displayName", "roleId"]);
 
   if (!email || !email.includes("@")) {
-    return { status: "error", message: "Enter a valid email address.", targetId: "invite" };
+    return { status: "error", message: "Enter a valid email address.", targetId: "invite", values: typed };
   }
   if (!roleId) {
-    return { status: "error", message: "Pick a role.", targetId: "invite" };
+    return { status: "error", message: "Pick a role.", targetId: "invite", values: typed };
   }
 
   const supabase = createServiceRoleClient();
@@ -82,6 +85,7 @@ export async function inviteOperatorAction(
         ? "Too many invitations sent recently — the mail service is rate-limiting us. Try again in a little while."
         : "Could not send that invitation. Check the address and try again.",
       targetId: "invite",
+      values: typed,
     };
   }
 
@@ -95,7 +99,7 @@ export async function inviteOperatorAction(
 
   if (error) {
     console.error("[admin-invite] admin_create_operator failed", error);
-    return { status: "error", message: "Something went wrong on our end.", targetId: "invite" };
+    return { status: "error", message: "Something went wrong on our end.", targetId: "invite", values: typed };
   }
 
   const row = data?.[0];
@@ -111,6 +115,7 @@ export async function inviteOperatorAction(
       status: "error",
       message: REFUSALS[row?.reason ?? ""] ?? "That invitation was refused.",
       targetId: "invite",
+      values: typed,
     };
   }
 

@@ -2,7 +2,7 @@
  * The feed test in e2e/apply-requires-resume.spec.ts checks EVERY internal card, in ONE browser call. It used to loop the cards with three awaited reads each, so its
  * time was (cards on the feed) x (round trips). The default /jobs tab renders the whole scored board (up to RECOMMENDED_HARD_CAP, 2000), and the CI database holds whatever the
  * live external job boards returned when `npm run seed` ran its real ingestion, so the loop took 3-5 s in most runs and ~32 s (a failure at the 30 s default) in others.
- * This pins the shape that does not grow with the board: one evaluateAll, no per-card await loop, no N bound, the count recorded, and the timeout held at 60 s until ten green runs.
+ * This pins the shape that does not grow with the board: one evaluateAll, no per-card await loop, no N bound, the count recorded, and no timeout override (it ran 2.1-3.1 s in the green main runs after it landed).
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -36,8 +36,9 @@ describe("the feed test in apply-requires-resume.spec.ts", () => {
   it("records how many cards it saw as a test annotation, so the next run says what the board was", () => {
     expect(feedTest).toMatch(/annotations\.push\(/);
   });
-  it("holds the timeout at 60 s (not the 30 s default yet, not the 90 s stopgap): back to the default after ten green runs on main", () => {
-    expect(feedTest).toContain("test.setTimeout(60_000)");
+  it("runs on the default 30 s timeout (the 90 s stopgap and the 60 s margin are gone: the one-call version takes 2-3 s in CI)", () => {
+    expect(feedTest).not.toContain("setTimeout");
     expect(feedTest).not.toContain("90_000");
+    expect(feedTest).not.toContain("60_000");
   });
 });

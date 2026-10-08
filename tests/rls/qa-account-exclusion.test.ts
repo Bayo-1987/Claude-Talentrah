@@ -15,10 +15,22 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { admin, createAuthedTestUser, deleteTestUsers } from "../support/auth";
 import { deleteOrgsCascade } from "../support/delete-orgs";
+import qaCasesJson from "../fixtures/qa-exclusion-cases.json";
 
 type Authed = Awaited<ReturnType<typeof createAuthedTestUser>>;
 const untyped = (c: Authed["client"]) => c as unknown as typeof admin;
 const tag = randomUUID().slice(0, 6);
+
+/** One row of the shared table (tests/fixtures/qa-exclusion-cases.json): the four arguments of public.is_qa_account and the value MEASURED on the real function. */
+interface QaCase {
+  name: string;
+  email: string | null;
+  first: string | null;
+  last: string | null;
+  display: string | null;
+  qa: boolean;
+}
+const qaCases = qaCasesJson as unknown as QaCase[];
 
 interface Spec {
   key: string;
@@ -110,26 +122,21 @@ describe("public.is_qa_account — the rule", () => {
     return data as unknown as boolean;
   };
 
-  it.each<[string, [string | null, string | null, string | null, string | null], boolean]>([
-    ["email tag, lower case", ["x+qa-1@e.test", "A", "B", null], true],
-    ["email tag, upper case", ["X+QA-1@E.TEST", "A", "B", null], true],
-    ["email +qa without the dash is not the tag", ["x+qa1@e.test", "A", "B", null], false],
-    ["first name exactly QA", [null, "QA", null, null], true],
-    ["first name starting 'QA '", [null, "QA Tester", null, null], true],
-    ["first name qa in lower case is not QA", [null, "qa", null, null], false],
-    ["Qasim", [null, "Qasim", "Khan", null], false],
-    ["Qa Hoang", [null, "Qa Hoang", null, null], false],
-    ["QAnon (no space after QA)", [null, "QAnon", null, null], false],
-    ["empty first name, last name QA: the full name is QA", [null, "", "QA", null], true],
-    ["first name with spaces around it, ' QA ' trims to QA", [null, " QA ", "Lead", null], true],
-    ["a last name QA after a real first name is not QA", [null, "A", "QA", null], false],
-    ["display name 'QA Board'", [null, null, null, "QA Board"], true],
-    ["display name exactly QA", [null, null, null, "QA"], true],
-    ["display name QAnon", [null, null, null, "QAnon"], false],
-    ["every argument null: not QA, and never null", [null, null, null, null], false],
-    ["every argument empty", ["", "", "", ""], false],
-  ])("%s", async (_name, args, want) => {
-    expect(await call(...args)).toBe(want);
+  // ONE shared table: tests/fixtures/qa-exclusion-cases.json is read by this test (the real SQL function) and by the TypeScript helper's test. Each row's "qa" was MEASURED on the real
+  // function, not assumed. Whitespace is written as JSON escapes in the file so nothing can hide a tab or a no-break space.
+  it.each(qaCases.map((c) => [c.name, c] as const))("%s", async (_name, c) => {
+    expect(await call(c.email, c.first, c.last, c.display ?? null)).toBe(c.qa);
+  });
+
+  it("the shared table is alive: it holds both outcomes and every real-name row is false", () => {
+    expect(qaCases.length).toBeGreaterThan(40);
+    expect(qaCases.some((c) => c.qa)).toBe(true);
+    expect(qaCases.some((c) => !c.qa)).toBe(true);
+    for (const real of ["Qadir Bello", "Qaisar", "Qa'id", "Qasim", "Qa Hoang", "QAnon", "Aqa Lead", "Quality Assurance"]) {
+      const row = qaCases.find((c) => c.name.includes(real));
+      expect(row, `a row for the real name ${real}`).toBeDefined();
+      expect(row!.qa, `${real} must stay visible`).toBe(false);
+    }
   });
 });
 

@@ -11,10 +11,14 @@
  *
  * Found by submitting the form, not by reading the code.
  */
+import type { SubmittedValues } from "@/lib/forms/keep-input";
+
 export interface FeedbackActionState {
   status: "idle" | "success" | "error";
   error: string | null;
   fieldErrors?: Record<string, string[]>;
+  /** Returned with an error so the form keeps what was typed (React 19 resets the form after any action). */
+  values?: SubmittedValues;
 }
 
 export const initialFeedbackActionState: FeedbackActionState = {

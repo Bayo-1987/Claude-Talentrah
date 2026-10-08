@@ -26,7 +26,8 @@ import { extractStructuredJd } from "../src/lib/jobs/extract-jd";
 import type { IngestSourceResult } from "../src/lib/jobs/ingest";
 import { RESUME_TEMPLATES, CREDIT_PACKS, PASSES } from "../src/lib/billing/catalog";
 import { refuseIfProduction } from "./refuse-production";
-import { announceDbTarget } from "./db-target";
+import { announceDbTarget, describeDbTarget } from "./db-target";
+import { buildFixtureJobRows, relativeDeadline } from "./seed-fixtures";
 
 const DEMO_EMAIL = "demo@talentrah.dev";
 /** The demo account's credit balance after every seed. Set, never topped up. */
@@ -59,6 +60,14 @@ const DEMO_CREDITS = 20;
  * existing one is a deliberate local act — `SEED_ROTATE_PASSWORDS=1 npm run seed`.
  */
 const ROTATE_PASSWORDS = process.env.SEED_ROTATE_PASSWORDS === "1";
+
+/*
+ * CI only: SEED_FIXTURES=1 replaces the two LIVE ingestion calls below (job boards, scholarship deadline recheck) with committed fixtures
+ * (scripts/seed-fixtures.ts). Live ingestion made every CI database hold a different ~675 postings, which made counts, feed length and landing-page
+ * thresholds vary run to run. Set only in .github/workflows/ci.yml's seed steps; refused against anything but a local ephemeral stack (checked in main()).
+ * Nothing under src/ reads this variable.
+ */
+const USE_FIXTURES = process.env.SEED_FIXTURES === "1";
 
 /*
  * In CI only: fall back to a random, per-run value instead of throwing.
@@ -197,6 +206,12 @@ async function main() {
     );
   }
   refuseIfProduction("seed", url);
+  if (USE_FIXTURES && describeDbTarget(url).kind !== "local") {
+    throw new Error(
+      `SEED_FIXTURES=1 is honoured only against a local ephemeral stack (this target is ${describeDbTarget(url).label}). ` +
+        "Unset it, or point NEXT_PUBLIC_SUPABASE_URL at the local stack.",
+    );
+  }
 
 /**
  * Find an auth user by email, across ALL pages.
@@ -712,47 +727,56 @@ async function findUserByEmail(
     });
   }
 
-  console.log("→ Running real ingestion pipeline for external jobs…");
   const devServerUrl = process.env.SEED_APP_URL ?? "http://localhost:3000";
-  /*
-   * The admin routes fail closed — unset INGEST_SECRET means every one of
-   * them answers 401. That is deliberate (they were all reachable
-   * unauthenticated on the deployment before it), but it makes this script a
-   * caller that must present a credential, so check for it up front rather
-   * than reporting the resulting 401 as "is the dev server running?".
-   */
-  if (!process.env.INGEST_SECRET && !process.env.ADMIN_API_SECRET) {
-    throw new Error(
-      "Seeding needs INGEST_SECRET (or ADMIN_API_SECRET) set — it drives the real " +
-        "ingestion routes over HTTP, and those fail closed without one. Set the same " +
-        "value the dev server is running with.",
-    );
-  }
-  const adminSecret = (process.env.ADMIN_API_SECRET || process.env.INGEST_SECRET)!;
-
-  const ingestRes = await fetch(`${devServerUrl}/api/admin/ingest-jobs`, {
-    method: "POST",
-    headers: { "x-admin-secret": adminSecret },
-  });
-  if (!ingestRes.ok) {
-    throw new Error(
-      ingestRes.status === 401
-        ? `Ingestion route returned 401 — INGEST_SECRET here doesn't match the one the server at ${devServerUrl} was started with.`
-        : `Ingestion route returned ${ingestRes.status} — is \`npm run dev\` running at ${devServerUrl}?`,
-    );
-  }
-  const { results } = (await ingestRes.json()) as { results: IngestSourceResult[] };
-  for (const r of results) {
-    if (r.error) {
-      console.log(`  ✗ ${r.source}/${r.identifier}: ${r.error}`);
-    } else {
-      const skipped = r.skipped ? `, skipped ${r.skipped}` : "";
-      const collided = r.collided ? `, collided ${r.collided}` : "";
-      // Loud on purpose: this one means the source may be serving stale jobs.
-      const skippedSweep = r.closureSkipped ? "  ⚠ freshness sweep SKIPPED (empty fetch)" : "";
-      console.log(
-        `  ✓ ${r.source}/${r.identifier}: fetched ${r.fetched}, upserted ${r.upserted}, closed ${r.closed}${collided}${skipped}${skippedSweep}`,
+  let adminSecret = "";
+  if (USE_FIXTURES) {
+    console.log("→ SEED_FIXTURES=1: seeding committed fixture jobs instead of ingesting live boards…");
+    const fixtureRows = buildFixtureJobRows(new Date());
+    const { error: fixtureError } = await supabase.from("job_postings").upsert(fixtureRows, { onConflict: "dedup_fingerprint" });
+    if (fixtureError) throw fixtureError;
+    console.log(`  ✓ ${fixtureRows.length} fixture external jobs`);
+  } else {
+    console.log("→ Running real ingestion pipeline for external jobs…");
+    /*
+     * The admin routes fail closed — unset INGEST_SECRET means every one of
+     * them answers 401. That is deliberate (they were all reachable
+     * unauthenticated on the deployment before it), but it makes this script a
+     * caller that must present a credential, so check for it up front rather
+     * than reporting the resulting 401 as "is the dev server running?".
+     */
+    if (!process.env.INGEST_SECRET && !process.env.ADMIN_API_SECRET) {
+      throw new Error(
+        "Seeding needs INGEST_SECRET (or ADMIN_API_SECRET) set — it drives the real " +
+          "ingestion routes over HTTP, and those fail closed without one. Set the same " +
+          "value the dev server is running with.",
       );
+    }
+    adminSecret = (process.env.ADMIN_API_SECRET || process.env.INGEST_SECRET)!;
+
+    const ingestRes = await fetch(`${devServerUrl}/api/admin/ingest-jobs`, {
+      method: "POST",
+      headers: { "x-admin-secret": adminSecret },
+    });
+    if (!ingestRes.ok) {
+      throw new Error(
+        ingestRes.status === 401
+          ? `Ingestion route returned 401 — INGEST_SECRET here doesn't match the one the server at ${devServerUrl} was started with.`
+          : `Ingestion route returned ${ingestRes.status} — is \`npm run dev\` running at ${devServerUrl}?`,
+      );
+    }
+    const { results } = (await ingestRes.json()) as { results: IngestSourceResult[] };
+    for (const r of results) {
+      if (r.error) {
+        console.log(`  ✗ ${r.source}/${r.identifier}: ${r.error}`);
+      } else {
+        const skipped = r.skipped ? `, skipped ${r.skipped}` : "";
+        const collided = r.collided ? `, collided ${r.collided}` : "";
+        // Loud on purpose: this one means the source may be serving stale jobs.
+        const skippedSweep = r.closureSkipped ? "  ⚠ freshness sweep SKIPPED (empty fetch)" : "";
+        console.log(
+          `  ✓ ${r.source}/${r.identifier}: fetched ${r.fetched}, upserted ${r.upserted}, closed ${r.closed}${collided}${skipped}${skippedSweep}`,
+        );
+      }
     }
   }
 
@@ -763,20 +787,38 @@ async function findUserByEmail(
   // moderation gate is what publishes them, so the seed explicitly reviews
   // most of them and deliberately leaves a couple unpublished so the gate
   // is visibly exercised rather than just asserted.
-  console.log("\nIngesting scholarships...");
-  const schRes = await fetch(`${devServerUrl}/api/admin/ingest-scholarships`, {
-    method: "POST",
-    headers: { "x-admin-secret": adminSecret },
-  });
-  if (!schRes.ok) {
-    throw new Error(`Scholarship ingestion returned ${schRes.status}.`);
+  if (USE_FIXTURES) {
+    // The catalog is already upserted offline by scripts/seed-catalog.ts; only the live deadline recheck is skipped. Its committed dated
+    // deadlines would expire, so a dated row meant to be open becomes "a year from now" (the closed ones stay closed): see relativeDeadline.
+    console.log("\nSEED_FIXTURES=1: skipping the live scholarship recheck; making future deadlines relative…");
+    const { data: dated } = await supabase.from("scholarships").select("id, program_name, application_deadline").not("application_deadline", "is", null);
+    const now = new Date();
+    let moved = 0;
+    for (const row of dated ?? []) {
+      const next = relativeDeadline(row.application_deadline, now, row.program_name);
+      if (next !== row.application_deadline) {
+        const { error: dlError } = await supabase.from("scholarships").update({ application_deadline: next }).eq("id", row.id);
+        if (dlError) throw dlError;
+        moved++;
+      }
+    }
+    console.log(`  ✓ ${moved} future deadline(s) made relative`);
+  } else {
+    console.log("\nIngesting scholarships...");
+    const schRes = await fetch(`${devServerUrl}/api/admin/ingest-scholarships`, {
+      method: "POST",
+      headers: { "x-admin-secret": adminSecret },
+    });
+    if (!schRes.ok) {
+      throw new Error(`Scholarship ingestion returned ${schRes.status}.`);
+    }
+    const { summary: schSummary } = (await schRes.json()) as {
+      summary: { fetched: number; upserted: number; staleMarked: number };
+    };
+    console.log(
+      `  ✓ fetched ${schSummary.fetched}, upserted ${schSummary.upserted}, expired ${schSummary.staleMarked}`,
+    );
   }
-  const { summary: schSummary } = (await schRes.json()) as {
-    summary: { fetched: number; upserted: number; staleMarked: number };
-  };
-  console.log(
-    `  ✓ fetched ${schSummary.fetched}, upserted ${schSummary.upserted}, expired ${schSummary.staleMarked}`,
-  );
 
   // Publish rule keys off deadline verification, not a hand-maintained list:
   // a listing is only publishable if its deadline was actually confirmed

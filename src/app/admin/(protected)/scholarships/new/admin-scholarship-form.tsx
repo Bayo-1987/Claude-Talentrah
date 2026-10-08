@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import Link from "next/link";
 import { createScholarshipAction, loadQueueAction } from "@/lib/scholarships/admin-actions";
 import { initialAdminScholarshipState } from "@/lib/scholarships/admin-state";
+import { nextEditorGeneration } from "@/lib/scholarships/editor-generation";
 import { DEGREE_LEVEL_VALUES, FUNDING_TYPE_VALUES } from "@/lib/scholarships/schemas";
 import { DEGREE_LEVEL_LABEL, FUNDING_TYPE_LABEL } from "@/lib/scholarships/types";
 import { TextField, SelectField, Button, EyebrowLabel, BorderedCard } from "@/components/ui";
@@ -26,6 +27,18 @@ export function AdminScholarshipForm() {
   );
   // Counted, not capped: truncating as they type would silently drop text; showing how far over they are lets them cut what they choose.
   const [noteLength, setNoteLength] = useState(0);
+  /*
+   * The "Other eligibility notes" editor is uncontrolled, so the form reset that clears every native field after a submit cannot clear it. It is remounted (by key) each time a
+   * save SUCCEEDS and left alone when the save fails, so a field error never costs the operator their text. Adjusted during render from the action's state, not in an effect.
+   */
+  const [seenState, setSeenState] = useState(state);
+  const [editorGeneration, setEditorGeneration] = useState(0);
+  if (state !== seenState) {
+    setSeenState(state);
+    setEditorGeneration(nextEditorGeneration(seenState, state, editorGeneration));
+    setNoteLength(0); // the form was reset (a save or a refusal): the counter goes with the empty field
+  }
+
   const counter = noteCounter(noteLength);
   const [queueState, queueAction, queuePending] = useActionState(
     loadQueueAction,
@@ -238,6 +251,7 @@ export function AdminScholarshipForm() {
            * before, so a scraped value isn't a second case to special-case.
            */}
           <MinimalRichEditor
+            key={editorGeneration}
             id="eligibilityOther"
             name="eligibilityOther"
             label="Other eligibility notes (optional)"
