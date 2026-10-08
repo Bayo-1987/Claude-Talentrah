@@ -1,15 +1,20 @@
--- 0227 rollback: give anon and authenticated TRUNCATE, REFERENCES, TRIGGER and MAINTAIN back on every public table and in the default privileges of the postgres role for schema public (the Supabase default), give them EXECUTE on the two referral
--- functions back, and drop the snapshot function. This restores the default, not an exact per-table prior state; the exact prior state is whatever the pre-apply C3b read recorded (52 tables for anon, 55 for authenticated, on each project). Run only
--- on the owner's separate approval.
+-- 0227 rollback (remainder): give anon and authenticated MAINTAIN back on every table in public and in the postgres role's default privileges (PostgreSQL 17 and later only), give them EXECUTE on the two referral functions
+-- back, and drop the snapshot function. This restores the default, not an exact per-table prior state; the exact prior state is whatever the pre-apply audit recorded (reports/S3-21/raw/0229/). Run only on the owner's separate approval.
 do $rb$
 declare
-  r record;
-  privs text := case when current_setting('server_version_num')::int >= 170000 then 'truncate, references, trigger, maintain' else 'truncate, references, trigger' end;
+  t record;
 begin
-  for r in select c.oid::regclass::text as t from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind in ('r', 'p') loop
-    execute format('grant %s on table %s to anon, authenticated', privs, r.t);
-  end loop;
-  execute format('alter default privileges for role postgres in schema public grant %s on tables to anon, authenticated', privs);
+  if current_setting('server_version_num')::int >= 170000 then
+    for t in
+      select pg_catalog.quote_ident(n.nspname) || '.' || pg_catalog.quote_ident(c.relname) as tbl
+        from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+       where n.nspname = 'public' and c.relkind in ('r', 'p')
+       order by c.relname
+    loop
+      execute pg_catalog.format('grant maintain on table %s to anon, authenticated', t.tbl);
+    end loop;
+    alter default privileges in schema public grant maintain on tables to anon, authenticated;
+  end if;
 end
 $rb$;
 grant execute on function public.count_rewarded_referrals_last_30d(uuid, uuid) to anon, authenticated;
