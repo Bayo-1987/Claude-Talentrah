@@ -80,11 +80,15 @@ describe("markMentorPaymentRefundedAction", () => {
 
   it("a rejected update is returned as an error, never thrown and never shown as success; nothing is audited or revalidated (the row stays)", async () => {
     h.error = { message: "permission denied" };
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
     const result = await markMentorPaymentRefundedAction(initialRefundActionState, fd("s1"));
     expect(result.status).toBe("error");
-    expect(result.message).toMatch(/could not mark/i);
+    expect(result.message).toBe("Couldn't mark that payment refunded; nothing was changed. The error is in the server log.");
+    expect(result.message).not.toContain("permission denied"); // the raw database text stays in the server log
+    expect(logged).toHaveBeenCalledWith(expect.stringContaining("permission denied"));
     expect(h.audit).not.toHaveBeenCalled();
     expect(h.revalidate).not.toHaveBeenCalled();
+    logged.mockRestore();
   });
 
   it("a success says so plainly", async () => {

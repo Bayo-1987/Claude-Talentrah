@@ -26,7 +26,10 @@ export async function markMentorPaymentRefundedAction(_prev: RefundActionState, 
     .eq("status", "payment_needs_refund")
     .select("id");
   // A rejected write RESOLVES with an error. It is returned to the form (never thrown into the error boundary), and the row stays in the list.
-  if (error) return { status: "error", message: `Could not mark that payment refunded: ${error.message}. Nothing was changed; try again.` };
+  if (error) {
+    console.error(`[admin/ops] could not mark mentor payment refunded (session ${sessionId}): ${error.message}`);
+    return { status: "error", message: "Couldn't mark that payment refunded; nothing was changed. The error is in the server log." };
+  }
 
   if ((data ?? []).length === 0) {
     revalidatePath("/admin/ops");
