@@ -51,7 +51,7 @@ const row = async (id: string) => (await db!.from("scholarships").select("id, mo
 const card = (page: Page, k: string) => page.locator("li", { has: page.getByRole("heading", { name: prog(k) }) });
 const editor = (page: Page) => page.getByRole("textbox", { name: /Other eligibility notes/ });
 
-test.describe("admin: edit a scholarship listing (red until built)", () => {
+test.describe("admin: edit a scholarship listing", () => {
   test.skip(!db, "needs the Supabase URL and service-role key");
 
   test.beforeAll(async () => {
