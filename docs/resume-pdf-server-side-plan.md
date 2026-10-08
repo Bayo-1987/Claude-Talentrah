@@ -49,7 +49,9 @@ from `resumePrintTitle`.
   eligible by default, existing ones opt in with
   `VERCEL_SUPPORT_LARGE_FUNCTIONS=1`.
 - Memory: 2 GB / 1 vCPU default; 4 GB / 2 vCPU maximum on Pro.
-- Duration: 300 s default and maximum on Hobby; 800 s on Pro.
+- Duration: 300 s default and maximum on Hobby; 800 s on Pro. (Update 8 Oct 2026: the project is now on
+  Vercel Pro, owner's confirmation in the approvals log of that day, so 800 s is available. This plan was
+  written for Hobby; re-read the current limits before relying on 800 s.)
 - Response body: **4.5 MB** maximum. A resume PDF is far below that, but it means
   the file must come back in the response, not be proxied from a larger source.
 - This project deploys to `arn1` (`vercel.json`), so the function runs in
