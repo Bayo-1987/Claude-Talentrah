@@ -76,10 +76,15 @@ test.describe("employer job-list widget", () => {
     const login = await authedPage.request.get("/login");
     expect(login.headers()["x-frame-options"]).toBe("DENY");
 
-    // Framed from another origin (an inline document with no origin of its own), the page renders its content.
+    // Framed from another origin: a page served from a different http origin (an employer's own site; intercepted, so no network is needed) embeds the widget. (A bare about:blank parent is
+    // not a network origin, so `frame-ancestors *` does not apply to it: not a realistic host.)
+    const outerOrigin = "http://employer-site.example";
     const outsider = await browser.newPage();
     try {
-      await outsider.setContent(`<!doctype html><iframe id="w" src="${baseURL}${embedPath}" title="widget" width="400" height="300"></iframe>`);
+      await outsider.route(`${outerOrigin}/**`, (route) =>
+        route.fulfill({ status: 200, contentType: "text/html", body: `<!doctype html><iframe id="w" src="${baseURL}${embedPath}" title="widget" width="400" height="300"></iframe>` }),
+      );
+      await outsider.goto(`${outerOrigin}/careers`);
       await expect(outsider.frameLocator("#w").getByText(jobTitle)).toBeVisible({ timeout: 15_000 });
     } finally {
       await outsider.close();
