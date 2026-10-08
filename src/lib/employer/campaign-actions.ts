@@ -125,7 +125,9 @@ export async function createCampaignAction(
     if (error?.code === "42501") {
       return { error: "That job posting doesn't belong to your company.", values: typed };
     }
-    return { error: `Couldn't create the campaign: ${error?.message ?? "unknown error"}`, values: typed };
+    // The raw database text can name tables and constraints: it goes to the server log, the employer gets a plain sentence.
+    console.error(`[campaigns] create failed (org ${context.organization.id}): ${error?.message ?? "unknown error"}`);
+    return { error: "Couldn't create the campaign; nothing was changed. The error is in the server log.", values: typed };
   }
 
   revalidatePath("/employer/campaigns");
@@ -164,7 +166,10 @@ export async function updateCampaignAction(
     })
     .eq("id", campaignId);
 
-  if (error) return { error: `Couldn't save the campaign: ${error.message}`, values: typed };
+  if (error) {
+    console.error(`[campaigns] save failed (campaign ${campaignId}): ${error.message}`);
+    return { error: "Couldn't save the campaign; nothing was changed. The error is in the server log.", values: typed };
+  }
   revalidatePath(`/employer/campaigns/${campaignId}`);
   return { ok: true };
 }
@@ -186,7 +191,10 @@ export async function submitCampaignForReviewAction(
     p_campaign_id: campaignId,
     p_actor_user_id: context.userId,
   });
-  if (error) return { error: `Couldn't submit for review: ${error.message}` };
+  if (error) {
+    console.error(`[campaigns] submit for review failed (campaign ${campaignId}): ${error.message}`);
+    return { error: "Couldn't submit for review; nothing was changed. The error is in the server log." };
+  }
   if (!data) return { error: "Only a draft campaign can be submitted for review." };
 
   revalidatePath(`/employer/campaigns/${campaignId}`);
@@ -202,7 +210,10 @@ export async function pauseCampaignAction(campaignId: string): Promise<EmployerA
 
   const admin = createServiceRoleClient();
   const { data, error } = await admin.rpc("pause_ad_campaign", { p_campaign_id: campaignId });
-  if (error) return { error: `Couldn't pause the campaign: ${error.message}` };
+  if (error) {
+    console.error(`[campaigns] pause failed (campaign ${campaignId}): ${error.message}`);
+    return { error: "Couldn't pause the campaign; nothing was changed. The error is in the server log." };
+  }
   if (!data) return { error: "That campaign isn't running." };
 
   revalidatePath(`/employer/campaigns/${campaignId}`);
@@ -230,7 +241,10 @@ export async function resumeCampaignAction(campaignId: string): Promise<Employer
     p_campaign_id: campaignId,
     p_actor_user_id: context.userId,
   });
-  if (error) return { error: `Couldn't resume the campaign: ${error.message}` };
+  if (error) {
+    console.error(`[campaigns] resume failed (campaign ${campaignId}): ${error.message}`);
+    return { error: "Couldn't resume the campaign; nothing was changed. The error is in the server log." };
+  }
 
   const result = data?.[0];
   if (!result?.ok) {
@@ -275,7 +289,10 @@ async function assertCampaignBelongsToOrg(
     .eq("organization_id", context.organization.id)
     .maybeSingle();
 
-  if (error) return { error: `Couldn't load that campaign: ${error.message}` };
+  if (error) {
+    console.error(`[campaigns] ownership lookup failed (campaign ${campaignId}): ${error.message}`);
+    return { error: "Couldn't load that campaign; nothing was changed. The error is in the server log." };
+  }
   // Same answer for "no such campaign" and "not yours", so this cannot be used
   // to probe which campaign ids exist.
   if (!data) return { error: "That campaign isn't available." };
