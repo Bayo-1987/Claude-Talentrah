@@ -61,6 +61,7 @@ one morning by two sessions that each did exactly that. Ask, wait for the number
 | 0243 | session to be named, the Promoted strip (assigned by the owner on 8 Oct 2026; no file yet) | reserved | reserved |
 | 0244 | session to be named, the skills check (assigned by the owner on 8 Oct 2026; no file yet) | reserved | reserved |
 | 0245 | session to be named, references (assigned by the owner on 8 Oct 2026; no file yet) | reserved | reserved |
+| 0246 | S1 (with S3 reviewing), the Employer job import, database part: `employer_job_feeds`, `employer_job_feed_attempts`, three marker columns on `job_postings` (`import_feed_id`, `import_key`, `employer_closed_at`), the INSERT policy requires them null, and `org_job_widget` never lists an imported posting (assigned by the owner on 8 Oct 2026; `supabase/migrations/0246_employer_job_feeds.sql`; additive apart from the replaced widget function, so it is applied before the code that uses it; changes no page) | merged, not applied | merged, not applied |
 
 The times are the ledger's own version stamps (UTC, 2 to 4 Oct 2026), read from `supabase_migrations.schema_migrations` on both projects. A row says "applied" only because
 that ledger shows it; "reserved" means the owner assigned the number and no ledger has it; "proposed" means the owner named the number but the migration file does not exist yet.

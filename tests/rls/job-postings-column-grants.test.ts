@@ -19,7 +19,7 @@ import { admin, createAuthedTestUser, deleteTestUsers, type TestUser } from "../
 import { compareColumnGrants } from "../support/column-grants";
 
 /** The columns anon and authenticated must NOT be able to read. Adding to this list is a decision, not a fix for a failing test. */
-const RESTRICTED = ["admin_review_note"] as const;
+const RESTRICTED = ["admin_review_note", "import_key", "employer_closed_at"] as const; // 0246: the import sync's own bookkeeping; import_feed_id IS readable (the pages need it to treat a job as link-out)
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
