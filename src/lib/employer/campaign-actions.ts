@@ -191,7 +191,10 @@ export async function submitCampaignForReviewAction(
     p_campaign_id: campaignId,
     p_actor_user_id: context.userId,
   });
-  if (error) return { error: `Couldn't submit for review: ${error.message}` };
+  if (error) {
+    console.error(`[campaigns] submit for review failed (campaign ${campaignId}): ${error.message}`);
+    return { error: "Couldn't submit for review; nothing was changed. The error is in the server log." };
+  }
   if (!data) return { error: "Only a draft campaign can be submitted for review." };
 
   revalidatePath(`/employer/campaigns/${campaignId}`);
@@ -207,7 +210,10 @@ export async function pauseCampaignAction(campaignId: string): Promise<EmployerA
 
   const admin = createServiceRoleClient();
   const { data, error } = await admin.rpc("pause_ad_campaign", { p_campaign_id: campaignId });
-  if (error) return { error: `Couldn't pause the campaign: ${error.message}` };
+  if (error) {
+    console.error(`[campaigns] pause failed (campaign ${campaignId}): ${error.message}`);
+    return { error: "Couldn't pause the campaign; nothing was changed. The error is in the server log." };
+  }
   if (!data) return { error: "That campaign isn't running." };
 
   revalidatePath(`/employer/campaigns/${campaignId}`);
@@ -235,7 +241,10 @@ export async function resumeCampaignAction(campaignId: string): Promise<Employer
     p_campaign_id: campaignId,
     p_actor_user_id: context.userId,
   });
-  if (error) return { error: `Couldn't resume the campaign: ${error.message}` };
+  if (error) {
+    console.error(`[campaigns] resume failed (campaign ${campaignId}): ${error.message}`);
+    return { error: "Couldn't resume the campaign; nothing was changed. The error is in the server log." };
+  }
 
   const result = data?.[0];
   if (!result?.ok) {
@@ -280,7 +289,10 @@ async function assertCampaignBelongsToOrg(
     .eq("organization_id", context.organization.id)
     .maybeSingle();
 
-  if (error) return { error: `Couldn't load that campaign: ${error.message}` };
+  if (error) {
+    console.error(`[campaigns] ownership lookup failed (campaign ${campaignId}): ${error.message}`);
+    return { error: "Couldn't load that campaign; nothing was changed. The error is in the server log." };
+  }
   // Same answer for "no such campaign" and "not yours", so this cannot be used
   // to probe which campaign ids exist.
   if (!data) return { error: "That campaign isn't available." };
