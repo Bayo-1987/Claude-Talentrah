@@ -65,7 +65,11 @@ async function setWidget(orgId: string, enabled: boolean, maxItems = 10) {
 
 const titles: Record<string, string> = {};
 
+// The route answers the neutral page for everyone while the server-side switch is off (owner condition); this file tests the switched-ON route.
+const flagBefore = process.env.EMBED_WIDGET_ENABLED;
+
 beforeAll(async () => {
+  process.env.EMBED_WIDGET_ENABLED = "1";
   userA = (await createTestUser("widgeta")).id;
   userB = (await createTestUser("widgetb")).id;
   orgA = await insertOrg("WIDGET-TEST Alpha Ltd", userA);
@@ -84,6 +88,8 @@ beforeAll(async () => {
 }, 90_000);
 
 afterAll(async () => {
+  if (flagBefore === undefined) delete process.env.EMBED_WIDGET_ENABLED;
+  else process.env.EMBED_WIDGET_ENABLED = flagBefore;
   const ids = Object.values(jobs);
   if (ids.length) {
     const { error } = await admin.from("job_postings").delete().in("id", ids);

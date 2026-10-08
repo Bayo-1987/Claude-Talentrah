@@ -8,7 +8,7 @@
  * becomes INSERT ... ON CONFLICT DO UPDATE SET organization_id, enabled, max_items, which also updates organization_id, a column the role may not update, so Postgres refuses the whole statement
  * ('permission denied for table employer_widgets'): found by QA running the e2e on a real stack. The mock below has no `upsert` at all, so calling one fails the test.
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => ({
   update: vi.fn(),
@@ -39,7 +39,14 @@ function rowsAfterUpdate(rows: Array<{ organization_id: string }>, error: { mess
   h.selectAfterUpdate.mockResolvedValue({ data: error ? null : rows, error });
 }
 
+const flagBefore = process.env.EMBED_WIDGET_ENABLED;
+afterEach(() => {
+  if (flagBefore === undefined) delete process.env.EMBED_WIDGET_ENABLED;
+  else process.env.EMBED_WIDGET_ENABLED = flagBefore;
+});
+
 beforeEach(() => {
+  process.env.EMBED_WIDGET_ENABLED = "1";
   h.update.mockReset().mockReturnValue({ eq: h.eq });
   h.eq.mockReset().mockReturnValue({ select: h.selectAfterUpdate });
   h.selectAfterUpdate.mockReset();
@@ -129,5 +136,30 @@ describe("saveJobWidgetSettingsAction", () => {
     expect(result).toEqual({ error: expect.stringContaining("couldn't save") });
     expect(h.update).toHaveBeenCalledTimes(1);
     expect(h.revalidateEmbed).not.toHaveBeenCalled();
+  });
+});
+
+describe("the server-side switch (EMBED_WIDGET_ENABLED) is OFF", () => {
+  beforeEach(() => {
+    delete process.env.EMBED_WIDGET_ENABLED;
+  });
+
+  it("refuses to switch the widget ON, with a clear message, and writes nothing", async () => {
+    const result = await saveJobWidgetSettingsAction(null, form({ enabled: "on", maxItems: "8" }));
+    expect(result).toEqual({ error: expect.stringContaining("isn't available yet") });
+    expect(h.update).not.toHaveBeenCalled();
+    expect(h.insert).not.toHaveBeenCalled();
+    expect(h.revalidateEmbed).not.toHaveBeenCalled();
+  });
+
+  it("still lets an organisation save the widget as OFF (turning it off, or changing only the count, is harmless)", async () => {
+    const result = await saveJobWidgetSettingsAction(null, form({ maxItems: "8" }));
+    expect(result).toEqual({ ok: true });
+    expect(h.update).toHaveBeenCalledWith({ enabled: false, max_items: 8 });
+  });
+
+  it("validates the count before anything else, as with the switch on", async () => {
+    const result = await saveJobWidgetSettingsAction(null, form({ enabled: "on", maxItems: "99" }));
+    expect(result).toEqual({ error: expect.stringContaining("1 and 20") });
   });
 });

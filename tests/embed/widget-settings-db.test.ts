@@ -38,7 +38,10 @@ let orgId: string;
 let otherOrgId: string;
 let strangerClient: DB;
 
+const flagBefore = process.env.EMBED_WIDGET_ENABLED;
+
 beforeAll(async () => {
+  process.env.EMBED_WIDGET_ENABLED = "1"; // the action refuses to switch a widget on while the server-side switch is off
   const owner = await createTestUser("widgetsetowner");
   const stranger = await createTestUser("widgetsetstranger");
   ownerId = owner.id;
@@ -57,6 +60,8 @@ beforeAll(async () => {
 }, 90_000);
 
 afterAll(async () => {
+  if (flagBefore === undefined) delete process.env.EMBED_WIDGET_ENABLED;
+  else process.env.EMBED_WIDGET_ENABLED = flagBefore;
   for (const id of [orgId, otherOrgId].filter(Boolean)) await admin.from("organization_members").delete().eq("organization_id", id);
   await deleteTestOrgs([orgId, otherOrgId].filter(Boolean));
   await deleteTestUsers([ownerId, strangerId].filter(Boolean));

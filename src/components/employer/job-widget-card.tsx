@@ -20,12 +20,15 @@ export function JobWidgetCard({
   verified,
   snippet,
   previewSrc,
+  available,
 }: {
   enabled: boolean;
   maxItems: number;
   verified: boolean;
   snippet: string;
   previewSrc: string;
+  /** The server-side switch (EMBED_WIDGET_ENABLED). False: the card says so and offers nothing to act on. */
+  available: boolean;
 }) {
   const [state, formAction, pending] = useActionState<WidgetSettingsState, FormData>(saveJobWidgetSettingsAction, null);
   const [copied, setCopied] = useState<"yes" | "failed" | null>(null);
@@ -39,6 +42,15 @@ export function JobWidgetCard({
     } catch {
       setCopied("failed");
     }
+  }
+
+  if (!available) {
+    return (
+      <BorderedCard className="p-6" data-testid="job-widget-card">
+        <h2 className="font-display text-[20px] font-medium text-ink">Show your jobs on your website</h2>
+        <p className="mt-1.5 max-w-[60ch] font-body text-[13.5px] text-ink-soft">This isn&apos;t available yet. When it is, you will be able to show your open Talentrah jobs on your own website from here.</p>
+      </BorderedCard>
+    );
   }
 
   return (

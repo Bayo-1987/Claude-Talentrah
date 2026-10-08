@@ -25,7 +25,32 @@ test.describe("employer job-list widget", () => {
     ]);
   });
 
+  // The server-side switch (EMBED_WIDGET_ENABLED=1) is read by the APP under test, not by this process: set it when starting the app to run the switched-ON flow; leave it unset to run the OFF flow.
+  const switchedOn = process.env.EMBED_WIDGET_ENABLED === "1";
+
+  test("with the server-side switch OFF: the card says not available yet and the embed is the neutral page for everyone", async ({ authedPage, testUser }) => {
+    test.skip(switchedOn, "the app under test runs with EMBED_WIDGET_ENABLED=1; this test covers the unset (default) case");
+    const orgName = `E2E Widget Co ${testUser.id.slice(0, 8)}`;
+    await authedPage.goto("/employer/onboarding");
+    await authedPage.getByLabel("Company name").fill(orgName);
+    await authedPage.getByRole("button", { name: "Create company" }).click();
+    await expect(authedPage).toHaveURL(/\/employer\/jobs$/);
+    const { data: org } = await admin.from("organizations").select("id").eq("name", orgName).single();
+    await admin.from("organizations").update({ verified: true }).eq("id", org!.id);
+
+    await authedPage.goto("/employer/profile");
+    const card = authedPage.getByTestId("job-widget-card");
+    await expect(card).toContainText("This isn't available yet");
+    await expect(card.getByRole("checkbox")).toHaveCount(0);
+    await expect(card.getByRole("button")).toHaveCount(0);
+
+    const res = await authedPage.request.get(`/embed/jobs/${org!.id}`);
+    expect(res.status()).toBe(200);
+    expect(await res.text()).toContain("No open jobs right now");
+  });
+
   test("switch on, list the open job, frame it from another origin, close the job and watch it leave", async ({ authedPage, testUser, browser, baseURL }) => {
+    test.skip(!switchedOn, "the app under test runs without EMBED_WIDGET_ENABLED=1 (the default); the switched-ON flow needs the app started with it");
     test.setTimeout(150_000);
     const orgName = `E2E Widget Co ${testUser.id.slice(0, 8)}`;
     const jobTitle = `E2E Widget Role ${testUser.id.slice(0, 8)}`;

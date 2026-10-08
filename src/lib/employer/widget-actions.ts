@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireEmployer } from "@/lib/employer/membership";
 import { revalidateEmbed } from "@/lib/embed/revalidate";
+import { embedWidgetEnabled } from "@/lib/embed/feature";
 
 /**
  * The Company Profile card's switch and "max jobs" choice for the employer job-list widget (plan v2.1, owner-approved 7 Oct 2026).
@@ -51,6 +52,8 @@ export async function saveJobWidgetSettingsAction(_prev: WidgetSettingsState, fo
     return { error: "Choose a whole number of jobs between 1 and 20." };
   }
   const enabled = form.get("enabled") === "on";
+  // The server-side switch (EMBED_WIDGET_ENABLED=1): until the owner has turned the feature on for the deployment, no organisation can switch its widget on.
+  if (enabled && !embedWidgetEnabled()) return { error: "The job widget isn't available yet. We'll let you know when you can switch it on." };
 
   const supabase = await createClient();
   const table = (supabase as unknown as { from(name: string): WidgetsTable }).from("employer_widgets");

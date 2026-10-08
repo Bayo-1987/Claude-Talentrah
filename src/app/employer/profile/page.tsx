@@ -9,6 +9,7 @@ import { CompanyProfileForm } from "@/components/employer/company-profile-form";
 import { CacVerificationForm } from "@/components/employer/cac-verification-form";
 import { JobWidgetCard } from "@/components/employer/job-widget-card";
 import { loadJobWidgetSettings } from "@/lib/embed/settings";
+import { embedWidgetEnabled } from "@/lib/embed/feature";
 import { embedUrl, iframeSnippet } from "@/lib/embed/snippet";
 import { SITE_ORIGIN } from "@/lib/seo/site";
 
@@ -86,6 +87,7 @@ export default async function CompanyProfilePage() {
             verified={organization.verified}
             snippet={iframeSnippet({ organizationId: organization.id, companyName: organization.name, origin: SITE_ORIGIN })}
             previewSrc={embedUrl(organization.id, "")}
+            available={embedWidgetEnabled()}
           />
         </div>
       )}

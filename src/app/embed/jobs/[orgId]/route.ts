@@ -1,3 +1,4 @@
+import { embedWidgetEnabled } from "@/lib/embed/feature";
 import { fetchWidgetPayload } from "@/lib/embed/widget-data";
 import { isUuid, renderWidgetHtml } from "@/lib/embed/widget-html";
 
@@ -25,6 +26,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ org
   const { orgId } = await params;
   // A malformed id is answered before any database call, with the same neutral page.
   if (!isUuid(orgId)) return new Response(renderWidgetHtml(null), { status: 404, headers: HTML });
+  // The server-side switch (EMBED_WIDGET_ENABLED=1, owner condition): while it is off every organisation gets the same neutral page and the database is not touched.
+  if (!embedWidgetEnabled()) return new Response(renderWidgetHtml(null), { status: 200, headers: HTML });
   const data = await fetchWidgetPayload(orgId);
   return new Response(renderWidgetHtml(data), { status: 200, headers: HTML });
 }
