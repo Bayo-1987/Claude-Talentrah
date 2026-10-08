@@ -14,24 +14,12 @@ import dns from "node:dns";
  * of today's checks would refuse it — the server would fetch it like any
  * other page and hand the response back through the tailoring pipeline.
  *
- * THE APPROACH, AND ITS ONE KNOWN LIMIT. Resolve the hostname via DNS and
- * check every returned address against the blocked ranges below, before the
- * real request goes out — and, separately, disable automatic redirect
- * following so a 3xx to an internal address can't ride through on a hostname
- * that resolved cleanly. This is resolve-then-connect, not a pinned
- * connection: a sufficiently patient DNS-rebinding attacker (an authoritative
- * server that answers this validation lookup with a public IP and a later,
- * genuinely-separate lookup at connect time with a private one) could still
- * slip through the gap between the two lookups. Closing that fully needs
- * pinning the actual socket to the validated address, which needs dispatcher-
- * level control undici doesn't expose compatibly through Node's global
- * `fetch` (checked directly: an externally-installed `undici` Agent's
- * `dispatcher` is rejected by Node 22's own bundled fetch — internal version
- * skew, not a config mistake). Rebinding needs an attacker who controls a
- * real DNS zone and times two separate lookups against this specific
- * request; the risk this module actually exists for is the much cheaper,
- * much more likely one — a pasted literal internal address or a redirect to
- * one — and that risk is fully closed below.
+ * THE APPROACH. Resolve the hostname via DNS and check every returned address against the blocked ranges below, before the real request goes out, and do not follow redirects automatically (the
+ * caller follows them hop by hop, checking each). On its own this is resolve-THEN-connect: the HTTP client resolves the name a second time to connect, so a DNS answer that changed in between
+ * (rebinding) could reach an address the check never saw. That gap is closed where it can be: `pinnedFetch` (pinned-fetch.ts) uses this module's address rules, resolves once, and connects to that
+ * same checked address (a custom `lookup` on Node's `http`/`https` request, which the global `fetch` does not allow). New server-side fetches of a URL someone else controls should use pinnedFetch;
+ * `checkUrlIsSafeToFetch` alone still has the gap. The address rules also read the IPv4 inside an IPv4-mapped or 6to4 IPv6 address from its bits, because a URL parser writes
+ * `http://[::ffff:127.0.0.1]/` as `[::ffff:7f00:1]`.
  */
 
 export interface SsrfCheckResult {
@@ -133,8 +121,8 @@ function ipv6PrefixMask(bits: number): bigint {
 }
 
 const BLOCKED_IPV6_RANGES: Array<{ base: string; bits: number; label: string }> = [
-  { base: "::", bits: 128, label: "unspecified address" },
-  { base: "::1", bits: 128, label: "loopback" },
+  { base: "::", bits: 96, label: "unspecified, loopback or deprecated IPv4-compatible address (::/96)" },
+  { base: "2001::", bits: 32, label: "Teredo tunnelling (RFC 4380)" },
   { base: "64:ff9b::", bits: 96, label: "NAT64 (RFC 6052) — unwraps to an embedded IPv4" },
   { base: "100::", bits: 64, label: "discard-only (RFC 6666)" },
   { base: "fc00::", bits: 7, label: "unique local address (RFC 4193)" },
@@ -151,6 +139,15 @@ function checkIpv6(ip: string): SsrfCheckResult {
 
   const asBigInt = ipv6ToBigInt(ip);
   if (asBigInt === null) return { allowed: false, reason: `Could not parse address "${ip}".` };
+
+  // The same two embeddings in the forms a URL parser actually produces. `new URL("http://[::ffff:127.0.0.1]/").hostname` is "[::ffff:7f00:1]": the dotted form above never matches it, so
+  // the IPv4-mapped loopback went through the range list as an unremarkable IPv6 address. Read the embedded IPv4 from the bits instead of from the text.
+  const lowIpv4 = (value: bigint) => {
+    const n = Number(value & BigInt(0xffffffff));
+    return [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255].join(".");
+  };
+  if (asBigInt >> BigInt(32) === BigInt(0xffff)) return checkIpv4(lowIpv4(asBigInt)); // ::ffff:0:0/96, IPv4-mapped
+  if (asBigInt >> BigInt(112) === BigInt(0x2002)) return checkIpv4(lowIpv4(asBigInt >> BigInt(80))); // 2002::/16, 6to4: the IPv4 sits in bits 16 to 47
 
   for (const range of BLOCKED_IPV6_RANGES) {
     const baseBigInt = ipv6ToBigInt(range.base)!;

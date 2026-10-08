@@ -82,6 +82,28 @@ describe("checkResolvedAddress — IPv6", () => {
   });
 });
 
+describe("checkResolvedAddress — IPv6 forms that carry an IPv4 address", () => {
+  // `new URL("http://[::ffff:127.0.0.1]/").hostname` is "[::ffff:7f00:1]": the URL parser rewrites the dotted form into hex, and the rule that only knew the dotted form let it through.
+  it.each(["::ffff:7f00:1", "::ffff:a00:5", "::ffff:a9fe:a9fe", "::ffff:c0a8:101", "0:0:0:0:0:ffff:7f00:1"])("refuses the hex-form IPv4-mapped address %s when the embedded IPv4 is not public", (ip) => {
+    expect(checkResolvedAddress(ip, 6).allowed).toBe(false);
+  });
+  it("allows a hex-form IPv4-mapped address whose embedded IPv4 is public (93.184.216.34)", () => {
+    expect(checkResolvedAddress("::ffff:5db8:d822", 6).allowed).toBe(true);
+  });
+  it.each(["::7f00:1", "::a00:1", "::5db8:d822"])("refuses the deprecated IPv4-compatible form %s (::/96) whatever it embeds", (ip) => {
+    expect(checkResolvedAddress(ip, 6).allowed).toBe(false);
+  });
+  it.each(["2002:7f00:1::1", "2002:a00:1::", "2002:a9fe:a9fe::1"])("refuses a 6to4 address %s whose embedded IPv4 is not public", (ip) => {
+    expect(checkResolvedAddress(ip, 6).allowed).toBe(false);
+  });
+  it("allows a 6to4 address whose embedded IPv4 is public", () => {
+    expect(checkResolvedAddress("2002:5db8:d822::1", 6).allowed).toBe(true);
+  });
+  it("refuses a Teredo address (2001::/32)", () => {
+    expect(checkResolvedAddress("2001:0:4136:e378:8000:63bf:3fff:fdd2", 6).allowed).toBe(false);
+  });
+});
+
 describe("resolveAndCheckHostname", () => {
   it("refuses a hostname that resolves to a loopback address", async () => {
     vi.mocked(dns.default.promises.lookup).mockResolvedValue([
