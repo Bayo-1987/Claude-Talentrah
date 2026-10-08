@@ -25,6 +25,15 @@ export function submittedValues(formData: FormData, fields: readonly string[]): 
   return out;
 }
 
+/**
+ * A React `key` for a `<select>` that must show a value handed back after a failed save. React applies a CHANGED `defaultValue` to text inputs but not to a select after it has mounted, so
+ * the post-action reset put the select back on its first option. Keying the select by the returned value remounts it with the right option selected:
+ *   <select key={selectKey(state.values, "roleId")} defaultValue={inputValue(state.values, "roleId")}>
+ */
+export function selectKey(values: SubmittedValues | undefined, field: string): string {
+  return `${field}:${values && field in values ? values[field] : ""}`;
+}
+
 /** A field's default: what was submitted if a save just failed (even empty), else the saved value, else the fallback, else empty. */
 export function inputValue(values: SubmittedValues | undefined, field: string, saved?: string | null, fallback = ""): string {
   if (values && field in values) return values[field];

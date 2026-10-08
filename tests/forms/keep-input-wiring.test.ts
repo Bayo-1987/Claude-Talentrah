@@ -37,6 +37,9 @@ describe("invite-operator form", () => {
   it("the three fields default to the returned values (the role select included)", () => {
     for (const f of ["email", "displayName", "roleId"]) expect(form, f).toContain(`inputValue(state.values, "${f}")`);
   });
+  it("the role <select> is keyed by the returned value (a select does not pick up a changed defaultValue on its own)", () => {
+    expect(form).toContain('key={selectKey(state.values, "roleId")}');
+  });
   it("there is still no password field on the form", () => {
     expect(form).not.toMatch(/type="password"|name="password"/);
   });

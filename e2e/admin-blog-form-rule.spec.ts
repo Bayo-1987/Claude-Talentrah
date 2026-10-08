@@ -101,7 +101,8 @@ test.describe("admin: blog new post form rule", () => {
     await expect(page.getByLabel("Description")).toHaveValue(`Description 3 ${tag}`);
     await expect(page.getByLabel("Author")).toHaveValue("QA author 3");
     await expect(page.locator("#body")).toHaveValue(`## Heading 3\n\nBody 3 ${tag}`);
-    await expect(page.getByRole("alert").or(page.getByText(/slug/i).first())).toBeVisible();
+    // The page also carries Next's route announcer (role=alert), so "any alert" matches two elements: name the message.
+    await expect(page.getByText("A post with that slug already exists.")).toBeVisible();
 
     const { data: rows } = await db!.from("blog_posts").select("slug, status").in("slug", [slug1, slug2]).order("slug");
     expect(rows?.map((r) => r.status)).toEqual(["draft", "draft"]);

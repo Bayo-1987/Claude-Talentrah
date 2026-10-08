@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { inviteOperatorAction } from "@/lib/admin/operators/invite";
 import { initialOperatorActionState } from "@/lib/admin/operators/state";
 import { Button, TextField } from "@/components/ui";
-import { inputValue } from "@/lib/forms/keep-input";
+import { inputValue, selectKey } from "@/lib/forms/keep-input";
 
 /**
  * Invite a new operator.
@@ -41,6 +41,7 @@ export function InviteOperatorForm({ roles }: { roles: { id: string; name: strin
           Role
         </label>
         <select
+          key={selectKey(state.values, "roleId")}
           id="invite-role"
           name="roleId"
           required

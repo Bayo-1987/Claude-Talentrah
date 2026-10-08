@@ -5,7 +5,7 @@
  * Secrets never travel back: a field whose name looks like a password, token or code is refused, and a File is never echoed.
  */
 import { describe, expect, it } from "vitest";
-import { inputValue, submittedValues } from "@/lib/forms/keep-input";
+import { inputValue, selectKey, submittedValues } from "@/lib/forms/keep-input";
 
 function form(entries: Record<string, string | File>) {
   const fd = new FormData();
@@ -48,5 +48,16 @@ describe("inputValue", () => {
   });
   it("a field not among the submitted values falls back to the saved value", () => {
     expect(inputValue({ title: "T" }, "slug", "saved-slug")).toBe("saved-slug");
+  });
+});
+
+describe("selectKey", () => {
+  it("changes when a failed save hands a different value back, so a <select> remounts with the new default (React does not apply a changed defaultValue to a select after mount)", () => {
+    expect(selectKey(undefined, "roleId")).not.toBe(selectKey({ roleId: "r1" }, "roleId"));
+    expect(selectKey({ roleId: "r1" }, "roleId")).not.toBe(selectKey({ roleId: "r2" }, "roleId"));
+  });
+  it("is stable for the same value, and does not collide across fields", () => {
+    expect(selectKey({ roleId: "r1" }, "roleId")).toBe(selectKey({ roleId: "r1" }, "roleId"));
+    expect(selectKey({ a: "x" }, "a")).not.toBe(selectKey({ a: "x" }, "b"));
   });
 });
