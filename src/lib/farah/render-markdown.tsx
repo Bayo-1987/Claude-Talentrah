@@ -288,12 +288,15 @@ function renderInline(
 }
 
 /**
- * The face every block shares — the same classes the panel's `<p>` carried
- * before this existed, so a plain one-paragraph reply looks pixel-identical
- * to today. Lists inherit it rather than getting their own face: a bullet
- * list is still a Farah reply, not a different kind of content.
+ * The face every block shares. A Farah REPLY is regular body text (IBM Plex Sans,
+ * the ink colour), not an italic serif aside (owner, 8 Oct): a reply is the main
+ * content of the panel and is read at length, often on a phone; italic is left to
+ * the reply's own emphasis (`*like this*` renders an <em>) and to the panel's real
+ * asides (greeting, allowance line, "Farah is thinking…"). A long unbroken word
+ * wraps instead of widening the 280px panel. Lists inherit this face rather than
+ * getting their own: a bullet list is still a Farah reply.
  */
-const FARAH_TEXT = "font-display text-[13.5px] italic leading-relaxed text-ink-soft";
+const FARAH_TEXT = "font-body text-[13.5px] leading-relaxed text-ink break-words";
 /** A heading is just bold text at a modestly larger size — this is a 280px sidebar, not a document, so no real `<h1>`-scale type. */
 const FARAH_HEADING = "font-display text-[15px] font-semibold not-italic leading-snug text-ink-soft";
 /** Matches farah-panel.tsx's own dashed section divider — a rule is a divider, not a document `<hr>`. */
