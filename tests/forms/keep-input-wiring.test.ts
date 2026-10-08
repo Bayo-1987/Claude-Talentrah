@@ -140,3 +140,18 @@ describe("company profile form (employer)", () => {
     }
   });
 });
+
+describe("ad campaign form (create and edit)", () => {
+  const actions = read("src/lib/employer/campaign-actions.ts");
+  const form = read("src/components/employer/campaign-form.tsx");
+  it("every error after the form is read hands the typed values back (create: 4 validation + 2 save errors; edit: 2 validation + 1 save error); nothing else about the action changes", () => {
+    expect(actions).toContain('const CAMPAIGN_FIELDS = ["name", "jobPostingId", "dailyRate", "totalBudget", "endsOn", "targetLocations"];');
+    expect(count(actions, "const typed = submittedValues(form, CAMPAIGN_FIELDS);")).toBe(2);
+    expect(count(actions, "values: typed")).toBe(9);
+  });
+  it("each field defaults to the returned values, falling back to the saved campaign; the job <select> is keyed by the returned value", () => {
+    for (const f of ["name", "dailyRate", "totalBudget", "endsOn", "targetLocations"]) expect(form, f).toContain(`inputValue(values, "${f}"`);
+    expect(form).toContain('key={selectKey(values, "jobPostingId")}');
+    expect(form).toContain('inputValue(values, "jobPostingId", initial?.jobPostingId)');
+  });
+});

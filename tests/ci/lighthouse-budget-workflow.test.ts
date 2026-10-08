@@ -11,7 +11,9 @@
  * with no path ALLOW-list; only docs/tests/e2e-only PRs are skipped (see preview-skip.test.ts).
  */
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const WORKFLOW_PATH = join(process.cwd(), ".github/workflows/lighthouse-budget.yml");
@@ -126,5 +128,121 @@ describe(".lighthouserc.json's budgets are real numbers with real thresholds, no
         worst,
       );
     }
+  });
+});
+
+/*
+ * The landing page is resolved at run time (from the preview's own sitemap), with a static fallback.
+ *
+ * Why. The PR job audited a hardcoded `/jobs/remote`. That page returns 404 whenever fewer than LANDING_PAGE_MIN_ENTRIES remote jobs
+ * exist (it is gated on a live count), and a PR preview reads the preview database, which can hold fewer than that. The sitemap lists
+ * `/jobs/remote` only when the page itself would render, so the sitemap is the source of truth the page-count gate already shares.
+ * The resolver therefore reports `landing_url`: the preview's `/jobs/remote` when its own sitemap lists it, otherwise a static public page.
+ */
+describe("the landing page is resolved at run time, with a static fallback", () => {
+  const PREVIEW = "https://example-preview.vercel.app";
+  const JOB = "https://www.talentrah.com/jobs/9ae0f6be-8063-4227-95f6-ab21ccb13993";
+
+  function resolve(sitemapLocs: string[]): { status: number; out: string } {
+    const dir = mkdtempSync(join(tmpdir(), "lh-resolve-"));
+    try {
+      const body = `<urlset>${sitemapLocs.map((l) => `<url><loc>${l}</loc></url>`).join("")}</urlset>`;
+      writeFileSync(join(dir, "body.xml"), body);
+      writeFileSync(join(dir, "curl"), `#!/usr/bin/env bash\ncat "${join(dir, "body.xml")}"\nprintf '\\n200'\n`);
+      chmodSync(join(dir, "curl"), 0o755);
+      const r = spawnSync("bash", ["-e", RESOLVER_SCRIPT_PATH, PREVIEW], { env: { ...process.env, PATH: `${dir}:${process.env.PATH}` }, encoding: "utf-8" });
+      return { status: r.status ?? -1, out: `${r.stdout}${r.stderr}` };
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  it("the PR job does not hardcode /jobs/remote; it audits the resolved landing_url", () => {
+    expect(workflow).not.toMatch(/--collect\.url="[^"]*\/jobs\/remote"/);
+    expect(workflow).toMatch(/--collect\.url="\$\{\{\s*steps\.resolve_urls\.outputs\.landing_url\s*\}\}"/);
+  });
+
+  it("the preview's sitemap lists /jobs/remote: that page (on the PREVIEW's host, not the host the sitemap prints) is the landing page", () => {
+    const r = resolve([`https://www.talentrah.com/jobs/remote`, JOB]);
+    expect(r.status, r.out).toBe(0);
+    expect(r.out).toContain(`landing_url=${PREVIEW}/jobs/remote\n`);
+    expect(r.out).toContain(`job_url=${PREVIEW}/jobs/9ae0f6be-8063-4227-95f6-ab21ccb13993\n`);
+  });
+
+  it("the job detail URL is built from the PREVIEW's host too: a sitemap that prints the production origin still yields a preview-host job URL", () => {
+    const r = resolve([JOB, "https://www.talentrah.com/jobs/remote"]);
+    expect(r.status, r.out).toBe(0);
+    expect(r.out).toContain(`job_url=${PREVIEW}/jobs/9ae0f6be-8063-4227-95f6-ab21ccb13993\n`);
+    expect(r.out).not.toContain("job_url=https://www.talentrah.com");
+  });
+
+  it("the sitemap does not list /jobs/remote (too few remote jobs, so the page would 404): the static /about page is audited instead", () => {
+    const r = resolve([JOB, "https://www.talentrah.com/about"]);
+    expect(r.status, r.out).toBe(0);
+    expect(r.out).toContain(`landing_url=${PREVIEW}/about\n`);
+  });
+
+  it("a sub-page such as /jobs/remote/nigeria does not count as the /jobs/remote page being listed", () => {
+    const r = resolve([JOB, "https://www.talentrah.com/jobs/remote/nigeria"]);
+    expect(r.status, r.out).toBe(0);
+    expect(r.out).toContain(`landing_url=${PREVIEW}/about\n`);
+  });
+
+  it("the job detail URL is still required: a sitemap with no /jobs/<uuid> fails loudly, exactly as before", () => {
+    const r = resolve(["https://www.talentrah.com/jobs/remote"]);
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("::error::No /jobs/<uuid> URL found");
+  });
+});
+
+/*
+ * The production run: the real /jobs/remote, informational.
+ *
+ * A PR preview cannot answer "is the real public job-search page within budget?" (its data is a test fixture), production can.
+ * It is a scheduled workflow, so it is never a PR check and cannot gate a merge. At most once a day, never per PR. It needs no new secret:
+ * production has no Deployment Protection, so there is no bypass header.
+ */
+describe("lighthouse-production.yml: an informational, scheduled run against production", () => {
+  const prodPath = join(process.cwd(), ".github/workflows/lighthouse-production.yml");
+  const prod = existsSync(prodPath) ? readFileSync(prodPath, "utf-8") : "";
+  const code = prod.replace(/^\s*#.*$/gm, ""); // the checks below read the workflow's own lines, not its comments
+
+  it("exists", () => {
+    expect(existsSync(prodPath)).toBe(true);
+  });
+
+  it("runs on a schedule of at most once a day and by hand; never on a pull request or a push", () => {
+    expect(code).toMatch(/^\s+schedule:/m);
+    const crons = [...code.matchAll(/cron:\s*"([^"]+)"/g)].map((m) => m[1]);
+    expect(crons).toHaveLength(1);
+    // minute hour * * *: both fields are single numbers, so it fires once a day
+    expect(crons[0]).toMatch(/^\d{1,2} \d{1,2} \* \* \*$/);
+    expect(code).toMatch(/^\s+workflow_dispatch:/m);
+    expect(code).not.toMatch(/^\s+(pull_request|push|pull_request_target):/m);
+  });
+
+  it("uses no secret at all (no bypass header, no token): production needs none", () => {
+    expect(code, "the workflow file must exist, or this check proves nothing").not.toBe("");
+    expect(code).not.toMatch(/secrets\./);
+    expect(code).not.toMatch(/x-vercel-protection-bypass/);
+  });
+
+  it("audits production's real pages: the homepage, /jobs/remote itself (a 404 there is the signal), a job detail from its sitemap, and /mentorship", () => {
+    expect(code).toMatch(/https:\/\/www\.talentrah\.com/);
+    expect(code).toMatch(/--collect\.url="[^"]*\/jobs\/remote"/);
+    expect(code).toMatch(/--collect\.url="[^"]*\/mentorship"/);
+    expect(code).toMatch(/\.github\/scripts\/resolve-sitemap-job-url\.sh/);
+    expect(code).toMatch(/steps\.resolve_urls\.outputs\.job_url/);
+  });
+
+  it("runs the same pinned Lighthouse CI version as the PR job, from the same budgets file, and is not a committed dependency", () => {
+    const pr = workflow.match(/@lhci\/cli@(\d+\.\d+\.\d+)/)?.[1];
+    expect(pr).toBeDefined();
+    expect(code).toContain(`@lhci/cli@${pr} autorun`);
+  });
+
+  it("does not wait for a Vercel preview or touch the PR job's gating (a separate file; the PR job is unchanged in how it triggers)", () => {
+    expect(code, "the workflow file must exist, or this check proves nothing").not.toBe("");
+    expect(code).not.toMatch(/wait-for-vercel-preview/);
   });
 });
