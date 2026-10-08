@@ -101,7 +101,8 @@ describe("job posting form (selects)", () => {
   const form = read("src/components/employer/job-posting-form.tsx");
   it("the controlled Work type, Employment type and Seniority selects (and the one after them) are remounted each time the action settles, so the post-action form reset cannot leave them on their placeholder", () => {
     expect(form).toContain("const [settled, setSettled] = useState(0);");
-    expect(form).toContain("setSettled(settled + 1)");
+    expect(form).toContain("onReset={() => setSettled((n) => n + 1)}"); // the remount is driven by the form's own reset event, so it lands after the reset in any commit order
+    expect(form).not.toContain("setSettled(settled + 1)");
     for (const name of ["workType", "employmentType", "seniority"]) {
       expect(form, name).toMatch(new RegExp(`<ChoiceField key=\\{\`${name}-\\$\\{settled\\}\`\\} label="[^"]+" name="${name}"`));
     }
