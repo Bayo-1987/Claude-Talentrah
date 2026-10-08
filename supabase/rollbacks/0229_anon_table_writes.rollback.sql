@@ -1,3 +1,5 @@
+-- WARNING: this file restores the SUPABASE DEFAULT, which is WIDER than the state before the migration (the audit of 8 Oct 2026 found 43 tables on which anon holds none of INSERT/UPDATE/DELETE, and MAINTAIN on 55 of 79 tables). Do not run it on a hosted project:
+-- the hosted package contains an EXACT rollback (table by table, column by column) built from the project's own preflight (approvals/files/2026-10-08-0227-0229-package/). This file is for a database built from the repo.
 -- 0229 rollback: give anon INSERT, UPDATE and DELETE back on every table in public and in the default privileges of the postgres role for schema public (the Supabase default). This restores the default, not an exact
 -- per-table prior state; the exact prior state is whatever the pre-apply audit recorded (reports/S3-21/raw/0229/). Run only on the owner's separate approval.
 do $rb$
