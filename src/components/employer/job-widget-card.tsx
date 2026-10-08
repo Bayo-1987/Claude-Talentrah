@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { saveJobWidgetSettingsAction, type WidgetSettingsState } from "@/lib/employer/widget-actions";
 import { BorderedCard, Button, SelectField } from "@/components/ui";
 import { TextArea } from "@/components/ui/text-area";
+import { EMBED_FRAME_HEIGHT } from "@/lib/embed/snippet";
 
 const COUNTS = Array.from({ length: 20 }, (_, i) => String(i + 1));
 
@@ -110,8 +111,7 @@ export function JobWidgetCard({
           </span>
         </div>
         <p className="mt-3 max-w-[60ch] font-body text-[12.5px] text-ink-soft">
-          If your website uses a strict Content Security Policy, allow this site to be framed: <code className="font-mono">frame-src https://www.talentrah.com</code>. The frame fills the width you give it
-          and scrolls inside the height you set (480 above).
+          If your website uses a strict Content Security Policy, allow this site to be framed: <code className="font-mono">frame-src https://www.talentrah.com</code>. {`The box is ${EMBED_FRAME_HEIGHT}px tall and scrolls if you have more jobs. You can change the height in the code.`}
         </p>
       </div>
 
