@@ -74,8 +74,7 @@ test.describe("apply requires a base resume", () => {
   }) => {
     // ONE browser call looks at every card, so the time does not grow with the board. The default /jobs tab renders the whole scored board (up to 2000 cards), and the CI
     // database holds whatever the live external boards returned when `npm run seed` ran its real ingestion; the old per-card loop (three awaited reads per card) took 3-5 s
-    // in most runs and ~32 s, a failure at the 30 s default, in others. 60 s is the margin kept until ten green runs on main; then this goes back to the default.
-    test.setTimeout(60_000);
+    // in most runs and ~32 s, a failure at the 30 s default, in others. This version took 2.1-3.1 s in the green main runs after it landed, so it runs on the default timeout.
     await authedPage.goto("/jobs");
     await expect(authedPage.getByTestId(ROUTE_LOADING_TESTID)).toHaveCount(0, { timeout: 15000 });
 
