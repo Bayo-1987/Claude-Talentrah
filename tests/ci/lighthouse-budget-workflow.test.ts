@@ -246,3 +246,42 @@ describe("lighthouse-production.yml: an informational, scheduled run against pro
     expect(code).not.toMatch(/wait-for-vercel-preview/);
   });
 });
+
+/*
+ * The PR job audits a Vercel PREVIEW, and a preview can never satisfy the SEO category: Vercel serves previews with noindex (Lighthouse's `is-crawlable` fails, "Page is blocked from indexing") and answers
+ * /robots.txt with its own response (`robots-txt` fails), so every page scores about 0.5 to 0.6 whatever the app does. First seen on the first run of this workflow that got past the 404 (PR #857, 8 Oct): performance,
+ * accessibility and best-practices passed on all four pages and only SEO failed, on all four. So the PR job reads a preview budgets file with the same three thresholds and NO SEO assertion; the full file, SEO
+ * included, is still what production is held to (lighthouse-production.yml, scheduled), where SEO is meaningful.
+ */
+const PREVIEW_CONFIG_PATH = join(process.cwd(), ".lighthouserc.preview.json");
+const previewConfig = existsSync(PREVIEW_CONFIG_PATH)
+  ? (JSON.parse(readFileSync(PREVIEW_CONFIG_PATH, "utf-8")) as { ci: { collect?: unknown; upload?: unknown; assert: { assertions: Record<string, [string, { minScore: number }]> } } })
+  : null;
+const productionWorkflow = readFileSync(join(process.cwd(), ".github/workflows/lighthouse-production.yml"), "utf-8");
+
+describe("the preview job's budgets: the same three thresholds, and no SEO assertion (a preview is noindex)", () => {
+  it("has a preview budgets file", () => {
+    expect(existsSync(PREVIEW_CONFIG_PATH), ".lighthouserc.preview.json is missing").toBe(true);
+  });
+  it("asserts performance, accessibility and best-practices with EXACTLY the production file's thresholds, as hard errors", () => {
+    for (const category of ["categories:performance", "categories:accessibility", "categories:best-practices"]) {
+      expect(previewConfig?.ci.assert.assertions[category], category).toEqual(config.ci.assert.assertions[category]);
+      expect(previewConfig?.ci.assert.assertions[category][0]).toBe("error");
+    }
+  });
+  it("asserts nothing else: no SEO category, and no other assertion that a preview cannot meet", () => {
+    expect(Object.keys(previewConfig?.ci.assert.assertions ?? {}).sort()).toEqual(["categories:accessibility", "categories:best-practices", "categories:performance"]);
+  });
+  it("collects and uploads exactly as the production file does (only the assertions differ)", () => {
+    const full = config.ci as unknown as { collect?: unknown; upload?: unknown };
+    expect(previewConfig?.ci.collect).toEqual(full.collect);
+    expect(previewConfig?.ci.upload).toEqual(full.upload);
+  });
+  it("the PR job passes the preview file to lhci", () => {
+    expect(workflow).toMatch(/autorun[\s\S]*--config=\.lighthouserc\.preview\.json/);
+  });
+  it("the production workflow does NOT: it is held to the full file, SEO included", () => {
+    expect(productionWorkflow).not.toMatch(/--config/);
+    expect(productionWorkflow).not.toMatch(/lighthouserc\.preview/);
+  });
+});

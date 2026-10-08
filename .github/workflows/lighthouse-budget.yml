@@ -46,6 +46,12 @@ name: Lighthouse performance budget
 # own live sitemap.xml instead, the same source of truth
 # scripts/check-broken-links.ts already treats as canonical.
 #
+# BUDGETS, PREVIEW vs PRODUCTION (8 Oct). This job audits a Vercel PREVIEW and reads .lighthouserc.preview.json: the same performance, accessibility and best-practices
+# thresholds as .lighthouserc.json and NO SEO assertion. A preview can never satisfy SEO: Vercel serves previews with noindex (Lighthouse's `is-crawlable` fails, "Page is blocked
+# from indexing") and answers /robots.txt with its own response (`robots-txt` fails), so every page scored 0.5 to 0.61 whatever the app did. That was seen on the first run of this
+# workflow that got past the /jobs/remote 404 (PR #857): the other three categories passed on all four pages and only SEO failed, on all four. The full .lighthouserc.json,
+# SEO included, is what production is held to (lighthouse-production.yml), where SEO is meaningful.
+#
 # BUDGETS: see .lighthouserc.json's own assert.assertions — set at or
 # slightly below the real baseline measured directly against production
 # (2026-09-19, mobile form factor + simulated throttling, Lighthouse's own
@@ -247,6 +253,7 @@ jobs:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
           npx --yes @lhci/cli@0.15.1 autorun \
+            --config=.lighthouserc.preview.json \
             --collect.url="${{ steps.vercel_preview.outputs.url }}/" \
             --collect.url="${{ steps.resolve_urls.outputs.landing_url }}" \
             --collect.url="${{ steps.resolve_urls.outputs.job_url }}" \
