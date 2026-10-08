@@ -6,6 +6,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { requirePermission } from "@/lib/admin/require-admin";
 import { recordAdminAction } from "@/lib/admin/audit";
 import { blogPostSchema } from "./schemas";
+import { submittedValues, type SubmittedValues } from "@/lib/forms/keep-input";
 
 /**
  * Blog mutations, under an admin session.
@@ -46,10 +47,15 @@ import { blogPostSchema } from "./schemas";
  * dependency if that ever changes.
  */
 
+/** The fields an error hands back (never a secret): see src/lib/forms/keep-input.ts. */
+const BLOG_FIELDS = ["title", "slug", "description", "author", "body"] as const;
+
 export interface BlogActionState {
   status: "idle" | "error" | "success";
   message?: string;
   fieldErrors?: Record<string, string[]>;
+  /** Returned with an error so the form keeps what the operator typed (React 19 resets the form after any action). */
+  values?: SubmittedValues;
 }
 
 function revalidateBlog(slug?: string) {
@@ -79,6 +85,7 @@ export async function createPostAction(
       status: "error",
       message: "Check the fields below.",
       fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
+      values: submittedValues(formData, BLOG_FIELDS),
     };
   }
 
@@ -100,6 +107,7 @@ export async function createPostAction(
         ? "A post with that slug already exists."
         : `Couldn't create the post: ${error.message}`,
       fieldErrors: duplicate ? { slug: ["Already taken."] } : undefined,
+      values: submittedValues(formData, BLOG_FIELDS),
     };
   }
 
@@ -129,6 +137,7 @@ export async function updatePostAction(
       status: "error",
       message: "Check the fields below.",
       fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
+      values: submittedValues(formData, BLOG_FIELDS),
     };
   }
 
@@ -152,6 +161,7 @@ export async function updatePostAction(
       status: "error",
       message: duplicate ? "Another post already uses that slug." : `Couldn't save: ${error.message}`,
       fieldErrors: duplicate ? { slug: ["Already taken."] } : undefined,
+      values: submittedValues(formData, BLOG_FIELDS),
     };
   }
 
