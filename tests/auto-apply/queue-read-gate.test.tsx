@@ -61,7 +61,7 @@ const liveScoreRows = FIXTURES.filter((f) => f.live).map((f) => ({
 }));
 const jobRows = FIXTURES.map((f) => ({ id: f.jobId, status: f.jobStatus, title: f.title }));
 
-vi.mock("@/lib/auth/require-user", () => ({ requireUser: async () => ({ user: { id: "u1" }, profile: { id: "u1" } }) }));
+vi.mock("@/lib/auth/require-user", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/auth/require-user")>()), requireUser: async () => ({ user: { id: "u1" }, profile: { id: "u1" } }) }));
 vi.mock("@/lib/auto-apply/queue", () => ({
   getQuotaState: async () => ({ dailyRemaining: 5, freeRemaining: 5, nextSubmissionCostsCredits: false, nextSubmissionCovered: false }),
 }));

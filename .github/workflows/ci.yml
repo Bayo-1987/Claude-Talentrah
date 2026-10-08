@@ -263,6 +263,8 @@ jobs:
   checks:
     name: Typecheck, lint, unit tests
     runs-on: ubuntu-latest
+    # Measured 7.5-8.6 min; 25 is roughly three times that. A hung step must fail this required check, not hold it for the six-hour default.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
 
@@ -386,6 +388,9 @@ jobs:
     # ~10 minutes this job takes to build and run Playwright.
     needs: checks
     runs-on: ubuntu-latest
+    # Measured 9.8-12.2 min per shard (setup included); 30 is about 2.5 times that. On 7 Oct one shard sat 23 minutes in the browser install and
+    # starved a required check for the whole PR.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
 
@@ -397,7 +402,22 @@ jobs:
       - run: npm ci
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+        # Normally about 22 seconds, but the download both hangs (a shard sat 23 minutes in it on 7 Oct) and is refused (cdn.playwright.dev 403, twice,
+        # 0.4 s, on #820). So: each attempt is cut off after 120 s, up to three attempts with a short sleep between them (3 x 120 s + 15 s is under
+        # the step limit), and a third failure fails the step loudly. Plain shell, no third-party action; tests/ci/ci-timeouts.test.ts runs this
+        # script against a fake npx.
+        timeout-minutes: 8
+        run: |
+          for attempt in 1 2 3; do
+            if timeout 120 npx playwright install --with-deps chromium; then
+              echo "playwright browsers installed on attempt ${attempt}"
+              exit 0
+            fi
+            echo "::warning::playwright install attempt ${attempt} of 3 failed"
+            [ "${attempt}" -lt 3 ] && sleep $((attempt * 5))
+          done
+          echo "::error::playwright install failed after 3 attempts"
+          exit 1
 
       # pdftoppm: e2e/resume-print-margins.spec.ts rasterises a printed PDF to
       # measure the white space at each page break. Without it that spec skips

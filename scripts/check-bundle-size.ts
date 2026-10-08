@@ -78,30 +78,30 @@ const BASE = process.env.BUNDLE_CHECK_BASE_URL ?? "http://localhost:3000";
 /**
  * ── BUDGETS (gzip KB, First-Load JS for a signed-out/first-time visit) ───
  *
- * Measured against this repo's real production build on 2026-09-14
- * (`npm run build` on Next 16.3.5/Turbopack, then this script against
- * `npm run start`, run twice to confirm the numbers are stable rather than
- * a one-off fluke):
+ * RE-MEASURED 7 Oct 2026 and TIGHTENED to measured + about 5 % (owner decision, payload budget). The first version (14 Sep 2026) allowed ~30 % headroom, so growth never
+ * failed anything: measured then, `/` 206.2, `/jobs` 279.5, `/tailor` 216.5; measured now (the same definition, a production build against a seeded local stack, run twice with
+ * identical results) `/` 213.9 (+3.7 %), `/jobs` 322.9 (+15.5 %), `/tailor` 239.5 (+10.6 %): all three were inside the old budgets (275, 365, 285), so a regression of that
+ * size passed silently. A ceiling at +5 % would have flagged `/jobs` and `/tailor` and made someone say why.
  *
- *   route     gzip KB measured   budget   headroom
- *   /              206.2 KB       275      ~33%
- *   /jobs          279.5 KB       365      ~31%
- *   /tailor        216.5 KB       285      ~32%
+ *   route            gzip KB measured   budget   headroom
+ *   /                     213.9           225      ~5 %
+ *   /jobs                 322.9           340      ~5 %
+ *   /tailor               239.5           252      ~5 %
+ *   /blog                 141.6           149      ~5 %
+ *   /scholarships         231.2           243      ~5 %
+ *   /mentorship           227.4           239      ~5 %
  *
- * Headroom is deliberately ~30%, not tight-to-the-measurement: this check
- * exists to catch a real regression (a duplicated heavy dependency, an
- * accidentally-unshaken import), not to fail on the normal week-to-week
- * drift of adding a genuine small feature. If a legitimate change pushes a
- * route over budget, raise the number for THAT route deliberately — re-run
- * this script against the new build, note the new measurement and date in
- * this comment the same way, and widen headroom by the same ~30% logic
- * rather than just matching the new number exactly (which would leave zero
- * slack for the next change).
+ * What this does NOT see: anything the browser loads AFTER hydration (the router's link prefetch, lazy chunks), fonts, CSS, request counts, third-party origins. That is
+ * e2e/route-payload-budget.spec.ts (a browser, in the required Playwright check). If a legitimate change pushes a route over budget, raise the number for THAT route deliberately,
+ * in the same PR, re-measure with this script against the new build, and note the new measurement and date here.
  */
 const ROUTES: { path: string; budgetGzipKB: number; requiresAuth: boolean }[] = [
-  { path: "/", budgetGzipKB: 275, requiresAuth: false },
-  { path: "/jobs", budgetGzipKB: 365, requiresAuth: true },
-  { path: "/tailor", budgetGzipKB: 285, requiresAuth: true },
+  { path: "/", budgetGzipKB: 225, requiresAuth: false },
+  { path: "/jobs", budgetGzipKB: 340, requiresAuth: true },
+  { path: "/tailor", budgetGzipKB: 252, requiresAuth: true },
+  { path: "/blog", budgetGzipKB: 149, requiresAuth: false },
+  { path: "/scholarships", budgetGzipKB: 243, requiresAuth: false },
+  { path: "/mentorship", budgetGzipKB: 239, requiresAuth: false },
 ];
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
