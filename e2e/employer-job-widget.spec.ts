@@ -7,6 +7,8 @@
  *
  * Needs migration 0237 (employer_widgets, org_job_widget).
  */
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { test, expect, admin } from "./fixtures/authed";
 import { runCleanups } from "../tests/support/teardown";
 import { deleteOrgsCascade } from "../tests/support/delete-orgs";
@@ -76,19 +78,21 @@ test.describe("employer job-list widget", () => {
     const login = await authedPage.request.get("/login");
     expect(login.headers()["x-frame-options"]).toBe("DENY");
 
-    // Framed from another origin: a page served from a different http origin (an employer's own site; intercepted, so no network is needed) embeds the widget. (A bare about:blank parent is
-    // not a network origin, so `frame-ancestors *` does not apply to it: not a realistic host.)
-    // The host is a DIFFERENT loopback origin, not a public name: Chrome's Local Network Access check blocks a public page from framing localhost, which is a test-environment artefact (in production both are public).
-    const outerOrigin = "http://127.0.0.1:3999";
+    // Framed from another origin: a tiny real server on a DIFFERENT loopback origin plays the employer's own website and embeds the widget. (It must be a real local server: a page that is
+    // intercepted or about:blank has no network origin, so `frame-ancestors *` would not apply to it, and Chrome's Local Network Access check blocks a public-looking page from framing localhost.
+    // In production both are public https origins.)
+    const host = createServer((_req, res) => {
+      res.setHeader("content-type", "text/html");
+      res.end(`<!doctype html><iframe id="w" src="${baseURL}${embedPath}" title="widget" width="400" height="300"></iframe>`);
+    });
+    await new Promise<void>((resolve) => host.listen(0, "127.0.0.1", resolve));
     const outsider = await browser.newPage();
     try {
-      await outsider.route(`${outerOrigin}/**`, (route) =>
-        route.fulfill({ status: 200, contentType: "text/html", body: `<!doctype html><iframe id="w" src="${baseURL}${embedPath}" title="widget" width="400" height="300"></iframe>` }),
-      );
-      await outsider.goto(`${outerOrigin}/careers`);
+      await outsider.goto(`http://127.0.0.1:${(host.address() as AddressInfo).port}/careers`);
       await expect(outsider.frameLocator("#w").getByText(jobTitle)).toBeVisible({ timeout: 15_000 });
     } finally {
       await outsider.close();
+      await new Promise((resolve) => host.close(resolve));
     }
 
     // Closing the job purges the page: it leaves the framed list within seconds, long before the cache TTL.
