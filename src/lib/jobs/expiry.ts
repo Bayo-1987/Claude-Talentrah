@@ -1,5 +1,6 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { revalidateEmbedForOrganizations } from "@/lib/embed/revalidate";
 
 /**
  * Close internal postings whose employer-set expiry has passed.
@@ -85,13 +86,15 @@ export async function closeExpiredInternalPostings(
      */
     .not("expires_at", "is", null)
     .lt("expires_at", now.toISOString())
-    .select("id");
+    .select("id, organization_id");
 
   // A rejected update RESOLVES with an error rather than throwing — the
   // failure mode that let ten cleanup sites report success for weeks.
   if (error) throw error;
 
   const ids = (data ?? []).map((row) => row.id);
+  // The sweep closes postings with no employer in the loop, so the employer widget's cached page for each affected organisation is purged here (each distinct organisation once).
+  revalidateEmbedForOrganizations((data ?? []).map((row) => row.organization_id));
   return { closed: ids.length, ids };
 }
 

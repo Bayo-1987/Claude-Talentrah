@@ -12,6 +12,7 @@ import {
 } from "./expiry-input";
 import { readSalaryForm } from "./salary-input";
 import { revalidatePath } from "next/cache";
+import { revalidateEmbed } from "@/lib/embed/revalidate";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
@@ -387,6 +388,7 @@ export async function updateCompanyProfileAction(
 
   revalidatePath("/employer/profile");
   revalidatePath("/employer/jobs");
+  revalidateEmbed(organization.id);
   return { ok: true };
 }
 
@@ -649,6 +651,7 @@ export async function postJobAction(
 
   revalidatePath("/employer/jobs");
   revalidatePath("/jobs");
+  revalidateEmbed(organization.id);
   // `?posted=<id>` is how Jobs Posted knows to surface the "your posting now
   // has a real id" confirmation card and its deferred banner/assessment-file
   // uploads (src/app/employer/jobs/page.tsx) — that plumbing is genuinely
@@ -779,6 +782,7 @@ export async function updateJobAction(
 
   revalidatePath("/employer/jobs");
   revalidatePath("/jobs");
+  revalidateEmbed(organization.id);
   // `?assessmentCreated=<jobId>` (send-449) is how Jobs Posted knows to run
   // the same deferred-upload step Create's own `?posted=<id>` already
   // triggers (PostSuccessAssessmentFilesNote) — the files EditJobAssessment-
@@ -859,6 +863,7 @@ export async function setJobStatusAction(jobId: string, status: Enums<"job_statu
 
   revalidatePath("/employer/jobs");
   revalidatePath("/jobs");
+  revalidateEmbed(organization.id);
 }
 
 /**
@@ -1029,6 +1034,7 @@ async function publishDraft(
 
   revalidatePath("/employer/jobs");
   revalidatePath("/jobs");
+  revalidateEmbed(organization.id);
   return { ok: true };
 }
 
@@ -1100,6 +1106,7 @@ export async function deleteJobAction(jobId: string) {
 
   revalidatePath("/employer/jobs");
   revalidatePath("/jobs");
+  revalidateEmbed(organization.id);
   redirect("/employer/jobs?deleted=1");
 }
 
@@ -1393,6 +1400,7 @@ export async function claimJobPostingAction(
   revalidatePath("/employer/jobs");
   revalidatePath("/employer/claim");
   revalidatePath("/jobs");
+  revalidateEmbed(organization.id);
   redirect(`/employer/jobs?claimed=${row.job_posting_id}`);
 }
 

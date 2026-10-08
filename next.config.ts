@@ -163,9 +163,15 @@ const nextConfig: NextConfig = {
 
     return [
       {
-        // Every route — these are response-header policies, not per-page
-        // content, so there's no reason to scope them narrower.
-        source: "/:path*",
+        // Every route EXCEPT /embed/* — these are response-header policies, not
+        // per-page content, so there's no reason to scope them narrower. The
+        // employer job-list widget (src/app/embed/) is the one page meant to be
+        // framed by other sites, which the DENY / frame-ancestors 'none' below
+        // forbids, so it is carved out here and given its own rule at the end of
+        // this list. The exclusion is the literal prefix "embed/" and nothing
+        // broader (tests/embed/embed-headers.test.ts pins that, and that every
+        // other route, /api/farah/chat included, still gets DENY).
+        source: "/((?!embed/).*)",
         headers: [
           {
             // includeSubDomains + a year, matching how HSTS is meant to be
@@ -188,6 +194,32 @@ const nextConfig: NextConfig = {
           // posting doesn't hand that site a full internal URL.
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Content-Security-Policy-Report-Only", value: csp },
+        ],
+      },
+      {
+        // The employer job-list widget (iframe, owner-approved 7 Oct 2026): public
+        // information only, no session, no form, no script. Framable by any site
+        // (frame-ancestors *), so NO X-Frame-Options at all (never ALLOW-FROM,
+        // which browsers no longer honour), under a strict ENFORCED policy: the
+        // document is static HTML with an inline stylesheet, loads only https
+        // images (organisation logos), runs nothing, connects nowhere and posts
+        // nowhere. `:path+` so a bare "/embed" is not covered and keeps DENY.
+        source: "/embed/:path+",
+        headers: [
+          { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          {
+            key: "Content-Security-Policy",
+            value: [
+              "default-src 'none'",
+              "style-src 'unsafe-inline'",
+              "img-src https: data:",
+              "frame-ancestors *",
+              "base-uri 'none'",
+              "form-action 'none'",
+            ].join("; "),
+          },
         ],
       },
     ];
