@@ -154,8 +154,8 @@ export function AdminScholarshipForm() {
                   ? state.error
                   : state.returnedToReview
                     ? /* Deliberately louder than the ordinary success note: a listing that was live a moment ago is now hidden, because the operator edited a published listing rather than adding a new one. */
-                      "That matched a listing already published, and the content differs — so it’s been taken off the catalog and put back in the queue above. Re-approve it to make it visible again."
-                    : "Saved as pending. It won’t appear in the public catalog until it’s approved."}
+                      "That matched a listing already published, and the content differs — so it's been taken off the catalog and put back in the queue above. Re-approve it to make it visible again."
+                    : "Saved as pending. It won't appear in the public catalog until it's approved."}
               </p>
             )}
           </div>
