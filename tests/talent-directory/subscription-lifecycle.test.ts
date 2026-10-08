@@ -70,8 +70,8 @@ vi.mock("@/lib/paystack/client", () => ({
   },
   verifyTransaction: async () => ({ ...world.verify }),
 }));
-vi.mock("@/lib/resend/client", () => ({ getResendClient: () => null }));
-vi.mock("@/lib/analytics/posthog", () => ({ captureEvent: () => {} }));
+vi.mock("@/lib/resend/client", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/resend/client")>()), getResendClient: () => null }));
+vi.mock("@/lib/analytics/posthog", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/analytics/posthog")>()), captureEvent: () => {} }));
 vi.mock("@/lib/mentorship/refund-alert", () => ({
   alertDeletedUserPayment: async () => {},
   alertPaymentNeedsRefund: async () => {},

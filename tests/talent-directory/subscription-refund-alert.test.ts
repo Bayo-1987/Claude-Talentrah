@@ -8,7 +8,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const send = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/resend/client", () => ({ getResendClient: () => ({ emails: { send } }) }));
+vi.mock("@/lib/resend/client", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/resend/client")>()), getResendClient: () => ({ emails: { send } }) }));
 const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
 import { alertSubscriptionPaymentNeedsRefund } from "@/lib/mentorship/refund-alert";
