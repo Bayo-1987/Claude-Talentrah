@@ -8,7 +8,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { buildScholarshipEdit, isEditableStatus } from "./admin-edit";
 import type { EditScholarshipState } from "./admin-edit-state";
 import { deadlineNoteRuleMessage } from "./public-deadline-note";
-import { manualScholarshipSchema } from "./schemas";
+import { editScholarshipSchema } from "./schemas";
 
 /**
  * Edit a scholarship listing (owner row, 8 Oct 2026). The gate is THE PERMISSION CHECK IN THIS ACTION (a Server Action is a POST endpoint of its own; the page guard protects the
@@ -22,7 +22,7 @@ const COLUMNS =
 export async function updateScholarshipAction(id: string, _prev: EditScholarshipState, formData: FormData): Promise<EditScholarshipState> {
   const operator = await requirePermission("scholarships");
 
-  const parsed = manualScholarshipSchema.safeParse({
+  const parsed = editScholarshipSchema.safeParse({
     provider: formData.get("provider"),
     programName: formData.get("programName"),
     hostInstitution: formData.get("hostInstitution"),

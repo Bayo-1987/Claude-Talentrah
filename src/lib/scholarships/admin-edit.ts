@@ -1,6 +1,6 @@
 import { changedColumns, scholarshipRow } from "./ingest";
 import { NOTE_NEEDS_STAMP_MESSAGE } from "./public-deadline-note";
-import { toNormalizedScholarship, type manualScholarshipSchema } from "./schemas";
+import { toNormalizedScholarship, type editScholarshipSchema } from "./schemas";
 import type { z } from "zod";
 
 /**
@@ -37,7 +37,7 @@ export interface ScholarshipEdit {
 }
 
 export function buildScholarshipEdit(args: {
-  parsed: z.infer<typeof manualScholarshipSchema>;
+  parsed: z.infer<typeof editScholarshipSchema>;
   existing: StoredScholarshipForEdit;
   operator: { adminId: string | null; email: string; displayName?: string | null };
   now: string;

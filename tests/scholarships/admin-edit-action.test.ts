@@ -149,11 +149,18 @@ describe("what is refused", () => {
   });
   it("invalid fields are returned as field errors and nothing is written", async () => {
     const id = await seed("i1");
-    const result = await run(id, await formOf(id, { provider: "", degreeLevels: [] }));
+    const result = await run(id, await formOf(id, { provider: "", applicationDeadline: "tomorrow" }));
     expect(result.status).toBe("error");
     expect(result.fieldErrors?.provider).toBeDefined();
-    expect(result.fieldErrors?.degreeLevels).toBeDefined();
+    expect(result.fieldErrors?.applicationDeadline).toBeDefined();
     expect((await row(id)).host_institution).toBe("Original host");
+  });
+  it("a listing with NO degree levels stored (an ingested one often has none) can still be edited: the add form's 'pick at least one' does not apply to an edit", async () => {
+    const id = await seed("d1", { degree_levels: [] });
+    await expect(run(id, await formOf(id, { hostInstitution: "Edited host", degreeLevels: [] }))).rejects.toThrow("NEXT_REDIRECT");
+    const after = await row(id);
+    expect(after.host_institution).toBe("Edited host");
+    expect(after.degree_levels).toEqual([]);
   });
   it("a rejected listing cannot be edited", async () => {
     const id = await seed("r1", { moderation_status: "rejected" });

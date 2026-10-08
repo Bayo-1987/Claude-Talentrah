@@ -9,13 +9,13 @@
  *   - a deadline note on a listing with no verified-deadline stamp is refused at save with approval's own message.
  */
 import { describe, expect, it } from "vitest";
-import { manualScholarshipSchema } from "@/lib/scholarships/schemas";
+import { editScholarshipSchema } from "@/lib/scholarships/schemas";
 import { NOTE_NEEDS_STAMP_MESSAGE } from "@/lib/scholarships/public-deadline-note";
 import { PUBLISHED_EDIT_WARNING, buildScholarshipEdit, isEditableStatus } from "@/lib/scholarships/admin-edit";
 
 const NOW = "2026-10-08T08:00:00.000Z";
 const form = (over: Record<string, unknown> = {}) =>
-  manualScholarshipSchema.parse({
+  editScholarshipSchema.parse({
     provider: "QA Provider",
     programName: "QA Programme",
     hostInstitution: "Original host",
