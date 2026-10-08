@@ -124,6 +124,17 @@ describe("buildScholarshipEdit: a published listing", () => {
   });
 });
 
+describe("buildScholarshipEdit never publishes", () => {
+  it("no edit, of a pending or a published listing, changed or not, ever sets moderation_status to verified", () => {
+    for (const status of ["pending", "verified"] as const) {
+      for (const over of [{}, { hostInstitution: "Edited" }, { eligibilityOther: "Edited note", reviewNote: "x" }]) {
+        const r = buildScholarshipEdit({ parsed: form(over), existing: stored({ moderation_status: status }), operator: op, now: NOW });
+        expect(r.update.moderation_status, `${status} ${JSON.stringify(over)}`).not.toBe("verified");
+      }
+    }
+  });
+});
+
 describe("buildScholarshipEdit: the deadline-note rule is applied at save", () => {
   it("a note on a listing with no verified-deadline date is refused with approval's message, and nothing is built", () => {
     const r = buildScholarshipEdit({ parsed: form({ deadlineNote: "Varies by partner institution" }), existing: stored(), operator: op, now: NOW });

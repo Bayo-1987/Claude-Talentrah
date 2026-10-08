@@ -65,3 +65,15 @@ describe("EditScholarshipForm", () => {
     expect(pending).not.toMatch(/<form[^>]*action=/);
   });
 });
+
+describe("the form is a client component and must stay free of server-only code", () => {
+  it("imports only the client-safe constants module (not admin-edit, which pulls in the ingest writer and the service-role client)", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const source = readFileSync(join(__dirname, "../../src/app/admin/(protected)/scholarships/[id]/edit/edit-scholarship-form.tsx"), "utf8");
+    expect(source).not.toMatch(/from "@\/lib\/scholarships\/admin-edit"/);
+    expect(source).toMatch(/from "@\/lib\/scholarships\/admin-edit-constants"/);
+    const constants = readFileSync(join(__dirname, "../../src/lib/scholarships/admin-edit-constants.ts"), "utf8");
+    expect(constants).not.toMatch(/import /);
+  });
+});

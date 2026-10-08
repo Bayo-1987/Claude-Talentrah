@@ -4,7 +4,7 @@ import { startTransition, useActionState, useState, type FormEvent } from "react
 import Link from "next/link";
 import { updateScholarshipAction } from "@/lib/scholarships/admin-edit-action";
 import { initialEditScholarshipState } from "@/lib/scholarships/admin-edit-state";
-import { PUBLISHED_EDIT_WARNING } from "@/lib/scholarships/admin-edit";
+import { PUBLISHED_EDIT_WARNING } from "@/lib/scholarships/admin-edit-constants";
 import { DEGREE_LEVEL_VALUES, FUNDING_TYPE_VALUES } from "@/lib/scholarships/schemas";
 import { DEGREE_LEVEL_LABEL, FUNDING_TYPE_LABEL } from "@/lib/scholarships/types";
 import { noteCounter } from "@/lib/scholarships/public-deadline-note";

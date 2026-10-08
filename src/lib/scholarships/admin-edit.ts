@@ -14,11 +14,7 @@ import type { z } from "zod";
  *     touched (an edit is not a re-check), and `moderation_status` is written only by the rule above.
  *   - The deadline-note rule approval applies is applied at SAVE: a deadline note on a listing with no verified-deadline stamp is refused with the same message.
  */
-export const EDITABLE_STATUSES = ["pending", "verified"] as const;
-export const isEditableStatus = (status: string): boolean => (EDITABLE_STATUSES as readonly string[]).includes(status);
-
-/** Shown BEFORE saving, on the edit page of a published listing. */
-export const PUBLISHED_EDIT_WARNING = "Saving will take this off the site until it's re-approved.";
+export { EDITABLE_STATUSES, isEditableStatus, PUBLISHED_EDIT_WARNING } from "./admin-edit-constants";
 
 export interface StoredScholarshipForEdit {
   id: string;
