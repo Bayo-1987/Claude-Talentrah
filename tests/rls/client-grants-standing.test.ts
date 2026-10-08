@@ -7,7 +7,9 @@
  *   - anon (or PUBLIC) holds a column-level INSERT or UPDATE,
  *   - the postgres role's default privileges for schema public would hand anon INSERT, UPDATE or DELETE to a table created later,
  *   - anon, authenticated or PUBLIC holds MAINTAIN (VACUUM, ANALYZE, REINDEX, CLUSTER, LOCK TABLE; PostgreSQL 17 and later), at table or column level or in the same defaults.
- * supabase_admin's default privileges are deliberately NOT asserted: platform-created tables are not ours, and the migrating role may not change that role's defaults (0239's note).
+ * KNOWN GAP, DELIBERATE: supabase_admin's default privileges are NOT asserted. A table created by the platform role (supabase_admin, for example from the dashboard) is created with anon INSERT/UPDATE/DELETE and MAINTAIN
+ * and BYPASSES this test, because the migrating role (postgres) may not change that role's defaults (0239's note; the hosted audit of 8 Oct 2026 shows supabase_admin's defaults still hand anon all privileges). The post-apply check lists any
+ * public table not owned by postgres (none today); a table owned by supabase_admin would be caught there, not here.
  * TRUNCATE, REFERENCES and TRIGGER are held by tests/rls/client-ddl-privileges.test.ts (0239); the two referral functions by tests/rls/table-privileges.test.ts.
  *
  * Red-first: against a database before 0227 and 0229 the findings below are the 100 anon write pairs, the 24 job_postings column grants and the 102 MAINTAIN pairs the read-only audit of 8 Oct 2026 found on both projects;
