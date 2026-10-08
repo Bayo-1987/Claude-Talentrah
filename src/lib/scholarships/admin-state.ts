@@ -1,4 +1,5 @@
 import type { ModerationStatus } from "./types";
+import type { SubmittedValues } from "@/lib/forms/keep-input";
 
 /**
  * State shape for the admin posting form.
@@ -38,6 +39,8 @@ export interface AdminScholarshipState {
    * plainly: they did not just add a listing, they took one off the catalog.
    */
   returnedToReview?: boolean;
+  /** Returned with a create ERROR so the form keeps what was typed (React 19 resets the form after any action); none on a success. */
+  values?: SubmittedValues;
   /**
    * Whether the last submission's secret checked out. Drives whether the page
    * shows the listing form at all, so an operator isn't filling in twenty
