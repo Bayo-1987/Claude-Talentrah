@@ -115,6 +115,17 @@ describe("a provider moves a date and the catalog still has the old one", () => 
     expect(note).not.toMatch(/Returned for review/);
   });
 
+  it("approve, then run the ingest twice with unchanged source data: it stays published (the owner's acceptance test)", async () => {
+    await ingestOn("2026-10-01T07:00:00.000Z", CATALOG, "<p>Applications close on 6 October 2026, at 11:00 (UTC).</p>");
+    approve();
+    await ingestOn("2026-10-08T07:00:00.000Z", CATALOG, PAGE);
+    approve(); // the date really moved on 8 Oct and a person approved it; from here the source does not change
+    const first = await ingestOn("2026-10-09T07:00:00.000Z", CATALOG, PAGE);
+    const second = await ingestOn("2026-10-10T07:00:00.000Z", CATALOG, PAGE);
+    expect([first.returnedToReview, second.returnedToReview]).toEqual([[], []]);
+    expect(table.get(FP)!.moderation_status).toBe("verified");
+  });
+
   it("day 3 and day 4 the same (it does not come back on any later morning either)", async () => {
     await ingestOn("2026-10-01T07:00:00.000Z", CATALOG, "<p>Applications close on 6 October 2026, at 11:00 (UTC).</p>");
     approve();
@@ -142,6 +153,40 @@ describe("nothing is stale: catalog, page and stored row agree", () => {
     approve();
     for (const day of ["2026-10-08", "2026-10-09", "2026-10-10"]) {
       expect((await ingestOn(`${day}T07:00:00.000Z`, current, PAGE)).returnedToReview, day).toEqual([]);
+    }
+  });
+});
+
+describe("Chevening's week, replayed with the real code (7, 8 and 9 Oct)", () => {
+  /** The catalog after #848 (8 Oct 11:25Z): the page's date, the stamp the live row held, the owner's note. */
+  const AFTER_848: NormalizedScholarship = {
+    ...CATALOG,
+    applicationDeadline: "2026-10-20",
+    deadlineVerifiedAt: "2026-10-08T07:09:06.680Z",
+    deadlineNote: "Deadline varies by country. Nigeria, India and Pakistan closed 6 Oct 2026; others close 20 Oct 2026, 11:00 UTC",
+  };
+  const note = () => String(lastWrite[0].moderation_note ?? "");
+
+  it("7 Oct: the date moved (returned, correctly); 8 Oct: only the re-stamp (NOT returned; this was the daily churn); 9 Oct: only the note arrives with #848 (returned once); then quiet", async () => {
+    await ingestOn("2026-10-05T07:00:00.000Z", CATALOG, "<p>Applications close on 6 October 2026, at 11:00 (UTC).</p>");
+    approve();
+
+    const oct7 = await ingestOn("2026-10-07T07:00:00.000Z", CATALOG, PAGE);
+    expect(oct7.returnedToReview, "7 Oct: the page's only future date is now 20 Oct").toEqual([FP]);
+    expect(note()).toContain("application_deadline");
+    approve(); // the owner, 7 Oct 13:13Z
+
+    const oct8 = await ingestOn("2026-10-08T07:09:06.680Z", CATALOG, PAGE);
+    expect(oct8.returnedToReview, "8 Oct: same date as the stored one, only a fresh stamp").toEqual([]);
+    // (Before this change 8 Oct returned it, with "Returned for review: deadline_verified_at changed" as the whole reason.)
+
+    const oct9 = await ingestOn("2026-10-09T07:00:00.000Z", AFTER_848, PAGE);
+    expect(oct9.returnedToReview, "9 Oct: #848 put the deadline note in the catalog, the live row had none").toEqual([FP]);
+    expect(note()).toMatch(/Returned for review: deadline_note changed after verification\./);
+    approve(); // the owner, 9 Oct 08:57Z
+
+    for (const day of ["2026-10-10", "2026-10-11", "2026-10-12"]) {
+      expect((await ingestOn(`${day}T07:00:00.000Z`, AFTER_848, PAGE)).returnedToReview, day).toEqual([]);
     }
   });
 });
