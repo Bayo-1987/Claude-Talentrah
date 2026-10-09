@@ -85,10 +85,10 @@ describe("wiring", () => {
     expect(edit.slice(edit.indexOf('message: "Saved."'))).not.toContain("values:");
     expect(read("src/lib/admin/moderation/state.ts")).toContain("values?: SubmittedValues");
   });
-  it("the five fields default to the returned values and the price tier <select> is keyed by it", () => {
+  it("the text fields default to the returned values and the price tier <select> takes its key and default from tierSelect", () => {
     for (const f of ["title", "provider", "skill_tag", "affiliate_url"]) expect(form, f).toContain(`inputValue(state.values, "${f}"`);
-    expect(form).toContain('inputValue(state.values, "price_tier"');
-    expect(form).toContain('key={selectKey(state.values, "price_tier")}');
+    // The tier select's key and default come from tierSelect (COURSE-TIER-1; tests/admin/course-tier-select.test.ts).
+    expect(form).toContain("tierSelect(course.priceTier, state.values)");
   });
   it("both forms feed one action state, so there is one banner: no second state to pick between", () => {
     expect(count(form, "useActionState(")).toBe(1);

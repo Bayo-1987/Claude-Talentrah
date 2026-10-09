@@ -121,7 +121,11 @@ export async function POST(request: Request) {
     try {
       coverLetterAllowance = await checkTailoringAllowance(user.id, "cover_letter");
     } catch (err) {
-      if (!(err instanceof InsufficientCreditsError)) throw err;
+      if (!(err instanceof InsufficientCreditsError)) {
+        // The tailoring leg may already hold the free trial (claimed at the check): give it back before the error surfaces.
+        await tailoringAllowance.release?.();
+        throw err;
+      }
       // Proceed with the tailoring (still affordable) but skip the letter.
     }
   }
@@ -136,6 +140,9 @@ export async function POST(request: Request) {
     // than a generic "Gemini failed" — the LLM call now goes through
     // whichever provider LLM_PROVIDER selects, not always Gemini.
     console.error("Tailoring: LLM call failed", err);
+    // A free trial claimed at the check is given back: a failed generation does not burn the one-time trial (TAILOR-RACE-1).
+    await tailoringAllowance.release?.();
+    await coverLetterAllowance?.release?.();
     return NextResponse.json(
       { error: "Farah couldn't tailor this one — try again in a moment." },
       { status: 502 },

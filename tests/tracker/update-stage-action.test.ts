@@ -30,6 +30,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const idle = { status: "idle" } as const;
 const testUserId = "user-123";
 const testApplicationId = "app-456";
 
@@ -143,7 +144,7 @@ describe("updateStageAction — behavior unchanged by send-465", () => {
     });
     testClientRef.current = client;
 
-    await updateStageAction(testApplicationId, formData({ stage: "applied", expectedStage: "saved" }));
+    await updateStageAction(testApplicationId, idle, formData({ stage: "applied", expectedStage: "saved" }));
 
     expect(hiredMomentMock.impl).not.toHaveBeenCalled();
   });
@@ -157,8 +158,8 @@ describe("updateStageAction — behavior unchanged by send-465", () => {
 
     // Would throw on a redirect; a plain return means no exception at all.
     await expect(
-      updateStageAction(testApplicationId, formData({ stage: "hired", expectedStage: "interviewing" })),
-    ).resolves.toBeUndefined();
+      updateStageAction(testApplicationId, idle, formData({ stage: "hired", expectedStage: "interviewing" })),
+    ).resolves.toEqual({ status: "idle" });
 
     expect(hiredMomentMock.impl).not.toHaveBeenCalled();
   });
@@ -170,23 +171,29 @@ describe("updateStageAction — behavior unchanged by send-465", () => {
     });
     testClientRef.current = client;
 
-    await expect(
-      updateStageAction(testApplicationId, formData({ stage: "interviewing", expectedStage: "hired" })),
-    ).rejects.toThrow("A hired application can only be archived.");
+    // TRACKER-HIRED-1: RETURNED as a message (a throw replaced the whole page with "This page couldn't load"), and it says why.
+    const result = await updateStageAction(testApplicationId, idle, formData({ stage: "interviewing", expectedStage: "hired" }));
+    expect(result.status).toBe("error");
+    expect(result.message).toContain("A hired application can only be archived.");
+    expect(result.message).toMatch(/final/i);
 
     expect(hiredMomentMock.impl).not.toHaveBeenCalled();
   });
 
-  it("a generic update error still surfaces as itself, unmapped", async () => {
+  it("a generic update error is a plain message in place, with the raw text only in the log", async () => {
     const { client } = makeSupabaseMock({
       existing: { applied_at: null, stage: "saved" },
       updateResult: { data: null, error: { code: "23503", message: "some other constraint" } },
     });
     testClientRef.current = client;
 
-    await expect(
-      updateStageAction(testApplicationId, formData({ stage: "applied", expectedStage: "saved" })),
-    ).rejects.toThrow("Couldn't update that application: some other constraint");
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const result = await updateStageAction(testApplicationId, idle, formData({ stage: "applied", expectedStage: "saved" }));
+    expect(result.status).toBe("error");
+    expect(result.message).toBe("Couldn't update that application; nothing was changed. The error is in the server log.");
+    expect(result.message).not.toContain("some other constraint"); // the raw database text goes to the server log
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("some other constraint"));
+    log.mockRestore();
 
     expect(hiredMomentMock.impl).not.toHaveBeenCalled();
   });
@@ -200,7 +207,7 @@ describe("updateStageAction — behavior unchanged by send-465", () => {
 
     let caught: unknown;
     try {
-      await updateStageAction(testApplicationId, formData({ stage: "hired", expectedStage: "interviewing" }));
+      await updateStageAction(testApplicationId, idle, formData({ stage: "hired", expectedStage: "interviewing" }));
     } catch (err) {
       caught = err;
     }
@@ -224,7 +231,7 @@ describe("updateStageAction — the load-bearing 'best-effort, never blocks' pro
 
     let caught: unknown;
     try {
-      await updateStageAction(testApplicationId, formData({ stage: "hired", expectedStage: "interviewing" }));
+      await updateStageAction(testApplicationId, idle, formData({ stage: "hired", expectedStage: "interviewing" }));
     } catch (err) {
       caught = err;
     }

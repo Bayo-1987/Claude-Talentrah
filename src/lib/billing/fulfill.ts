@@ -6,7 +6,7 @@ import { buildPurchaseReceiptEmail } from "@/lib/billing/receipt-email";
 import { verifyTransaction } from "@/lib/paystack/client";
 import { isTerminalPaystackFailure, isUnrecognisedPaystackStatus } from "@/lib/paystack/status";
 import { captureEvent } from "@/lib/analytics/posthog";
-import { alertDeletedUserPayment, alertPaymentNeedsRefund } from "@/lib/mentorship/refund-alert";
+import { alertDeletedUserPayment, alertDuplicateSessionPayment, alertPaymentNeedsRefund } from "@/lib/mentorship/refund-alert";
 
 export interface FulfillResult {
   /** "processing": Paystack has not finished the payment (bank transfer, USSD, mobile money, direct debit, or a checkout still open). The row is left pending; a later success is granted once. */
@@ -296,13 +296,25 @@ export async function fulfillPayment(
      * rather than assumed.
      */
     if (transaction.organization_id && transaction.paystack_reference) {
-      await supabase.rpc("credit_ad_wallet", {
+      const { error: creditError } = await supabase.rpc("credit_ad_wallet", {
         p_organization_id: transaction.organization_id,
         p_amount_ngn: transaction.amount,
         p_reason: "topup",
         p_paystack_reference: transaction.paystack_reference,
         p_actor_user_id: transaction.user_id,
       });
+      /*
+       * THE RESULT IS READ, because the status flip below is final. This call used to be awaited without looking at its error, so a database fault during the credit
+       * fell through to `status = 'success'`: a paid, uncredited wallet that no later delivery could fix (it would return `already_processed`).
+       *   - 23505 is the unique reference index above refusing a SECOND credit for the same payment: the webhook and the callback page racing, the first one won. That is the
+       *     idempotency working, and the payment is paid.
+       *   - Anything else throws BEFORE the flip. The row stays `pending`, the webhook answers 500 so Paystack delivers it again, and the retry credits once (it is idempotent on
+       *     the reference). The message carries the error CODE only, never the database's text.
+       */
+      if (creditError && creditError.code !== "23505") {
+        console.error(`[fulfill] credit_ad_wallet failed for a wallet top-up (code ${creditError.code ?? "none"}); leaving the payment pending so it is retried`);
+        throw new Error(`credit_ad_wallet failed for a wallet top-up (code ${creditError.code ?? "none"}); the payment stays pending for a retry`);
+      }
     }
   } else if (transaction.product_type === "mentor_session" && transaction.product_id) {
     /*
@@ -356,6 +368,42 @@ export async function fulfillPayment(
         throw new Error(
           `[fulfill] could not settle a late payment for mentor session ${transaction.product_id} (reference ${reference}): ${settleError.message}`,
         );
+      }
+      if (outcome === "not_late") {
+        /*
+         * The session is neither waiting for this payment nor lapsed: something else already settled it. If that was ANOTHER successful payment for the same session, this one bought nothing
+         * (the buyer paid two references for one booking). Marking it `success` would keep the money in silence; it is recorded as `needs_refund` and the operator is alerted instead, the same
+         * way a payment for a deleted account is. The conditional update (status still pending) keeps a redelivery from re-alerting.
+         *
+         * "Another successful payment" is read from the payments table, not inferred from the session's state: the webhook and the callback page racing on THE SAME reference also see a session
+         * the first of them already moved, and must not be taken for a duplicate; that first call has not flipped its own payment row yet, so no OTHER success row exists and this stays quiet.
+         * Residual window, stated: two DIFFERENT references both completing within the same moment, before either has been marked success, would still both pass. Starting a checkout now
+         * refuses a second reference while the first is open (src/lib/mentorship/open-payment.ts), which is what makes that window narrow.
+         */
+        const { count: otherPaid, error: otherPaidError } = await supabase
+          .from("payment_transactions")
+          .select("id", { count: "exact", head: true })
+          .eq("product_type", "mentor_session")
+          .eq("product_id", transaction.product_id)
+          .eq("status", "success")
+          .neq("id", transaction.id);
+        if (otherPaidError) {
+          console.error(`[fulfill] could not check mentor session ${transaction.product_id} for an earlier payment (code ${otherPaidError.code ?? "none"}); leaving the payment pending for a retry`);
+          throw new Error(`mentor session duplicate-payment check failed (code ${otherPaidError.code ?? "none"}); the payment stays pending for a retry`);
+        }
+        if ((otherPaid ?? 0) > 0) {
+          const { data: flagged, error: flagError } = await supabase
+            .from("payment_transactions")
+            .update({ status: "needs_refund" })
+            .eq("id", transaction.id)
+            .eq("status", "pending")
+            .select("id");
+          if (flagError) throw new Error(`could not record the duplicate mentor payment ${reference} as needs_refund: ${flagError.message}`);
+          if ((flagged ?? []).length > 0) {
+            await alertDuplicateSessionPayment({ reference, amountNgn: transaction.amount, sessionId: transaction.product_id });
+          }
+          return { status: "needs_refund" };
+        }
       }
       if (outcome === "reinstated") {
         const { data: restored } = await supabase

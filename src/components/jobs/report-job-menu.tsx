@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { reportJobPostingAction } from "@/lib/reports/actions";
 import { initialReportActionState } from "@/lib/reports/state";
-import { REPORT_REASONS } from "@/lib/reports/schemas";
+import { REPORT_REASONS } from "@/lib/reports/reasons";
 import { IconButton } from "@/components/ui";
 import { useMounted, mountedTriggerProps } from "@/hooks/use-mounted";
 
