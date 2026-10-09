@@ -63,3 +63,32 @@ export async function alertDeletedUserPayment(args: { reference: string; amountN
     console.error(`[fulfill] could not send the deleted-user refund alert: ${err instanceof Error ? err.message : String(err)}`);
   }
 }
+
+/**
+ * A SECOND successful payment arrived for a mentor session that an earlier payment had already settled (the buyer paid two references for one booking). Nothing is delivered for the second
+ * one, so a person has to refund it in Paystack. Same two best-effort signals as above, neither able to throw: a loud log line and an email to ADMIN_ALERT_EMAIL. The payment is recorded as
+ * `needs_refund` in payment_transactions and therefore visible in the finance status buckets.
+ */
+export async function alertDuplicateSessionPayment(args: { reference: string; amountNgn: number; sessionId: string }): Promise<void> {
+  const amount = `₦${args.amountNgn.toLocaleString("en-NG")}`;
+  console.error(
+    `[fulfill] NEEDS REFUND: payment ${args.reference} (${amount}) is a SECOND payment for mentor session ${args.sessionId}, which an earlier payment already paid for. ` +
+      `It is recorded as needs_refund in payment_transactions. Refund the transaction in Paystack.`,
+  );
+  try {
+    await sendAdminAlert({
+      subject: `Refund needed: ${amount} paid twice for one mentor session`,
+      text: [
+        `A mentee paid twice for the same mentor session. The first payment booked it; the second delivered nothing.`,
+        ``,
+        `Amount:                     ${amount}`,
+        `Paystack reference (second): ${args.reference}`,
+        `Session:                    ${args.sessionId}`,
+        ``,
+        `What to do: refund the charge in the Paystack dashboard using the reference above. The transaction is recorded as needs_refund; the first payment and the session are untouched.`,
+      ].join("\n"),
+    });
+  } catch (err) {
+    console.error(`[fulfill] could not send the duplicate-payment refund alert: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
