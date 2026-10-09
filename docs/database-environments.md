@@ -61,6 +61,7 @@ one morning by two sessions that each did exactly that. Ask, wait for the number
 | 0243 | session to be named, the Promoted strip (assigned by the owner on 8 Oct 2026; no file yet) | reserved | reserved |
 | 0244 | session to be named, the skills check (assigned by the owner on 8 Oct 2026; no file yet) | reserved | reserved |
 | 0245 | session to be named, references (assigned by the owner on 8 Oct 2026; no file yet) | reserved | reserved |
+| 0252 | S1, FARAH-PAID-HOLD-SWEEP step 1: one partial unique index on `credit_ledger (related_entity_id)` for positive `farah_chat_message` rows, so a paid-message hold is refunded at most once (number reserved by the owner for the paid-hold sweep on 9 Oct 2026; the index is S1's proposal in place of the reserved paid-hold table and awaits the owner's confirmation; `supabase/migrations/0252_farah_hold_refund_once.sql`; additive, so it is applied before the code that depends on it merges) | not applied (merged, not applied) | not applied (merged, not applied) |
 
 The times are the ledger's own version stamps (UTC, 2 to 4 Oct 2026), read from `supabase_migrations.schema_migrations` on both projects. A row says "applied" only because
 that ledger shows it; "reserved" means the owner assigned the number and no ledger has it; "proposed" means the owner named the number but the migration file does not exist yet.
