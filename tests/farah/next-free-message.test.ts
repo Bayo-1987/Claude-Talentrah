@@ -131,7 +131,7 @@ function chain() {
 vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => ({ from: (t: string) => (calls.push(["from", t]), chain()) }) }));
 vi.mock("@/lib/passes/entitlement", () => ({ checkPassCoverage: async () => ({ covered: false, reason: "no_pass" }), DAILY_CAP_MESSAGE: "cap" }));
 vi.mock("@/lib/credits/gate-events", () => ({ logCreditGateEvent: async () => undefined }));
-vi.mock("@/lib/credits/spend", () => ({ spendCredits: async () => ({ balanceAfter: 0 }), InsufficientCreditsError: class extends Error {} }));
+vi.mock("@/lib/credits/spend", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/credits/spend")>()), spendCredits: async () => ({ balanceAfter: 0 }), InsufficientCreditsError: class extends Error {} }));
 
 describe("farahChatNextFreeMessageAt (the read)", () => {
   beforeEach(() => {

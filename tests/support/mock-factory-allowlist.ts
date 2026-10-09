@@ -15,17 +15,6 @@ export const ALLOWLIST: Record<string, number> = {
   "@/lib/credits/gate-events :: tests/farah/next-free-message.test.ts": 1,
   "@/lib/credits/gate-events :: tests/resume-builder/rewrite-bullet-balance.test.ts": 1,
   "@/lib/credits/gate-events :: tests/tailoring/commit-balance.test.ts": 1,
-  "@/lib/credits/spend :: tests/demo/jd-demo-no-balance.test.tsx": 1,
-  "@/lib/credits/spend :: tests/farah/chat-done-balance.test.ts": 1,
-  "@/lib/credits/spend :: tests/farah/chat-route-failed-requests-charge-nothing.test.ts": 1,
-  "@/lib/credits/spend :: tests/farah/free-claim-end-to-end.test.ts": 1,
-  "@/lib/credits/spend :: tests/farah/free-claim-gate.test.ts": 1,
-  "@/lib/credits/spend :: tests/farah/message-charge-agreement.test.ts": 1,
-  "@/lib/credits/spend :: tests/farah/next-free-message-end-to-end.test.ts": 1,
-  "@/lib/credits/spend :: tests/farah/next-free-message.test.ts": 1,
-  "@/lib/credits/spend :: tests/resume-builder/rewrite-bullet-balance.test.ts": 1,
-  "@/lib/credits/spend :: tests/tailoring/commit-balance.test.ts": 1,
-  "@/lib/credits/spend :: tests/talent-directory/verification-runner-flagged.test.ts": 1,
   "@/lib/farah/client :: tests/farah/chat-route-allowance-skip.test.ts": 1,
   "@/lib/farah/client :: tests/farah/chat-route-failed-requests-charge-nothing.test.ts": 1,
   "@/lib/farah/client :: tests/farah/chat-route-spend-ceiling.test.ts": 1,
@@ -59,7 +48,7 @@ export const ALLOWLIST: Record<string, number> = {
 };
 
 /** Must equal the sum of ALLOWLIST. Lower it with every conversion; raising it is a visible, reviewed act. */
-export const ALLOWLIST_CEILING = 51;
+export const ALLOWLIST_CEILING = 40;
 
 /** How many hand-written factories the scoped modules had when the ratchet was introduced. Never changes: the ceiling may not exceed it. */
 export const INITIAL_FACTORIES = 149;
