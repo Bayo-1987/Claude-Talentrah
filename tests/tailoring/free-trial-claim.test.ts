@@ -52,25 +52,15 @@ function builder(table: string) {
 }
 
 vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => ({ from: (t: string) => builder(t) }) }));
-vi.mock("@/lib/credits/spend", () => ({
+vi.mock("@/lib/credits/spend", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/credits/spend")>()),
   spendCredits: async (userId: string, amount: number, reason: string) => {
     world.spends.push([userId, amount, reason]);
     return 0;
   },
-  InsufficientCreditsError: class InsufficientCreditsError extends Error {
-    capMessage?: string;
-    constructor(
-      public required = 0,
-      public available = 0,
-      capMessage?: string,
-    ) {
-      super("insufficient");
-      this.capMessage = capMessage;
-    }
-  },
 }));
-vi.mock("@/lib/credits/gate-events", () => ({ logCreditGateEvent: async () => undefined }));
-vi.mock("@/lib/passes/entitlement", () => ({ checkPassCoverage: async () => ({ covered: false, reason: "no_pass" }), DAILY_CAP_MESSAGE: "cap" }));
+vi.mock("@/lib/credits/gate-events", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/credits/gate-events")>()), logCreditGateEvent: async () => undefined }));
+vi.mock("@/lib/passes/entitlement", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/passes/entitlement")>()), checkPassCoverage: async () => ({ covered: false, reason: "no_pass" }) }));
 vi.mock("@/lib/analytics/posthog", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/analytics/posthog")>()), captureEvent: vi.fn() }));
 
 const { checkTailoringAllowance, commitTailoringAllowance, InsufficientCreditsError } = await import("@/lib/tailoring/gate");

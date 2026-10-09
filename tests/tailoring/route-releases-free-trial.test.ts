@@ -27,10 +27,9 @@ vi.mock("@/lib/supabase/server", () => ({
 vi.mock("@/lib/supabase/service-role", () => ({
   createServiceRoleClient: () => ({ from: () => ({ insert: async () => ({ error: null }) }) }),
 }));
-vi.mock("@/lib/api/rate-limit", () => ({
+vi.mock("@/lib/api/rate-limit", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api/rate-limit")>()),
   consumeRateLimit: async () => ({ allowed: true, used: 1, resetsAt: null }),
-  rateLimited: () => new Response(null, { status: 429 }),
-  RATE_LIMITS: { tailoring: { limit: 10, windowSeconds: 3600 } },
 }));
 vi.mock("@/lib/tailoring/tailor", () => ({ tailorResumeToJob: (...a: unknown[]) => tailorResumeToJob(...a) }));
 vi.mock("@/lib/courses/recommend", () => ({ recommendCoursesForGapAnalysis: async () => [] }));
