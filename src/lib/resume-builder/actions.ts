@@ -259,14 +259,27 @@ export async function recordResumeBuilderCompletionAction(resumeId: string): Pro
   await logResumeBuilderCompletion({ userId, resumeId });
 }
 
+export type SaveResumeResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Saves the editor's content. A refusal is RETURNED, not thrown (RESUME-SAVE-1/2): a throw inside the editor's save handler replaced the whole page with "This page couldn't load" and the
+ * person lost what they had typed. Three things can stop a save, and each says so in plain words: the session has ended, the resume no longer exists (deleted in another tab: the update
+ * matches zero rows, which used to look like success), or the database refused (the raw text goes to the server log, not the screen).
+ */
 export async function saveResumeAction(
   resumeId: string,
   content: StructuredResume,
   title: string,
-) {
-  const { supabase, userId } = await getAuthedUserId();
+): Promise<SaveResumeResult> {
+  let authed: Awaited<ReturnType<typeof getAuthedUserId>>;
+  try {
+    authed = await getAuthedUserId();
+  } catch {
+    return { ok: false, error: "Your session has ended, so this was not saved. Sign in again in another tab, then come back and press Save; what you typed is still on this page." };
+  }
+  const { supabase, userId } = authed;
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("resumes")
     .update({
       title,
@@ -274,11 +287,19 @@ export async function saveResumeAction(
       updated_at: new Date().toISOString(),
     })
     .eq("id", resumeId)
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .select("id");
 
-  if (error) throw error;
+  if (error) {
+    console.error(`[resume-builder] save failed (resume ${resumeId}): ${error.message}`);
+    return { ok: false, error: "Couldn't save your resume; nothing was changed. The error is in the server log. What you typed is still on this page." };
+  }
+  if (!data || data.length === 0) {
+    return { ok: false, error: "This resume no longer exists (it may have been deleted in another tab), so this was not saved. What you typed is still on this page." };
+  }
   await logResumeBuilderCompletion({ userId, resumeId });
   revalidatePath("/resume-builder");
+  return { ok: true };
 }
 
 /**
