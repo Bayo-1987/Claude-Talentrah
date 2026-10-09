@@ -17,6 +17,7 @@ const twoAtOnce = (page: import("@playwright/test").Page) => atOnce(page, 2);
 const tailored = async (userId: string) => ((await admin.from("resumes").select("id").eq("user_id", userId).eq("source", "tailored")).data ?? []).length;
 const profile = async (userId: string) => (await admin.from("profiles").select("credits_balance, free_trial_tailoring_used").eq("id", userId).single()).data!;
 
+// TAILOR-RACE-1 (fixed by #906; each of these was red before it).
 test("tailoring A: two simultaneous requests on an unused free trial make one free run", async ({ authedPage: page, testUser }) => {
   test.setTimeout(150_000);
   await requireStubbedLlm(page);
@@ -67,4 +68,25 @@ test("tailoring C: five simultaneous requests with a cover letter use the free c
   // Each delivered run costs the tailoring price; all but ONE of them also pays the cover-letter price (the first is the free trial).
   const expected = ok * CREDIT_COSTS.tailoringRun + Math.max(0, ok - 1) * CREDIT_COSTS.coverLetterRun;
   expect.soft(spent, `TAILOR-RACE-3: ${ok} delivered runs (codes ${codes}) should cost ${expected} credits, cost ${spent}: the free cover-letter trial was used more than once`).toBe(expected);
+});
+
+// TAILOR-RACE-2 (raised to P2): with credit for exactly ONE run, simultaneous requests must give one 200 and clear refusals, never an empty 500, and charge nothing for the refused ones. Red on main (one 200, the rest an empty
+// 500 from an uncaught InsufficientCreditsError after the model ran). Live since the fix for it (src/app/api/tailoring/route.ts: a shortfall at the commit is a 402 with the normal message).
+test("tailoring D: credit for exactly one run, three at once: one paid run, the others a clear refusal with nothing charged", async ({ authedPage: page, testUser }) => {
+  test.setTimeout(150_000);
+  await requireStubbedLlm(page);
+  await seedBaseResume(testUser.id);
+  await admin.from("profiles").update({ free_trial_tailoring_used: true }).eq("id", testUser.id);
+  const cost = CREDIT_COSTS.tailoringRun;
+  await admin.from("credit_ledger").insert({ user_id: testUser.id, delta: cost, reason: "admin_adjustment", balance_after: cost });
+  const rs = await Promise.all([1, 2, 3].map(() => page.request.post("/api/tailoring", { data: { jdText: JD }, timeout: 60_000 })));
+  const codes = rs.map((r) => r.status());
+  expect(codes.filter((c) => c === 200), `exactly one run is delivered (codes ${codes})`).toHaveLength(1);
+  for (const r of rs.filter((x) => x.status() !== 200)) {
+    expect(r.status(), "a refused request is a 402, not a 500").toBe(402);
+    const body = (await r.json().catch(() => null)) as { error?: string } | null;
+    expect(body?.error, "...with a message the person can read").toMatch(/credit/i);
+  }
+  expect(await tailored(testUser.id), "one tailored resume, none for the refused requests").toBe(1);
+  expect((await profile(testUser.id)).credits_balance, "charged for the one delivered run only, never below zero").toBe(0);
 });
