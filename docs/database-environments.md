@@ -61,6 +61,7 @@ one morning by two sessions that each did exactly that. Ask, wait for the number
 | 0243 | session to be named, the Promoted strip (assigned by the owner on 8 Oct 2026; no file yet) | reserved | reserved |
 | 0244 | session to be named, the skills check (assigned by the owner on 8 Oct 2026; no file yet) | reserved | reserved |
 | 0245 | session to be named, references (assigned by the owner on 8 Oct 2026; no file yet) | reserved | reserved |
+| 0250 | S1, Talent Directory renewal claim: `talent_directory_subscriptions.renewal_claimed_at`, so two overlapping renewal runs cannot both charge the saved card (assigned by the owner on 9 Oct 2026; `supabase/migrations/0250_td_renewal_claim.sql`; additive, so it is applied before the code that uses it merges; until it is applied nobody runs the renewal job by hand) | not applied (merged, not applied) | not applied (merged, not applied) |
 
 The times are the ledger's own version stamps (UTC, 2 to 4 Oct 2026), read from `supabase_migrations.schema_migrations` on both projects. A row says "applied" only because
 that ledger shows it; "reserved" means the owner assigned the number and no ledger has it; "proposed" means the owner named the number but the migration file does not exist yet.

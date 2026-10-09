@@ -32,6 +32,9 @@ import { isTerminalPaystackFailure, isUnrecognisedPaystackStatus } from "@/lib/p
  */
 export const MAX_INDETERMINATE_SUBSCRIPTION_RENEWAL_ATTEMPTS = 3;
 
+/** How long a claim on a due subscription holds other runs off (0250). Same value and reasoning as the Pass job's (src/lib/billing/renewals.ts): a run that crashed mid-charge strands nothing for longer than this. */
+export const CLAIM_STALENESS_MINUTES = 15;
+
 function todayDateOnly(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -73,6 +76,9 @@ export async function runTalentDirectorySubscriptionRenewalJob(): Promise<Subscr
 
   for (const row of due ?? []) {
     try {
+      // Claimed BEFORE anything is asked of Paystack (0250): two overlapping runs (the cron plus a manual POST, a platform retry) each read the same due row, and without this both charged the saved card.
+      // A run that does not win the claim simply moves on; that is not an error.
+      if (!(await claimForRenewal(supabase, row.id))) continue;
       await chargeOne(supabase, row, summary);
     } catch (err) {
       summary.errors.push({
@@ -83,6 +89,24 @@ export async function runTalentDirectorySubscriptionRenewalJob(): Promise<Subscr
   }
 
   return summary;
+}
+
+/**
+ * Claims one due subscription for this run: ONE conditional UPDATE (no claim, or a claim older than the staleness window, and the row still due and still renewing), so only one of any number of overlapping runs
+ * gets a row back. This is the Pass job's claim (0157) applied to the other recurring charge. Returns true only when THIS call's update matched the row.
+ */
+export async function claimForRenewal(supabase: ReturnType<typeof createServiceRoleClient>, subscriptionId: string): Promise<boolean> {
+  const staleBefore = new Date(Date.now() - CLAIM_STALENESS_MINUTES * 60_000).toISOString();
+  const { data, error } = await supabase
+    .from("talent_directory_subscriptions")
+    .update({ renewal_claimed_at: new Date().toISOString() })
+    .eq("id", subscriptionId)
+    .eq("auto_renew_status", "active")
+    .lte("next_renewal_date", todayDateOnly())
+    .or(`renewal_claimed_at.is.null,renewal_claimed_at.lt.${staleBefore}`)
+    .select("id");
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
 }
 
 interface DueSubscriptionRow {
@@ -281,6 +305,8 @@ async function recordIndeterminate(
       renewal_attempt_count: attempts,
       pending_renewal_reference: reference,
       last_renewal_failure_at: new Date().toISOString(),
+      // This row deliberately STAYS due so a later run retries it: release the claim now rather than making that retry wait out CLAIM_STALENESS_MINUTES.
+      renewal_claimed_at: null,
     })
     .eq("id", row.id);
 
@@ -336,6 +362,7 @@ async function extendSubscription(
       renewal_reminder_sent_at: null,
       renewal_attempt_count: 0,
       pending_renewal_reference: null,
+      renewal_claimed_at: null,
     })
     .eq("id", row.id);
 }
@@ -347,6 +374,7 @@ async function markLapsed(supabase: ReturnType<typeof createServiceRoleClient>, 
       status: "lapsed",
       auto_renew_status: "lapsed",
       next_renewal_date: null,
+      renewal_claimed_at: null,
     })
     .eq("id", subscriptionId);
 }
