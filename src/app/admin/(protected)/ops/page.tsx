@@ -68,28 +68,8 @@ export default async function OpsPage() {
       {/* ---------------------------------------------------------- */}
       <section className="flex flex-col gap-3">
         <EyebrowLabel>Mentor payments to refund</EyebrowLabel>
-        {refunds.length === 0 ? (
-          <BorderedCard className="p-5">
-            <p className="font-display text-[15px] italic text-ink-soft">
-              None. Every late mentor payment was either restored or has been refunded.
-            </p>
-          </BorderedCard>
-        ) : (
-          <>
-            <p className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[14px] text-rust">
-              {refunds.length} mentor {refunds.length === 1 ? "payment arrived" : "payments arrived"} after the booking had
-              lapsed and the slot could not be restored. The mentee has paid for a session that will not happen: refund the
-              charge in Paystack using the reference below. These do not resolve on their own.
-            </p>
-            {/* The runbook (send-502): three steps, in the order a person does them. */}
-            <ol className="m-0 flex list-decimal flex-col gap-1 border-[1.5px] border-ink bg-card py-3 pl-8 pr-4 text-[13.5px] text-ink-soft">
-              <li>Find the Paystack reference on the entry below (it is the charge to refund).</li>
-              <li>Refund the charge in the Paystack dashboard: search the reference under Transactions, then Refund.</li>
-              <li>Come back here and press Mark refunded. It leaves this list and the nav badge. Marking it resolved never moves money.</li>
-            </ol>
-            <MentorRefundList rows={refunds} />
-          </>
-        )}
+        {/* Always mounted: the result message of "Mark refunded" belongs to the list, and the list must still be there when the last row has just left it. The empty state is inside it. */}
+        <MentorRefundList rows={refunds} />
       </section>
 
       {/* ---------------------------------------------------------- */}
