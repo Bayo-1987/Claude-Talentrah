@@ -12,7 +12,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const spendCredits = vi.fn();
 const logCreditGateEvent = vi.fn();
 const profileUpdate = vi.fn();
-vi.mock("@/lib/credits/spend", () => ({
+vi.mock("@/lib/credits/spend", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/credits/spend")>()),
   spendCredits: (...a: unknown[]) => spendCredits(...a),
   InsufficientCreditsError: class InsufficientCreditsError extends Error {},
 }));

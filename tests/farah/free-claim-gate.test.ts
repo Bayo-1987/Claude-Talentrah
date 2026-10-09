@@ -34,7 +34,7 @@ const fakeClient = () => ({
 vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => fakeClient() }));
 vi.mock("@/lib/passes/entitlement", () => ({ checkPassCoverage, DAILY_CAP_MESSAGE: "cap message" }));
 vi.mock("@/lib/credits/gate-events", () => ({ logCreditGateEvent }));
-vi.mock("@/lib/credits/spend", () => ({
+vi.mock("@/lib/credits/spend", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/credits/spend")>()),
   spendCredits,
   InsufficientCreditsError: class InsufficientCreditsError extends Error {
     constructor(public required: number, public available: number, public capMessage?: string) {

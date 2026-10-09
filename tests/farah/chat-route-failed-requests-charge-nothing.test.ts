@@ -79,7 +79,7 @@ const logFarahSessionMessage = vi.fn(async () => {
 });
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => fakeDb() }));
 vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => fakeDb() }));
-vi.mock("@/lib/credits/spend", () => ({ spendCredits, InsufficientCreditsError: class InsufficientCreditsError extends Error { constructor(public required: number, public available: number, public capMessage?: string) { super("insufficient"); } } }));
+vi.mock("@/lib/credits/spend", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/credits/spend")>()), spendCredits, InsufficientCreditsError: class InsufficientCreditsError extends Error { constructor(public required: number, public available: number, public capMessage?: string) { super("insufficient"); } } }));
 vi.mock("@/lib/farah/client", () => ({ askFarahChatStream }));
 vi.mock("@/lib/farah/session-events", () => ({ logFarahSessionMessage }));
 vi.mock("@/lib/farah/spend-tally", () => ({
