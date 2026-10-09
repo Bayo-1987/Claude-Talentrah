@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState, useTransition } from "react";
 import { useCatchUpFile } from "@/lib/forms/use-catch-up-file";
 import { NO_FILE_ATTACHED, attachedItemText, submitBlockedReason } from "@/lib/jobs/screening-gate-copy";
@@ -9,7 +10,17 @@ import { renderJobDescriptionMarkdown } from "@/lib/farah/render-markdown";
 import { applyWithScreeningAction, type ScreeningAnswerInput } from "@/lib/applications/actions";
 import type { CountryState } from "@/lib/jobs/country-events";
 import { MAX_ASSESSMENT_FILES } from "@/lib/employer/assessment-document";
-import { MinimalRichEditor } from "@/components/rich-text/minimal-rich-editor";
+/*
+ * LOADED ON DEMAND, NOT WITH THE PAGE (PERF-WEIGHT-1). The rich-text editor is TipTap and ProseMirror, about 116 KB gzipped, and the bundler gives every client component on the job page one shared
+ * chunk set, so a static import shipped the editor to every visitor of every job page (measured: 308 KB of client JS on /jobs/[id]), including the large majority of postings that have no free-text
+ * screening question. A dynamic import is fetched only when a free-text question is actually rendered. The editor never rendered on the server anyway (TipTap returns nothing until it hydrates), so
+ * nothing is lost to a missing server render; the placeholder holds the box's height so the form does not jump when the editor arrives.
+ * tests/perf/job-page-editor-lazy.test.ts keeps this file from importing it statically again.
+ */
+const MinimalRichEditor = dynamic(() => import("@/components/rich-text/minimal-rich-editor").then((m) => m.MinimalRichEditor), {
+  ssr: false,
+  loading: () => <div className="min-h-[96px]" aria-hidden="true" />,
+});
 import { TextArea } from "@/components/ui/text-area";
 
 /**

@@ -30,7 +30,8 @@ export interface PaymentStatusBucket {
   status: string;
   rail: string;
   count: number;
-  totalMinor: number;
+  /** Sum of payment_transactions.amount, which is whole naira (see money.ts). */
+  totalAmount: number;
   currency: string;
   oldestAt: string;
 }
@@ -99,12 +100,12 @@ export async function financialHealth(): Promise<FinancialHealth> {
       status: p.status,
       rail: p.rail,
       count: 0,
-      totalMinor: 0,
+      totalAmount: 0,
       currency: p.currency,
       oldestAt: p.created_at,
     };
     entry.count += 1;
-    entry.totalMinor += p.amount;
+    entry.totalAmount += p.amount;
     if (p.created_at < entry.oldestAt) entry.oldestAt = p.created_at;
     buckets.set(key, entry);
 

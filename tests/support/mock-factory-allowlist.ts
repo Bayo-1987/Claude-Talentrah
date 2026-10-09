@@ -23,21 +23,6 @@ export const ALLOWLIST: Record<string, number> = {
   "@/lib/farah/spend-tally :: tests/farah/chat-route-failed-requests-charge-nothing.test.ts": 1,
   "@/lib/farah/spend-tally :: tests/farah/chat-route-spend-ceiling.test.ts": 1,
   "@/lib/farah/spend-tally :: tests/setup.ts": 1,
-  "@/lib/llm :: tests/employer/draft-job-action.test.ts": 1,
-  "@/lib/llm :: tests/employer/draft-job.test.ts": 1,
-  "@/lib/llm :: tests/employer/job-import/extract.test.ts": 1,
-  "@/lib/llm :: tests/resume/llm-fallback-new-fields.test.ts": 1,
-  "@/lib/llm :: tests/screening/farah-review-llm-failure.test.ts": 1,
-  "@/lib/llm :: tests/tailoring/bullets-consumers.test.tsx": 1,
-  "@/lib/llm :: tests/tailoring/cache-version-compat.test.ts": 1,
-  "@/lib/llm :: tests/tailoring/fabrication-backstop.test.ts": 1,
-  "@/lib/llm :: tests/tailoring/jd-truncation.test.ts": 1,
-  "@/lib/llm :: tests/tailoring/new-fields-preserved.test.ts": 1,
-  "@/lib/llm :: tests/tailoring/result-cache.test.ts": 1,
-  "@/lib/llm :: tests/tailoring/tailoring-bullets.test.tsx": 1,
-  "@/lib/llm :: tests/talent-directory/grader-injection-guard.test.ts": 1,
-  "@/lib/llm :: tests/talent-directory/grader-stub-provider.test.ts": 1,
-  "@/lib/llm :: tests/talent-directory/review-method-proof.test.ts": 1,
   "@/lib/passes/entitlement :: tests/farah/chat-done-balance.test.ts": 1,
   "@/lib/passes/entitlement :: tests/farah/free-claim-gate.test.ts": 1,
   "@/lib/passes/entitlement :: tests/farah/message-charge-agreement.test.ts": 1,
@@ -48,7 +33,7 @@ export const ALLOWLIST: Record<string, number> = {
 };
 
 /** Must equal the sum of ALLOWLIST. Lower it with every conversion; raising it is a visible, reviewed act. */
-export const ALLOWLIST_CEILING = 40;
+export const ALLOWLIST_CEILING = 25;
 
 /** How many hand-written factories the scoped modules had when the ratchet was introduced. Never changes: the ceiling may not exceed it. */
 export const INITIAL_FACTORIES = 149;

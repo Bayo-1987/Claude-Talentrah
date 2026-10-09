@@ -34,10 +34,11 @@ async function getAuthedUserId() {
 }
 
 /**
- * Spends credits and records the unlock via the service-role client, mirroring
+ * Claims the unlock row, then spends credits, via the service-role client, mirroring
  * credit_ledger's own write pattern (see src/lib/credits/spend.ts) — regular
- * users can only SELECT user_template_unlocks, never INSERT it directly,
- * so an unlock can only ever be the result of a real credit spend.
+ * users can only SELECT user_template_unlocks, never INSERT it directly.
+ * The row is claimed BEFORE the spend (so two tabs cannot both pay) and given
+ * back if the spend does not happen, so an unlock that stays is a paid one.
  */
 export async function unlockTemplateAction(
   templateId: string,
@@ -60,6 +61,32 @@ export async function unlockTemplateAction(
   if (!template) return { ok: false, error: "Template not found." };
   if (!template.is_premium) return { ok: true };
 
+  /*
+   * CLAIM FIRST, then pay (UNLOCK-RACE-1). This used to read the unlock, spend, and only THEN insert the row, so two tabs pressing Unlock at the same instant both passed the read and both
+   * spent (cost 10, charged 20), and the loser's insert then failed on the unique (user_id, template_id). The unlock row is now inserted before any credit moves: the unique
+   * constraint picks ONE winner, only the winner spends, and a conflict means "already unlocked" and charges nothing. If the winner's spend is refused (not enough credits) or fails, the
+   * claimed row is deleted again so the user can retry. users can only SELECT this table; the claim is written with the service-role client, as the unlock row always was.
+   */
+  const serviceClient = createServiceRoleClient();
+  const { data: claimed, error: claimError } = await serviceClient
+    .from("user_template_unlocks")
+    .insert({ user_id: userId, template_id: templateId })
+    .select("id")
+    .single();
+  if (claimError) {
+    // 23505: another request (or tab) unlocked it a moment ago. Nothing is charged here.
+    if (claimError.code === "23505") return { ok: true };
+    console.error(`[resume-builder] could not claim template unlock (user ${userId}, template ${templateId}): ${claimError.message}`);
+    return { ok: false, error: "Couldn't save the unlock — try again." };
+  }
+
+  const giveClaimBack = async () => {
+    const { error: deleteError } = await serviceClient.from("user_template_unlocks").delete().eq("id", claimed.id);
+    if (deleteError) {
+      console.error(`[resume-builder] could not release an unpaid template unlock ${claimed.id}: ${deleteError.message}`);
+    }
+  };
+
   try {
     await spendCredits(userId, template.unlock_cost_credits, "template_unlock", templateId);
     // Logged after the spend rather than before it: unlike the other gates,
@@ -75,6 +102,7 @@ export async function unlockTemplateAction(
       relatedEntityId: templateId,
     });
   } catch (err) {
+    await giveClaimBack();
     if (err instanceof InsufficientCreditsError) {
       await logCreditGateEvent({
         userId,
@@ -91,12 +119,6 @@ export async function unlockTemplateAction(
     }
     throw err;
   }
-
-  const serviceClient = createServiceRoleClient();
-  const { error: insertError } = await serviceClient
-    .from("user_template_unlocks")
-    .insert({ user_id: userId, template_id: templateId });
-  if (insertError) return { ok: false, error: "Couldn't save the unlock — try again." };
 
   revalidatePath("/resume-builder");
   return { ok: true };
