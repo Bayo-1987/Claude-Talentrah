@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { setOperatorRoleAction, setOperatorAccessAction } from "@/lib/admin/operators/actions";
 import { initialOperatorActionState } from "@/lib/admin/operators/state";
+import { selectKey, inputValue } from "@/lib/forms/keep-input";
 import { Button } from "@/components/ui";
 
 /**
@@ -60,7 +61,8 @@ export function OperatorRowForm({
           <select
             id={`role-${id}`}
             name="roleId"
-            defaultValue={roleId ?? ""}
+            key={selectKey(roleState.values, "roleId")}
+            defaultValue={inputValue(roleState.values, "roleId", roleId)}
             className="min-h-11 border-[1.5px] border-ink bg-card px-3 font-body text-[14px] text-ink"
           >
             <option value="">No role — no access</option>

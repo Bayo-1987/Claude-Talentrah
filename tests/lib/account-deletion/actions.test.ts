@@ -117,6 +117,14 @@ describe("requestAccountDeletionAction", () => {
     expect(h.lifecycle).not.toHaveBeenCalled();
   });
 
+  it("a near-miss phrase hands back what was typed, so the box keeps it (DELETE-KEEP-1); nothing is stored or sent", async () => {
+    const s = await ask("delete my acount");
+    expect(s.status).toBe("error");
+    expect(s.values).toEqual({ confirmation: "delete my acount" });
+    expect(h.serviceRpc).not.toHaveBeenCalled();
+    expect(h.lifecycle).not.toHaveBeenCalled();
+  });
+
   it("refuses when signed out", async () => {
     h.user = null;
     const s = await ask();

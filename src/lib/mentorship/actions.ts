@@ -8,6 +8,9 @@ import { requireUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { initializeTransaction, NGN_CHANNELS } from "@/lib/paystack/client";
+import { fulfillPayment } from "@/lib/billing/fulfill";
+import { callbackOutcome } from "@/lib/billing/callback-outcome";
+import { findOpenSessionPayment } from "@/lib/mentorship/open-payment";
 import { generateMeetingLink } from "@/lib/mentorship/meeting-link";
 import { notifySessionConfirmed } from "@/lib/mentorship/notifications";
 import { ALREADY_CONFIRMED_MESSAGE, CONFIRM_ERROR_MESSAGE, UNAVAILABLE_MESSAGE, type ConfirmSessionState } from "@/lib/mentorship/confirm-state";
@@ -254,6 +257,27 @@ async function startMentorSessionCheckout(args: {
   errorPath: string;
 }): Promise<never> {
   const { serviceClient, user, sessionId, priceNgn, errorPath } = args;
+
+  // One booking, one payment: if an earlier reference for this booking is paid, still being paid, or cannot be checked, do not start another (see open-payment.ts).
+  const open = await findOpenSessionPayment(serviceClient, sessionId, user.id);
+  if (open.kind === "paid") {
+    // The webhook has not arrived yet: settle the earlier payment now and tell the buyer it is booked.
+    let outcome: ReturnType<typeof callbackOutcome> = "error";
+    try {
+      outcome = callbackOutcome((await fulfillPayment(open.reference, user.id)).status);
+    } catch {
+      outcome = "error";
+    }
+    if (outcome === "paid") redirect("/mentorship/sessions?booked=1");
+    redirect(`${errorPath}?error=${encodeURIComponent("We couldn't confirm your earlier payment just now. Please check your sessions in a few minutes before paying again.")}`);
+  }
+  if (open.kind === "in_flight") {
+    redirect(`${errorPath}?error=${encodeURIComponent("A payment for this booking is already in progress. Give it a few minutes; it will show here once it is confirmed, so you don't need to pay again.")}`);
+  }
+  if (open.kind === "unknown") {
+    redirect(`${errorPath}?error=${encodeURIComponent("We couldn't check an earlier payment for this booking just now, so we haven't started another. Please try again in a moment.")}`);
+  }
+
   const reference = `mentor_session_${randomUUID()}`;
   const origin = await getOrigin();
   const { error: insertError } = await serviceClient.from("payment_transactions").insert({

@@ -22,7 +22,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const generateText = vi.fn();
 
 const fakeProvider = { name: "test" as const, model: "test", generateText, generateWithUsage: vi.fn() };
-vi.mock("@/lib/llm", () => ({
+vi.mock("@/lib/llm", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/llm")>()),
   getLLMProvider: () => fakeProvider,
   generateWithFailover: (call: (p: typeof fakeProvider) => Promise<string>) => call(fakeProvider),
 }));

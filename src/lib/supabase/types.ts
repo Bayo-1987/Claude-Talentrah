@@ -4758,6 +4758,15 @@ export type Database = {
         Returns: boolean
       }
       sync_mentor_payout_rows: { Args: never; Returns: number }
+      table_privilege_snapshot: {
+        Args: never
+        Returns: {
+          grantee: string
+          object_name: string
+          privilege_type: string
+          source: string
+        }[]
+      }
       talent_directory_listed_count: { Args: never; Returns: number }
       talent_directory_listed_ids: { Args: never; Returns: string[] }
       talent_directory_portfolio_items: {

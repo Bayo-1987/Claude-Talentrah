@@ -72,13 +72,30 @@ describe("the ops attention badge counts them", () => {
 });
 
 describe("the ops page tells the operator what to do (send-502 runbook)", () => {
-  it("has a runbook: where to find the reference, how to refund, how to mark it resolved", async () => {
-    const { readFileSync } = await import("node:fs");
-    const { join } = await import("node:path");
-    const page = readFileSync(join(__dirname, "../../src/app/admin/(protected)/ops/page.tsx"), "utf8");
-    const flat = page.replace(/\s+/g, " ");
-    expect(flat, "where to find the reference").toMatch(/Paystack reference/);
-    expect(flat, "how to refund").toMatch(/Refund the charge in the Paystack dashboard/);
-    expect(flat, "how to mark it resolved").toMatch(/mark(ing)? (it|the session) resolved|Mark resolved/i);
+  // A BEHAVIOUR test: render what the operator is shown for a row that needs a refund and read the text, instead of reading source files (the runbook moved into the list component
+  // in REFUND-SILENT-1, and a source-reading test broke on the move without anything having changed for the operator).
+  it("shows the runbook with a row: where to find the reference, how to refund, how to mark it resolved", async () => {
+    const { createElement } = await import("react");
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const { MentorRefundList } = await import("@/components/admin/mentor-refund-list");
+    const html = renderToStaticMarkup(
+      createElement(MentorRefundList, {
+        rows: [{ sessionId: "s-1", amountNgn: 5000, markedAt: "2026-10-01T10:00:00Z", sessionStart: "2026-10-02T10:00:00Z", reference: "ref_abc123" }],
+      }),
+    );
+    const text = html.replace(/<[^>]+>/g, " ").replace(/&#x27;/g, "'").replace(/\s+/g, " ");
+    expect(text, "the reference to refund is shown").toContain("ref_abc123");
+    expect(text, "where to find the reference").toMatch(/Paystack reference/);
+    expect(text, "how to refund").toContain("Refund the charge in the Paystack dashboard");
+    expect(text, "how to mark it resolved").toMatch(/Mark refunded/);
+    expect(text, "and that marking never moves money").toMatch(/never moves money/i);
+  });
+  it("shows no runbook when nothing needs a refund", async () => {
+    const { createElement } = await import("react");
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const { MentorRefundList } = await import("@/components/admin/mentor-refund-list");
+    const text = renderToStaticMarkup(createElement(MentorRefundList, { rows: [] }));
+    expect(text).not.toContain("Refund the charge in the Paystack dashboard");
+    expect(text).toContain("None. Every late mentor payment");
   });
 });
