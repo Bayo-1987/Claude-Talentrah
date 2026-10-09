@@ -10,12 +10,16 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
-const money = (minor: number, currency: string) =>
+/**
+ * ONE converter for every money figure on this page. The database stores money in WHOLE units of the row's currency (payment_transactions.amount, ad_wallets.balance_ngn: a ₦5,000
+ * payment is 5000), so nothing here divides or multiplies: it only formats. (It used to divide payment totals by 100 and multiply the wallet by 100 first, which showed ₦5,000 as ₦50.)
+ */
+const money = (wholeUnits: number, currency: string) =>
   new Intl.NumberFormat("en-NG", {
     style: "currency",
     currency,
     maximumFractionDigits: 0,
-  }).format(minor / 100);
+  }).format(wholeUnits);
 
 /**
  * Money in aggregate. NO PERSONAL DATA ON THIS PAGE AT ALL — no name, no
@@ -73,7 +77,7 @@ export default async function FinancialHealthPage() {
                   </td>
                   <td className="px-4 py-3">{p.rail}</td>
                   <td className="px-4 py-3">{p.count}</td>
-                  <td className="px-4 py-3">{money(p.totalMinor, p.currency)}</td>
+                  <td className="px-4 py-3">{money(p.totalAmount, p.currency)}</td>
                   <td className="px-4 py-3 text-[12.5px] text-ink-soft">
                     oldest {formatDate(p.oldestAt)}
                   </td>
@@ -145,7 +149,7 @@ export default async function FinancialHealthPage() {
           ) : (
             <>
               <span className="font-display text-[20px]">
-                {money(health.adWalletBalanceNgn * 100, "NGN")}
+                {money(health.adWalletBalanceNgn, "NGN")}
               </span>{" "}
               <span className="text-ink-soft">
                 held across {health.adWalletCount}{" "}
