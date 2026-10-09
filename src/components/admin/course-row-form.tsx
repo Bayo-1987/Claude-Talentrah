@@ -4,7 +4,8 @@ import { useActionState, useState } from "react";
 import { updateCourseAction, setCourseActiveAction } from "@/lib/admin/catalog/actions";
 import { runCourseRowAction } from "@/lib/admin/catalog/row-action";
 import { initialModerationState, type ModerationState } from "@/lib/admin/moderation/state";
-import { inputValue, selectKey } from "@/lib/forms/keep-input";
+import { inputValue } from "@/lib/forms/keep-input";
+import { tierSelect } from "@/lib/admin/catalog/tier-select";
 import { Button, TextField, SelectField } from "@/components/ui";
 import { PRICE_TIERS } from "@/lib/admin/catalog/constants";
 
@@ -47,6 +48,8 @@ export function CourseRowForm({
   const [lastSubmitted, setLastSubmitted] = useState<"save" | "toggle">("save");
   const saving = pending && lastSubmitted === "save";
   const toggling = pending && lastSubmitted === "toggle";
+  // The key and the default of the tier select come from one function (QA COURSE-TIER-1): see tier-select.ts.
+  const tier = tierSelect(course.priceTier, state.values);
   const banner = state.targetId === course.id && state.status !== "idle" ? state : null;
 
   return (
@@ -80,8 +83,8 @@ export function CourseRowForm({
             id={`tier-${course.id}`}
             label="Price tier"
             name="price_tier"
-            key={selectKey(state.values, "price_tier")}
-            defaultValue={inputValue(state.values, "price_tier", course.priceTier)}
+            key={tier.key}
+            defaultValue={tier.defaultValue}
             options={TIER_OPTIONS}
           />
         </div>
