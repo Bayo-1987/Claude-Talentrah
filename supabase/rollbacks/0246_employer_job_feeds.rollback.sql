@@ -24,6 +24,7 @@ declare
   v_max  integer;
   v_jobs jsonb;
 begin
+  -- Every gate on the organisation, stated here because a DEFINER function does not inherit row level security.
   select o.name, o.logo_url, w.max_items
     into v_name, v_logo, v_max
     from public.organizations o
@@ -37,6 +38,7 @@ begin
     return null;
   end if;
 
+  -- Every gate on the postings. The explicit key list below is the whole output: nothing else can be added by accident.
   select coalesce(jsonb_agg(
            jsonb_build_object(
              'id', x.id,
