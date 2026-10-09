@@ -18,7 +18,7 @@ const world = vi.hoisted(() => ({
   notified: [] as string[],
 }));
 
-vi.mock("@/lib/auth/require-user", () => ({ requireUser: async () => ({ user: { id: "mentor-1" } }) }));
+vi.mock("@/lib/auth/require-user", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/auth/require-user")>()), requireUser: async () => ({ user: { id: "mentor-1" } }) }));
 vi.mock("@/lib/supabase/service-role", () => ({
   createServiceRoleClient: () => ({
     rpc: async (name: string, args: Record<string, unknown>) => {
@@ -35,7 +35,7 @@ vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }));
 vi.mock("@/lib/paystack/client", () => ({ initializeTransaction: vi.fn(), NGN_CHANNELS: [] }));
-vi.mock("@/lib/analytics/posthog", () => ({ captureEvent: vi.fn() }));
+vi.mock("@/lib/analytics/posthog", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/analytics/posthog")>()), captureEvent: vi.fn() }));
 
 const { confirmMentorSessionAction } = await import("@/lib/mentorship/actions");
 const { initialConfirmSessionState } = await import("@/lib/mentorship/confirm-state");
