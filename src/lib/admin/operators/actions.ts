@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/admin/require-admin";
 import { recordAdminAction } from "@/lib/admin/audit";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { submittedValues } from "@/lib/forms/keep-input";
 import type { OperatorActionState } from "./state";
 
 /**
@@ -88,7 +89,9 @@ export async function setOperatorRoleAction(
 ): Promise<OperatorActionState> {
   const id = String(formData.get("id") ?? "");
   const roleId = String(formData.get("roleId") ?? "");
-  return update(id, { roleId: roleId === "" ? null : roleId });
+  const result = await update(id, { roleId: roleId === "" ? null : roleId });
+  // A refused change hands the picked role back so the select keeps it (React 19 resets a <form action> after the action finishes); a success hands none.
+  return result.status === "error" ? { ...result, values: submittedValues(formData, ["roleId"]) } : result;
 }
 
 export async function setOperatorAccessAction(
