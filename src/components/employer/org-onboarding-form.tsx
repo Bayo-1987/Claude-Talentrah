@@ -7,6 +7,7 @@ import {
   type EmployerActionState,
 } from "@/lib/employer/actions";
 import { BorderedCard, Button, EyebrowLabel, TextField } from "@/components/ui";
+import { inputValue } from "@/lib/forms/keep-input";
 
 export interface JoinableOrg {
   id: string;
@@ -43,6 +44,8 @@ export function OrgOnboardingForm({
   const [domain, setDomain] = useState(suggestedDomain ?? "");
 
   const createError = createState && "error" in createState ? createState.error : null;
+  // What was typed, handed back with a refusal: React 19 empties an uncontrolled field after the action, so the name and description take it as their default.
+  const createValues = createState && "error" in createState ? createState.values : undefined;
   const joinError = joinState && "error" in joinState ? joinState.error : null;
 
   return (
@@ -142,7 +145,7 @@ export function OrgOnboardingForm({
 
         <BorderedCard className="mt-5 p-6">
           <form action={createFormAction} className="flex flex-col gap-5">
-            <TextField label="Company name" name="name" required placeholder="e.g. Zaria Digital" />
+            <TextField label="Company name" name="name" required defaultValue={inputValue(createValues, "name")} placeholder="e.g. Zaria Digital" />
             <div className="flex flex-col gap-1.5">
               <TextField
                 label="Company website domain"
@@ -173,6 +176,7 @@ export function OrgOnboardingForm({
             <TextField
               label="What the company does (optional)"
               name="description"
+              defaultValue={inputValue(createValues, "description")}
               placeholder="One or two sentences"
             />
             <div>
