@@ -82,10 +82,12 @@ test("tailoring D: credit for exactly one run, three at once: one paid run, the 
   const rs = await Promise.all([1, 2, 3].map(() => page.request.post("/api/tailoring", { data: { jdText: JD }, timeout: 60_000 })));
   const codes = rs.map((r) => r.status());
   expect(codes.filter((c) => c === 200), `exactly one run is delivered (codes ${codes})`).toHaveLength(1);
+  // The burst limit (2 starts per 15 s per user) may refuse the third request up front with a 429 and a message that says a run is already in progress; a request that got past it and lost the spend
+  // is a 402 about credits. Either is a clear refusal; a 500, or a refusal with no message, is the bug.
   for (const r of rs.filter((x) => x.status() !== 200)) {
-    expect(r.status(), "a refused request is a 402, not a 500").toBe(402);
+    expect([402, 429], "a refused request is a 402 (not enough credits) or a 429 (a run is already in progress), never a 500").toContain(r.status());
     const body = (await r.json().catch(() => null)) as { error?: string } | null;
-    expect(body?.error, "...with a message the person can read").toMatch(/credit/i);
+    expect(body?.error, "...with a message the person can read").toMatch(r.status() === 402 ? /credit/i : /already in progress/i);
   }
   expect(await tailored(testUser.id), "one tailored resume, none for the refused requests").toBe(1);
   expect((await profile(testUser.id)).credits_balance, "charged for the one delivered run only, never below zero").toBe(0);
