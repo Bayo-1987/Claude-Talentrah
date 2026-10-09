@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({ insertError: null as { message: string } | null, inserts: [] as Array<Record<string, unknown>> }));
 
-vi.mock("@/lib/auth/require-user", () => ({ requireUser: async () => ({ user: { id: "user-1" } }) }));
+vi.mock("@/lib/auth/require-user", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/auth/require-user")>()), requireUser: async () => ({ user: { id: "user-1" } }) }));
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     from: () => ({
