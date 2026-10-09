@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 import { sendHiredMomentEmail } from "@/lib/notifications/hired-moment/send";
 import type { Enums } from "@/lib/supabase/types";
 import { isTrackerStage } from "@/lib/tracker/stages";
+import { submittedValues } from "@/lib/forms/keep-input";
+import type { TrackerActionState } from "./tracker-state";
 
 async function getAuthedUserId() {
   const supabase = await createClient();
@@ -17,7 +19,7 @@ async function getAuthedUserId() {
 }
 
 /** A job applied to outside Talentrah — no job_postings row, just enough to render a card. */
-export async function addManualEntryAction(formData: FormData) {
+export async function addManualEntryAction(_prev: TrackerActionState, formData: FormData): Promise<TrackerActionState> {
   const { supabase, userId } = await getAuthedUserId();
 
   const companyName = String(formData.get("companyName") ?? "").trim();
@@ -25,6 +27,7 @@ export async function addManualEntryAction(formData: FormData) {
   const url = String(formData.get("url") ?? "").trim();
   const location = String(formData.get("location") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim();
+  const typed = submittedValues(formData, ["companyName", "title", "url", "location", "notes", "stage"]);
 
   /*
    * The stage is checked, not cast. This used to be `String(...) as Enums<"application_stage">`, so any posted value
@@ -35,10 +38,10 @@ export async function addManualEntryAction(formData: FormData) {
   const stage = rawStage === null ? "saved" : rawStage;
 
   if (!companyName || !title) {
-    throw new Error("Company and title are required.");
+    return { status: "error", message: "Company and title are required.", values: typed };
   }
   if (!isTrackerStage(stage)) {
-    throw new Error("Pick a valid stage.");
+    return { status: "error", message: "Pick a valid stage.", values: typed };
   }
 
   /*
@@ -65,9 +68,13 @@ export async function addManualEntryAction(formData: FormData) {
    * The insert's result is read. It used to be dropped, so a row the database refused looked exactly like one that
    * landed: the page revalidated, the form closed, and nothing appeared.
    */
-  if (error) throw new Error("Could not add that job. Please try again.");
+  if (error) {
+    console.error(`[tracker] add manual entry failed (user ${userId}): ${error.message}`);
+    return { status: "error", message: "Could not add that job. Nothing was saved; please try again.", values: typed };
+  }
 
   revalidatePath("/tracker");
+  return { status: "success", message: "Added to your tracker." };
 }
 
 /**
@@ -77,7 +84,7 @@ export async function addManualEntryAction(formData: FormData) {
  * manual entry skips straight from "saved" to a later stage without ever
  * going through "applied".
  */
-export async function updateStageAction(applicationId: string, formData: FormData) {
+export async function updateStageAction(applicationId: string, _prev: TrackerActionState, formData: FormData): Promise<TrackerActionState> {
   const { supabase, userId } = await getAuthedUserId();
   const stage = String(formData.get("stage") ?? "") as Enums<"application_stage">;
   const expectedStage = String(formData.get("expectedStage") ?? "");
@@ -123,11 +130,15 @@ export async function updateStageAction(applicationId: string, formData: FormDat
     // The stage-transition trigger (0037) raises check_violation when a hired
     // application is moved anywhere but archived. Surface it as itself rather
     // than as a generic failure.
-    throw new Error(
-      error.code === "23514" || /hired application/.test(error.message)
-        ? "A hired application can only be archived."
-        : `Couldn't update that application: ${error.message}`,
-    );
+    if (error.code === "23514" || /hired application/.test(error.message)) {
+      return {
+        status: "error",
+        message:
+          "A hired application can only be archived. Hired is final once you have the job, so the only move left is Archived if you no longer want it on your board.",
+      };
+    }
+    console.error(`[tracker] stage update failed (application ${applicationId}): ${error.message}`);
+    return { status: "error", message: "Couldn't update that application; nothing was changed. The error is in the server log." };
   }
 
   // Zero rows means the guard didn't match: someone else already moved this
@@ -135,7 +146,7 @@ export async function updateStageAction(applicationId: string, formData: FormDat
   // instead of leaving a stale select claiming otherwise.
   if (!updated?.length) {
     revalidatePath("/tracker");
-    return;
+    return { status: "idle" };
   }
 
   revalidatePath("/tracker");
@@ -163,6 +174,7 @@ export async function updateStageAction(applicationId: string, formData: FormDat
     }
     redirect(`/tracker?justHired=${applicationId}`);
   }
+  return { status: "success" };
 }
 
 /**
