@@ -296,13 +296,25 @@ export async function fulfillPayment(
      * rather than assumed.
      */
     if (transaction.organization_id && transaction.paystack_reference) {
-      await supabase.rpc("credit_ad_wallet", {
+      const { error: creditError } = await supabase.rpc("credit_ad_wallet", {
         p_organization_id: transaction.organization_id,
         p_amount_ngn: transaction.amount,
         p_reason: "topup",
         p_paystack_reference: transaction.paystack_reference,
         p_actor_user_id: transaction.user_id,
       });
+      /*
+       * THE RESULT IS READ, because the status flip below is final. This call used to be awaited without looking at its error, so a database fault during the credit
+       * fell through to `status = 'success'`: a paid, uncredited wallet that no later delivery could fix (it would return `already_processed`).
+       *   - 23505 is the unique reference index above refusing a SECOND credit for the same payment: the webhook and the callback page racing, the first one won. That is the
+       *     idempotency working, and the payment is paid.
+       *   - Anything else throws BEFORE the flip. The row stays `pending`, the webhook answers 500 so Paystack delivers it again, and the retry credits once (it is idempotent on
+       *     the reference). The message carries the error CODE only, never the database's text.
+       */
+      if (creditError && creditError.code !== "23505") {
+        console.error(`[fulfill] credit_ad_wallet failed for a wallet top-up (code ${creditError.code ?? "none"}); leaving the payment pending so it is retried`);
+        throw new Error(`credit_ad_wallet failed for a wallet top-up (code ${creditError.code ?? "none"}); the payment stays pending for a retry`);
+      }
     }
   } else if (transaction.product_type === "mentor_session" && transaction.product_id) {
     /*
