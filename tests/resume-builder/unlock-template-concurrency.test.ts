@@ -25,7 +25,8 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
-vi.mock("@/lib/credits/spend", () => ({
+vi.mock("@/lib/credits/spend", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/credits/spend")>()),
   InsufficientCreditsError: h.FakeInsufficient,
   spendCredits: async (_u: string, amount: number) => {
     await tick();
@@ -36,8 +37,8 @@ vi.mock("@/lib/credits/spend", () => ({
     return { balanceAfter: h.balance.value };
   },
 }));
-vi.mock("@/lib/credits/gate-events", () => ({ logCreditGateEvent: async (e: unknown) => { h.logged.push(e); } }));
-vi.mock("@/lib/passes/entitlement", () => ({ checkPassCoverage: async () => ({ covered: false }), DAILY_CAP_MESSAGE: "cap" }));
+vi.mock("@/lib/credits/gate-events", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/credits/gate-events")>()), logCreditGateEvent: async (e: unknown) => { h.logged.push(e); } }));
+vi.mock("@/lib/passes/entitlement", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/passes/entitlement")>()), checkPassCoverage: async () => ({ covered: false }), DAILY_CAP_MESSAGE: "cap" }));
 
 function unlocksTable() {
   const filters: Array<[string, unknown]> = [];
