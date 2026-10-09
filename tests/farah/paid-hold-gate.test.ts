@@ -76,6 +76,29 @@ describe("a paid message", () => {
   });
 });
 
+describe("the completion markers", () => {
+  const markers = async (hold: string) =>
+    (await admin.from("credit_gate_events").select("outcome, related_entity_id").eq("user_id", userId).eq("related_entity_id", hold)).data ?? [];
+
+  it("the check writes NO 'proceeded' row; the commit writes one carrying the hold id (that row is how the sweep knows the reply was delivered)", async () => {
+    await useUpFreeAllowance();
+    await setBalance(5);
+    const allowance = await checkFarahChatAllowance(userId);
+    const hold = allowance.paidHold!.holdId;
+    expect(await markers(hold), "a hold that has not completed has no marker").toEqual([]);
+    await commitFarahChatAllowance(userId, allowance);
+    expect(await markers(hold)).toEqual([{ outcome: "proceeded", related_entity_id: hold }]);
+  });
+
+  it("a released hold leaves no marker at all", async () => {
+    await useUpFreeAllowance();
+    await setBalance(5);
+    const allowance = await checkFarahChatAllowance(userId);
+    await releaseFarahChatAllowance(userId, allowance);
+    expect(await markers(allowance.paidHold!.holdId)).toEqual([]);
+  });
+});
+
 describe("a free message is unchanged", () => {
   it("carries no paid hold and writes no ledger row, at the check, the commit or the release", async () => {
     await setBalance(5);
