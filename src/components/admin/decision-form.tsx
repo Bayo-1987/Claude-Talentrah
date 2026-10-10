@@ -1,9 +1,9 @@
 "use client";
 
-import { useActionState, useRef } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { initialModerationState, type ModerationState } from "@/lib/admin/moderation/state";
 import { Button } from "@/components/ui";
-import { wrapDecisionAction } from "@/lib/admin/moderation/decision-action";
+import { announcementDueAtUnmount, wrapDecisionAction, type PendingAnnouncement } from "@/lib/admin/moderation/decision-action";
 import { announceDecision } from "@/lib/admin/moderation/decision-notice";
 import { inputValue } from "@/lib/forms/keep-input";
 import { MinimalRichEditor } from "@/components/rich-text/minimal-rich-editor";
@@ -65,14 +65,24 @@ export function DecisionForm({
   richNote?: boolean;
 }) {
   /*
-   * ONE wrapper around whichever action a queue passes (eight callers): an error comes back with the typed note, so the plain textarea keeps it (QA DECISION-NOTE-1), and a success whose row
-   * the same response removed is announced in the admin layout's notice, because the row's own banner went with it (DECISION-SILENT-1). The ref is read only in the delayed check, never in render.
+   * ONE wrapper around whichever action a queue passes (eight callers): an error comes back with the typed note, so the plain textarea keeps it (QA DECISION-NOTE-1).
+   *
+   * A success is REMEMBERED here, and announced in the admin layout's notice if this form is torn down within 30 s of it (DECISION-SILENT-1/2): a decision that removes its row takes the row's own banner
+   * with it, and the row may go well after the action returns (a slow revalidation), so nothing is timed: the form's own unmount is the signal. A row that stays never unmounts and shows its own banner.
+   * The holder is state created once, written only from the action and read only from the cleanup, never during render.
    */
-  const formRef = useRef<HTMLFormElement>(null);
+  const [remembered] = useState<{ pending: PendingAnnouncement | null }>(() => ({ pending: null }));
   const [state, formAction, pending] = useActionState(
     (prev: ModerationState, formData: FormData) =>
-      wrapDecisionAction(action, { noteName, rowIsGone: () => formRef.current === null || !formRef.current.isConnected, announce: announceDecision })(prev, formData),
+      wrapDecisionAction(action, { noteName, onSuccess: (message, at) => void (remembered.pending = { message, at }) })(prev, formData),
     initialModerationState,
+  );
+  useEffect(
+    () => () => {
+      const due = announcementDueAtUnmount(remembered.pending, Date.now());
+      if (due) announceDecision(due);
+    },
+    [remembered],
   );
 
   // One shared action powers every row on the page, so a result must only
@@ -80,7 +90,7 @@ export function DecisionForm({
   const mine = state.targetId === id;
 
   return (
-    <form ref={formRef} action={formAction} className="flex flex-col gap-3">
+    <form action={formAction} className="flex flex-col gap-3">
       <input type="hidden" name="id" value={id} />
 
       {richNote ? (
