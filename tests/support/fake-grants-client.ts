@@ -12,7 +12,7 @@
  */
 
 export const WITHHELD: Record<string, readonly string[]> = {
-  organizations: ["cac_number", "cac_business_name", "cac_confirmed_by", "created_by", "premium_until"],
+  organizations: ["cac_number", "cac_business_name", "cac_confirmed_by", "created_by"],
   scholarships: ["moderation_note", "moderated_by"],
   blog_posts: ["created_by", "updated_by"],
   mentorship_reviews: ["reviewer_id", "session_id"],

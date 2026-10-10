@@ -3,7 +3,6 @@ import { BODY_MAX, SUBJECT_MAX } from "./constants";
 export type NormalizedMessage = { ok: true; subject: string; body: string } | { ok: false; error: string };
 
 // Control characters (except tab and line feed, handled separately) and the bidirectional overrides that can make text read differently from how it is stored.
-// eslint-disable-next-line no-control-regex
 const CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F‪-‮⁦-⁩]/g;
 
 /**

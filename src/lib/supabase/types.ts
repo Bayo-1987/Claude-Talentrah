@@ -2525,6 +2525,32 @@ export type Database = {
           },
         ]
       }
+      organization_premium: {
+        Row: {
+          organization_id: string
+          premium_until: string
+          updated_at: string
+        }
+        Insert: {
+          organization_id: string
+          premium_until: string
+          updated_at?: string
+        }
+        Update: {
+          organization_id?: string
+          premium_until?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_premium_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           cac_business_name: string | null
@@ -2539,7 +2565,6 @@ export type Database = {
           id: string
           logo_url: string | null
           name: string
-          premium_until: string | null
           updated_at: string
           verification_reminder_48h_sent_at: string | null
           verification_reminder_7d_sent_at: string | null
@@ -2558,7 +2583,6 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name: string
-          premium_until?: string | null
           updated_at?: string
           verification_reminder_48h_sent_at?: string | null
           verification_reminder_7d_sent_at?: string | null
@@ -2577,7 +2601,6 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name?: string
-          premium_until?: string | null
           updated_at?: string
           verification_reminder_48h_sent_at?: string | null
           verification_reminder_7d_sent_at?: string | null

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi, type Mocked } from "vitest";
 import { sendApplicantMessage, type SendDeps } from "@/lib/employer/applicant-messages/send";
 
 const CANDIDATE_EMAIL = "joy.private@candidate-mail.example";
@@ -26,7 +26,7 @@ function makeDeps(overrides: Partial<SendDeps> = {}) {
     countToday: vi.fn(async () => 3),
     ...overrides,
   };
-  return deps satisfies SendDeps;
+  return deps as unknown as Mocked<SendDeps>;
 }
 
 afterEach(() => vi.restoreAllMocks());

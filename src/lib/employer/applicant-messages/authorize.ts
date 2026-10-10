@@ -8,17 +8,26 @@ import type { Database } from "@/lib/supabase/types";
  */
 export async function isApplicantOfMyJob(
   supabase: SupabaseClient<Database>,
-  { organizationId, jobId, applicationId }: { organizationId: string; jobId: string; applicationId: string },
+  ids: { organizationId: string; jobId: string; applicationId: string },
 ): Promise<boolean> {
+  return (await findMyApplicant(supabase, ids)) !== null;
+}
+
+/** The same check, returning the applicant's name (what the page needs to greet them) or null. Never the email: employer_job_applicants does not return one. */
+export async function findMyApplicant(
+  supabase: SupabaseClient<Database>,
+  { organizationId, jobId, applicationId }: { organizationId: string; jobId: string; applicationId: string },
+): Promise<{ firstName: string | null; lastName: string | null; jobTitle: string } | null> {
   const { data: job } = await supabase
     .from("job_postings")
-    .select("id")
+    .select("id, title")
     .eq("id", jobId)
     .eq("organization_id", organizationId)
     .maybeSingle();
-  if (!job) return false;
+  if (!job) return null;
 
   const { data: applicants, error } = await supabase.rpc("employer_job_applicants", { p_job_posting_id: jobId });
-  if (error) return false;
-  return (applicants ?? []).some((a) => a.application_id === applicationId);
+  if (error) return null;
+  const applicant = (applicants ?? []).find((a) => a.application_id === applicationId);
+  return applicant ? { firstName: applicant.first_name, lastName: applicant.last_name, jobTitle: job.title } : null;
 }

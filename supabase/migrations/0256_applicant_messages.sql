@@ -1,4 +1,4 @@
--- 0256: the applicant message log, the shared 20-per-day limit, and organizations.premium_until (owner spec 10 Oct: "Message candidate" on the applicants page, relay email, premium Farah drafting).
+-- 0256: the applicant message log, the shared 20-per-day limit, and an admin-set Premium date (owner spec 10 Oct: "Message candidate" on the applicants page, relay email, premium Farah drafting).
 --
 -- WHAT IT ADDS
 --   1. public.applicant_messages: one row per message an employer sends to an applicant through Talentrah (kind, subject, body, who, when, status). It holds NO email address: the candidate's address is read with the
@@ -6,18 +6,21 @@
 --   2. public.claim_applicant_message(...): the ONE place the limit of 20 employer-sent messages per organisation per UTC day is decided. It takes a per-organisation advisory lock, counts today's live rows
 --      (status claimed or sent; a failed message gives its slot back) and inserts the new row in the same call, so two overlapping sends can never both pass at 19. Interview invites (0253) call this same function
 --      with kind 'interview_invite', so the limit cannot drift between messages and invites. Confirmations, reminders, .ics files and "None of these work" never claim.
---   3. public.organizations.premium_until (timestamptz, nullable): the date until which an organisation has Premium. Set by an administrator only, through admin_set_organization_premium (audited, service role only; no purchase flow yet); the server refuses "Draft/Refine with Farah" when it is
---      null or in the past. It is NOT readable by the API roles either (0232's column-level SELECT list is left as it is, so a column added later is unreadable until granted; the server reads it with the service role), and it
---      joins the withheld list in tests/support/identifier-column-guard-titles.ts and fake-grants-client.ts. Nobody with an API session can write it (the organizations UPDATE grant is column-level since 0028, and this column is not in it; the INSERT policy requires it to be null).
+--   3. public.organization_premium (organization_id, premium_until) and public.admin_set_organization_premium(...): the date until which an organisation has Premium. A SEPARATE table on purpose: organizations is publicly
+--      readable and creatable by the API roles, so a premium column there would have needed a change to its INSERT policy and to the 0232 withheld-column lists, while a table with no grants for the API roles needs
+--      neither. The date is set ONLY by the function (SECURITY DEFINER, service role only, audited in admin_audit_log with who, before, after and why; no purchase flow yet). The server refuses "Draft/Refine with
+--      Farah" when the organisation has no row or the date has passed. Premium is an access gate only: what Farah costs is charged to the ad wallet.
 --
 -- THE DAY IS THE UTC DAY. A row created at 00:00:00 UTC counts for the new day; a row one second before does not.
 --
--- ACCESS. The table is read-only to the API: members of the organisation can SELECT their own organisation's log (is_org_member), nobody can INSERT/UPDATE/DELETE through the API, and anon has nothing. The function is
--- service-role only. A message is written, marked sent or failed, only by server code running with the service role.
+-- ACCESS. applicant_messages is read-only to the API: members of the organisation can SELECT their own organisation's log (is_org_member), nobody can INSERT/UPDATE/DELETE through the API, and anon has nothing.
+-- organization_premium has no policy and no grant for any API role (not even SELECT): the server reads it with the service role. Both functions are service-role only. A message is written, marked sent or failed, only
+-- by server code running with the service role.
 --
--- PER-REQUEST COST. Server work per request: one advisory lock, one indexed count over today's rows of one organisation, one insert per message sent. Nothing runs on page loads except the "N of 20 left today" count.
+-- PER-REQUEST COST. Server work per request: one advisory lock, one indexed count over today's rows of one organisation, one insert per message sent; one primary-key read of organization_premium when the Farah
+-- drafting button is used. Nothing runs on page loads except the "N of 20 left today" count.
 --
--- ADDITIVE for the running app: no deployed code names the table, the function or the column. Applied BEFORE the code that uses them merges. The exact undo is supabase/rollbacks/0256_applicant_messages.rollback.sql.
+-- ADDITIVE for the running app: no deployed code names the tables or the functions. Applied BEFORE the code that uses them merges. The exact undo is supabase/rollbacks/0256_applicant_messages.rollback.sql.
 
 create table if not exists public.applicant_messages (
   id               uuid primary key default gen_random_uuid(),
@@ -98,31 +101,21 @@ grant execute on function public.claim_applicant_message(uuid, uuid, uuid, uuid,
 comment on function public.claim_applicant_message(uuid, uuid, uuid, uuid, text, text, text, integer) is
   '0256: claims one of an organisation''s daily message slots (default 20 per UTC day) and writes the log row in the same call. Returns the new row id, or null when the day is full. Failed rows do not count. Service role only.';
 
-alter table public.organizations
-  add column if not exists premium_until timestamptz;
+create table if not exists public.organization_premium (
+  organization_id uuid primary key references public.organizations(id) on delete cascade,
+  premium_until   timestamptz not null,
+  updated_at      timestamptz not null default now()
+);
 
-comment on column public.organizations.premium_until is
-  '0256: Premium runs until this moment; null or in the past means not Premium. Set by an administrator only (no purchase flow yet). The server refuses Farah drafting without it. Not writable through the API.';
+comment on table public.organization_premium is
+  '0256: Premium runs until premium_until for the organisation; no row, or a date in the past, means not Premium. Written only by admin_set_organization_premium; no API role can read or write it (RLS on, no policy, no grants). The server reads it with the service role.';
 
--- premium_until must not be smuggled in at CREATE time either: organizations has a table-level INSERT grant for the API roles (the row policy, not a column list, is what pins verified and the CAC columns since 0114/0120), so the
--- policy is widened by exactly one condition. Everything else in it is 0120's definition, unchanged.
-drop policy if exists "authenticated users can create an organization" on public.organizations;
+alter table public.organization_premium enable row level security;
+revoke all on public.organization_premium from anon, authenticated;
 
-create policy "authenticated users can create an organization"
-  on public.organizations
-  for insert
-  to authenticated
-  with check (
-    created_by = (select auth.uid())
-    and verified = false
-    and cac_confirmed_at is null
-    and cac_confirmed_by is null
-    and premium_until is null
-  );
-
--- The ONLY way premium_until changes: an administrator, through this function, and every change leaves a row in admin_audit_log (who, what it was, what it became, why). No API role can UPDATE the column (the
--- grant is column-level and does not include it), none can set it when creating an organisation (the INSERT policy above), and none can execute this function: it is service-role only, called by admin tooling that
--- passes the acting operator's identity. A reason is required, so an unexplained Premium cannot exist. Premium is an access gate only (Farah drafting on the Message candidate form); what Farah costs is charged to the ad wallet.
+-- The ONLY way Premium changes: an administrator, through this function, and every change leaves a row in admin_audit_log (who, what it was, what it became, why). No API role can read or write the table (no grants,
+-- RLS with no policy), and none can execute this function: it is service-role only, called by admin tooling that passes the acting operator's identity. A null date ends Premium (the row is removed). A reason is
+-- required, so an unexplained Premium cannot exist.
 create or replace function public.admin_set_organization_premium(
   p_organization_id uuid,
   p_premium_until timestamptz,
@@ -144,13 +137,19 @@ begin
   if p_reason is null or btrim(p_reason) = '' then
     raise exception 'admin_set_organization_premium: a reason is required';
   end if;
-
-  select premium_until into v_before from public.organizations where id = p_organization_id for update;
-  if not found then
+  if not exists (select 1 from public.organizations where id = p_organization_id) then
     raise exception 'admin_set_organization_premium: organization % not found', p_organization_id;
   end if;
 
-  update public.organizations set premium_until = p_premium_until where id = p_organization_id;
+  select premium_until into v_before from public.organization_premium where organization_id = p_organization_id for update;
+
+  if p_premium_until is null then
+    delete from public.organization_premium where organization_id = p_organization_id;
+  else
+    insert into public.organization_premium (organization_id, premium_until)
+    values (p_organization_id, p_premium_until)
+    on conflict (organization_id) do update set premium_until = excluded.premium_until, updated_at = now();
+  end if;
 
   insert into public.admin_audit_log (admin_user_id, admin_email, admin_session_id, action, target_table, target_id, detail)
   values (
@@ -158,7 +157,7 @@ begin
     p_admin_email,
     p_admin_session_id,
     'organization.premium_set',
-    'organizations',
+    'organization_premium',
     p_organization_id::text,
     jsonb_build_object('from', v_before, 'to', p_premium_until, 'reason', p_reason)
   );
@@ -171,16 +170,17 @@ revoke all on function public.admin_set_organization_premium(uuid, timestamptz, 
 grant execute on function public.admin_set_organization_premium(uuid, timestamptz, uuid, text, uuid, text) to service_role;
 
 comment on function public.admin_set_organization_premium(uuid, timestamptz, uuid, text, uuid, text) is
-  '0256: the only way organizations.premium_until changes. Sets (or clears, with null) the date and writes an admin_audit_log row with the before and after and the reason, in one call. A reason and an acting identity are required. Service role only.';
+  '0256: the only way an organisation''s Premium date changes. Sets (or ends, with null) the date and writes an admin_audit_log row with the before and after and the reason, in one call. A reason and an acting identity are required. Service role only.';
 
 -- Self-check: the objects exist as designed and the API roles have only what was intended.
 do $check$
 begin
-  if to_regclass('public.applicant_messages') is null then
-    raise exception '0256: applicant_messages was not created';
+  if to_regclass('public.applicant_messages') is null or to_regclass('public.organization_premium') is null then
+    raise exception '0256: a table was not created';
   end if;
-  if not (select relrowsecurity from pg_class where oid = 'public.applicant_messages'::regclass) then
-    raise exception '0256: row level security is off on applicant_messages';
+  if not (select relrowsecurity from pg_class where oid = 'public.applicant_messages'::regclass)
+     or not (select relrowsecurity from pg_class where oid = 'public.organization_premium'::regclass) then
+    raise exception '0256: row level security is off on a new table';
   end if;
   if has_table_privilege('anon', 'public.applicant_messages', 'select')
      or has_table_privilege('authenticated', 'public.applicant_messages', 'insert')
@@ -188,24 +188,20 @@ begin
      or has_table_privilege('authenticated', 'public.applicant_messages', 'delete') then
     raise exception '0256: an API role has more than SELECT (authenticated) on applicant_messages';
   end if;
+  if has_table_privilege('anon', 'public.organization_premium', 'select')
+     or has_table_privilege('authenticated', 'public.organization_premium', 'select')
+     or has_table_privilege('authenticated', 'public.organization_premium', 'insert')
+     or has_table_privilege('authenticated', 'public.organization_premium', 'update')
+     or has_table_privilege('authenticated', 'public.organization_premium', 'delete') then
+    raise exception '0256: an API role has a privilege on organization_premium';
+  end if;
   if has_function_privilege('authenticated', 'public.claim_applicant_message(uuid, uuid, uuid, uuid, text, text, text, integer)', 'execute')
      or has_function_privilege('anon', 'public.claim_applicant_message(uuid, uuid, uuid, uuid, text, text, text, integer)', 'execute') then
     raise exception '0256: an API role can execute claim_applicant_message';
   end if;
-  if has_column_privilege('authenticated', 'public.organizations', 'premium_until', 'update')
-     or has_column_privilege('anon', 'public.organizations', 'premium_until', 'update') then
-    raise exception '0256: an API role can UPDATE organizations.premium_until';
-  end if;
   if has_function_privilege('authenticated', 'public.admin_set_organization_premium(uuid, timestamptz, uuid, text, uuid, text)', 'execute')
      or has_function_privilege('anon', 'public.admin_set_organization_premium(uuid, timestamptz, uuid, text, uuid, text)', 'execute') then
     raise exception '0256: an API role can execute admin_set_organization_premium';
-  end if;
-  if not exists (
-    select 1 from pg_policy
-     where polrelid = 'public.organizations'::regclass and polcmd = 'a'
-       and pg_get_expr(polwithcheck, polrelid) like '%premium_until IS NULL%'
-  ) then
-    raise exception '0256: the organizations INSERT policy does not pin premium_until to null';
   end if;
 end
 $check$;
