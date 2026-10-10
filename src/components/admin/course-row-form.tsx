@@ -1,8 +1,11 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { updateCourseAction, setCourseActiveAction } from "@/lib/admin/catalog/actions";
-import { initialModerationState } from "@/lib/admin/moderation/state";
+import { runCourseRowAction } from "@/lib/admin/catalog/row-action";
+import { initialModerationState, type ModerationState } from "@/lib/admin/moderation/state";
+import { inputValue } from "@/lib/forms/keep-input";
+import { tierSelect } from "@/lib/admin/catalog/tier-select";
 import { Button, TextField, SelectField } from "@/components/ui";
 import { PRICE_TIERS } from "@/lib/admin/catalog/constants";
 
@@ -34,25 +37,24 @@ export function CourseRowForm({
     isPlaceholder: boolean;
   };
 }) {
-  const [saveState, saveAction, saving] = useActionState(
-    updateCourseAction,
+  /*
+   * ONE state for both forms, so the banner is always the latest result (QA COURSE-MSG-1: a toggle's old message used to sit in front of every later Save result). A refused Save hands the
+   * typed fields back in `state.values`, and the fields take them as their defaults (COURSE-KEEP-1); see runCourseRowAction.
+   */
+  const [state, formAction, pending] = useActionState(
+    (prev: ModerationState, formData: FormData) => runCourseRowAction(prev, formData, { save: updateCourseAction, toggle: setCourseActiveAction }),
     initialModerationState,
   );
-  const [toggleState, toggleAction, toggling] = useActionState(
-    setCourseActiveAction,
-    initialModerationState,
-  );
-
-  const state =
-    toggleState.targetId === course.id && toggleState.status !== "idle"
-      ? toggleState
-      : saveState.targetId === course.id && saveState.status !== "idle"
-        ? saveState
-        : null;
+  const [lastSubmitted, setLastSubmitted] = useState<"save" | "toggle">("save");
+  const saving = pending && lastSubmitted === "save";
+  const toggling = pending && lastSubmitted === "toggle";
+  // The key and the default of the tier select come from one function (QA COURSE-TIER-1): see tier-select.ts.
+  const tier = tierSelect(course.priceTier, state.values);
+  const banner = state.targetId === course.id && state.status !== "idle" ? state : null;
 
   return (
     <div className="flex flex-col gap-4">
-      <form action={saveAction} className="flex flex-col gap-3">
+      <form action={formAction} onSubmit={() => setLastSubmitted("save")} className="flex flex-col gap-3">
         <input type="hidden" name="id" value={course.id} />
 
         <div className="grid gap-3 md:grid-cols-2">
@@ -60,28 +62,29 @@ export function CourseRowForm({
             id={`title-${course.id}`}
             label="Title"
             name="title"
-            defaultValue={course.title}
+            defaultValue={inputValue(state.values, "title", course.title)}
             required
           />
           <TextField
             id={`provider-${course.id}`}
             label="Provider"
             name="provider"
-            defaultValue={course.provider}
+            defaultValue={inputValue(state.values, "provider", course.provider)}
             required
           />
           <TextField
             id={`skill-${course.id}`}
             label="Skill tag"
             name="skill_tag"
-            defaultValue={course.skillTag}
+            defaultValue={inputValue(state.values, "skill_tag", course.skillTag)}
             required
           />
           <SelectField
             id={`tier-${course.id}`}
             label="Price tier"
             name="price_tier"
-            defaultValue={course.priceTier}
+            key={tier.key}
+            defaultValue={tier.defaultValue}
             options={TIER_OPTIONS}
           />
         </div>
@@ -91,7 +94,7 @@ export function CourseRowForm({
           label="Affiliate URL"
           name="affiliate_url"
           type="url"
-          defaultValue={course.affiliateUrl}
+          defaultValue={inputValue(state.values, "affiliate_url", course.affiliateUrl)}
           required
         />
 
@@ -102,7 +105,7 @@ export function CourseRowForm({
         </div>
       </form>
 
-      <form action={toggleAction} className="flex flex-wrap items-center gap-3">
+      <form action={formAction} onSubmit={() => setLastSubmitted("toggle")} className="flex flex-wrap items-center gap-3">
         <input type="hidden" name="id" value={course.id} />
         <Button
           type="submit"
@@ -125,17 +128,17 @@ export function CourseRowForm({
         )}
       </form>
 
-      {state && (
+      {banner && (
         <p
           role="status"
           className={
             "border-[1.5px] px-3.5 py-2.5 text-[13.5px] " +
-            (state.status === "error"
+            (banner.status === "error"
               ? "border-rust bg-rust-soft text-rust"
               : "border-ink bg-card text-ink")
           }
         >
-          {state.message}
+          {banner.message}
         </p>
       )}
     </div>

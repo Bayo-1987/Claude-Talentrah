@@ -5,11 +5,10 @@ import { lookUpPersonAction } from "@/lib/admin/finance/actions";
 import { initialPersonLookupState } from "@/lib/admin/finance/state";
 import { Button, TextField, BorderedCard, EyebrowLabel } from "@/components/ui";
 import { formatDate } from "@/lib/format/datetime";
+import { inputValue } from "@/lib/forms/keep-input";
+import { formatWholeAmount } from "@/lib/admin/finance/money";
 
-const naira = (minor: number, currency: string) =>
-  new Intl.NumberFormat("en-NG", { style: "currency", currency, maximumFractionDigits: 2 }).format(
-    currency === "NGN" ? minor / 100 : minor / 100,
-  );
+const naira = formatWholeAmount;
 
 /**
  * The search box and the one record it can return.
@@ -36,6 +35,7 @@ export function PersonLookup() {
               name="term"
               autoComplete="off"
               placeholder="someone@example.com"
+              defaultValue={inputValue(state.values, "term")}
               required
             />
           </div>

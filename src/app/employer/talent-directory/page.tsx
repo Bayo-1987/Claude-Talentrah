@@ -47,6 +47,8 @@ export default async function EmployerTalentDirectoryPage({
       .select("status, expires_at")
       .eq("organization_id", context.organization.id)
       .eq("status", "active")
+      // Running only: nothing flips an ended, non-renewing row's status until the next purchase or the daily lapse, so an ended row must not read as a subscription.
+      .gt("expires_at", new Date().toISOString())
       .maybeSingle(),
     serviceClient.from("talent_directory_plans").select("id, name, price_ngn").eq("is_active", true),
   ]);

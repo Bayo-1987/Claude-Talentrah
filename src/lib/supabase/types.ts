@@ -3390,6 +3390,7 @@ export type Database = {
           pending_renewal_reference: string | null
           plan_id: string
           renewal_attempt_count: number
+          renewal_claimed_at: string | null
           renewal_reminder_sent_at: string | null
           started_at: string
           status: string
@@ -3407,6 +3408,7 @@ export type Database = {
           pending_renewal_reference?: string | null
           plan_id: string
           renewal_attempt_count?: number
+          renewal_claimed_at?: string | null
           renewal_reminder_sent_at?: string | null
           started_at?: string
           status?: string
@@ -3424,6 +3426,7 @@ export type Database = {
           pending_renewal_reference?: string | null
           plan_id?: string
           renewal_attempt_count?: number
+          renewal_claimed_at?: string | null
           renewal_reminder_sent_at?: string | null
           started_at?: string
           status?: string
@@ -3822,6 +3825,20 @@ export type Database = {
       account_deletion_stop_renewals: {
         Args: { p_user_id: string }
         Returns: Json
+      }
+      activate_talent_directory_subscription: {
+        Args: {
+          p_auto_renew: boolean
+          p_authorization_code?: string
+          p_payment_transaction_id: string
+          p_subscription_id: string
+        }
+        Returns: {
+          activated: boolean
+          expires_at: string
+          plan_name: string
+          reason: string
+        }[]
       }
       account_deletion_create_request: {
         Args: { p_token_hash: string; p_user_id: string }
@@ -4767,6 +4784,15 @@ export type Database = {
         Returns: boolean
       }
       sync_mentor_payout_rows: { Args: never; Returns: number }
+      table_privilege_snapshot: {
+        Args: never
+        Returns: {
+          grantee: string
+          object_name: string
+          privilege_type: string
+          source: string
+        }[]
+      }
       talent_directory_listed_count: { Args: never; Returns: number }
       talent_directory_listed_ids: { Args: never; Returns: string[] }
       talent_directory_portfolio_items: {

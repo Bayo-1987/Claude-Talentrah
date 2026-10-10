@@ -108,8 +108,10 @@ export async function createOrganizationAction(
 ): Promise<EmployerActionState> {
   const { supabase, user } = await getAuthedUser();
 
+  // Handed back with every refusal below EXCEPT the one after the company exists (see "verification didn't complete"): an error keeps what was typed (owner rule, src/lib/forms/keep-input.ts).
+  const typed = submittedValues(form, ["name", "domain", "description"]);
   const name = str(form, "name");
-  if (!name) return { error: "Company name is required." };
+  if (!name) return { error: "Company name is required.", values: typed };
 
   const outcome = evaluateDomainVerification({
     userEmail: user.email,
@@ -148,6 +150,7 @@ export async function createOrganizationAction(
         error:
           `${existing.name} is already registered on ${outcome.domain}. ` +
           `Go back and choose it from the list to join your colleagues, rather than creating a second company.`,
+        values: typed,
       };
     }
   }
@@ -167,7 +170,7 @@ export async function createOrganizationAction(
     .single();
 
   if (error || !org) {
-    return { error: `Couldn't create the organisation: ${error?.message ?? "unknown error"}` };
+    return { error: `Couldn't create the organisation: ${error?.message ?? "unknown error"}`, values: typed };
   }
 
   const { error: memberError } = await supabase
@@ -190,7 +193,7 @@ export async function createOrganizationAction(
     const cleanup = createServiceRoleClient();
     const { error: cleanupError } = await cleanup.from("organizations").delete().eq("id", org.id);
     if (cleanupError) console.error(`[createOrganizationAction] orphan cleanup failed for org ${org.id}:`, cleanupError.message);
-    return { error: `Couldn't set you up as the owner: ${memberError.message}` };
+    return { error: `Couldn't set you up as the owner: ${memberError.message}`, values: typed };
   }
 
   // `verified` is deliberately not writable by any client (migration 0028), so
@@ -237,11 +240,13 @@ export async function createOrganizationAction(
           error:
             `Someone else at ${outcome.domain} registered your company while you were filling this in. ` +
             `Go back and choose it from the list to join them.`,
+          values: typed,
         };
       }
       // Not fatal — the org exists and simply stays unverified, which is the
       // safe direction. Surfacing it beats a silent downgrade the employer
-      // cannot explain.
+      // cannot explain. NO `values` here, on purpose: the company exists, and a
+      // form primed with the same entry would invite creating it a second time.
       return {
         error: `Organisation created, but verification didn't complete: ${verifyError.message}. Your jobs stay private until it does.`,
       };
@@ -420,10 +425,11 @@ export async function submitCacVerificationAction(
   const { supabase } = await getAuthedUser();
   const { organization } = await requireEmployer();
 
+  const typed = submittedValues(form, ["cacNumber", "cacBusinessName"]);
   const cacNumber = str(form, "cacNumber");
   const cacBusinessName = str(form, "cacBusinessName");
   if (!cacNumber || !cacBusinessName) {
-    return { error: "Both the RC number and the registered business name are required." };
+    return { error: "Both the RC number and the registered business name are required.", values: typed };
   }
 
   const { error } = await supabase
@@ -431,7 +437,7 @@ export async function submitCacVerificationAction(
     .update({ cac_number: cacNumber, cac_business_name: cacBusinessName })
     .eq("id", organization.id);
 
-  if (error) return { error: `Couldn't submit for verification: ${error.message}` };
+  if (error) return { error: `Couldn't submit for verification: ${error.message}`, values: typed };
 
   revalidatePath("/employer/profile");
   return { ok: true };

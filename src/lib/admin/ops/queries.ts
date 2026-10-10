@@ -264,6 +264,8 @@ export interface FeedFreshness {
   open: number | null;
   lastCheckedAt: string | null;
   hoursSince: number | null;
+  /** When the source was added to sources.config.ts (its `addedAt`), or null when the config carries no date (old by default). */
+  configuredAt?: string | null;
   /** Employer-posted rows are not ingested at all — never stale, just not a feed. */
   notIngested?: boolean;
 }
@@ -331,6 +333,7 @@ export async function feedFreshness(): Promise<FeedFreshness[]> {
       open: seen?.open ?? 0,
       lastCheckedAt: seen?.last ?? null,
       hoursSince: hoursSince(seen?.last ?? null),
+      configuredAt: config.addedAt ?? null,
     });
   }
 
@@ -499,6 +502,20 @@ export async function paymentsNeedingRefund(): Promise<PaymentNeedingRefund[]> {
  *   * a configured source that has never produced a posting, which is either
  *     a broken integration or a config that was never right.
  */
+export const NEW_SOURCE_GRACE_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * A configured source that has never produced a posting counts toward the badge only once it has had a day to produce one: a source added this afternoon has not failed yet. A source with no
+ * configuration date is old (it counts), so a missing date can only ever make the badge louder, not quieter.
+ */
+export function countsAsNeverSeen(feed: { configured: boolean; lastCheckedAt: string | null; configuredAt?: string | null }, now: number = Date.now()): boolean {
+  if (!feed.configured || feed.lastCheckedAt !== null) return false;
+  if (!feed.configuredAt) return true;
+  const since = new Date(feed.configuredAt).getTime();
+  if (Number.isNaN(since)) return true;
+  return now - since >= NEW_SOURCE_GRACE_MS;
+}
+
 export async function opsAttentionCount(): Promise<number> {
   const [renewals, feeds, credentials, refunds] = await Promise.all([
     stuckRenewals(),
@@ -507,7 +524,7 @@ export async function opsAttentionCount(): Promise<number> {
     paymentsNeedingRefund(),
   ]);
   const exhausted = renewals.filter((r) => r.exhausted).length;
-  const neverSeen = feeds.filter((f) => f.configured && f.lastCheckedAt === null).length;
+  const neverSeen = feeds.filter((f) => countsAsNeverSeen(f)).length;
 
   /*
    * Credential events count only while RECENT. An operator who legitimately

@@ -7,6 +7,7 @@
 import { randomUUID } from "node:crypto";
 import { test, expect, admin } from "./fixtures/authed";
 import { deleteOrgsCascade } from "../tests/support/delete-orgs";
+import { submitAndSettle, expectStaysFor } from "./support/form-keeps";
 
 test("Company Profile: an error keeps what was typed, and two saves in a row each stick", async ({ authedPage: page, testUser }, info) => {
   test.setTimeout(120_000);
@@ -26,12 +27,10 @@ test("Company Profile: an error keeps what was typed, and two saves in a row eac
     // Deliberate error: a name of spaces.
     await nameField.fill("   ");
     await description.fill(`QA description kept ${tag}`);
-    await save.click();
+    await submitAndSettle(page, () => save.click());
     await expect(page.getByText(/Company name is required/i)).toBeVisible({ timeout: 15_000 });
-    await page.waitForTimeout(3000); // let the action settle and React re-render the form
     await shot("1-error-after-settling");
-    await expect(description, "the description is kept").toHaveValue(`QA description kept ${tag}`);
-    await expect(nameField, "the name is kept as typed").toHaveValue("   ");
+    await expectStaysFor(async () => ({ name: await nameField.inputValue(), description: await description.inputValue() }), { name: "   ", description: `QA description kept ${tag}` }, "after a refused save the typed values stay in the form, throughout");
     expect((await dbRow())?.name, "an error saves nothing").toBe(name);
 
     // Two saves in a row.

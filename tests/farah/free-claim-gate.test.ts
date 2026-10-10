@@ -34,7 +34,7 @@ const fakeClient = () => ({
 vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => fakeClient() }));
 vi.mock("@/lib/passes/entitlement", () => ({ checkPassCoverage, DAILY_CAP_MESSAGE: "cap message" }));
 vi.mock("@/lib/credits/gate-events", () => ({ logCreditGateEvent }));
-vi.mock("@/lib/credits/spend", () => ({
+vi.mock("@/lib/credits/spend", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/credits/spend")>()),
   spendCredits,
   InsufficientCreditsError: class InsufficientCreditsError extends Error {
     constructor(public required: number, public available: number, public capMessage?: string) {
@@ -96,11 +96,13 @@ describe("a request that LOSES the claim falls through exactly as if the free me
     claimAnswer = { data: [{ ok: false, claim_id: null, used: 3 }], error: null };
   });
 
-  it("with credits: it is a credit message, logged as 'proceeded', with no claim id", async () => {
+  it("with credits: it is a credit message with no claim id; it is logged as 'proceeded' (with the hold id) only when the reply COMPLETES, not at the check", async () => {
     const a = await gate.checkFarahChatAllowance("user-1");
     expect(a).toMatchObject({ isFreeAllowance: false, isPassCovered: false, creditsSpent: COST, freeMessagesRemaining: 0 });
     expect(a.freeClaimId).toBeUndefined();
-    expect(logCreditGateEvent).toHaveBeenCalledWith(expect.objectContaining({ outcome: "proceeded", creditsRequired: COST, creditsAvailable: 5 }));
+    expect(logCreditGateEvent, "'proceeded' is the completion marker of a paid hold: not written at the check").not.toHaveBeenCalledWith(expect.objectContaining({ outcome: "proceeded" }));
+    await gate.commitFarahChatAllowance("user-1", a);
+    expect(logCreditGateEvent).toHaveBeenCalledWith(expect.objectContaining({ outcome: "proceeded", creditsRequired: COST, creditsAvailable: 5, relatedEntityId: a.paidHold?.holdId }));
   });
 
   it("with an active Pass: it is Pass-covered", async () => {

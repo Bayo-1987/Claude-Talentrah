@@ -61,11 +61,15 @@ export interface NormalizedJobPosting {
  * SEARCH pages with no fixed company, while a widget-accounts URL is a single
  * company's own board, same as Greenhouse/Lever — see sources/workable.ts.
  */
-export type JobSourceConfig =
+export type JobSourceConfig = (
   | { source: "greenhouse"; token: string; companyName: string }
   | { source: "lever"; token: string; companyName: string }
   | { source: "workable"; token: string; companyName: string }
-  | { source: "schema-org"; url: string; label: string };
+  | { source: "schema-org"; url: string; label: string }
+) & {
+  /** ISO date or time the source was added to the config. Optional: an old entry has none. The admin "never seen" badge waits 24 hours from it before counting a source that has produced nothing. */
+  addedAt?: string;
+};
 
 /**
  * The `external_source` value written for a schema.org source, and the value

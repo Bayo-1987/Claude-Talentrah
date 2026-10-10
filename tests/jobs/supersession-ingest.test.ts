@@ -30,7 +30,7 @@ const { RUN_ID, COMPANY, LISTING_URL, URL_A, URL_B } = vi.hoisted(() => {
 /* The flag is mocked, not flipped in the database: this file runs beside others against one DB, and a real flag row set
  * to true would apply supersession to whatever they have inserted in the meantime. Only the key under test is ever on. */
 const flag = vi.hoisted(() => ({ on: false }));
-vi.mock("@/lib/flags/read", () => ({
+vi.mock("@/lib/flags/read", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/flags/read")>()),
   isFeatureEnabled: async (key: string) => key === "job_supersession" && flag.on,
 }));
 vi.mock("@/lib/jobs/sources.config", () => ({

@@ -49,6 +49,17 @@ export interface NormalizedScholarship {
   reviewNote: string | null;
 }
 
+/** The values of the two enums, as lists. Here, and not beside the zod schemas, because client components import them (tests/perf/client-components-zod-free.test.ts). */
+export const DEGREE_LEVEL_VALUES = [
+  "bsc",
+  "msc",
+  "phd",
+  "postgraduate_diploma",
+  "other",
+] as const;
+
+export const FUNDING_TYPE_VALUES = ["full", "partial"] as const;
+
 export const DEGREE_LEVEL_LABEL: Record<DegreeLevel, string> = {
   bsc: "BSc",
   msc: "MSc",

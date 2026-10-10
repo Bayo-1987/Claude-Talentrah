@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/lib/admin/require-admin";
 import { AdminMasthead } from "@/components/admin/admin-masthead";
 import { AdminNav } from "@/components/admin/admin-nav";
+import { DecisionNoticeHost } from "@/components/admin/decision-notice-host";
 
 /**
  * The guard, applied once to everything inside the group.
@@ -26,6 +27,7 @@ export default async function ProtectedAdminLayout({
       <AdminMasthead email={admin.email} displayName={admin.displayName} />
       <AdminNav permissions={admin.permissions} />
       <main className="flex-1">{children}</main>
+      <DecisionNoticeHost />
     </div>
   );
 }

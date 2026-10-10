@@ -68,7 +68,7 @@ export async function requireSuperAdmin(): Promise<AdminIdentity> {
  * restricted calls this, in the page itself, because a page that forgot to is
  * open no matter what the nav shows.
  *
- * It redirects to /admin rather than rendering a 403. An operator who lands
+ * It redirects to /admin (with ?denied=<permission>, so the dashboard can say which area) rather than rendering a 403. An operator who lands
  * somewhere they cannot go has almost always followed a stale link or a
  * bookmark; the dashboard is where they were going. The refusal is total —
  * only its presentation is gentle.
@@ -84,7 +84,8 @@ export async function requireSuperAdmin(): Promise<AdminIdentity> {
  */
 export async function requirePermission(permission: AdminPermission): Promise<AdminIdentity> {
   const identity = await requireAdmin();
-  if (!identity.permissions.includes(permission)) redirect("/admin");
+  // `denied` lets the dashboard say which area was refused instead of dropping the operator there in silence.
+  if (!identity.permissions.includes(permission)) redirect(`/admin?denied=${permission}`);
   return identity;
 }
 

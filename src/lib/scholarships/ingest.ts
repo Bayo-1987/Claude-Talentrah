@@ -240,6 +240,24 @@ export function changedColumns(
 }
 
 /**
+ * The content columns whose change sends a verified listing back to a person.
+ *
+ * `deadline_verified_at` moving to a LATER instant while the deadline and every other content column are unchanged is a re-confirmation, not a change: the deadline recheck stamps a fresh "now"
+ * every morning that the official page's date differs from the CATALOG's (recheck.ts compares with the catalog, not the database), so a catalog entry that is behind the page used to send the
+ * approved listing back to review EVERY morning (Chevening, 8-9 Oct; tests/scholarships/recheck-restamp-churn.test.ts). A stamp that appears (null -> value), disappears, or comes with any other
+ * column's change still counts: the first means a date is now vouched for, the others change what a seeker reads.
+ */
+export function columnsNeedingReview(row: Record<string, unknown>, existing: Record<string, unknown>): string[] {
+  const changed = changedColumns(row, existing);
+  const reconfirmedOnly =
+    changed.length === 1 &&
+    changed[0] === "deadline_verified_at" &&
+    row.deadline_verified_at != null &&
+    existing.deadline_verified_at != null;
+  return reconfirmedOnly ? [] : changed;
+}
+
+/**
  * Writes normalized listings to `scholarships`, keyed on the dedup
  * fingerprint. The one path anything takes to create a scholarship row.
  *
@@ -384,7 +402,7 @@ export async function upsertScholarships(
     }
     if (existing.moderation_status !== "verified") return row;
 
-    const changed = changedColumns(row, existing);
+    const changed = columnsNeedingReview(row, existing);
     if (changed.length === 0) return row;
 
     returnedToReview.push(row.dedup_fingerprint);
