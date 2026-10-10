@@ -4,6 +4,7 @@ import { MarketingMasthead } from "@/components/marketing/marketing-masthead";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Container, EyebrowLabel } from "@/components/ui";
 import { getContactRecipient } from "@/lib/resend/client";
+import { contactTopicFromParam } from "@/lib/contact/schemas";
 import { ContactForm } from "./contact-form";
 
 export const metadata: Metadata = pageMetadata({
@@ -12,7 +13,8 @@ export const metadata: Metadata = pageMetadata({
   path: "/contact",
 });
 
-export default function ContactPage() {
+export default async function ContactPage({ searchParams }: { searchParams: Promise<{ topic?: string | string[] }> }) {
+  const { topic } = await searchParams;
   const recipient = getContactRecipient();
 
   return (
@@ -35,7 +37,7 @@ export default function ContactPage() {
               </a>
             </p>
           </div>
-          <ContactForm />
+          <ContactForm initialTopic={contactTopicFromParam(topic)} />
         </Container>
       </main>
       <MarketingFooter />

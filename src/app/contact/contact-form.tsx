@@ -12,7 +12,7 @@ import { TextArea } from "@/components/ui/text-area";
 import { FIELD_LIMITS } from "@/lib/text-limits";
 import { inputValue, selectKey } from "@/lib/forms/keep-input";
 
-export function ContactForm() {
+export function ContactForm({ initialTopic = "" }: { initialTopic?: string }) {
   const [state, formAction, pending] = useActionState(
     sendContactMessageAction,
     initialContactActionState,
@@ -74,7 +74,7 @@ export function ContactForm() {
         key={selectKey(state.values, "topic")}
         label="Topic"
         name="topic"
-        defaultValue={inputValue(state.values, "topic")}
+        defaultValue={state.values ? inputValue(state.values, "topic") : initialTopic}
         options={CONTACT_TOPICS}
         required
         error={state.fieldErrors?.topic?.[0]}

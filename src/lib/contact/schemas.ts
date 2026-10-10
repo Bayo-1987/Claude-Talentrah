@@ -7,9 +7,24 @@ export const CONTACT_TOPICS = [
   "Account or billing",
   "Report a bug",
   "Employer / Business Services",
+  "Talentrah Premium for employers",
   "Partnership or press",
   "Other",
 ] as const;
+
+/**
+ * `/contact?topic=<key>` preselects a topic, so a "talk to us" link elsewhere can arrive with the right one chosen.
+ * Keyed by a short stable slug, not the label, so a rename never breaks a link that is already out there.
+ */
+const CONTACT_TOPIC_PARAMS: Record<string, (typeof CONTACT_TOPICS)[number]> = {
+  premium: "Talentrah Premium for employers",
+};
+
+/** The topic a `?topic=` value stands for, or "" (today's empty default) for a missing, repeated or unknown one. */
+export function contactTopicFromParam(param: string | string[] | undefined): string {
+  if (typeof param !== "string") return "";
+  return Object.prototype.hasOwnProperty.call(CONTACT_TOPIC_PARAMS, param) ? CONTACT_TOPIC_PARAMS[param] : "";
+}
 
 export const contactSchema = z.object({
   name: z.string().trim().min(1, "Your name is required"),
