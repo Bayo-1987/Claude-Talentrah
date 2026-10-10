@@ -61,7 +61,7 @@ test("talent directory candidate: switch, availability twice, samples twice + bl
   await page.reload();
   const start0 = (await prof()).credits_balance;
   await submitAndSettle(page, () => page.getByRole("button", { name: /Request a resume review/ }).click());
-  await expect(page.locator("p.text-rust").first(), "the refusal is shown").toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/Not enough credits/).first(), "the refusal is shown").toBeVisible({ timeout: 30_000 });
   expect((await prof()).credits_balance, "no credits: nothing charged").toBe(start0);
   expect(((await admin.from("talent_verifications").select("id").eq("user_id", testUser.id)).data ?? []).length).toBe(0);
 

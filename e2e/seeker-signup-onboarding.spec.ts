@@ -31,7 +31,7 @@ test("sign-up: weak password keeps the fields; corrected signs up; same email re
     await fill(weak);
     await shot("1-weak-filled");
     await page.getByRole("button", { name: /Create (a free )?account|Sign up/i }).click();
-    await expect(page.locator("p.text-rust, [role=alert]").first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText("Check the highlighted fields below."), "the weak password is refused").toBeVisible({ timeout: 30_000 });
     await shot("2-weak-refused");
     await settle(page);
     const kept = { first: await page.getByLabel("First name").inputValue(), last: await page.getByLabel("Last name").inputValue(), email: await page.getByLabel("Email").inputValue(), country: await page.getByLabel("Country").inputValue() };

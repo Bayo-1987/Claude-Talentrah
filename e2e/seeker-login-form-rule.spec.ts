@@ -19,7 +19,7 @@ test("seeker login: wrong password keeps the email; right password in, out, in; 
     await page.getByLabel("Email").fill(email);
     await page.getByLabel("Password", { exact: true }).fill("Wrong" + password);
     await page.getByRole("button", { name: "Log in" }).click();
-    const err = page.locator("p.text-rust, [role=alert]").filter({ hasText: /\S/ }).first();
+    const err = page.getByText(/Incorrect email or password/i).first();
     await expect(err).toBeVisible({ timeout: 30_000 });
     const known = (await err.innerText()).trim();
     await shot("1-wrong-password");
@@ -32,7 +32,7 @@ test("seeker login: wrong password keeps the email; right password in, out, in; 
     await page.getByLabel("Password", { exact: true }).fill("Wrong" + password);
     await page.getByRole("button", { name: "Log in" }).click();
     await settle(page);
-    const unknown = (await page.locator("p.text-rust, [role=alert]").filter({ hasText: /\S/ }).first().innerText()).trim();
+    const unknown = (await page.getByText(/Incorrect email or password/i).first().innerText()).trim();
     expect(unknown, "the message does not reveal whether the email exists").toBe(known);
 
     for (const round of [1, 2]) {

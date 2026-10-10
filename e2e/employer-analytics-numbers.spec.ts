@@ -45,7 +45,8 @@ test("analytics: totals, per-campaign lines and CTR match the events; another or
   try {
     await page.goto("/employer/analytics");
     await shot("1-analytics");
-    const totals = (await page.locator("div.grid").first().innerText()).toLowerCase();
+    await expect(page.getByText("Spent to date"), "the page has rendered its totals").toBeVisible({ timeout: 30_000 });
+    const totals = (await page.locator("body").innerText()).toLowerCase();
     expect(totals).toMatch(/impressions\s*9\s*clicks\s*3\s*applies\s*1\s*spent to date\s*.*3,000/);
     const lineA = page.locator("div", { hasText: `QA Camp A ${tag}` }).filter({ hasText: "impressions" }).last();
     await expect(lineA).toContainText("7 impressions");

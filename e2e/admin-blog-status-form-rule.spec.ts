@@ -60,10 +60,10 @@ test.describe("admin: blog status controls form rule", () => {
     await page.goto(`/admin/blog/${postId}`);
 
     const status = async () => (await db!.from("blog_posts").select("status").eq("id", postId).maybeSingle()).data?.status;
-    const msg = () => page.locator("p.border-green, p.border-rust").filter({ hasText: /\S/ }).first();
+    const msg = (shown: RegExp) => page.getByText(shown).first();
     const press = async (name: string, shown: RegExp, now: string) => {
       await submitAndSettle(page, () => page.getByRole("button", { name, exact: true }).click());
-      await expect(msg()).toContainText(shown, { timeout: 30_000 });
+      await expect(msg(shown)).toBeVisible({ timeout: 30_000 });
       expect(await status()).toBe(now);
     };
     await press("Publish", /Published\./, "published");
@@ -74,6 +74,6 @@ test.describe("admin: blog status controls form rule", () => {
     await db!.from("blog_posts").delete().eq("id", postId);
     await submitAndSettle(page, () => page.getByRole("button", { name: "Unpublish", exact: true }).click());
     await shot("3-deleted-elsewhere");
-    await expect(msg(), "the refusal replaces the earlier 'Published.'").toContainText(/no longer exists/i, { timeout: 30_000 });
+    await expect(msg(/no longer exists/i), "the refusal replaces the earlier 'Published.'").toBeVisible({ timeout: 30_000 });
   });
 });
