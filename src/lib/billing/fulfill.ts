@@ -6,7 +6,7 @@ import { buildPurchaseReceiptEmail } from "@/lib/billing/receipt-email";
 import { verifyTransaction } from "@/lib/paystack/client";
 import { isTerminalPaystackFailure, isUnrecognisedPaystackStatus } from "@/lib/paystack/status";
 import { captureEvent } from "@/lib/analytics/posthog";
-import { alertDeletedUserPayment, alertDuplicateSessionPayment, alertPaymentNeedsRefund } from "@/lib/mentorship/refund-alert";
+import { alertDeletedUserPayment, alertDuplicateSessionPayment, alertPaymentNeedsRefund, alertSubscriptionPaymentNeedsRefund } from "@/lib/mentorship/refund-alert";
 
 export interface FulfillResult {
   /** "processing": Paystack has not finished the payment (bank transfer, USSD, mobile money, direct debit, or a checkout still open). The row is left pending; a later success is granted once. */
@@ -245,31 +245,41 @@ export async function fulfillPayment(
      * reaching this branch twice, but this makes the SUBSCRIPTION-side state
      * change itself a no-op if it were ever somehow reached twice.
      */
-    const { data: subscription } = await supabase
-      .from("talent_directory_subscriptions")
-      .select("plan_id, expires_at, talent_directory_plans(name)")
-      .eq("id", transaction.product_id)
-      .single();
-
-    if (subscription) {
-      const autoRenew = isReusableCard;
-      const { data: updated } = await supabase
-        .from("talent_directory_subscriptions")
-        .update({
-          status: "active",
-          auto_renew_status: autoRenew ? "active" : null,
-          next_renewal_date: autoRenew ? toDateOnly(new Date(subscription.expires_at)) : null,
-          authorization_code: authorizationCode,
-          payment_transaction_id: transaction.id,
-        })
-        .eq("id", transaction.product_id)
-        .eq("status", "pending_payment")
-        .select("id")
-        .maybeSingle();
-
-      if (updated) {
-        purchased = subscription.talent_directory_plans?.name ?? "Talent Directory subscription";
-      }
+    /*
+     * ACTIVATION IS ONE DATABASE CALL (0228), not an UPDATE here. It runs under a per-organisation lock and, in one transaction: marks the
+     * organisation's ended, non-renewing 'active' rows 'lapsed' (nothing else ever does, and the partial unique index would otherwise
+     * refuse this row AFTER the charge), refuses if another row still holds the active slot, and sets expires_at = now() + the plan's
+     * duration, so the paid period starts at confirmation and not when Subscribe was pressed.
+     *
+     * Outcomes: activated; "not_pending" (an earlier delivery already activated it: nothing to do, the payment is still recorded as
+     * success below); anything else (the slot is held, the row or plan is gone) means the customer paid for something we will not
+     * deliver. That is recorded as needs_refund and alerted, never left as a payment marked success beside a pending subscription.
+     */
+    const { data: activation, error: activationError } = await supabase.rpc("activate_talent_directory_subscription", {
+      p_subscription_id: transaction.product_id,
+      p_auto_renew: isReusableCard,
+      // NULL, never undefined: JSON drops an undefined property, activate_talent_directory_subscription has no defaults, and PostgREST then answers PGRST202 (function not found)
+      // for every payment without a card token (mobile money, bank transfer): the customer would have paid and the confirmation would throw for ever. The generated type marks the
+      // argument optional, hence the cast. (tests/talent-directory/subscription-lifecycle.test.ts pins all four keys on the wire.)
+      p_authorization_code: authorizationCode as string,
+      p_payment_transaction_id: transaction.id,
+    });
+    if (activationError) {
+      throw new Error(`activate_talent_directory_subscription failed for ${reference}: ${activationError.message}`);
+    }
+    const outcome = activation?.[0];
+    if (outcome?.activated) {
+      purchased = outcome.plan_name ?? "Talent Directory subscription";
+    } else if (outcome?.reason !== "not_pending") {
+      const reason = outcome?.reason ?? "no result";
+      const { error: markError } = await supabase
+        .from("payment_transactions")
+        .update({ status: "needs_refund" })
+        .eq("id", transaction.id)
+        .eq("status", "pending");
+      if (markError) throw new Error(`could not record the unactivatable subscription payment ${reference} as needs_refund: ${markError.message}`);
+      await alertSubscriptionPaymentNeedsRefund({ reference, amountNgn: transaction.amount, reason });
+      return { status: "needs_refund" };
     }
   } else if (transaction.product_type === "ad_wallet_topup") {
     /*
@@ -544,8 +554,4 @@ async function sendPurchaseReceipt(
     text: email.text,
     html: email.html,
   });
-}
-
-function toDateOnly(date: Date): string {
-  return date.toISOString().slice(0, 10);
 }
