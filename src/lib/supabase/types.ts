@@ -3381,6 +3381,7 @@ export type Database = {
           pending_renewal_reference: string | null
           plan_id: string
           renewal_attempt_count: number
+          renewal_claimed_at: string | null
           renewal_reminder_sent_at: string | null
           started_at: string
           status: string
@@ -3398,6 +3399,7 @@ export type Database = {
           pending_renewal_reference?: string | null
           plan_id: string
           renewal_attempt_count?: number
+          renewal_claimed_at?: string | null
           renewal_reminder_sent_at?: string | null
           started_at?: string
           status?: string
@@ -3415,6 +3417,7 @@ export type Database = {
           pending_renewal_reference?: string | null
           plan_id?: string
           renewal_attempt_count?: number
+          renewal_claimed_at?: string | null
           renewal_reminder_sent_at?: string | null
           started_at?: string
           status?: string

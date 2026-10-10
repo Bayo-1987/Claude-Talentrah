@@ -55,6 +55,10 @@ export async function POST(request: Request) {
    * Checked before parsing the body so a flood of malformed requests is
    * counted too.
    */
+  // Burst first (TAILOR-RACE-2): a request refused here costs nothing else and does not use up the hourly allowance.
+  const burst = await consumeRateLimit(user.id, "tailoringBurst");
+  // The form shows this message as it is: a refused burst almost always means a run is already going, so say so.
+  if (!burst.allowed) return rateLimited(burst, "A tailoring run is already in progress. Please wait a moment for it to finish.");
   const quota = await consumeRateLimit(user.id, "tailoring");
   if (!quota.allowed) return rateLimited(quota);
 
