@@ -76,32 +76,30 @@ describe(`${PARALLEL} requests in flight together`, () => {
     expect(await farahChatFreeMessagesRemaining(userId)).toBe(0);
   });
 
-  it("one credit left: every request passes the check; exactly one commit succeeds, the rest throw InsufficientCreditsError, the balance is 0 and one ledger row exists", async () => {
+  it("one credit left (changed on purpose, audit 9 Oct): the credit is taken AT THE CHECK, so exactly one request gets it and the other 9 are refused there, before any model call; the balance is 0, one ledger row of -1, and the commit charges nothing more", async () => {
     await insertFreeEvents(FARAH_CHAT_FREE_ALLOWANCE);
     await setBalance(1);
 
-    const allowances = await Promise.all(Array.from({ length: PARALLEL }, () => checkFarahChatAllowance(userId)));
-    expect(allowances.every((a) => a.creditsSpent === 1)).toBe(true);
+    const checks = await Promise.allSettled(Array.from({ length: PARALLEL }, () => checkFarahChatAllowance(userId)));
+    const won = checks.filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof checkFarahChatAllowance>>> => r.status === "fulfilled");
+    const refused = checks.filter((r): r is PromiseRejectedResult => r.status === "rejected");
+    console.info(`[characterization] ${won.length} of ${PARALLEL} parallel requests took the one credit at the check`);
+    expect(won).toHaveLength(1);
+    expect(won[0].value.paidHold?.credits).toBe(1);
+    expect(refused).toHaveLength(PARALLEL - 1);
+    for (const r of refused) expect(r.reason).toBeInstanceOf(InsufficientCreditsError);
 
-    const results = await Promise.allSettled(allowances.map((a) => commitFarahChatAllowance(userId, a)));
-    const fulfilled = results.filter((r) => r.status === "fulfilled");
-    const rejected = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
-    console.info(`[characterization] ${fulfilled.length} of ${PARALLEL} parallel requests completed by spending the one credit`);
-    expect(fulfilled.length).toBe(1);
-    expect(rejected.length).toBe(PARALLEL - 1);
-    for (const r of rejected) expect(r.reason).toBeInstanceOf(InsufficientCreditsError);
+    const committed = await commitFarahChatAllowance(userId, won[0].value);
+    expect(committed.balanceAfter, "the ledger's own balance_after for that spend").toBe(0);
 
     expect(await balance(), "never negative").toBe(0);
     const { data: ledger } = await admin.from("credit_ledger").select("delta, reason").eq("user_id", userId).eq("reason", "farah_chat_message");
-    expect(ledger?.length).toBe(1);
-    expect(ledger?.[0].delta).toBe(-1);
+    expect(ledger?.map((l) => l.delta)).toEqual([-1]);
 
-    // The check wrote a 'proceeded' funnel row for EACH request, though one was charged: the funnel is not a charge log.
-    const { count: proceeded } = await admin
-      .from("credit_gate_events")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .eq("outcome", "proceeded");
-    expect(proceeded).toBe(PARALLEL);
+    // Only the winner is logged as 'proceeded'; each refused request is logged as blocked.
+    const outcomes = async (outcome: string) =>
+      (await admin.from("credit_gate_events").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("outcome", outcome as never)).count;
+    expect(await outcomes("proceeded")).toBe(1);
+    expect(await outcomes("blocked_insufficient_credits")).toBe(PARALLEL - 1);
   });
 });

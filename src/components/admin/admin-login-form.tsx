@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { adminLoginAction } from "@/lib/admin/actions";
 import { initialAdminLoginState } from "@/lib/admin/login-state";
 import { TextField, PasswordField, Button } from "@/components/ui";
+import { inputValue } from "@/lib/forms/keep-input";
 
 export function AdminLoginForm({ redirectTo }: { redirectTo?: string }) {
   const [state, formAction, pending] = useActionState(
@@ -42,6 +43,7 @@ export function AdminLoginForm({ redirectTo }: { redirectTo?: string }) {
         name="email"
         type="email"
         autoComplete="username"
+        defaultValue={inputValue(state.values, "email")}
         required
       />
 

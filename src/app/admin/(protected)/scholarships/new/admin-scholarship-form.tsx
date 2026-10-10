@@ -6,8 +6,7 @@ import { createScholarshipAction, loadQueueAction } from "@/lib/scholarships/adm
 import { initialAdminScholarshipState } from "@/lib/scholarships/admin-state";
 import { nextEditorGeneration } from "@/lib/scholarships/editor-generation";
 import { inputList, inputValue, selectKey } from "@/lib/forms/keep-input";
-import { DEGREE_LEVEL_VALUES, FUNDING_TYPE_VALUES } from "@/lib/scholarships/schemas";
-import { DEGREE_LEVEL_LABEL, FUNDING_TYPE_LABEL } from "@/lib/scholarships/types";
+import { DEGREE_LEVEL_LABEL, DEGREE_LEVEL_VALUES, FUNDING_TYPE_LABEL, FUNDING_TYPE_VALUES } from "@/lib/scholarships/types";
 import { TextField, SelectField, Button, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { noteCounter } from "@/lib/scholarships/public-deadline-note";
 import { MinimalRichEditor } from "@/components/rich-text/minimal-rich-editor";

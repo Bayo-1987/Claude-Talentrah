@@ -4,6 +4,10 @@
   "ignoreCommand": "node scripts/vercel-ignore-build.mjs",
   "crons": [
     {
+      "path": "/api/admin/sweep-farah-paid-holds",
+      "schedule": "40 4 * * *"
+    },
+    {
       "path": "/api/admin/ingest-jobs",
       "schedule": "0 5 * * *"
     },

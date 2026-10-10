@@ -5,6 +5,7 @@ import { lookUpPersonAction } from "@/lib/admin/finance/actions";
 import { initialPersonLookupState } from "@/lib/admin/finance/state";
 import { Button, TextField, BorderedCard, EyebrowLabel } from "@/components/ui";
 import { formatDate } from "@/lib/format/datetime";
+import { inputValue } from "@/lib/forms/keep-input";
 import { formatWholeAmount } from "@/lib/admin/finance/money";
 
 const naira = formatWholeAmount;
@@ -34,6 +35,7 @@ export function PersonLookup() {
               name="term"
               autoComplete="off"
               placeholder="someone@example.com"
+              defaultValue={inputValue(state.values, "term")}
               required
             />
           </div>
