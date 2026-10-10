@@ -52,7 +52,7 @@ describe("the ops page and the refund list", () => {
   it("an operator WITHOUT the operations permission (even holding finance) is redirected to /admin before any query runs, and sees no refund list", async () => {
     h.identity = withoutOperations;
     const { default: OpsPage } = await import("@/app/admin/(protected)/ops/page");
-    await expect(OpsPage()).rejects.toMatchObject({ to: "/admin" });
+    await expect(OpsPage()).rejects.toMatchObject({ to: "/admin?denied=operations" });
     expect(h.queryCalls, "no query ran for the refused operator").toEqual([]);
   });
 
@@ -73,7 +73,7 @@ describe("Mark refunded", () => {
     h.identity = withoutOperations;
     const { markMentorPaymentRefundedAction } = await import("@/lib/admin/ops/refund-actions");
     const { initialRefundActionState } = await import("@/lib/admin/ops/refund-state");
-    await expect(markMentorPaymentRefundedAction(initialRefundActionState, form())).rejects.toMatchObject({ to: "/admin" });
+    await expect(markMentorPaymentRefundedAction(initialRefundActionState, form())).rejects.toMatchObject({ to: "/admin?denied=operations" });
     expect(h.dbCalls, "the database was never reached").toEqual([]);
     expect(h.audit).not.toHaveBeenCalled();
   });
