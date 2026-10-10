@@ -13,6 +13,9 @@ import { EyebrowLabel } from "@/components/ui";
 
 export const metadata = { title: "Message candidate — Talentrah" };
 
+// The Farah draft runs as a Server Action of this route: give it room for the model (its own timeout, DRAFT_TIMEOUT_MS, refunds a draft that never arrives).
+export const maxDuration = 60;
+
 /**
  * Write to one applicant through Talentrah (0256). Same two independent gates as the resume page: requireEmployer() for the organisation, then employer_job_applicants (through the
  * employer's own session) for "this is a submitted application on a job this organisation owns". Anything else is a 404, never a hint that the application exists elsewhere. The candidate's
@@ -68,6 +71,7 @@ export default async function MessageCandidatePage({ params }: { params: Promise
         remainingToday={Math.max(0, DAILY_MESSAGE_LIMIT - used)}
         backHref={backHref}
         premium={premium}
+        orgVerified={organization.verified}
         farahPriceNgn={FARAH_MESSAGE_DRAFT_NGN}
       />
     </div>

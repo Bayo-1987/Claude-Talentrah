@@ -4,6 +4,9 @@ import { normalizeMessage } from "./normalize";
 
 export const NOTES_MAX = 2000;
 
+/** A draft that has not arrived after this long is a failed draft (and is refunded): the employer is never left paying for a spinner. */
+export const DRAFT_TIMEOUT_MS = 30_000;
+
 export type DraftMode = "draft" | "refine";
 
 /** The ONLY things the model ever sees. No email, phone, resume, score, screening answers or assessment: the job's title, the organisation's name, two first names and what the employer wrote. */
@@ -22,6 +25,8 @@ export interface DraftPromptInput {
 export interface DraftInput extends DraftPromptInput {
   organizationId: string;
   userId: string;
+  /** Overrides DRAFT_TIMEOUT_MS (tests). */
+  timeoutMs?: number;
 }
 
 export interface DraftDeps {
@@ -124,9 +129,19 @@ export async function runFarahMessageDraft(input: DraftInput, deps: DraftDeps): 
   let draft: { subject: string; body: string };
   try {
     const { candidateFirstName, senderFirstName, jobTitle, orgName, kind, mode, notes, currentSubject, currentBody } = input;
-    draft = await deps.generate({ kind, mode, jobTitle, orgName, candidateFirstName, senderFirstName, notes, currentSubject, currentBody });
+    const generating = deps.generate({ kind, mode, jobTitle, orgName, candidateFirstName, senderFirstName, notes, currentSubject, currentBody });
+    generating.catch(() => {}); // a late failure after a timeout must not become an unhandled rejection
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => reject(new Error("timed out")), input.timeoutMs ?? DRAFT_TIMEOUT_MS);
+    });
+    try {
+      draft = await Promise.race([generating, timeout]);
+    } finally {
+      clearTimeout(timer);
+    }
   } catch {
-    return refund("the model call failed");
+    return refund("the model call failed or timed out");
   }
 
   const normalized = normalizeMessage({ subject: draft?.subject, body: draft?.body });

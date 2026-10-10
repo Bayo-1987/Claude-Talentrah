@@ -17,7 +17,7 @@ const NOT_FOUND = "We couldn't find that applicant. Reload the page and try agai
 /**
  * "Message candidate" (0256): an employer writes to one applicant through Talentrah. Careful lane: it sends email and spends a daily allowance.
  *
- * Who may call it is decided by the employer's OWN session, twice and independently: requireEmployer() resolves their organisation, and isApplicantOfMyJob asks
+ * Only a VERIFIED organisation may send (an unverified one is refused before anything is claimed). Who may call it is decided by the employer's OWN session, twice and independently: requireEmployer() resolves their organisation, and isApplicantOfMyJob asks
  * employer_job_applicants (its own membership check) whether this application is a submitted one on a job that organisation owns. Only then does the send run with the service role,
  * and the candidate's address stays inside it: the result carries a count or a message, never an address. The `kind` a browser sends can only be one of the three templates or 'custom':
  * 'interview_invite' belongs to the scheduling flow and cannot be claimed from here.
@@ -36,6 +36,11 @@ export async function sendApplicantMessageAction(input: {
   if (!user) return { ok: false, error: "Sign in again to send a message." };
 
   const { organization, emailConfirmed } = await requireEmployer();
+  // Messages go out from Talentrah's own sending address, so only a VERIFIED company may send them (the platform's trust gate, 0027/0028): an unverified, self-created organisation must not be able to
+  // email applicants under Talentrah's name. Nothing is claimed or sent.
+  if (!organization.verified) {
+    return { ok: false, error: "Verify your company first. Messages to candidates are sent from Talentrah, so only verified companies can send them. You can do this on your Company Profile." };
+  }
   if (!emailConfirmed) {
     return { ok: false, error: "Confirm your email address first: replies to this message will come to it." };
   }

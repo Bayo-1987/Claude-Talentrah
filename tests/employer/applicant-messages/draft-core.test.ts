@@ -78,6 +78,19 @@ describe("runFarahMessageDraft: Premium gate, charge before generate, refund on 
     expect(deps.credit).toHaveBeenCalledWith({ organizationId: "org-1", userId: "user-1", amountNgn: FARAH_MESSAGE_DRAFT_NGN });
   });
 
+  it("a draft that never arrives (the model hangs) is a failure after the timeout and is refunded exactly once; a late answer changes nothing", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    let resolveLate: (v: { subject: string; body: string }) => void = () => {};
+    const deps = makeDeps({ generate: vi.fn(() => new Promise<{ subject: string; body: string }>((resolve) => { resolveLate = resolve; })) });
+    const result = await runFarahMessageDraft({ ...input, timeoutMs: 20 }, deps);
+    expect(result).toMatchObject({ ok: false, kind: "generation_error" });
+    expect(deps.credit).toHaveBeenCalledTimes(1);
+    resolveLate({ ...GOOD });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(deps.credit, "the late answer does not refund again or charge again").toHaveBeenCalledTimes(1);
+    expect(deps.debit).toHaveBeenCalledTimes(1);
+  });
+
   it("an empty or unusable draft is a failure and is refunded exactly once", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     for (const bad of [{ subject: "", body: "x" }, { subject: "s", body: "   " }]) {

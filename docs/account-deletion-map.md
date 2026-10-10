@@ -37,6 +37,7 @@ handed over.
 | `ad_events.user_id` | profiles | CASCADE | delete | the person's own impressions and clicks |
 | `ad_wallet_ledger.actor_user_id` | profiles | SET NULL | detach | who made an organisation's wallet movement; the movement stays |
 | `admin_users.id` | auth.users | CASCADE | delete | admin identity (0060); deleted with the account |
+| `applicant_messages.sender_user_id` | profiles | SET NULL | detach | the employer member who sent a message to an applicant (0256); the organisation's record of what it sent stays, only the person's link is detached |
 | `api_rate_limits.user_id` | profiles | CASCADE | delete | per-person throttle counters |
 | `application_stage_events.user_id` | profiles | CASCADE | delete | the person's own tracker history |
 | `applications.user_id` | profiles | CASCADE | delete | the person's own applications and tracker; the applications an organisation received on its postings are other people's records and are kept (see Employers above) |

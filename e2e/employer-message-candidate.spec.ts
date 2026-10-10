@@ -170,4 +170,17 @@ test.describe("Message candidate", () => {
     const { count } = await admin.from("applicant_messages").select("id", { count: "exact", head: true }).eq("organization_id", mine.orgId);
     expect(count, "one click or two, exactly one message attempt").toBe(1);
   });
+
+  test("an unverified company is told to verify first and cannot send", async ({ authedPage: page, testUser }) => {
+    const mine = await org(testUser.id, "own");
+    await admin.from("organizations").update({ verified: false }).eq("id", mine.orgId);
+    const joy = await applicant(mine.jobId);
+    await page.goto(`/employer/jobs/${mine.jobId}/applicants/${joy.applicationId}/message`);
+    await expect(page.getByText("Verify your company first.")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Go to Company Profile" })).toBeVisible();
+    await page.getByRole("button", { name: "Invite to interview" }).click();
+    await expect(page.getByRole("button", { name: "Send message" })).toBeDisabled();
+    const { count } = await admin.from("applicant_messages").select("id", { count: "exact", head: true }).eq("organization_id", mine.orgId);
+    expect(count ?? 0).toBe(0);
+  });
 });

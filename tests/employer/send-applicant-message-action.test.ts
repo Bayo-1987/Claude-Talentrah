@@ -142,6 +142,21 @@ describe("sendApplicantMessageAction", () => {
     expect(mail.sent).toHaveLength(0);
   });
 
+  it("an UNVERIFIED company cannot send: told to verify first, nothing claimed, nothing sent (Talentrah's sending address is not for self-created organisations)", async () => {
+    await admin.from("organizations").update({ verified: false }).eq("id", orgId);
+    try {
+      const result = await sendApplicantMessageAction(base());
+      expect(result).toMatchObject({ ok: false });
+      expect((result as { error: string }).error).toMatch(/Verify your company first/);
+      expect(mail.sent).toHaveLength(0);
+      const { count } = await admin.from("applicant_messages").select("id", { count: "exact", head: true }).eq("organization_id", orgId);
+      expect(count ?? 0, "nothing was claimed").toBe(0);
+    } finally {
+      await admin.from("organizations").update({ verified: true }).eq("id", orgId);
+    }
+    expect((await sendApplicantMessageAction(base())).ok, "and a verified one can").toBe(true);
+  });
+
   it("a browser cannot claim the interview-invite kind: an unknown or reserved kind is stored as 'custom'", async () => {
     await sendApplicantMessageAction({ ...base(), kind: "interview_invite" });
     await sendApplicantMessageAction({ ...base(), kind: "whatever" });

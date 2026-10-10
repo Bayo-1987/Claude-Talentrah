@@ -24,6 +24,7 @@ export function MessageCandidateForm({
   backHref,
   premium,
   farahPriceNgn,
+  orgVerified,
 }: {
   jobId: string;
   applicationId: string;
@@ -37,6 +38,8 @@ export function MessageCandidateForm({
   /** Server-decided (organization_premium): the form only chooses what to show; the action refuses a free plan on its own. */
   premium: boolean;
   farahPriceNgn: number;
+  /** Only a verified company may send (the action refuses otherwise); the form says so up front instead of letting them write a message that cannot go. */
+  orgVerified: boolean;
 }) {
   const [kind, setKind] = useState<MessageTemplateKind | "custom">("custom");
   const [subject, setSubject] = useState("");
@@ -119,6 +122,7 @@ export function MessageCandidateForm({
   }
 
   const full = remaining <= 0;
+  const cannotSend = full || !orgVerified;
 
   return (
     <div className="border-[1.5px] border-ink bg-card p-6 sm:p-8">
@@ -126,6 +130,15 @@ export function MessageCandidateForm({
       <p className="mt-2 max-w-[62ch] font-body text-[14px] text-ink-soft">
         About: {jobTitle}. Their reply comes to your email ({replyTo}). Their address stays private.
       </p>
+
+      {!orgVerified && (
+        <p role="status" className="mt-5 border-[1.5px] border-amber bg-[oklch(96%_0.03_70)] px-4 py-3 font-body text-[13.5px] text-ink">
+          <span className="font-semibold">Verify your company first.</span> Messages to candidates are sent from Talentrah, so only verified companies can send them.{" "}
+          <Link href="/employer/profile" className="font-semibold underline underline-offset-2 hover:text-rust">
+            Go to Company Profile
+          </Link>
+        </p>
+      )}
 
       {sentCount > 0 && (
         <p role="status" className="mt-5 border-[1.5px] border-ink bg-paper-alt px-4 py-3 font-body text-[14px] text-ink">
@@ -241,7 +254,7 @@ export function MessageCandidateForm({
         <button
           type="button"
           onClick={send}
-          disabled={pending || farahPending || full || !subject.trim() || !body.trim()}
+          disabled={pending || farahPending || cannotSend || !subject.trim() || !body.trim()}
           className="min-h-12 bg-ink px-7 font-body text-[15px] font-semibold text-paper hover:bg-rust disabled:cursor-not-allowed disabled:opacity-50"
         >
           {pending ? "Sending…" : "Send message"}
