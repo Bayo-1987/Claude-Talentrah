@@ -141,4 +141,33 @@ test.describe("Message candidate", () => {
     expect(count ?? 0, "drafting sends and logs nothing").toBe(0);
     expect(await page.content()).not.toContain("candidate-mail.example");
   });
+
+  test("a double click on Draft with Farah is ONE draft and ONE charge; a double click on Send is ONE message", async ({ authedPage: page, testUser }) => {
+    const mine = await org(testUser.id, "own");
+    const joy = await applicant(mine.jobId);
+    const { error: premiumError } = await admin.rpc("admin_set_organization_premium", {
+      p_organization_id: mine.orgId,
+      p_premium_until: new Date(Date.now() + 86_400_000).toISOString(),
+      p_admin_user_id: null as unknown as string,
+      p_admin_email: "operator@talentrah.internal",
+      p_admin_session_id: null as unknown as string,
+      p_reason: "e2e fixture",
+    });
+    expect(premiumError).toBeNull();
+    await admin.from("ad_wallets").upsert({ organization_id: mine.orgId, balance_ngn: 500 }, { onConflict: "organization_id" });
+
+    await page.goto(`/employer/jobs/${mine.jobId}/applicants/${joy.applicationId}/message`);
+    await page.getByRole("button", { name: "Draft with Farah" }).dblclick();
+    await expect(page.getByText("drafted this from your notes and the job. Review it before sending.")).toBeVisible({ timeout: 30_000 });
+    // Let anything a second click might still have started finish before counting.
+    await page.waitForTimeout(1500);
+    const { data: ledger } = await admin.from("ad_wallet_ledger").select("reason, delta_ngn").eq("organization_id", mine.orgId);
+    expect(ledger, "one click or two, exactly one charge").toEqual([{ reason: "farah_message_draft_charge", delta_ngn: -FARAH_MESSAGE_DRAFT_NGN }]);
+
+    await page.getByRole("button", { name: "Send message" }).dblclick();
+    await expect(page.getByText(/could not be sent|Message sent/)).toBeVisible({ timeout: 30_000 });
+    await page.waitForTimeout(1500);
+    const { count } = await admin.from("applicant_messages").select("id", { count: "exact", head: true }).eq("organization_id", mine.orgId);
+    expect(count, "one click or two, exactly one message attempt").toBe(1);
+  });
 });

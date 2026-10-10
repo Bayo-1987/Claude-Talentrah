@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { draftApplicantMessageWithFarahAction, sendApplicantMessageAction } from "@/lib/employer/applicant-message-actions";
 import { MESSAGE_TEMPLATE_KINDS, TEMPLATE_LABELS, SUBJECT_MAX, BODY_MAX, type MessageTemplateKind } from "@/lib/employer/applicant-messages/constants";
@@ -50,6 +50,9 @@ export function MessageCandidateForm({
   const [drafted, setDrafted] = useState(false);
   const [farahError, setFarahError] = useState<string | null>(null);
   const [farahPending, startFarah] = useTransition();
+  // Synchronous re-entry guards: a double click fires two click events before React has re-rendered the disabled button, and each would charge the wallet or send the message.
+  const farahBusy = useRef(false);
+  const sendBusy = useRef(false);
 
   const edited = (subject !== (lastTemplate?.subject ?? "") || body !== (lastTemplate?.body ?? "")) && (subject !== "" || body !== "");
 
@@ -64,37 +67,53 @@ export function MessageCandidateForm({
   }
 
   function askFarah() {
+    if (farahBusy.current) return;
+    farahBusy.current = true;
     setFarahError(null);
     const hasText = subject.trim() !== "" || body.trim() !== "";
     startFarah(async () => {
-      const result = await draftApplicantMessageWithFarahAction({ jobId, applicationId, kind, mode: hasText ? "refine" : "draft", notes, subject, body });
-      if (result.ok) {
-        setSubject(result.subject);
-        setBody(result.body);
-        setLastTemplate(null);
-        setDrafted(true);
-      } else {
-        // A refusal or a failed draft changes nothing the employer typed, and a failed draft has been refunded.
-        setFarahError(result.error);
+      try {
+        const result = await draftApplicantMessageWithFarahAction({ jobId, applicationId, kind, mode: hasText ? "refine" : "draft", notes, subject, body });
+        if (result.ok) {
+          setSubject(result.subject);
+          setBody(result.body);
+          setLastTemplate(null);
+          setDrafted(true);
+        } else {
+          // A refusal or a failed draft changes nothing the employer typed, and a failed draft has been refunded.
+          setFarahError(result.error);
+        }
+      } catch {
+        setFarahError("Couldn't reach Farah. Check your connection and try again. You were not charged unless the draft appears.");
+      } finally {
+        farahBusy.current = false;
       }
     });
   }
 
   function send() {
+    if (sendBusy.current) return;
+    sendBusy.current = true;
     setError(null);
     startTransition(async () => {
-      const result = await sendApplicantMessageAction({ jobId, applicationId, kind, subject, body });
-      if (result.ok) {
-        setRemaining(result.remaining);
-        setSentCount((n) => n + 1);
-        setSubject("");
-        setBody("");
-        setLastTemplate(null);
-        setKind("custom");
-        setDrafted(false);
-      } else {
-        // The message stays in the boxes: a refusal never costs the employer what they wrote.
-        setError(result.error);
+      try {
+        const result = await sendApplicantMessageAction({ jobId, applicationId, kind, subject, body });
+        if (result.ok) {
+          setRemaining(result.remaining);
+          setSentCount((n) => n + 1);
+          setSubject("");
+          setBody("");
+          setLastTemplate(null);
+          setKind("custom");
+          setDrafted(false);
+        } else {
+          // The message stays in the boxes: a refusal never costs the employer what they wrote.
+          setError(result.error);
+        }
+      } catch {
+        setError("Couldn't send just now. Check your connection and try again: your message is still here.");
+      } finally {
+        sendBusy.current = false;
       }
     });
   }
@@ -203,7 +222,7 @@ export function MessageCandidateForm({
       ) : (
         <div className="mt-5 flex flex-wrap items-center justify-between gap-4 border border-dashed border-ink-soft px-4 py-3">
           <p className="font-body text-[14px] text-ink-soft">Draft or refine with Farah is part of Premium.</p>
-          <Link href="/contact" className="inline-flex min-h-11 items-center border-[1.5px] border-ink bg-card px-5 font-body text-[14px] font-semibold text-ink hover:border-rust hover:text-rust">
+          <Link href="/contact?topic=premium" className="inline-flex min-h-11 items-center border-[1.5px] border-ink bg-card px-5 font-body text-[14px] font-semibold text-ink hover:border-rust hover:text-rust">
             See Premium
           </Link>
         </div>
