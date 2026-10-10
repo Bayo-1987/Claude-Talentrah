@@ -10,6 +10,7 @@ import {
   validateAssessmentDocument,
 } from "@/lib/employer/assessment-document";
 import { clearAssessmentExerciseLink } from "@/lib/employer/job-posting-assessment";
+import { isImportedPosting } from "@/lib/jobs/link-out";
 
 /**
  * Upload (POST) or remove (DELETE) one of a job posting's assessment
@@ -83,7 +84,7 @@ export async function POST(request: Request) {
 
   const { data: job, error: jobError } = await supabase
     .from("job_postings")
-    .select("id, organization_id, source_type")
+    .select("id, organization_id, source_type, import_feed_id")
     .eq("id", jobId)
     .maybeSingle();
 
@@ -91,7 +92,8 @@ export async function POST(request: Request) {
     console.error("[job-assessment-exercise] could not read the posting:", jobError.message);
     return NextResponse.json({ error: "Couldn't load that posting." }, { status: 500 });
   }
-  if (!job || !job.organization_id || job.source_type !== "internal") {
+  // An IMPORTED posting is read-only in Talentrah (close and hide only): its content lives on the employer's own site.
+  if (!job || !job.organization_id || job.source_type !== "internal" || isImportedPosting(job)) {
     return NextResponse.json({ error: "That posting isn't yours to edit." }, { status: 404 });
   }
 
@@ -251,7 +253,7 @@ export async function DELETE(request: Request) {
 
   const { data: job, error: jobError } = await supabase
     .from("job_postings")
-    .select("id, organization_id, source_type")
+    .select("id, organization_id, source_type, import_feed_id")
     .eq("id", jobId)
     .maybeSingle();
 
@@ -259,7 +261,8 @@ export async function DELETE(request: Request) {
     console.error("[job-assessment-exercise] could not read the posting:", jobError.message);
     return NextResponse.json({ error: "Couldn't load that posting." }, { status: 500 });
   }
-  if (!job || !job.organization_id || job.source_type !== "internal") {
+  // An IMPORTED posting is read-only in Talentrah (close and hide only): its content lives on the employer's own site.
+  if (!job || !job.organization_id || job.source_type !== "internal" || isImportedPosting(job)) {
     return NextResponse.json({ error: "That posting isn't yours to edit." }, { status: 404 });
   }
 

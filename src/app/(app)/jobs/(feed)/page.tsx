@@ -16,6 +16,8 @@ import { hasVisibleName, visibleName } from "@/lib/profile/name";
 import { parseMultiSelect } from "@/lib/jobs/multi-select";
 import { buildSuggestionIndex } from "@/lib/jobs/search-suggestions";
 import { searchJobs } from "@/lib/jobs/search";
+import { isLinkOutPosting } from "@/lib/jobs/link-out";
+import { withImportMarkers } from "@/lib/jobs/import-markers";
 import { SavedEntryCard } from "@/components/jobs/saved-entry-card";
 import {
   buildSavedPostingsQuery,
@@ -275,7 +277,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   // here). One literal keeps the aliased `description` typechecking as
   // `Tables<"job_postings">`.
   const FEED_COLUMNS =
-    "id, source_type, organization_id, title, company_name, company_logo_url, location, work_type, employment_type, seniority, years_experience_min, description:description_preview, structured_jd, external_url, external_source, status, posted_at, last_checked_at, dedup_fingerprint, created_at, expires_at, removed_at, removal_reason, removed_by, salary_min, salary_max, salary_currency, salary_unit";
+    "id, source_type, organization_id, title, company_name, company_logo_url, location, work_type, employment_type, seniority, years_experience_min, description:description_preview, structured_jd, external_url, external_source, status, posted_at, last_checked_at, dedup_fingerprint, created_at, expires_at, removed_at, removal_reason, removed_by, salary_min, salary_max, salary_currency, salary_unit, import_feed_id";
 
   /*
    * The Recent tab's own board-WIDE columns — for aggregate reads only
@@ -533,15 +535,19 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    */
   const searchQuery =
     q && tab !== "saved"
-      ? (async () =>
-          supabase.rpc("search_job_postings", {
+      ? (async () => {
+          const result = await supabase.rpc("search_job_postings", {
             p_query: q,
             p_since: jobDateFilterSinceISO(posted),
             p_source_type: (tab === "external" ? "external" : null) as never,
             p_work_types: (workTypes.length ? workTypes : null) as never,
             p_seniorities: (seniorities.length ? seniorities : null) as never,
             p_ids: null as never,
-          }))()
+          });
+          // The RPC's column list has no import_feed_id: add it, or an imported posting found by search would show the in-app Apply (src/lib/jobs/import-markers.ts).
+          if (result.error || !result.data) return result;
+          return { ...result, data: await withImportMarkers(supabase, result.data) };
+        })()
       : undefined;
 
   const [
@@ -608,6 +614,9 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
     // FEED_COLUMNS and never rendered by any card — same reasoning as the
     // other omitted columns above.
     | "llm_enrichment_attempted_at"
+    // 0246: the import sync's own bookkeeping, never selected (import_feed_id IS selected: the card treats an imported posting as link-out).
+    | "import_key"
+    | "employer_closed_at"
   >;
   const matchingFilters: FeedJobPosting[] = jobsRaw ?? [];
 
@@ -661,7 +670,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
     if (searchResult?.error) {
       console.error("[jobs] full-text search failed:", searchResult.error);
     }
-    jobs = (searchResult?.data ?? []) as FeedJobPosting[];
+    jobs = (searchResult?.data ?? []) as unknown as FeedJobPosting[];
   } else {
     jobs = matchingFilters;
   }
@@ -791,7 +800,8 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    * render only. Impressions are deduped per user per campaign per day
    * (`record_ad_event`), so nothing is over- or under-billed by the shift.
    */
-  const internalIds = scored.filter((s) => s.job.source_type === "internal").map((s) => s.job.id);
+  // Applicant counts exist only for postings people apply to INSIDE Talentrah: an imported posting is applied for on the employer's own site, so there is no honest count.
+  const internalIds = scored.filter((s) => !isLinkOutPosting(s.job) && s.job.source_type === "internal").map((s) => s.job.id);
 
   const [, applicantCounts, { data: autoApplySettings }, pendingQueue, promoted] =
     await Promise.all([
