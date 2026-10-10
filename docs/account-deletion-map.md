@@ -49,6 +49,8 @@ handed over.
 | `credit_ledger.user_id` | profiles | SET NULL | anonymise | tax and audit record (0209): kept, detached from the person |
 | `email_preferences.user_id` | profiles | CASCADE | delete | the person's own mail settings |
 | `employer_applicant_status.updated_by` | profiles | NO ACTION | block | PR 3 nulls it first: an employer member's review mark on someone else's applicant |
+| `employer_job_feed_attempts.user_id` | profiles | SET NULL | anonymise | who tried to connect or check a job feed (0246): the attempt stays for the rate limits and the audit, the link to the person is dropped |
+| `employer_job_feeds.consented_by` | profiles | SET NULL | anonymise | who ticked the consent for an organisation's job feed (0246): the feed and its consent record belong to the organisation and stay, the person's link is dropped |
 | `farah_free_claims.user_id` | profiles | CASCADE | delete | a pending claim on one free Farah message (0236), held for at most 120 seconds; transient state, never kept past the person |
 | `farah_messages.user_id` | profiles | CASCADE | delete | Farah threads |
 | `farah_session_events.user_id` | profiles | CASCADE | delete | Farah session analytics |
