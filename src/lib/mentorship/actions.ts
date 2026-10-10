@@ -13,6 +13,7 @@ import { callbackOutcome } from "@/lib/billing/callback-outcome";
 import { findOpenSessionPayment } from "@/lib/mentorship/open-payment";
 import { generateMeetingLink } from "@/lib/mentorship/meeting-link";
 import { notifySessionConfirmed } from "@/lib/mentorship/notifications";
+import { SLOT_OVERLAP_MESSAGE, SLOT_POST_FAILED_MESSAGE, type PostSlotResult } from "@/lib/mentorship/post-slot-state";
 import { ALREADY_CONFIRMED_MESSAGE, CONFIRM_ERROR_MESSAGE, UNAVAILABLE_MESSAGE, type ConfirmSessionState } from "@/lib/mentorship/confirm-state";
 import type { MentorshipSessionType } from "@/lib/mentorship/pricing";
 import { captureEvent } from "@/lib/analytics/posthog";
@@ -146,16 +147,39 @@ export async function setSelfPausedAction(paused: boolean) {
   revalidatePath("/mentorship/apply");
 }
 
-export async function postAvailabilitySlotAction(startAt: string, endAt: string) {
+export async function postAvailabilitySlotAction(startAt: string, endAt: string): Promise<PostSlotResult> {
   const { user } = await requireUser();
   const supabase = await createClient();
+
+  /*
+   * MENTOR-SLOT-2: the same slot could be posted twice (two mentees could then book the same half hour). Look first for a slot of THIS mentor that overlaps the new one (identical or partly):
+   * an existing slot overlaps when it starts before the new one ends and ends after the new one starts, so back-to-back slots do not. A read then a write: two requests in the very same instant
+   * can still both pass; closing that needs a database constraint (a migration, written up separately).
+   */
+  const { data: clashes, error: lookError } = await supabase
+    .from("mentor_availability_slots")
+    .select("id")
+    .eq("mentor_id", user.id)
+    .lt("start_at", endAt)
+    .gt("end_at", startAt)
+    .limit(1);
+  if (lookError) {
+    console.error("[mentorship] could not check for an overlapping slot", lookError.message);
+    return { status: "error", message: SLOT_POST_FAILED_MESSAGE };
+  }
+  if ((clashes ?? []).length > 0) return { status: "overlaps", message: SLOT_OVERLAP_MESSAGE };
+
   const { error } = await supabase.from("mentor_availability_slots").insert({
     mentor_id: user.id,
     start_at: startAt,
     end_at: endAt,
   });
-  if (error) throw new Error("Could not post that slot.");
+  if (error) {
+    console.error("[mentorship] could not post a slot", error.message);
+    return { status: "error", message: SLOT_POST_FAILED_MESSAGE };
+  }
   revalidatePath("/mentorship/apply");
+  return { status: "posted" };
 }
 
 /**
