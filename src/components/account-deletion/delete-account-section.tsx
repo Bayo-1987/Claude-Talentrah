@@ -7,6 +7,7 @@ import { creditsPhrase } from "@/lib/account-deletion/copy";
 import { DELETION_CONFIRM_PHRASE, DELETION_LINK_TTL_MINUTES, RESTORE_WINDOW_DAYS } from "@/lib/account-deletion/token";
 import type { DeletionBlockers } from "@/lib/account-deletion/types";
 import { Button, EyebrowLabel, TextField } from "@/components/ui";
+import { inputValue } from "@/lib/forms/keep-input";
 import { BlockerReasons } from "./blocker-reasons";
 import { ClosingPostingsList } from "./closing-postings-list";
 import { AdWalletNotice } from "./ad-wallet-notice";
@@ -58,6 +59,7 @@ export function DeleteAccountSection({ creditsBalance, blockers }: { creditsBala
               label={`Type "${DELETION_CONFIRM_PHRASE}" to confirm`}
               name="confirmation"
               autoComplete="off"
+              defaultValue={inputValue(state.values, "confirmation")}
               required
             />
             <Button type="submit" variant="secondary" disabled={pending} className="self-start">

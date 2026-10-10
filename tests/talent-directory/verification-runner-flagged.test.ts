@@ -15,7 +15,7 @@ const calls: string[] = [];
 let balance = 100;
 
 class InsufficientCreditsError extends Error {}
-vi.mock("@/lib/credits/spend", () => ({ spendCredits, InsufficientCreditsError }));
+vi.mock("@/lib/credits/spend", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/credits/spend")>()), spendCredits, InsufficientCreditsError }));
 vi.mock("@/lib/talent-directory/verification", () => ({ gradeResumeForVerification: grade, VERIFICATION_PASS_THRESHOLD: 70 }));
 
 function chain(result: unknown) {

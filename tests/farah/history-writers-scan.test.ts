@@ -131,6 +131,7 @@ describe("message history is written by the server only (the real tree)", () => 
     expect(mentioning).toEqual([
       "src/app/api/farah/chat/route.ts", // reads only, through the session's client
       "src/app/api/farah/history/route.ts", // reads only, through the session's client
+      "src/lib/farah/paid-hold-sweep.ts", // reads only (the hold id on a saved reply is the completion marker), service role
       "src/lib/farah/save-exchange.ts", // the exchange writer, service role
       "src/lib/farah/session-events.ts", // the session-event writer, service role
     ]);

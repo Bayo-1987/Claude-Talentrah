@@ -15,7 +15,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
 const llm = vi.hoisted(() => ({ reply: "" }));
-vi.mock("@/lib/llm", () => ({ generateWithFailover: async () => llm.reply }));
+vi.mock("@/lib/llm", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/llm")>()), generateWithFailover: async () => llm.reply }));
 vi.mock("server-only", () => ({}));
 
 const { gradeResumeForVerification, VERIFICATION_PASS_THRESHOLD } = await import("@/lib/talent-directory/verification");

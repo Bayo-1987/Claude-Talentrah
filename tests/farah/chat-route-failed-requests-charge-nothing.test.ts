@@ -72,14 +72,15 @@ function query(name: string) {
 }
 const fakeDb = () => ({ from: (t: string) => query(t), rpc: (fn: string, args: Record<string, unknown>) => realRpcBuilder(freeClaimRpc(store, fn, args, Date.now())), auth: { getUser: async () => ({ data: { user: signedIn ? { id: USER } : null } }) } });
 
-const spendCredits = vi.fn(async () => 4);
+const spendCredits = vi.fn(async (..._args: unknown[]) => 4);
+const grantCredits = vi.fn(async (..._args: unknown[]) => 5);
 const askFarahChatStream = vi.fn();
 const logFarahSessionMessage = vi.fn(async () => {
   if (sessionLogThrows) throw new Error("session log down");
 });
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => fakeDb() }));
 vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => fakeDb() }));
-vi.mock("@/lib/credits/spend", () => ({ spendCredits, InsufficientCreditsError: class InsufficientCreditsError extends Error { constructor(public required: number, public available: number, public capMessage?: string) { super("insufficient"); } } }));
+vi.mock("@/lib/credits/spend", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/credits/spend")>()), spendCredits, grantCredits, InsufficientCreditsError: class InsufficientCreditsError extends Error { constructor(public required: number, public available: number, public capMessage?: string) { super("insufficient"); } } }));
 vi.mock("@/lib/farah/client", () => ({ askFarahChatStream }));
 vi.mock("@/lib/farah/session-events", () => ({ logFarahSessionMessage }));
 vi.mock("@/lib/farah/spend-tally", () => ({
@@ -115,8 +116,9 @@ const provenChargeFree = new Set<number>();
 /** The stream error KINDS this file has seen the route send (as the `kind` of an `error` event) while checking that nothing was used. */
 const provenErrorKinds = new Set<string>();
 
+// creditSpends is NET: a credit taken at the check and given back by the release is not a use.
 function used() {
-  return { freeEvents: freeEvents().length, passEvents: passEvents().length, creditSpends: spendCredits.mock.calls.length, pendingClaims: rows("farah_free_claims").length };
+  return { freeEvents: freeEvents().length, passEvents: passEvents().length, creditSpends: spendCredits.mock.calls.length - grantCredits.mock.calls.length, pendingClaims: rows("farah_free_claims").length };
 }
 
 beforeEach(() => {
@@ -130,6 +132,7 @@ beforeEach(() => {
   sessionLogThrows = false;
   nextId = 1;
   spendCredits.mockClear();
+  grantCredits.mockClear();
   logFarahSessionMessage.mockClear();
   askFarahChatStream.mockReset().mockImplementation(async function* () {
     yield "A reply.";
@@ -152,6 +155,7 @@ describe("CONTROL: a request that succeeds IS charged, so the assertions below c
 
     seed({ freeUsed: 3, balance: 5 });
     spendCredits.mockClear();
+  grantCredits.mockClear();
     const paid = await POST(request());
     expect(paid.status).toBe(200);
     await paid.text();
@@ -219,6 +223,7 @@ describe("a reply that FAILS after the request was accepted (status 200, an erro
       for (const seedOpts of [{ freeUsed: 0 }, { freeUsed: 3, balance: 5 }]) {
         seed(seedOpts);
         spendCredits.mockClear();
+  grantCredits.mockClear();
         askFarahChatStream.mockReset().mockImplementation(model);
         const res = await POST(request());
         expect(res.status).toBe(200);
@@ -245,6 +250,7 @@ describe("every stream 'error' event names its KIND, and each kind is a failure 
       for (const seedOpts of [{ freeUsed: 0, balance: 5 }, { freeUsed: 3, balance: 5 }]) {
         seed(seedOpts);
         spendCredits.mockClear();
+  grantCredits.mockClear();
         askFarahChatStream.mockReset().mockImplementation(model);
         const res = await POST(request());
         expect(res.status).toBe(200);

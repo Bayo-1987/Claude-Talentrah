@@ -300,3 +300,38 @@ security decision.
   never be the first thing to discover a missing migration, so its value drops
   from "catches the outage" to "catches a convention breach" — worth having,
   not worth blocking on.
+
+---
+
+## 8. The hosted package flow, as it is run now (written 8 Oct 2026)
+
+Added after the 0235, 0237, 0239 and 0240 applies. It does not change the rule in section 5 (additive: apply before the merge; destructive: deploy first); it records HOW an apply is run, because the manual connector apply of 8 Sep is no longer how it is done. Everything here was read from the approvals log and the package files of those runs; where a step is a habit rather than a file, it says so.
+
+### The order of one apply, per project (preview first, then production)
+
+1. **Preflight read.** One read-only `select`, hash-pinned, that reports the facts the apply depends on: the ledger rows, whether the objects already exist, the function bodies' hashes, the dependencies (columns, policies, indexes) the migration assumes. It writes nothing and takes no lock.
+2. **Package built from each project's OWN preflight.** Preview and production are not the same database, and a migration that is additive on one can collide with leftovers on the other, so the package is generated per project from that project's preflight, never copied from the other one. The production file differs from the preview file by one label line, and a diff between them is part of the review.
+3. **Dry run.** The same statements inside a transaction that rolls back, with a count of checks passed (for example 53 of 53). It proves the migration and its refusals against that database without keeping anything.
+4. **Apply.** One transaction that refuses before any change on hash, ledger, object, dependency, column or policy drift, applies the migration, and writes ONE ledger row. The `applied_sha256` it records must equal the hash the owner approved.
+5. **Post-check.** A read-only check of the result (for example 27 of 27).
+6. **Ledger read.** The ledger row is read back: one row, the expected version, the expected hash.
+7. **Rollback on standby.** A hash-pinned rollback file exists and is not run unless something is wrong; it refuses when its own safety condition fails (for example, 0237's rollback refuses if `employer_widgets` holds a row).
+
+### Who approves, and what counts
+
+- **The OWNER types the go in S3-21's chat for each hosted run**, naming what it covers, each call approved by hand. A go given somewhere else, relayed, or copied into the log by another session is not the owner's approval; on 8 Oct S3-21 correctly refused to run on a relayed line.
+- **Reads count.** A read-only check needs the owner's go too: on 8 Oct S3-21's read-only checks were refused by its permission layer until the owner typed a go. Each project needs its own: the CTO's run lines say production reads run only if the owner repeats the go there.
+- **Every run is hash-pinned:** the run line names the file and its full sha256, the project, and the expected result, and the executor re-hashes before running. A run line that does not match the file is not run.
+- **Stop at the first deviation.** Each step's raw output goes to the CTO before the next step; the CTO reads the raw file, not a summary.
+
+### Relative to the merge
+
+- **Additive migrations: both projects are applied BEFORE the PR merges.** The PR is green, preview and production are applied and read back, then the PR merges (0237 was applied on 7 Oct at 18:45Z preview and 18:55Z production, and merged on 8 Oct at 05:47Z).
+- **The register row flips AFTER the merge, in its own docs-only PR.** The register test requires 'merged, not applied' while the PR still carries the file, so a row that already says applied fails CI until the file is on main. Flip it in a second small PR once the migration PR has merged.
+- **Destructive migrations: merge and deploy first, apply after** (unchanged).
+- **A code PR that calls a new function waits for the apply** (0235: the Farah spend-alert code merged only after the production chain was confirmed).
+
+### What this flow does not cover
+- Migrations 0001-0025 (applied through the connector, no files).
+- A migration whose preflight shows a surprise: stop, write down what the preflight said, and rebuild the package; never edit the package to match the surprise.
+

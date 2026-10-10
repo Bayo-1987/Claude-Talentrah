@@ -14,7 +14,7 @@ const resendConfigured = vi.hoisted(() => ({ value: true }));
 const sentEmails = vi.hoisted(() => [] as unknown[]);
 const tablesRead = vi.hoisted(() => [] as string[]);
 
-vi.mock("@/lib/flags/read", () => ({
+vi.mock("@/lib/flags/read", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/flags/read")>()),
   isFeatureEnabled: vi.fn(async () => flagValue.enabled),
 }));
 

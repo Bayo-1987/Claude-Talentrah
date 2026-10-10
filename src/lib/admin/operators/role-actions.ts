@@ -5,6 +5,7 @@ import { requirePermission } from "@/lib/admin/require-admin";
 import { recordAdminAction } from "@/lib/admin/audit";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import type { Database } from "@/lib/supabase/types";
+import { submittedValues } from "@/lib/forms/keep-input";
 import type { OperatorActionState } from "./state";
 
 type Perm = Database["public"]["Enums"]["admin_permission"];
@@ -48,20 +49,23 @@ export async function saveRoleAction(
   // legitimate answer (a role that grants nothing) rather than a missing field.
   const permissions = formData.getAll("permissions").map(String) as Perm[];
   const targetId = roleId || "new-role";
+  // Handed back with every error so the form keeps what was typed (React 19 resets a <form action> after the action finishes).
+  const typed = submittedValues(formData, ["name", "permissions"], { multi: ["permissions"] });
 
-  if (!name) return { status: "error", message: REFUSALS.name_required, targetId };
+  if (!name) return { status: "error", message: REFUSALS.name_required, targetId, values: typed };
 
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase.rpc("admin_upsert_role", {
     p_actor: actor.adminId,
-    p_role_id: roleId || (undefined as unknown as string),
+    // null creates. `undefined` is dropped from the request body, and the function has no default for this argument, so PostgREST would answer PGRST202 (no matching function).
+    p_role_id: (roleId || null) as unknown as string,
     p_name: name,
     p_permissions: permissions,
   });
 
   if (error) {
     console.error("[admin-roles] upsert failed", error);
-    return { status: "error", message: "Something went wrong on our end.", targetId };
+    return { status: "error", message: "Something went wrong on our end.", targetId, values: typed };
   }
   const row = data?.[0];
   if (!row?.ok) {
@@ -69,6 +73,7 @@ export async function saveRoleAction(
       status: "error",
       message: REFUSALS[row?.reason ?? ""] ?? "That change was refused.",
       targetId,
+      values: typed,
     };
   }
 

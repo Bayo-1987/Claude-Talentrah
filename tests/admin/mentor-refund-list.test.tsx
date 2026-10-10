@@ -31,3 +31,24 @@ describe("MentorRefundList", () => {
     expect(page).not.toContain("markMentorPaymentRefundedAction");
   });
 });
+
+describe("REFUND-SILENT-1: the message must outlive the last row", () => {
+  it("renders the list (and so its result message) whether or not any row is left: the empty state lives inside the component", () => {
+    const empty = renderToStaticMarkup(<MentorRefundList rows={[]} />);
+    expect(empty).toContain("None. Every late mentor payment was either restored or has been refunded.");
+    expect(empty).not.toContain("Mark refunded");
+  });
+  it("with a row it still shows the warning, the runbook and the row", () => {
+    const html = renderToStaticMarkup(
+      <MentorRefundList rows={[{ sessionId: "s-1", amountNgn: 5000, markedAt: "2026-10-01T10:00:00Z", sessionStart: "2026-10-02T10:00:00Z", reference: "ref_1" }]} />,
+    );
+    expect(html).toContain("arrived after the booking had lapsed");
+    expect(html).toContain("Find the Paystack reference");
+    expect(html).toContain("Mark refunded");
+  });
+  it("the page mounts the list unconditionally (not inside a refunds.length check), which is what kept the message alive", () => {
+    const page = read("src/app/admin/(protected)/ops/page.tsx");
+    expect(page).toContain("<MentorRefundList rows={refunds} />");
+    expect(page).not.toMatch(/refunds\.length === 0 \? \(/);
+  });
+});

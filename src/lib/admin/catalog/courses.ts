@@ -99,6 +99,7 @@ export async function placeholderCourseCount(): Promise<number> {
   const { count, error } = await supabase
     .from("course_recommendations")
     .select("id", { count: "exact", head: true })
+    .eq("active", true) // an inactive course cannot be shown, so its placeholder link is not outstanding work
     .like("affiliate_url", `%${PLACEHOLDER_MARKER}%`);
   if (error) throw error;
   return count ?? 0;

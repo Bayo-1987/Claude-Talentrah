@@ -6,6 +6,7 @@
  * Settings keeps showing the saved values on purpose (it is an edit form, not an add form), so "starts clean" here means "shows the latest saved values, nothing stale".
  */
 import { test, expect, admin, seedBaseResume } from "./fixtures/authed";
+import { submitAndSettle, expectStaysFor } from "./support/form-keeps";
 
 test("/settings: an error keeps what was typed, and two saves in a row each stick", async ({ authedPage: page, testUser }, info) => {
   const shot = async (step: string) => info.attach(step, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
@@ -23,13 +24,10 @@ test("/settings: an error keeps what was typed, and two saves in a row each stic
   await first.fill("   ");
   await last.fill("QASurnameKept");
   await country.selectOption("Kenya");
-  await save.click();
+  await submitAndSettle(page, () => save.click());
   await expect(page.getByText(/at least one visible character|Check the highlighted|isn.t valid|required/i).first()).toBeVisible({ timeout: 15_000 });
-  await page.waitForTimeout(1500); // the action has settled and React has re-rendered the form
   await shot("1-error-shown");
-  await expect(last, "the last name is kept").toHaveValue("QASurnameKept");
-  await expect(country, "the country is kept").toHaveValue("Kenya");
-  await expect(first, "the first name is kept as typed").toHaveValue("   ");
+  await expectStaysFor(async () => ({ first: await first.inputValue(), last: await last.inputValue(), country: await country.inputValue() }), { first: "   ", last: "QASurnameKept", country: "Kenya" }, "after a refused save the typed values stay in the form, throughout");
   expect((await dbRow())?.last_name, "an error saves nothing").not.toBe("QASurnameKept");
 
   // Save one.

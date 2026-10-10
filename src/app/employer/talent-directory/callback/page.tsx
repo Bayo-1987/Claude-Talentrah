@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { requireEmployer } from "@/lib/employer/membership";
 import { fulfillPayment } from "@/lib/billing/fulfill";
 import { EyebrowLabel } from "@/components/ui";
+import { PaymentProcessingNotice } from "@/components/billing/payment-processing";
+import { callbackOutcome, type CallbackOutcome } from "@/lib/billing/callback-outcome";
 
 export const metadata = { title: "Payment — Talentrah" };
 
@@ -28,19 +30,23 @@ export default async function TalentDirectoryCallbackPage({
   const context = await requireEmployer();
   const { reference } = await searchParams;
 
-  let outcome: "success" | "already_processed" | "failed" | "not_found" | "error" = "error";
+  let outcome: CallbackOutcome = "error";
   if (reference) {
     try {
       const result = await fulfillPayment(reference, context.userId);
-      // A session-scoped call can never reach a deleted user's row (it is scoped to this signed-in user), so needs_refund is not reachable here; treated as an error defensively.
-      outcome = result.status === "needs_refund" ? "error" : result.status;
+      // A session-scoped call can never reach a deleted user's row (it is scoped to this signed-in user), so needs_refund is not reachable here; callbackOutcome treats it as an error defensively.
+      outcome = callbackOutcome(result.status);
     } catch {
       outcome = "error";
     }
   }
 
-  if (outcome === "success" || outcome === "already_processed") {
+  if (outcome === "paid") {
     redirect("/employer/talent-directory?purchased=1");
+  }
+
+  if (outcome === "processing") {
+    return <PaymentProcessingNotice backHref="/employer/talent-directory" backLabel="Start again from Talent Directory" />;
   }
 
   return (

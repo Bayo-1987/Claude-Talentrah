@@ -13,6 +13,13 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 export const RATE_LIMITS = {
   /** Paid model call + document generation. Generous for real use, fatal to a loop. */
   tailoring: { limit: 10, windowSeconds: 60 * 60 },
+  /*
+   * A BURST bound in front of the hourly cap above (QA TAILOR-RACE-2). The credit gate only reads the balance and the atomic spend comes after the model has run, so N simultaneous requests with credit for ONE run
+   * start N model runs and the losers are refused after the cost. Two per 15 seconds, per user, lets at most two start however many arrive together (the counter is atomic; every call counts). The tailoring form
+   * disables its button while a request is pending, so a double click, or a retry after one failure, fits inside two; three starts in 15 seconds is not ordinary use. It is a tumbling window like the others, so
+   * a flood that straddles a boundary can start up to four: still bounded, and the hourly cap of 10 sits behind it. It does not measure runs in flight (a run lasts up to 45 s); it bounds how fast they can start.
+   */
+  tailoringBurst: { limit: 2, windowSeconds: 15 },
   /** Parsing is cheap until the LLM fallback fires, which is per-upload. */
   resumeParse: { limit: 20, windowSeconds: 60 * 60 },
   /*
@@ -120,10 +127,10 @@ export async function consumeRateLimit(
   return { allowed: row.allowed, used: row.used, resetsAt: row.resets_at };
 }
 
-/** The 429 body, shared so both routes answer identically. */
-export function rateLimited(outcome: RateLimitOutcome): NextResponse {
+/** The 429 body, shared so the routes answer identically unless one has a clearer thing to say (`message`: what the person should read in place of the generic line). */
+export function rateLimited(outcome: RateLimitOutcome, message?: string): NextResponse {
   return NextResponse.json(
-    { error: "That's a lot of requests in a short time — give it a little while and try again." },
+    { error: message ?? "That's a lot of requests in a short time — give it a little while and try again." },
     {
       status: 429,
       headers: outcome.resetsAt

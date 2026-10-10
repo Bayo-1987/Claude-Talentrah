@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef } from "react";
+import { useActionState, useRef } from "react";
 import { updateStageAction } from "@/lib/applications/tracker-actions";
+import { initialTrackerActionState } from "@/lib/applications/tracker-state";
 import { cn } from "@/lib/cn";
 import { TRACKER_STAGES } from "@/lib/tracker/stages";
 
@@ -18,12 +19,15 @@ export function StageSelect({
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const selectRef = useRef<HTMLSelectElement>(null);
+  // A refused move comes back as a message shown here, in place. (It used to be thrown, which replaced the whole page with "This page couldn't load".) The select returns to the saved stage on its own: it is
+  // uncontrolled with defaultValue={stage}, which is what React's post-action form reset restores.
+  const [state, formAction] = useActionState(updateStageAction.bind(null, applicationId), initialTrackerActionState);
 
   return (
     <form
       ref={formRef}
-      action={updateStageAction.bind(null, applicationId)}
-      className="inline-flex"
+      action={formAction}
+      className="inline-flex flex-col gap-1.5"
     >
       {/*
         The stage this control was rendered with. updateStageAction uses it as
@@ -64,6 +68,11 @@ export function StageSelect({
           </option>
         ))}
       </select>
+      {state.status === "error" && state.message && (
+        <p role="alert" className="max-w-[280px] border-[1.5px] border-rust bg-rust-soft px-2.5 py-1.5 font-body text-[12.5px] text-rust">
+          {state.message}
+        </p>
+      )}
     </form>
   );
 }

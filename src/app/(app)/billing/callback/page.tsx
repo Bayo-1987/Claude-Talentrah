@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/require-user";
 import { fulfillPayment } from "@/lib/billing/fulfill";
 import { EyebrowLabel } from "@/components/ui";
+import { PaymentProcessingNotice } from "@/components/billing/payment-processing";
+import { callbackOutcome, type CallbackOutcome } from "@/lib/billing/callback-outcome";
 
 export const metadata = { title: "Payment — Talentrah" };
 
@@ -18,14 +20,12 @@ export default async function BillingCallbackPage({
   const { user } = await requireUser();
   const { reference } = await searchParams;
 
-  let outcome:
-    "success" | "already_processed" | "failed" | "not_found" | "error" =
-    "error";
+  let outcome: CallbackOutcome = "error";
   if (reference) {
     try {
       const result = await fulfillPayment(reference, user.id);
-      // A session-scoped call can never reach a deleted user's row (it is scoped to this signed-in user), so needs_refund is not reachable here; treated as an error defensively.
-      outcome = result.status === "needs_refund" ? "error" : result.status;
+      // A session-scoped call can never reach a deleted user's row (it is scoped to this signed-in user), so needs_refund is not reachable here; callbackOutcome treats it as an error defensively.
+      outcome = callbackOutcome(result.status);
     } catch {
       outcome = "error";
     }
@@ -64,8 +64,13 @@ export default async function BillingCallbackPage({
    * say it, and bouncing someone whose payment did not go through onto a page
    * of things to buy would be the wrong reading of the moment.
    */
-  if (outcome === "success" || outcome === "already_processed") {
+  if (outcome === "paid") {
     redirect("/billing?purchased=1");
+  }
+
+  // Not finished yet (a slow rail, or an open checkout): not a failure. The payment is confirmed automatically if it completes.
+  if (outcome === "processing") {
+    return <PaymentProcessingNotice backHref="/billing" backLabel="Start again from Credits & Passes" />;
   }
 
   return (

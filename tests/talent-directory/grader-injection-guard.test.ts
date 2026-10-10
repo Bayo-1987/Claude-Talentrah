@@ -29,7 +29,7 @@ function obey(opts: Call): string {
 }
 const generateText = vi.fn();
 const fakeProvider = { name: "test" as const, model: "test", generateText, generateWithUsage: vi.fn() };
-vi.mock("@/lib/llm", () => ({ getLLMProvider: () => fakeProvider, generateWithFailover: (call: (p: typeof fakeProvider) => Promise<string>) => call(fakeProvider) }));
+vi.mock("@/lib/llm", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/llm")>()), getLLMProvider: () => fakeProvider, generateWithFailover: (call: (p: typeof fakeProvider) => Promise<string>) => call(fakeProvider) }));
 
 const { gradeResumeForVerification, VERIFICATION_PASS_THRESHOLD, FLAGGED_FEEDBACK } = await import("@/lib/talent-directory/verification");
 const { DATA_BLOCK_OPEN, DATA_BLOCK_CLOSE } = await import("@/lib/farah/data-block");

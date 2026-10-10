@@ -15,7 +15,7 @@ vi.mock("server-only", () => ({}));
 
 const { StubProvider } = await import("@/lib/llm/stub-provider");
 const stub = new StubProvider();
-vi.mock("@/lib/llm", () => ({
+vi.mock("@/lib/llm", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/llm")>()),
   getLLMProvider: () => stub,
   generateWithFailover: (call: (p: typeof stub) => Promise<string>) => call(stub),
 }));

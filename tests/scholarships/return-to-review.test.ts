@@ -182,13 +182,42 @@ describe("comparisons that would otherwise produce a false change", () => {
     ).toEqual([]);
   });
 
-  it("a genuinely different timestamp IS a content change", async () => {
-    // The control for the case above: normalising must not flatten everything.
+  it("a later stamp on its own is a re-confirmation, not a content change (the recheck stamps 'now' every morning its date differs from the catalog)", async () => {
+    // Was "a genuinely different timestamp IS a content change". The stamp is still compared as an instant (the test above) and still written; what changed is that a re-stamp of a date that did not
+    // move no longer sends an approved listing back to review (tests/scholarships/recheck-restamp-churn.test.ts).
     storedRows = [storedAs("verified", { deadline_verified_at: "2026-01-15T00:00:00+00:00" })];
     const result = await upsertScholarships([
       { ...LISTING, deadlineVerifiedAt: "2026-06-01T00:00:00.000Z" },
     ]);
 
+    expect(result.returnedToReview).toEqual([]);
+    expect(upsertedRows[0].deadline_verified_at, "the new stamp is still written").toBe("2026-06-01T00:00:00.000Z");
+    expect(upsertedRows[0]).not.toHaveProperty("moderation_status");
+  });
+
+  it("a stamp that APPEARS (null -> value) is still a content change: a date is now vouched for", async () => {
+    storedRows = [storedAs("verified", { deadline_verified_at: null })];
+    const result = await upsertScholarships([{ ...LISTING, deadlineVerifiedAt: "2026-06-01T00:00:00.000Z" }]);
+    expect(result.returnedToReview).toEqual([FINGERPRINT]);
+  });
+
+  it("a stamp that DISAPPEARS is still a content change", async () => {
+    storedRows = [storedAs("verified", { deadline_verified_at: "2026-01-15T00:00:00+00:00" })];
+    const result = await upsertScholarships([{ ...LISTING, deadlineVerifiedAt: null }]);
+    expect(result.returnedToReview).toEqual([FINGERPRINT]);
+  });
+
+  it("a later stamp together with a moved DATE still returns the listing, and names both columns", async () => {
+    storedRows = [storedAs("verified", { deadline_verified_at: "2026-01-15T00:00:00+00:00" })];
+    const result = await upsertScholarships([{ ...LISTING, deadlineVerifiedAt: "2026-06-01T00:00:00.000Z", applicationDeadline: "2026-09-30" }]);
+    expect(result.returnedToReview).toEqual([FINGERPRINT]);
+    expect(String(upsertedRows[0].moderation_note)).toContain("application_deadline");
+    expect(String(upsertedRows[0].moderation_note)).toContain("deadline_verified_at");
+  });
+
+  it("a later stamp together with any other content column (the deadline note) still returns the listing", async () => {
+    storedRows = [storedAs("verified", { deadline_verified_at: "2026-01-15T00:00:00+00:00" })];
+    const result = await upsertScholarships([{ ...LISTING, deadlineVerifiedAt: "2026-06-01T00:00:00.000Z", deadlineNote: "Varies by country" }]);
     expect(result.returnedToReview).toEqual([FINGERPRINT]);
   });
 

@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { submitCacVerificationAction, type EmployerActionState } from "@/lib/employer/actions";
 import { BorderedCard, Button, TextField, EyebrowLabel } from "@/components/ui";
+import { inputValue } from "@/lib/forms/keep-input";
 
 /**
  * "Path 2" of verification: a CAC business registration number, for an
@@ -33,6 +34,8 @@ export function CacVerificationForm({
     null,
   );
   const error = state && "error" in state ? state.error : null;
+  // A refused submit hands back what was typed; it wins over the saved submission so the fix is made on the person's own entry.
+  const values = state && "error" in state ? state.values : undefined;
   const saved = state && "ok" in state;
 
   return (
@@ -74,14 +77,14 @@ export function CacVerificationForm({
                 label="Registered business name"
                 name="cacBusinessName"
                 required
-                defaultValue={initial.cacBusinessName}
+                defaultValue={inputValue(values, "cacBusinessName", initial.cacBusinessName)}
                 placeholder="Exactly as registered with the CAC"
               />
               <TextField
                 label="RC number"
                 name="cacNumber"
                 required
-                defaultValue={initial.cacNumber}
+                defaultValue={inputValue(values, "cacNumber", initial.cacNumber)}
                 placeholder="e.g. RC1234567"
               />
               <div>

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { fulfillPayment } from "@/lib/billing/fulfill";
 import { requireEmployer } from "@/lib/employer/membership";
 import { BorderedCard, EyebrowLabel } from "@/components/ui";
+import { PAYMENT_PROCESSING_BODY } from "@/components/billing/payment-processing";
+import { callbackOutcome } from "@/lib/billing/callback-outcome";
 
 export const metadata = { title: "Top-up — Talentrah" };
 
@@ -35,13 +37,18 @@ export default async function TopUpCallbackPage({
 
   let heading = "We couldn't find that payment";
   let body = "If you were charged, it will appear in your wallet once Paystack confirms it.";
+  let linkLabel = "Back to Ad Campaigns →";
 
   if (reference) {
-    const result = await fulfillPayment(reference, userId);
-    if (result.status === "success" || result.status === "already_processed") {
+    const outcome = callbackOutcome((await fulfillPayment(reference, userId)).status);
+    if (outcome === "paid") {
       heading = "Top-up complete";
       body = "Your ad wallet has been credited. Campaigns will charge against it from their next run.";
-    } else if (result.status === "failed") {
+    } else if (outcome === "processing") {
+      heading = "Your top-up is still processing.";
+      body = PAYMENT_PROCESSING_BODY;
+      linkLabel = "Start again from Ad Campaigns →";
+    } else if (outcome === "failed") {
       heading = "That payment didn't go through";
       body = "Nothing was added to your wallet, and you have not been charged.";
     }
@@ -60,7 +67,7 @@ export default async function TopUpCallbackPage({
             href="/employer/campaigns"
             className="font-body text-[14px] font-semibold text-rust no-underline hover:text-rust-hover"
           >
-            Back to Ad Campaigns →
+            {linkLabel}
           </Link>
         </div>
       </BorderedCard>

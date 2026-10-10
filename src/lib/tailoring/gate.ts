@@ -11,6 +11,22 @@ type CreditReason = Database["public"]["Enums"]["credit_reason"];
 
 export { InsufficientCreditsError };
 
+type FreeTrialFlag = "free_trial_tailoring_used" | "free_trial_cover_letter_used";
+const flagPatch = (flag: FreeTrialFlag, used: boolean) => (flag === "free_trial_tailoring_used" ? { free_trial_tailoring_used: used } : { free_trial_cover_letter_used: used });
+
+/** Sets the trial flag only if it is still unset, and says whether THIS call did. A database error throws: when we cannot tell, the request must not be given a free run. */
+async function claimFreeTrial(supabase: ReturnType<typeof createServiceRoleClient>, userId: string, flag: FreeTrialFlag): Promise<boolean> {
+  const { data, error } = await supabase.from("profiles").update(flagPatch(flag, true)).eq("id", userId).eq(flag, false).select("id");
+  if (error) throw new Error(`Could not claim the free trial: ${error.message}`);
+  return (data ?? []).length === 1;
+}
+
+/** Gives a claimed trial back after a generation that did not complete. A failure to do so is logged, not thrown: the caller is already on its error path. */
+async function releaseFreeTrial(supabase: ReturnType<typeof createServiceRoleClient>, userId: string, flag: FreeTrialFlag): Promise<void> {
+  const { error } = await supabase.from("profiles").update(flagPatch(flag, false)).eq("id", userId).eq(flag, true);
+  if (error) console.error(`[tailoring] could not give back the free trial (${flag}):`, error.message);
+}
+
 export type TailoringActionKind = "tailoring" | "cover_letter";
 
 export interface AllowanceResult {
@@ -23,14 +39,22 @@ export interface AllowanceResult {
    * call succeeds — see that function for why the log itself has to wait.
    */
   creditsAvailableAtCheck: number;
+  /**
+   * Present ONLY on a free-trial allowance, because only then did the check CLAIM something: the one-time trial flag was set (in one conditional UPDATE) before the model runs, so two requests
+   * at once cannot both be the free run (QA TAILOR-RACE-1). Call it when the generation does not complete, so a failed run still does not burn the trial; a run that completes calls
+   * commitTailoringAllowance instead and never releases. Absent for paid and Pass allowances: nothing was claimed.
+   */
+  release?: () => Promise<void>;
 }
 
 /**
- * Read-only affordability check — call this BEFORE the Claude call so a
- * user who can't afford it never triggers (and Talentrah never pays for) an
- * LLM request. Does not mutate anything; pair with commitTailoringAllowance
- * after the LLM call actually succeeds, so a failed generation doesn't burn
- * the user's one-time free trial or spend credits for nothing.
+ * Affordability check — call this BEFORE the Claude call so a user who can't afford it never triggers (and Talentrah never pays for) an LLM request. Pair with commitTailoringAllowance after the LLM
+ * call actually succeeds, so a failed generation doesn't spend credits for nothing.
+ *
+ * It mutates in exactly one case: it CLAIMS the one-time free trial (a conditional `update ... where flag = false`), because a read followed by a later write cannot make a trial one-time. Five
+ * simultaneous requests all read "unused" and all ran free (QA TAILOR-RACE-1). Whoever wins the claim gets `isFreeTrial` and a `release()` to call if the generation fails; everyone else is evaluated
+ * as a paid request against the balance they read (credits, or InsufficientCreditsError). Credits are NOT touched here: the paid path is priced at the check and spent atomically at the commit.
+ * A claim that is never released or committed (the process dies mid-generation) leaves the trial used; that is the accepted cost of a gate that cannot be raced.
  */
 export async function checkTailoringAllowance(
   userId: string,
@@ -82,7 +106,8 @@ export async function checkTailoringAllowance(
     };
   }
 
-  if (!profile[freeFlagField]) {
+  // The claim is ONE statement: it succeeds for exactly one of any number of simultaneous callers. A caller that reads "unused" but loses the claim falls through to the paid checks below.
+  if (!profile[freeFlagField] && (await claimFreeTrial(supabase, userId, freeFlagField))) {
     // A free-trial run is still a gate evaluation, and it's the one that
     // most often *precedes* the first real paywall — logging it with
     // creditsRequired 0 keeps the funnel continuous rather than starting
@@ -99,6 +124,7 @@ export async function checkTailoringAllowance(
       isPassCovered: false,
       creditsSpent: 0,
       creditsAvailableAtCheck: profile.credits_balance,
+      release: () => releaseFreeTrial(supabase, userId, freeFlagField),
     };
   }
 

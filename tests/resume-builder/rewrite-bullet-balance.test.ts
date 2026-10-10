@@ -22,7 +22,7 @@ vi.mock("@/lib/supabase/server", () => ({
   }),
 }));
 vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => ({}) }));
-vi.mock("@/lib/credits/spend", () => ({
+vi.mock("@/lib/credits/spend", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/credits/spend")>()),
   spendCredits: (...a: unknown[]) => spendCredits(...a),
   InsufficientCreditsError: class InsufficientCreditsError extends Error {},
 }));

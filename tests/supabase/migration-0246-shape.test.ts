@@ -155,3 +155,19 @@ describe("0246: the self-check and the rollback", () => {
     }
   });
 });
+
+describe("0246 rollback: org_job_widget is restored exactly as 0237 defined it", () => {
+  /** The function from "create or replace function public.org_job_widget" to the first line that is only "end" (comments and spacing included: a byte-for-byte restore is what a hash-gated rollback wrapper checks). */
+  const widget = (sql: string) => {
+    const start = sql.indexOf("create or replace function public.org_job_widget(p_org_id uuid)");
+    expect(start, "no org_job_widget definition").toBeGreaterThan(-1);
+    const rest = sql.slice(start);
+    const end = rest.search(/\nend\n/);
+    expect(end, "no end of the function body").toBeGreaterThan(-1);
+    return rest.slice(0, end + 5);
+  };
+  it("is byte-identical to the 0237 definition, including its comment lines", () => {
+    const original = readFileSync(join(__dirname, "../../supabase/migrations/0237_employer_job_widget.sql"), "utf8");
+    expect(widget(rawRollback)).toBe(widget(original));
+  });
+});
