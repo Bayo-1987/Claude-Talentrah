@@ -14,6 +14,7 @@ const state = vi.hoisted(() => ({
   onWaitlist: false,
   preview: { count: 0, samples: [] as unknown[] },
   searchCalls: 0,
+  subscriptionGtColumns: [] as string[],
 }));
 
 vi.mock("@/lib/employer/membership", () => ({
@@ -32,6 +33,11 @@ vi.mock("@/lib/supabase/service-role", () => ({
       const q: Record<string, unknown> = {};
       q.select = () => q;
       q.eq = () => q;
+      q.gt = (column: string) => {
+        // the subscription read must ask for a RUNNING row (expires_at in the future)
+        if (table === "talent_directory_subscriptions") state.subscriptionGtColumns.push(column);
+        return q;
+      };
       q.maybeSingle = async () => {
         if (table === "talent_directory_subscriptions") return { data: state.subscription, error: null };
         if (table === "talent_directory_waitlist") return { data: state.onWaitlist ? { id: "w-1" } : null, error: null };
@@ -75,6 +81,14 @@ beforeEach(() => {
   state.onWaitlist = false;
   state.preview = { count: 0, samples: [] };
   state.searchCalls = 0;
+  state.subscriptionGtColumns = [];
+});
+
+describe("the subscription read asks for a RUNNING subscription", () => {
+  it("filters on expires_at, so an ended row whose status nothing flipped does not read as a subscription", async () => {
+    await render();
+    expect(state.subscriptionGtColumns).toContain("expires_at");
+  });
 });
 
 describe("an org with no subscription", () => {

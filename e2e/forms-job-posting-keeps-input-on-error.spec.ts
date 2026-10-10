@@ -7,9 +7,11 @@
 import { randomUUID } from "node:crypto";
 import { test, expect, admin } from "./fixtures/authed";
 import { deleteOrgsCascade, deletePostingsCascade } from "../tests/support/delete-orgs";
+import { submitAndSettle, expectStaysFor } from "./support/form-keeps";
 
 const DESC = (n: number, tag: string) => `Version ${n} ${tag}: we are hiring a backend engineer to work on payment APIs. You will design services, write SQL queries, review code, and mentor other engineers.`;
 
+// FORM-JOB-1 (selects emptied after a server error): fixed on main by bac7456; plain regression test.
 test("job posting: the second visit starts clean, and a duplicate-post error keeps what was typed", async ({ authedPage: page, testUser }, info) => {
   test.setTimeout(150_000);
   const shot = async (step: string) => info.attach(step, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
@@ -36,16 +38,13 @@ test("job posting: the second visit starts clean, and a duplicate-post error kee
     await page.getByLabel("Work type").selectOption("hybrid");
     await page.getByLabel("Employment type").selectOption("contract");
     await page.getByLabel("Minimum salary").fill("250000");
-    await page.getByRole("button", { name: "Publish job" }).click();
+    await submitAndSettle(page, () => page.getByRole("button", { name: "Publish job" }).click());
     await expect(page.getByText(/already posted this role in this location/i)).toBeVisible({ timeout: 20_000 });
-    await page.waitForTimeout(3000); // let the action settle and React re-render the form
     await shot("2-duplicate-error-after-settling");
     await expect(page.getByLabel("Job title"), "the title is kept").toHaveValue(title);
     await expect(page.getByLabel("Location"), "the location is kept").toHaveValue("Abuja, Nigeria");
     await expect(page.getByLabel("Job description"), "the description is kept").toContainText(DESC(2, tag));
-    await expect.soft(page.getByLabel("Work type"), "the work type is kept").toHaveValue("hybrid");
-    await expect.soft(page.getByLabel("Employment type"), "the employment type is kept").toHaveValue("contract");
-    await expect.soft(page.getByLabel("Minimum salary"), "the salary is kept").toHaveValue("250000");
+    await expectStaysFor(async () => ({ workType: await page.getByLabel("Work type").inputValue(), employmentType: await page.getByLabel("Employment type").inputValue(), salary: await page.getByLabel("Minimum salary").inputValue() }), { workType: "hybrid", employmentType: "contract", salary: "250000" }, "after a duplicate-post error the selects and the salary stay in the form, throughout");
     const { data: rows } = await admin.from("job_postings").select("id").eq("organization_id", org!.id).eq("title", title);
     expect(rows, "the duplicate was not published").toHaveLength(1);
   } finally {

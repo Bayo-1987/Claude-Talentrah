@@ -69,11 +69,12 @@ const fakeDb = () => ({
   auth: { getUser: async () => ({ data: { user: { id: USER } } }) },
 });
 
-const spendCredits = vi.fn(async () => 4);
+const spendCredits = vi.fn(async (..._args: unknown[]) => 4);
+const grantCredits = vi.fn(async (..._args: unknown[]) => 5);
 const askFarahChatStream = vi.fn();
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => fakeDb() }));
 vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => fakeDb() }));
-vi.mock("@/lib/credits/spend", () => ({ spendCredits, InsufficientCreditsError: class InsufficientCreditsError extends Error { constructor(public required: number, public available: number, public capMessage?: string) { super("insufficient"); } } }));
+vi.mock("@/lib/credits/spend", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/credits/spend")>()), spendCredits, grantCredits, InsufficientCreditsError: class InsufficientCreditsError extends Error { constructor(public required: number, public available: number, public capMessage?: string) { super("insufficient"); } } }));
 vi.mock("@/lib/farah/client", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/farah/client")>()), askFarahChatStream }));
 vi.mock("@/lib/farah/session-events", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/farah/session-events")>()), logFarahSessionMessage: vi.fn(async () => undefined) }));
 vi.mock("@/lib/farah/spend-tally", async () => (await import("./support/route-mocks")).safeSpendTally());
@@ -109,6 +110,7 @@ beforeEach(() => {
   releaseFails = false;
   nextId = 1;
   spendCredits.mockClear();
+  grantCredits.mockClear();
   askFarahChatStream.mockReset().mockImplementation(async function* () {
     yield "A reply.";
   });
@@ -132,7 +134,8 @@ describe("parallel requests can no longer push an account past its free messages
     const outcomes = await Promise.all(Array.from({ length: 10 }, () => send()));
     expect(outcomes.filter((e) => doneOf(eventsAt(e)))).toHaveLength(10);
     expect(spendCredits).toHaveBeenCalledTimes(9);
-    expect(spendCredits).toHaveBeenCalledWith(USER, CREDIT_COSTS.farahChatMessage, "farah_chat_message");
+    expect(spendCredits).toHaveBeenCalledWith(USER, CREDIT_COSTS.farahChatMessage, "farah_chat_message", expect.any(String));
+    expect(grantCredits, "a completed paid message is never refunded").not.toHaveBeenCalled();
     expect(freeEvents()).toHaveLength(3);
     expect(claimCount()).toBe(0);
   });

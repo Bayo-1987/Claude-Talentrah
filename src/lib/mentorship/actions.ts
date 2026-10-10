@@ -8,8 +8,13 @@ import { requireUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { initializeTransaction, NGN_CHANNELS } from "@/lib/paystack/client";
+import { fulfillPayment } from "@/lib/billing/fulfill";
+import { callbackOutcome } from "@/lib/billing/callback-outcome";
+import { findOpenSessionPayment } from "@/lib/mentorship/open-payment";
 import { generateMeetingLink } from "@/lib/mentorship/meeting-link";
 import { notifySessionConfirmed } from "@/lib/mentorship/notifications";
+import { SLOT_OVERLAP_MESSAGE, SLOT_POST_FAILED_MESSAGE, type PostSlotResult } from "@/lib/mentorship/post-slot-state";
+import { ALREADY_CONFIRMED_MESSAGE, CONFIRM_ERROR_MESSAGE, UNAVAILABLE_MESSAGE, type ConfirmSessionState } from "@/lib/mentorship/confirm-state";
 import type { MentorshipSessionType } from "@/lib/mentorship/pricing";
 import { captureEvent } from "@/lib/analytics/posthog";
 import { warnIfNameLooksLikeOwnOrg } from "@/lib/mentorship/name-validation";
@@ -142,16 +147,39 @@ export async function setSelfPausedAction(paused: boolean) {
   revalidatePath("/mentorship/apply");
 }
 
-export async function postAvailabilitySlotAction(startAt: string, endAt: string) {
+export async function postAvailabilitySlotAction(startAt: string, endAt: string): Promise<PostSlotResult> {
   const { user } = await requireUser();
   const supabase = await createClient();
+
+  /*
+   * MENTOR-SLOT-2: the same slot could be posted twice (two mentees could then book the same half hour). Look first for a slot of THIS mentor that overlaps the new one (identical or partly):
+   * an existing slot overlaps when it starts before the new one ends and ends after the new one starts, so back-to-back slots do not. A read then a write: two requests in the very same instant
+   * can still both pass; closing that needs a database constraint (a migration, written up separately).
+   */
+  const { data: clashes, error: lookError } = await supabase
+    .from("mentor_availability_slots")
+    .select("id")
+    .eq("mentor_id", user.id)
+    .lt("start_at", endAt)
+    .gt("end_at", startAt)
+    .limit(1);
+  if (lookError) {
+    console.error("[mentorship] could not check for an overlapping slot", lookError.message);
+    return { status: "error", message: SLOT_POST_FAILED_MESSAGE };
+  }
+  if ((clashes ?? []).length > 0) return { status: "overlaps", message: SLOT_OVERLAP_MESSAGE };
+
   const { error } = await supabase.from("mentor_availability_slots").insert({
     mentor_id: user.id,
     start_at: startAt,
     end_at: endAt,
   });
-  if (error) throw new Error("Could not post that slot.");
+  if (error) {
+    console.error("[mentorship] could not post a slot", error.message);
+    return { status: "error", message: SLOT_POST_FAILED_MESSAGE };
+  }
   revalidatePath("/mentorship/apply");
+  return { status: "posted" };
 }
 
 /**
@@ -253,6 +281,27 @@ async function startMentorSessionCheckout(args: {
   errorPath: string;
 }): Promise<never> {
   const { serviceClient, user, sessionId, priceNgn, errorPath } = args;
+
+  // One booking, one payment: if an earlier reference for this booking is paid, still being paid, or cannot be checked, do not start another (see open-payment.ts).
+  const open = await findOpenSessionPayment(serviceClient, sessionId, user.id);
+  if (open.kind === "paid") {
+    // The webhook has not arrived yet: settle the earlier payment now and tell the buyer it is booked.
+    let outcome: ReturnType<typeof callbackOutcome> = "error";
+    try {
+      outcome = callbackOutcome((await fulfillPayment(open.reference, user.id)).status);
+    } catch {
+      outcome = "error";
+    }
+    if (outcome === "paid") redirect("/mentorship/sessions?booked=1");
+    redirect(`${errorPath}?error=${encodeURIComponent("We couldn't confirm your earlier payment just now. Please check your sessions in a few minutes before paying again.")}`);
+  }
+  if (open.kind === "in_flight") {
+    redirect(`${errorPath}?error=${encodeURIComponent("A payment for this booking is already in progress. Give it a few minutes; it will show here once it is confirmed, so you don't need to pay again.")}`);
+  }
+  if (open.kind === "unknown") {
+    redirect(`${errorPath}?error=${encodeURIComponent("We couldn't check an earlier payment for this booking just now, so we haven't started another. Please try again in a moment.")}`);
+  }
+
   const reference = `mentor_session_${randomUUID()}`;
   const origin = await getOrigin();
   const { error: insertError } = await serviceClient.from("payment_transactions").insert({
@@ -365,7 +414,8 @@ export async function cancelUnpaidMentorSessionAction(sessionId: string) {
  * `p_mentor_id`, checked against the session row's own `mentor_id` inside
  * the function rather than trusted blindly.
  */
-export async function confirmMentorSessionAction(sessionId: string) {
+export async function confirmMentorSessionAction(_prev: ConfirmSessionState, formData: FormData): Promise<ConfirmSessionState> {
+  const sessionId = String(formData.get("sessionId") ?? "");
   const { user } = await requireUser();
   const serviceClient = createServiceRoleClient();
 
@@ -375,7 +425,24 @@ export async function confirmMentorSessionAction(sessionId: string) {
     p_meeting_link: generateMeetingLink(),
   });
 
-  if (error || !ok) throw new Error("Could not confirm that session.");
+  if (error) {
+    // Returned, not thrown (QA MENTOR-CONFIRM-1): a thrown error replaces the whole mentor page with "This page couldn't load". Nothing was changed, so a retry is safe.
+    console.error("[mentorship] confirm session failed", error.message);
+    return { status: "error", message: CONFIRM_ERROR_MESSAGE };
+  }
+
+  if (!ok) {
+    /*
+     * The conditional UPDATE matched nothing: the session is not awaiting this mentor's confirmation any more. The usual cause is the same Confirm pressed in a second, stale tab (or by a double click):
+     * the first one won. Say which, in place. Looked up only on this path, and only this mentor's own session is described: someone else's session, or one that does not exist, gets the same words as a
+     * cancelled one, so this cannot be used to probe which sessions exist or what state they are in.
+     */
+    const { data: row } = await serviceClient.from("mentorship_sessions").select("status, mentor_id").eq("id", sessionId).maybeSingle();
+    if (row && row.mentor_id === user.id && (row.status === "confirmed" || row.status === "completed")) {
+      return { status: "already_confirmed", message: ALREADY_CONFIRMED_MESSAGE };
+    }
+    return { status: "unavailable", message: UNAVAILABLE_MESSAGE };
+  }
 
   // Best-effort — notifySessionConfirmed never throws (see its own header).
   // The confirmation itself already succeeded above; a notification failure
@@ -384,6 +451,7 @@ export async function confirmMentorSessionAction(sessionId: string) {
 
   revalidatePath("/mentorship/sessions/mentor");
   revalidatePath("/mentorship/sessions");
+  return { status: "confirmed", message: "Confirmed." };
 }
 
 export async function submitMentorshipReviewAction(sessionId: string, mentorId: string, rating: number, reviewText: string) {

@@ -4,12 +4,15 @@ import { getResendClient } from "@/lib/resend/client";
 import { visibleName } from "@/lib/profile/name";
 import { buildPurchaseReceiptEmail } from "@/lib/billing/receipt-email";
 import { verifyTransaction } from "@/lib/paystack/client";
+import { isTerminalPaystackFailure, isUnrecognisedPaystackStatus } from "@/lib/paystack/status";
 import { captureEvent } from "@/lib/analytics/posthog";
-import { alertDeletedUserPayment, alertPaymentNeedsRefund } from "@/lib/mentorship/refund-alert";
+import { alertDeletedUserPayment, alertDuplicateSessionPayment, alertPaymentNeedsRefund, alertSubscriptionPaymentNeedsRefund } from "@/lib/mentorship/refund-alert";
 
 export interface FulfillResult {
-  status: "success" | "already_processed" | "failed" | "not_found" | "needs_refund";
+  /** "processing": Paystack has not finished the payment (bank transfer, USSD, mobile money, direct debit, or a checkout still open). The row is left pending; a later success is granted once. */
+  status: "success" | "already_processed" | "failed" | "not_found" | "needs_refund" | "processing";
 }
+
 
 /**
  * Idempotent — called from both the Paystack webhook (production) and the
@@ -55,10 +58,19 @@ export async function fulfillPayment(
 
   const verified = await verifyTransaction(reference);
   if (verified.status !== "success") {
+    if (!isTerminalPaystackFailure(verified.status)) {
+      // Not finished (or not recognised): the row stays `pending`, so the webhook (or the buyer coming back) can still fulfil it once Paystack says success.
+      if (isUnrecognisedPaystackStatus(verified.status)) {
+        console.warn(`[fulfill] unrecognised Paystack status "${String(verified.status).slice(0, 40)}" for ${reference}; leaving the payment pending.`);
+      }
+      return { status: "processing" };
+    }
+    // Conditional on still being pending: a success that landed while this call was in flight must not be undone by a late "failed".
     await supabase
       .from("payment_transactions")
       .update({ status: "failed" })
-      .eq("id", transaction.id);
+      .eq("id", transaction.id)
+      .eq("status", "pending");
     return { status: "failed" };
   }
 
@@ -87,7 +99,8 @@ export async function fulfillPayment(
     await supabase
       .from("payment_transactions")
       .update({ status: "failed" })
-      .eq("id", transaction.id);
+      .eq("id", transaction.id)
+      .eq("status", "pending");
     return { status: "failed" };
   }
 
@@ -232,31 +245,41 @@ export async function fulfillPayment(
      * reaching this branch twice, but this makes the SUBSCRIPTION-side state
      * change itself a no-op if it were ever somehow reached twice.
      */
-    const { data: subscription } = await supabase
-      .from("talent_directory_subscriptions")
-      .select("plan_id, expires_at, talent_directory_plans(name)")
-      .eq("id", transaction.product_id)
-      .single();
-
-    if (subscription) {
-      const autoRenew = isReusableCard;
-      const { data: updated } = await supabase
-        .from("talent_directory_subscriptions")
-        .update({
-          status: "active",
-          auto_renew_status: autoRenew ? "active" : null,
-          next_renewal_date: autoRenew ? toDateOnly(new Date(subscription.expires_at)) : null,
-          authorization_code: authorizationCode,
-          payment_transaction_id: transaction.id,
-        })
-        .eq("id", transaction.product_id)
-        .eq("status", "pending_payment")
-        .select("id")
-        .maybeSingle();
-
-      if (updated) {
-        purchased = subscription.talent_directory_plans?.name ?? "Talent Directory subscription";
-      }
+    /*
+     * ACTIVATION IS ONE DATABASE CALL (0228), not an UPDATE here. It runs under a per-organisation lock and, in one transaction: marks the
+     * organisation's ended, non-renewing 'active' rows 'lapsed' (nothing else ever does, and the partial unique index would otherwise
+     * refuse this row AFTER the charge), refuses if another row still holds the active slot, and sets expires_at = now() + the plan's
+     * duration, so the paid period starts at confirmation and not when Subscribe was pressed.
+     *
+     * Outcomes: activated; "not_pending" (an earlier delivery already activated it: nothing to do, the payment is still recorded as
+     * success below); anything else (the slot is held, the row or plan is gone) means the customer paid for something we will not
+     * deliver. That is recorded as needs_refund and alerted, never left as a payment marked success beside a pending subscription.
+     */
+    const { data: activation, error: activationError } = await supabase.rpc("activate_talent_directory_subscription", {
+      p_subscription_id: transaction.product_id,
+      p_auto_renew: isReusableCard,
+      // NULL, never undefined: JSON drops an undefined property, activate_talent_directory_subscription has no defaults, and PostgREST then answers PGRST202 (function not found)
+      // for every payment without a card token (mobile money, bank transfer): the customer would have paid and the confirmation would throw for ever. The generated type marks the
+      // argument optional, hence the cast. (tests/talent-directory/subscription-lifecycle.test.ts pins all four keys on the wire.)
+      p_authorization_code: authorizationCode as string,
+      p_payment_transaction_id: transaction.id,
+    });
+    if (activationError) {
+      throw new Error(`activate_talent_directory_subscription failed for ${reference}: ${activationError.message}`);
+    }
+    const outcome = activation?.[0];
+    if (outcome?.activated) {
+      purchased = outcome.plan_name ?? "Talent Directory subscription";
+    } else if (outcome?.reason !== "not_pending") {
+      const reason = outcome?.reason ?? "no result";
+      const { error: markError } = await supabase
+        .from("payment_transactions")
+        .update({ status: "needs_refund" })
+        .eq("id", transaction.id)
+        .eq("status", "pending");
+      if (markError) throw new Error(`could not record the unactivatable subscription payment ${reference} as needs_refund: ${markError.message}`);
+      await alertSubscriptionPaymentNeedsRefund({ reference, amountNgn: transaction.amount, reason });
+      return { status: "needs_refund" };
     }
   } else if (transaction.product_type === "ad_wallet_topup") {
     /*
@@ -283,13 +306,25 @@ export async function fulfillPayment(
      * rather than assumed.
      */
     if (transaction.organization_id && transaction.paystack_reference) {
-      await supabase.rpc("credit_ad_wallet", {
+      const { error: creditError } = await supabase.rpc("credit_ad_wallet", {
         p_organization_id: transaction.organization_id,
         p_amount_ngn: transaction.amount,
         p_reason: "topup",
         p_paystack_reference: transaction.paystack_reference,
         p_actor_user_id: transaction.user_id,
       });
+      /*
+       * THE RESULT IS READ, because the status flip below is final. This call used to be awaited without looking at its error, so a database fault during the credit
+       * fell through to `status = 'success'`: a paid, uncredited wallet that no later delivery could fix (it would return `already_processed`).
+       *   - 23505 is the unique reference index above refusing a SECOND credit for the same payment: the webhook and the callback page racing, the first one won. That is the
+       *     idempotency working, and the payment is paid.
+       *   - Anything else throws BEFORE the flip. The row stays `pending`, the webhook answers 500 so Paystack delivers it again, and the retry credits once (it is idempotent on
+       *     the reference). The message carries the error CODE only, never the database's text.
+       */
+      if (creditError && creditError.code !== "23505") {
+        console.error(`[fulfill] credit_ad_wallet failed for a wallet top-up (code ${creditError.code ?? "none"}); leaving the payment pending so it is retried`);
+        throw new Error(`credit_ad_wallet failed for a wallet top-up (code ${creditError.code ?? "none"}); the payment stays pending for a retry`);
+      }
     }
   } else if (transaction.product_type === "mentor_session" && transaction.product_id) {
     /*
@@ -343,6 +378,42 @@ export async function fulfillPayment(
         throw new Error(
           `[fulfill] could not settle a late payment for mentor session ${transaction.product_id} (reference ${reference}): ${settleError.message}`,
         );
+      }
+      if (outcome === "not_late") {
+        /*
+         * The session is neither waiting for this payment nor lapsed: something else already settled it. If that was ANOTHER successful payment for the same session, this one bought nothing
+         * (the buyer paid two references for one booking). Marking it `success` would keep the money in silence; it is recorded as `needs_refund` and the operator is alerted instead, the same
+         * way a payment for a deleted account is. The conditional update (status still pending) keeps a redelivery from re-alerting.
+         *
+         * "Another successful payment" is read from the payments table, not inferred from the session's state: the webhook and the callback page racing on THE SAME reference also see a session
+         * the first of them already moved, and must not be taken for a duplicate; that first call has not flipped its own payment row yet, so no OTHER success row exists and this stays quiet.
+         * Residual window, stated: two DIFFERENT references both completing within the same moment, before either has been marked success, would still both pass. Starting a checkout now
+         * refuses a second reference while the first is open (src/lib/mentorship/open-payment.ts), which is what makes that window narrow.
+         */
+        const { count: otherPaid, error: otherPaidError } = await supabase
+          .from("payment_transactions")
+          .select("id", { count: "exact", head: true })
+          .eq("product_type", "mentor_session")
+          .eq("product_id", transaction.product_id)
+          .eq("status", "success")
+          .neq("id", transaction.id);
+        if (otherPaidError) {
+          console.error(`[fulfill] could not check mentor session ${transaction.product_id} for an earlier payment (code ${otherPaidError.code ?? "none"}); leaving the payment pending for a retry`);
+          throw new Error(`mentor session duplicate-payment check failed (code ${otherPaidError.code ?? "none"}); the payment stays pending for a retry`);
+        }
+        if ((otherPaid ?? 0) > 0) {
+          const { data: flagged, error: flagError } = await supabase
+            .from("payment_transactions")
+            .update({ status: "needs_refund" })
+            .eq("id", transaction.id)
+            .eq("status", "pending")
+            .select("id");
+          if (flagError) throw new Error(`could not record the duplicate mentor payment ${reference} as needs_refund: ${flagError.message}`);
+          if ((flagged ?? []).length > 0) {
+            await alertDuplicateSessionPayment({ reference, amountNgn: transaction.amount, sessionId: transaction.product_id });
+          }
+          return { status: "needs_refund" };
+        }
       }
       if (outcome === "reinstated") {
         const { data: restored } = await supabase
@@ -483,8 +554,4 @@ async function sendPurchaseReceipt(
     text: email.text,
     html: email.html,
   });
-}
-
-function toDateOnly(date: Date): string {
-  return date.toISOString().slice(0, 10);
 }

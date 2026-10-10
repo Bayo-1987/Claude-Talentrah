@@ -57,7 +57,12 @@ export function AvailabilityManager({ slots }: { slots: MentorAvailabilitySlot[]
           }
           setError(null);
           startTransition(async () => {
-            await postAvailabilitySlotAction(new Date(start).toISOString(), new Date(end).toISOString());
+            const result = await postAvailabilitySlotAction(new Date(start).toISOString(), new Date(end).toISOString());
+            // A refused slot keeps the typed times and says why; only a posted one clears them.
+            if (result.status !== "posted") {
+              setError(result.message);
+              return;
+            }
             setStart("");
             setEnd("");
           });

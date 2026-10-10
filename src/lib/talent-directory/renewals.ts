@@ -2,6 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { chargeAuthorization, verifyTransaction, isDecline } from "@/lib/paystack/client";
+import { isTerminalPaystackFailure, isUnrecognisedPaystackStatus } from "@/lib/paystack/status";
 
 /**
  * The Talent Directory subscription renewal job — a structural fork of
@@ -30,6 +31,9 @@ import { chargeAuthorization, verifyTransaction, isDecline } from "@/lib/paystac
  * that same id needs no extra column to stay traceable to the right row.
  */
 export const MAX_INDETERMINATE_SUBSCRIPTION_RENEWAL_ATTEMPTS = 3;
+
+/** How long a claim on a due subscription holds other runs off (0250). Same value and reasoning as the Pass job's (src/lib/billing/renewals.ts): a run that crashed mid-charge strands nothing for longer than this. */
+export const CLAIM_STALENESS_MINUTES = 15;
 
 function todayDateOnly(): string {
   return new Date().toISOString().slice(0, 10);
@@ -72,6 +76,9 @@ export async function runTalentDirectorySubscriptionRenewalJob(): Promise<Subscr
 
   for (const row of due ?? []) {
     try {
+      // Claimed BEFORE anything is asked of Paystack (0250): two overlapping runs (the cron plus a manual POST, a platform retry) each read the same due row, and without this both charged the saved card.
+      // A run that does not win the claim simply moves on; that is not an error.
+      if (!(await claimForRenewal(supabase, row.id))) continue;
       await chargeOne(supabase, row, summary);
     } catch (err) {
       summary.errors.push({
@@ -82,6 +89,24 @@ export async function runTalentDirectorySubscriptionRenewalJob(): Promise<Subscr
   }
 
   return summary;
+}
+
+/**
+ * Claims one due subscription for this run: ONE conditional UPDATE (no claim, or a claim older than the staleness window, and the row still due and still renewing), so only one of any number of overlapping runs
+ * gets a row back. This is the Pass job's claim (0157) applied to the other recurring charge. Returns true only when THIS call's update matched the row.
+ */
+export async function claimForRenewal(supabase: ReturnType<typeof createServiceRoleClient>, subscriptionId: string): Promise<boolean> {
+  const staleBefore = new Date(Date.now() - CLAIM_STALENESS_MINUTES * 60_000).toISOString();
+  const { data, error } = await supabase
+    .from("talent_directory_subscriptions")
+    .update({ renewal_claimed_at: new Date().toISOString() })
+    .eq("id", subscriptionId)
+    .eq("auto_renew_status", "active")
+    .lte("next_renewal_date", todayDateOnly())
+    .or(`renewal_claimed_at.is.null,renewal_claimed_at.lt.${staleBefore}`)
+    .select("id");
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
 }
 
 interface DueSubscriptionRow {
@@ -160,6 +185,14 @@ async function chargeOne(
         subscriptionId: row.id,
         message: `NEEDS RECONCILIATION: amount/currency mismatch on reference ${row.pending_renewal_reference}.`,
       });
+      return;
+    }
+    if (settled && !isTerminalPaystackFailure(settled.status)) {
+      // The previous attempt is not finished (see src/lib/paystack/status.ts and renewals.ts): keep the reference, charge nothing, count one more indeterminate attempt.
+      if (isUnrecognisedPaystackStatus(settled.status)) {
+        console.warn(`[talent-directory-renewal] unrecognised Paystack status "${String(settled.status).slice(0, 40)}" for ${row.pending_renewal_reference}; treating it as unfinished.`);
+      }
+      await recordIndeterminate(supabase, row, summary, row.pending_renewal_reference, null);
       return;
     }
     await supabase.from("talent_directory_subscriptions").update({ pending_renewal_reference: null }).eq("id", row.id);
@@ -272,6 +305,8 @@ async function recordIndeterminate(
       renewal_attempt_count: attempts,
       pending_renewal_reference: reference,
       last_renewal_failure_at: new Date().toISOString(),
+      // This row deliberately STAYS due so a later run retries it: release the claim now rather than making that retry wait out CLAIM_STALENESS_MINUTES.
+      renewal_claimed_at: null,
     })
     .eq("id", row.id);
 
@@ -327,6 +362,7 @@ async function extendSubscription(
       renewal_reminder_sent_at: null,
       renewal_attempt_count: 0,
       pending_renewal_reference: null,
+      renewal_claimed_at: null,
     })
     .eq("id", row.id);
 }
@@ -338,6 +374,31 @@ async function markLapsed(supabase: ReturnType<typeof createServiceRoleClient>, 
       status: "lapsed",
       auto_renew_status: "lapsed",
       next_renewal_date: null,
+      renewal_claimed_at: null,
     })
     .eq("id", subscriptionId);
+}
+
+/**
+ * The daily lapse: a subscription whose period has ended and that is NOT waiting on an automatic renewal stops being 'active'.
+ *
+ * Runs AFTER the renewal job in the same route, so a row the job just extended is no longer ended. A row with auto_renew_status = 'active'
+ * is never touched here (it is waiting for its renewal, or for the job's retry), which is the whole point of the filter: lapsing it would
+ * let the organisation buy a second subscription beside a renewal that is about to be charged. Every reader already checks expires_at, so
+ * this changes no one's access; it only keeps the stored status true and frees the organisation's one 'active' slot for a new purchase.
+ */
+export async function lapseEndedTalentDirectorySubscriptions(): Promise<{ lapsed: number; error: string | null }> {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("talent_directory_subscriptions")
+    .update({ status: "lapsed" })
+    .eq("status", "active")
+    .lte("expires_at", new Date().toISOString())
+    .or("auto_renew_status.is.null,auto_renew_status.neq.active")
+    .select("id");
+  if (error) {
+    console.error(`[talent-directory-lapse] could not lapse ended subscriptions: ${error.message}`);
+    return { lapsed: 0, error: error.message };
+  }
+  return { lapsed: (data ?? []).length, error: null };
 }

@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { saveRoleAction, deleteRoleAction } from "@/lib/admin/operators/role-actions";
 import { initialOperatorActionState } from "@/lib/admin/operators/state";
+import { inputList, inputValue } from "@/lib/forms/keep-input";
 import { Button, TextField } from "@/components/ui";
 
 /**
@@ -37,6 +38,9 @@ export function RoleEditor({
     initialOperatorActionState,
   );
   const id = role?.id ?? "new-role";
+  // After a refused save the action hands back what was typed; the post-action form reset puts these back (a success hands none, so the form shows the saved role or starts clean).
+  const keptPermissions =
+    saveState.values && "permissions" in saveState.values ? inputList(saveState.values, "permissions") : null;
   const state =
     saveState.targetId === id && saveState.status !== "idle"
       ? saveState
@@ -54,7 +58,7 @@ export function RoleEditor({
             id={`role-name-${id}`}
             label={role ? "Name" : "New role name"}
             name="name"
-            defaultValue={role?.name ?? ""}
+            defaultValue={inputValue(saveState.values, "name", role?.name)}
             required
           />
           {role?.isBuiltin && (
@@ -81,7 +85,7 @@ export function RoleEditor({
                   type="checkbox"
                   name="permissions"
                   value={p.key}
-                  defaultChecked={role?.permissions.includes(p.key) ?? false}
+                  defaultChecked={keptPermissions ? keptPermissions.includes(p.key) : (role?.permissions.includes(p.key) ?? false)}
                   className="accent-rust"
                 />
                 {p.label}

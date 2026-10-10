@@ -4,8 +4,9 @@ import { useActionState, useTransition } from "react";
 import { addPortfolioItemAction, deletePortfolioItemAction } from "@/lib/talent-directory/actions";
 import { Button, TextField } from "@/components/ui";
 import type { PortfolioItem } from "@/lib/talent-directory/queries";
+import { inputValue, type SubmittedValues } from "@/lib/forms/keep-input";
 
-const initialState: { status: "idle" | "success" | "error"; message: string } = {
+const initialState: { status: "idle" | "success" | "error"; message: string; values?: SubmittedValues } = {
   status: "idle",
   message: "",
 };
@@ -45,9 +46,9 @@ export function PortfolioManager({ items }: { items: PortfolioItem[] }) {
       )}
 
       <form action={formAction} className="flex flex-col gap-3">
-        <TextField label="Title" name="title" required placeholder="e.g. Redesigned onboarding flow" />
-        <TextField label="Link (optional)" name="url" type="url" placeholder="https://..." />
-        <TextField label="Description (optional)" name="description" placeholder="One or two sentences" />
+        <TextField label="Title" name="title" required placeholder="e.g. Redesigned onboarding flow" defaultValue={inputValue(state.values, "title")} />
+        <TextField label="Link (optional)" name="url" type="url" placeholder="https://..." defaultValue={inputValue(state.values, "url")} />
+        <TextField label="Description (optional)" name="description" placeholder="One or two sentences" defaultValue={inputValue(state.values, "description")} />
         {state.message && (
           <p className={`text-[12.5px] ${state.status === "error" ? "text-rust" : "text-green"}`}>{state.message}</p>
         )}

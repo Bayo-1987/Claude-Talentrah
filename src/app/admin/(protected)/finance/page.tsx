@@ -4,18 +4,14 @@ import { financialHealth } from "@/lib/admin/finance/queries";
 import { QueueHeader } from "@/components/admin/queue-chrome";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { formatDate } from "@/lib/format/datetime";
+import { formatWholeAmount } from "@/lib/admin/finance/money";
 
 export const metadata = {
   title: "Financial health — Talentrah admin",
   robots: { index: false, follow: false },
 };
 
-const money = (minor: number, currency: string) =>
-  new Intl.NumberFormat("en-NG", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 0,
-  }).format(minor / 100);
+const money = formatWholeAmount;
 
 /**
  * Money in aggregate. NO PERSONAL DATA ON THIS PAGE AT ALL — no name, no
@@ -44,18 +40,21 @@ export default async function FinancialHealthPage() {
       />
 
       {health.pendingCount > 0 && (
-        <p
-          className={
-            "border-[1.5px] px-3.5 py-2.5 text-[14px] " +
-            (health.stalePending > 0
-              ? "border-rust bg-rust-soft text-rust"
-              : "border-ink bg-card text-ink")
-          }
-        >
-          {health.pendingCount} payment{health.pendingCount === 1 ? "" : "s"} pending
-          {health.stalePending > 0 &&
-            ` — ${health.stalePending} older than a day. A pending row is an outcome nobody has learned, not a failure.`}
-        </p>
+        <div className="flex flex-col gap-2">
+          {/* Three bands, none hidden. The badge in the navigation counts only the middle one. */}
+          <p className="border-[1.5px] border-ink bg-card px-3.5 py-2.5 text-[14px] text-ink">
+            {health.pendingCounted} payment{health.pendingCounted === 1 ? "" : "s"} waiting between 30 minutes and 24 hours (the number in the navigation badge).
+          </p>
+          <p className="border-[1.5px] border-line bg-card px-3.5 py-2.5 text-[14px] text-ink-soft">
+            {health.pendingRecent} payment{health.pendingRecent === 1 ? "" : "s"} started in the last 30 minutes: the checkout may still be open, so these are not counted.
+          </p>
+          {health.stalePending > 0 && (
+            <p className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[14px] text-rust">
+              {health.stalePending} payment{health.stalePending === 1 ? "" : "s"} older than 24 hours. Not in the badge, but still unresolved: most are checkouts nobody finished, and one may be a real payment whose confirmation
+              never arrived. A pending row is an outcome nobody has learned, not a failure.
+            </p>
+          )}
+        </div>
       )}
 
       <section className="flex flex-col gap-2">
@@ -70,7 +69,7 @@ export default async function FinancialHealthPage() {
                   </td>
                   <td className="px-4 py-3">{p.rail}</td>
                   <td className="px-4 py-3">{p.count}</td>
-                  <td className="px-4 py-3">{money(p.totalMinor, p.currency)}</td>
+                  <td className="px-4 py-3">{money(p.totalAmount, p.currency)}</td>
                   <td className="px-4 py-3 text-[12.5px] text-ink-soft">
                     oldest {formatDate(p.oldestAt)}
                   </td>
@@ -142,7 +141,7 @@ export default async function FinancialHealthPage() {
           ) : (
             <>
               <span className="font-display text-[20px]">
-                {money(health.adWalletBalanceNgn * 100, "NGN")}
+                {money(health.adWalletBalanceNgn, "NGN")}
               </span>{" "}
               <span className="text-ink-soft">
                 held across {health.adWalletCount}{" "}

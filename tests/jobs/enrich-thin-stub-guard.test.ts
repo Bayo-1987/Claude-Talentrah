@@ -23,7 +23,7 @@ const updates = vi.hoisted(() => [] as Array<{ id: string; patch: Record<string,
 const extractSkills = vi.hoisted(() => vi.fn());
 const THIN_ROW = { id: "p1", description: "Some role", structured_jd: { skills: ["sql"] }, posted_at: "2026-01-01T00:00:00Z" };
 
-vi.mock("@/lib/flags/read", () => ({ isFeatureEnabled: vi.fn(async () => flag.enabled) }));
+vi.mock("@/lib/flags/read", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/flags/read")>()), isFeatureEnabled: vi.fn(async () => flag.enabled) }));
 vi.mock("@/lib/llm/jd-extraction", () => ({
   getJdExtractionProvider: () => ({ name: providerName.value, model: "m", extractSkills }),
 }));

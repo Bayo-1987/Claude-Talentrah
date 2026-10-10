@@ -24,8 +24,9 @@ describe("admin Edit listing form (scholarships)", () => {
     for (const f of FIELDS.filter((x) => x !== "degreeLevels" && x !== "fundingType")) {
       expect(form, f).toContain(`inputValue(state.values, "${f}", initial.${f})`);
     }
-    expect(form).toContain('key={selectKey(state.values, "fundingType")}');
-    expect(form).toContain('inputValue(state.values, "fundingType", initial.fundingType)');
+    expect(form).toContain('const fundingSelect = savedSelect("fundingType", initial.fundingType, state.values);'); // SELECT-REMOUNT-2: key and default from the saved value AND the typed one
+    expect(form).toContain("key={fundingSelect.key}");
+    expect(form).toContain("defaultValue={fundingSelect.defaultValue}");
     expect(form).toContain('defaultChecked={(state.values ? inputList(state.values, "degreeLevels") : initial.degreeLevels).includes(value)}');
   });
   it("the form submits through the form action again (no private submit handler) and the Deadline note counter follows the returned note", () => {

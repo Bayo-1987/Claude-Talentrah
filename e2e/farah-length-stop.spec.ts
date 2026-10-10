@@ -5,7 +5,9 @@
  * (LLM_PROVIDER=stub) reports a length stop for any message carrying `[stub:length]` (STUB_LENGTH_TRIGGER), which
  * drives the real route, the real gate and the real panel through the cut-off path without a model hitting a
  * real ceiling. Each statement is checked against the DATABASE, not just the page:
- *   - the balance did not move, and no `farah_chat_message` ledger row was written;
+ *   - the balance did not move, and the ledger's NET change for `farah_chat_message` is 0: a paid message takes its
+ *     credit at the check (a -1 hold row) and a reply that is not completed gives it back (a +1 row), both carrying
+ *     ONE hold id (#908's spend-first design), so "no row" is no longer the right assertion, "net zero" is;
  *   - the free-message counter did not go down;
  *   - the cut-off reply was still saved, marked truncated;
  *   - the control: an ordinary message right after is charged exactly as before.
@@ -43,15 +45,24 @@ async function balance(userId: string): Promise<number> {
   return data.credits_balance;
 }
 
-async function ledgerRows(userId: string): Promise<number> {
-  const { count, error } = await admin
-    .from("credit_ledger")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .eq("reason", "farah_chat_message");
-  if (error) throw new Error(`reading ledger: ${error.message}`);
-  return count ?? 0;
+interface LedgerRow {
+  id: string;
+  delta: number;
+  related_entity_id: string | null;
 }
+
+async function ledgerRows(userId: string): Promise<LedgerRow[]> {
+  const { data, error } = await admin
+    .from("credit_ledger")
+    .select("id, delta, related_entity_id")
+    .eq("user_id", userId)
+    .eq("reason", "farah_chat_message")
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(`reading ledger: ${error.message}`);
+  return data ?? [];
+}
+
+const net = (rows: LedgerRow[]) => rows.reduce((sum, r) => sum + r.delta, 0);
 
 async function ask(page: Page, text: string) {
   await page.getByPlaceholder("Ask me anything…").fill(text);
@@ -73,7 +84,14 @@ test.describe("a reply cut off by the output ceiling", () => {
     await expect(page.getByRole("status").filter({ hasText: "cut off — no credits used" })).toBeVisible();
 
     expect(await balance(testUser.id), "a cut-off reply must not be charged").toBe(START);
-    expect(await ledgerRows(testUser.id), "and must not write a ledger row").toBe(0);
+    const ledger = await ledgerRows(testUser.id);
+    expect(net(ledger), "and the ledger nets to zero for it").toBe(0);
+    expect(ledger.map((r) => r.delta).sort((a, b) => a - b), "one hold (-1) and its refund (+1), nothing else").toEqual([
+      -CREDIT_COSTS.farahChatMessage,
+      CREDIT_COSTS.farahChatMessage,
+    ]);
+    expect(ledger[0].related_entity_id, "the refund carries the hold's id").toBeTruthy();
+    expect(new Set(ledger.map((r) => r.related_entity_id)).size, "both rows share ONE hold id").toBe(1);
     await expect(pill(page, START), "the masthead stays where it was").toBeVisible();
 
     const { data: rows } = await admin.from("farah_messages").select("role, context").eq("user_id", testUser.id);
@@ -113,11 +131,14 @@ test.describe("a reply cut off by the output ceiling", () => {
     await ask(page, `First, cut off ${STUB_LENGTH_TRIGGER}`);
     await expect(page.getByTestId("farah-truncated-note")).toBeVisible({ timeout: 30_000 });
     expect(await balance(testUser.id)).toBe(START);
+    // The cut-off message's own rows (hold + refund) are not this message's: count only rows created after this point.
+    const rowsBefore = new Set((await ledgerRows(testUser.id)).map((r) => r.id));
 
     await ask(page, "Hello again");
     await expect(page.getByTestId("farah-truncated-note")).toHaveCount(0);
     await expect.poll(() => balance(testUser.id), { timeout: 30_000 }).toBe(START - CREDIT_COSTS.farahChatMessage);
     await expect(pill(page, START - CREDIT_COSTS.farahChatMessage)).toBeVisible();
-    expect(await ledgerRows(testUser.id)).toBe(1);
+    const rowsAfter = (await ledgerRows(testUser.id)).filter((r) => !rowsBefore.has(r.id));
+    expect(net(rowsAfter), "the ordinary message's own rows net to exactly one credit spent").toBe(-CREDIT_COSTS.farahChatMessage);
   });
 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { savedSelect } from "@/lib/forms/saved-select";
 import { setOperatorRoleAction, setOperatorAccessAction } from "@/lib/admin/operators/actions";
 import { initialOperatorActionState } from "@/lib/admin/operators/state";
 import { Button } from "@/components/ui";
@@ -38,6 +39,7 @@ export function OperatorRowForm({
     setOperatorAccessAction,
     initialOperatorActionState,
   );
+  const roleSelect = savedSelect("roleId", roleId, roleState.values);
 
   const state = roleState.targetId === id && roleState.status !== "idle" ? roleState
     : accessState.targetId === id && accessState.status !== "idle" ? accessState
@@ -60,7 +62,8 @@ export function OperatorRowForm({
           <select
             id={`role-${id}`}
             name="roleId"
-            defaultValue={roleId ?? ""}
+            key={roleSelect.key}
+            defaultValue={roleSelect.defaultValue}
             className="min-h-11 border-[1.5px] border-ink bg-card px-3 font-body text-[14px] text-ink"
           >
             <option value="">No role — no access</option>

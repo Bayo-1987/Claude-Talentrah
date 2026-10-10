@@ -1,26 +1,9 @@
 import { z } from "zod";
 
-/**
- * The four reasons, and what each one is FOR.
- *
- * Kept short and non-overlapping on purpose: a reporting form with twelve
- * options collects twelve unusable buckets, and the operator queue groups by
- * this value. The labels are written for the person clicking, not for the
- * column.
- */
-export const REPORT_REASONS = [
-  { value: "scam", label: "It looks like a scam" },
-  { value: "closed_but_listed", label: "The job is no longer open" },
-  { value: "discriminatory", label: "The posting is discriminatory" },
-  { value: "other", label: "Something else" },
-] as const;
+import { REPORT_REASON_VALUES } from "./reasons";
 
-export const REPORT_REASON_VALUES = REPORT_REASONS.map((r) => r.value) as unknown as [
-  "scam",
-  "closed_but_listed",
-  "discriminatory",
-  "other",
-];
+// The reasons live in ./reasons (no zod), so the client-side report menu does not pull this file, and zod, into the browser.
+export { REPORT_REASONS, REPORT_REASON_VALUES } from "./reasons";
 
 export const reportSchema = z.object({
   jobId: z.uuid("That job posting id isn't valid"),

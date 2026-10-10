@@ -21,7 +21,7 @@ import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => ({}) }));
-vi.mock("@/lib/llm", () => ({
+vi.mock("@/lib/llm", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/llm")>()),
   getLLMProvider: () => {
     throw new Error("a cache hit must not reach the model");
   },
