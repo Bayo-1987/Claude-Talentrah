@@ -126,6 +126,17 @@ describe("the daily limit (20 per organisation per UTC day)", () => {
     }
   });
 
+  it("60 claims at once split across message and invite kinds still give exactly 20 winners (messages and interview invites share ONE counter)", async () => {
+    for (let round = 0; round < 3; round += 1) {
+      await resetOrg(orgA);
+      const results = await Promise.all(Array.from({ length: 60 }, (_, i) => claim({ kind: i % 2 === 0 ? "interview_invite" : "invite_interview" })));
+      expect(results.every((r) => r.error === null)).toBe(true);
+      expect(results.filter((r) => r.data).length, `round ${round + 1}: exactly 20 got an id`).toBe(20);
+      const { data: rows } = await admin.from("applicant_messages").select("kind").eq("organization_id", orgA);
+      expect(rows, "and both kinds were counted against the same day").toHaveLength(20);
+    }
+  });
+
   it("a FAILED message gives its slot back; a claimed or sent one keeps it", async () => {
     await resetOrg(orgA);
     const ids: string[] = [];
