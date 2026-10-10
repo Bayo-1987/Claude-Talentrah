@@ -121,8 +121,10 @@ describe("settings form (profile)", () => {
   it("the names default to the returned values over the saved profile; the Country <select> is keyed by the returned value", () => {
     expect(form).toContain('inputValue(state.values, "firstName", firstName)');
     expect(form).toContain('inputValue(state.values, "lastName", lastName)');
-    expect(form).toContain('inputValue(state.values, "country", country ?? "")');
-    expect(form).toContain('key={selectKey(state.values, "country")}');
+    // SELECT-REMOUNT-2: key and default come from the saved country AND the typed one.
+    expect(form).toContain('const countrySelect = savedSelect("country", country, state.values);');
+    expect(form).toContain("key={countrySelect.key}");
+    expect(form).toContain("defaultValue={countrySelect.defaultValue}");
   });
 });
 

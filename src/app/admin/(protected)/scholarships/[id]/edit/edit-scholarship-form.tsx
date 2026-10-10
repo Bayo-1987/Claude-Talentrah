@@ -1,10 +1,11 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
+import { savedSelect } from "@/lib/forms/saved-select";
 import Link from "next/link";
 import { updateScholarshipAction } from "@/lib/scholarships/admin-edit-action";
 import { initialEditScholarshipState } from "@/lib/scholarships/admin-edit-state";
-import { inputList, inputValue, selectKey } from "@/lib/forms/keep-input";
+import { inputList, inputValue } from "@/lib/forms/keep-input";
 import { PUBLISHED_EDIT_WARNING } from "@/lib/scholarships/admin-edit-constants";
 import { DEGREE_LEVEL_LABEL, DEGREE_LEVEL_VALUES, FUNDING_TYPE_LABEL, FUNDING_TYPE_VALUES } from "@/lib/scholarships/types";
 import { noteCounter } from "@/lib/scholarships/public-deadline-note";
@@ -43,6 +44,7 @@ const FUNDING_OPTIONS = FUNDING_TYPE_VALUES.map((value) => ({ value, label: FUND
  */
 export function EditScholarshipForm({ id, published, initial }: { id: string; published: boolean; initial: EditInitial }) {
   const [state, formAction, pending] = useActionState(updateScholarshipAction.bind(null, id), initialEditScholarshipState);
+  const fundingSelect = savedSelect("fundingType", initial.fundingType, state.values);
   const [noteLength, setNoteLength] = useState(initial.deadlineNote.trim().length);
   const [seenState, setSeenState] = useState(state);
   if (state !== seenState) {
@@ -91,7 +93,7 @@ export function EditScholarshipForm({ id, published, initial }: { id: string; pu
           {state.fieldErrors?.degreeLevels?.[0] && <p className="text-[12.5px] text-rust">{state.fieldErrors.degreeLevels[0]}</p>}
         </fieldset>
 
-        <SelectField key={selectKey(state.values, "fundingType")} label="Funding" name="fundingType" options={FUNDING_OPTIONS} defaultValue={inputValue(state.values, "fundingType", initial.fundingType)} required error={state.fieldErrors?.fundingType?.[0]} />
+        <SelectField key={fundingSelect.key} label="Funding" name="fundingType" options={FUNDING_OPTIONS} defaultValue={fundingSelect.defaultValue} required error={state.fieldErrors?.fundingType?.[0]} />
         <TextField label="What it covers (comma-separated)" name="fundingCovers" defaultValue={inputValue(state.values, "fundingCovers", initial.fundingCovers)} error={state.fieldErrors?.fundingCovers?.[0]} />
         <TextField label="Field tags (comma-separated)" name="fieldTags" defaultValue={inputValue(state.values, "fieldTags", initial.fieldTags)} error={state.fieldErrors?.fieldTags?.[0]} />
         <TextField label="Eligible nationalities (comma-separated)" name="eligibilityNationalities" defaultValue={inputValue(state.values, "eligibilityNationalities", initial.eligibilityNationalities)} error={state.fieldErrors?.eligibilityNationalities?.[0]} />
