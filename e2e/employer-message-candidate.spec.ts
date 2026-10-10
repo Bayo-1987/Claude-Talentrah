@@ -8,6 +8,7 @@
 import { test, expect, admin } from "./fixtures/authed";
 import { randomUUID } from "node:crypto";
 import { deleteOrgsCascade } from "../tests/support/delete-orgs";
+import { FARAH_MESSAGE_DRAFT_NGN } from "../src/lib/billing/catalog";
 
 test.describe("Message candidate", () => {
   const orgIds: string[] = [];
@@ -102,5 +103,42 @@ test.describe("Message candidate", () => {
     await page.goto(`/employer/jobs/${mine.jobId}/applicants/${stranger.applicationId}/message`);
     await expect(page.getByRole("heading", { name: "This page doesn't exist." }), "the application is not on the job in the URL").toBeVisible();
     await expect(page.getByLabel("Message")).toHaveCount(0);
+  });
+
+  test("a free plan sees the Premium note instead of Farah; a Premium employer gets a draft in the boxes, pays from the ad wallet, and nothing is sent", async ({ authedPage: page, testUser }) => {
+    const mine = await org(testUser.id, "own");
+    const joy = await applicant(mine.jobId);
+    const url = `/employer/jobs/${mine.jobId}/applicants/${joy.applicationId}/message`;
+
+    await page.goto(url);
+    await expect(page.getByText("Draft or refine with Farah is part of Premium.")).toBeVisible();
+    await expect(page.getByRole("link", { name: "See Premium" })).toBeVisible();
+    await expect(page.getByLabel("Notes for Farah (optional)")).toHaveCount(0);
+
+    const { error: premiumError } = await admin.rpc("admin_set_organization_premium", {
+      p_organization_id: mine.orgId,
+      p_premium_until: new Date(Date.now() + 86_400_000).toISOString(),
+      p_admin_user_id: null as unknown as string,
+      p_admin_email: "operator@talentrah.internal",
+      p_admin_session_id: null as unknown as string,
+      p_reason: "e2e fixture",
+    });
+    expect(premiumError).toBeNull();
+    await admin.from("ad_wallets").upsert({ organization_id: mine.orgId, balance_ngn: 500 }, { onConflict: "organization_id" });
+
+    await page.goto(url);
+    await expect(page.getByText("Draft or refine with Farah is part of Premium.")).toHaveCount(0);
+    await page.getByLabel("Notes for Farah (optional)").fill("Ask for two times next week.");
+    await page.getByRole("button", { name: "Draft with Farah" }).click();
+    await expect(page.getByText("drafted this from your notes and the job. Review it before sending.")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByLabel("Subject")).not.toHaveValue("");
+    await expect(page.getByLabel("Message")).not.toHaveValue("");
+    await expect(page.getByRole("button", { name: "Refine with Farah" })).toBeVisible();
+
+    const { data: wallet } = await admin.from("ad_wallets").select("balance_ngn").eq("organization_id", mine.orgId).single();
+    expect(wallet?.balance_ngn).toBe(500 - FARAH_MESSAGE_DRAFT_NGN);
+    const { count } = await admin.from("applicant_messages").select("id", { count: "exact", head: true }).eq("organization_id", mine.orgId);
+    expect(count ?? 0, "drafting sends and logs nothing").toBe(0);
+    expect(await page.content()).not.toContain("candidate-mail.example");
   });
 });

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { sendApplicantMessageAction } from "@/lib/employer/applicant-message-actions";
+import { draftApplicantMessageWithFarahAction, sendApplicantMessageAction } from "@/lib/employer/applicant-message-actions";
 import { MESSAGE_TEMPLATE_KINDS, TEMPLATE_LABELS, SUBJECT_MAX, BODY_MAX, type MessageTemplateKind } from "@/lib/employer/applicant-messages/constants";
 import { cn } from "@/lib/cn";
 
@@ -22,6 +22,8 @@ export function MessageCandidateForm({
   templates,
   remainingToday,
   backHref,
+  premium,
+  farahPriceNgn,
 }: {
   jobId: string;
   applicationId: string;
@@ -32,6 +34,9 @@ export function MessageCandidateForm({
   templates: TemplateTexts;
   remainingToday: number;
   backHref: string;
+  /** Server-decided (organization_premium): the form only chooses what to show; the action refuses a free plan on its own. */
+  premium: boolean;
+  farahPriceNgn: number;
 }) {
   const [kind, setKind] = useState<MessageTemplateKind | "custom">("custom");
   const [subject, setSubject] = useState("");
@@ -41,6 +46,10 @@ export function MessageCandidateForm({
   const [sentCount, setSentCount] = useState(0);
   const [remaining, setRemaining] = useState(remainingToday);
   const [pending, startTransition] = useTransition();
+  const [notes, setNotes] = useState("");
+  const [drafted, setDrafted] = useState(false);
+  const [farahError, setFarahError] = useState<string | null>(null);
+  const [farahPending, startFarah] = useTransition();
 
   const edited = (subject !== (lastTemplate?.subject ?? "") || body !== (lastTemplate?.body ?? "")) && (subject !== "" || body !== "");
 
@@ -54,6 +63,23 @@ export function MessageCandidateForm({
     setError(null);
   }
 
+  function askFarah() {
+    setFarahError(null);
+    const hasText = subject.trim() !== "" || body.trim() !== "";
+    startFarah(async () => {
+      const result = await draftApplicantMessageWithFarahAction({ jobId, applicationId, kind, mode: hasText ? "refine" : "draft", notes, subject, body });
+      if (result.ok) {
+        setSubject(result.subject);
+        setBody(result.body);
+        setLastTemplate(null);
+        setDrafted(true);
+      } else {
+        // A refusal or a failed draft changes nothing the employer typed, and a failed draft has been refunded.
+        setFarahError(result.error);
+      }
+    });
+  }
+
   function send() {
     setError(null);
     startTransition(async () => {
@@ -65,6 +91,7 @@ export function MessageCandidateForm({
         setBody("");
         setLastTemplate(null);
         setKind("custom");
+        setDrafted(false);
       } else {
         // The message stays in the boxes: a refusal never costs the employer what they wrote.
         setError(result.error);
@@ -135,6 +162,53 @@ export function MessageCandidateForm({
         <p className="font-body text-[12.5px] text-ink-soft">Plain text only. A link you type is sent as text, not as a link.</p>
       </div>
 
+      {premium ? (
+        <div className="mt-5 border-[1.5px] border-rust bg-rust-soft p-4">
+          {drafted && (
+            <p className="font-body text-[14px] text-ink">
+              <span className="font-semibold text-rust">Farah</span> drafted this from your notes and the job. Review it before sending.
+            </p>
+          )}
+          <label htmlFor="farah-notes" className={cn("block font-body text-[13px] font-semibold text-ink", drafted && "mt-3")}>
+            Notes for Farah (optional)
+          </label>
+          <textarea
+            id="farah-notes"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            maxLength={2000}
+            rows={2}
+            placeholder="What should the message say? Farah only uses what you write here."
+            className="mt-1.5 w-full border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[14px] text-ink outline-none focus:border-rust"
+          />
+          {farahError && (
+            <p role="alert" className="mt-3 font-body text-[13.5px] text-rust">
+              {farahError}
+            </p>
+          )}
+          <div className="mt-3 flex flex-wrap items-center gap-4">
+            <button
+              type="button"
+              onClick={askFarah}
+              disabled={farahPending || pending}
+              className="min-h-11 border-[1.5px] border-rust bg-card px-5 font-body text-[14px] font-semibold text-rust hover:bg-paper disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {farahPending ? "Farah is writing…" : subject.trim() || body.trim() ? "Refine with Farah" : "Draft with Farah"}
+            </button>
+            <p className="font-body text-[12.5px] text-ink-soft">
+              {`₦${farahPriceNgn.toLocaleString("en-NG")}`} from your ad wallet per draft; refunded if Farah can&apos;t produce one. Farah never sends anything.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-4 border border-dashed border-ink-soft px-4 py-3">
+          <p className="font-body text-[14px] text-ink-soft">Draft or refine with Farah is part of Premium.</p>
+          <Link href="/contact" className="inline-flex min-h-11 items-center border-[1.5px] border-ink bg-card px-5 font-body text-[14px] font-semibold text-ink hover:border-rust hover:text-rust">
+            See Premium
+          </Link>
+        </div>
+      )}
+
       {error && (
         <p role="alert" className="mt-5 border-[1.5px] border-rust bg-rust-soft px-4 py-3 font-body text-[13.5px] text-rust">
           {error}
@@ -148,7 +222,7 @@ export function MessageCandidateForm({
         <button
           type="button"
           onClick={send}
-          disabled={pending || full || !subject.trim() || !body.trim()}
+          disabled={pending || farahPending || full || !subject.trim() || !body.trim()}
           className="min-h-12 bg-ink px-7 font-body text-[15px] font-semibold text-paper hover:bg-rust disabled:cursor-not-allowed disabled:opacity-50"
         >
           {pending ? "Sending…" : "Send message"}

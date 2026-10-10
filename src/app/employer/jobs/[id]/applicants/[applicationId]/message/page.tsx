@@ -6,6 +6,8 @@ import { findMyApplicant } from "@/lib/employer/applicant-messages/authorize";
 import { buildTemplate } from "@/lib/employer/applicant-messages/templates";
 import { MESSAGE_TEMPLATE_KINDS, DAILY_MESSAGE_LIMIT } from "@/lib/employer/applicant-messages/constants";
 import { defaultSendDeps } from "@/lib/employer/applicant-messages/send-deps";
+import { employerHasPremium } from "@/lib/employer/premium";
+import { FARAH_MESSAGE_DRAFT_NGN } from "@/lib/billing/catalog";
 import { MessageCandidateForm, type TemplateTexts } from "@/components/employer/message-candidate-form";
 import { EyebrowLabel } from "@/components/ui";
 
@@ -24,9 +26,10 @@ export default async function MessageCandidatePage({ params }: { params: Promise
   const applicant = await findMyApplicant(supabase, { organizationId: organization.id, jobId, applicationId });
   if (!applicant) notFound();
 
-  const [{ data: sender }, used] = await Promise.all([
+  const [{ data: sender }, used, premium] = await Promise.all([
     supabase.from("profiles").select("first_name").eq("id", userId).maybeSingle(),
     defaultSendDeps().countToday(organization.id).catch(() => 0),
+    employerHasPremium(organization.id),
   ]);
 
   const templates = Object.fromEntries(
@@ -64,6 +67,8 @@ export default async function MessageCandidatePage({ params }: { params: Promise
         templates={templates}
         remainingToday={Math.max(0, DAILY_MESSAGE_LIMIT - used)}
         backHref={backHref}
+        premium={premium}
+        farahPriceNgn={FARAH_MESSAGE_DRAFT_NGN}
       />
     </div>
   );

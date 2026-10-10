@@ -3,6 +3,7 @@
 -- supabase/migrations, so neither the migration-numbering check nor `supabase db push` ever sees it.
 --
 -- WHAT IT CHANGES: the message log (and every row in it), the two functions and the Premium table (and every date in it) are dropped; audit rows already written stay in admin_audit_log. Nothing else.
+-- NOT UNDONE: the enum value 'farah_message_draft_charge' on ad_wallet_reason stays (Postgres cannot drop an enum value); it is unused once the code is gone and harmless.
 -- ORDER: deploy the code that sends messages and reads Premium away first (or the page that sends would fail); the 20-per-day limit and the record of what was sent are gone with the table.
 begin;
 

@@ -2,10 +2,12 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { requireEmployer } from "@/lib/employer/membership";
-import { isApplicantOfMyJob } from "@/lib/employer/applicant-messages/authorize";
+import { findMyApplicant, isApplicantOfMyJob } from "@/lib/employer/applicant-messages/authorize";
 import { MESSAGE_TEMPLATE_KINDS, type MessageKind } from "@/lib/employer/applicant-messages/constants";
 import { sendApplicantMessage } from "@/lib/employer/applicant-messages/send";
 import { defaultSendDeps } from "@/lib/employer/applicant-messages/send-deps";
+import { runFarahMessageDraft, type DraftMode } from "@/lib/employer/applicant-messages/draft-core";
+import { defaultDraftDeps } from "@/lib/employer/applicant-messages/draft-llm";
 
 export type SendApplicantMessageResult = { ok: true; remaining: number } | { ok: false; error: string };
 
@@ -62,4 +64,59 @@ export async function sendApplicantMessageAction(input: {
     defaultSendDeps(),
   );
   return result.ok ? { ok: true, remaining: result.remaining } : { ok: false, error: result.message };
+}
+
+export type DraftApplicantMessageResult =
+  | { ok: true; subject: string; body: string }
+  | { ok: false; kind: "premium_required" | "insufficient_balance" | "generation_error" | "invalid" | "not_found"; error: string };
+
+/**
+ * "Draft/Refine with Farah" on Message candidate (Premium). Same two independent gates as sending (the employer's own session resolves the organisation and the applicant), then the Premium
+ * check, the ad wallet debit, the model, and an automatic refund on any failure: see runFarahMessageDraft. It returns TEXT for the employer to review; it cannot send, and this file's send action is
+ * a separate call the employer makes by pressing Send. Only the job title, the organisation's name, two first names and what the employer wrote go to the model.
+ */
+export async function draftApplicantMessageWithFarahAction(input: {
+  jobId: string;
+  applicationId: string;
+  kind: string;
+  mode: string;
+  notes: string;
+  subject: string;
+  body: string;
+}): Promise<DraftApplicantMessageResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, kind: "not_found", error: "Sign in again to use Farah." };
+
+  const { organization } = await requireEmployer();
+  const jobId = typeof input.jobId === "string" ? input.jobId : "";
+  const applicationId = typeof input.applicationId === "string" ? input.applicationId : "";
+  if (!UUID.test(jobId) || !UUID.test(applicationId)) return { ok: false, kind: "not_found", error: NOT_FOUND };
+
+  const applicant = await findMyApplicant(supabase, { organizationId: organization.id, jobId, applicationId });
+  if (!applicant) return { ok: false, kind: "not_found", error: NOT_FOUND };
+
+  const { data: sender } = await supabase.from("profiles").select("first_name").eq("id", user.id).maybeSingle();
+  const kind: MessageKind = (MESSAGE_TEMPLATE_KINDS as readonly string[]).includes(input.kind) ? (input.kind as MessageKind) : "custom";
+  const mode: DraftMode = input.mode === "refine" ? "refine" : "draft";
+  const text = (value: unknown) => (typeof value === "string" ? value : "");
+
+  return runFarahMessageDraft(
+    {
+      organizationId: organization.id,
+      userId: user.id,
+      kind,
+      mode,
+      jobTitle: applicant.jobTitle,
+      orgName: organization.name,
+      candidateFirstName: applicant.firstName,
+      senderFirstName: sender?.first_name ?? null,
+      notes: text(input.notes),
+      currentSubject: mode === "refine" ? text(input.subject) : "",
+      currentBody: mode === "refine" ? text(input.body) : "",
+    },
+    defaultDraftDeps(),
+  );
 }

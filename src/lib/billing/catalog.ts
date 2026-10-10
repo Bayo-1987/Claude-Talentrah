@@ -303,3 +303,10 @@ export const FARAH_SCREENING_REVIEW_NGN = 100;
  * considered.
  */
 export const FARAH_JD_DRAFT_NGN = 400;
+
+/**
+ * 0256 — "Draft/Refine with Farah" on Message candidate: one short message to one applicant, charged from the EMPLOYER's ad wallet per draft (debit_ad_wallet before the model runs, credit_ad_wallet
+ * 'reversal' if the draft fails), and only for an organisation with Premium (organization_premium). A ₦100 PLACEHOLDER GUESS, the same size as a single screening verdict (FARAH_SCREENING_REVIEW_NGN):
+ * nobody has priced this; the owner confirms or changes it before launch.
+ */
+export const FARAH_MESSAGE_DRAFT_NGN = 100;

@@ -4989,6 +4989,7 @@ export type Database = {
         | "reversal"
         | "farah_screening_charge"
         | "farah_jd_draft_charge"
+        | "farah_message_draft_charge"
       admin_permission:
         | "scholarships"
         | "reported_postings"
@@ -5232,6 +5233,7 @@ export const Constants = {
         "reversal",
         "farah_screening_charge",
         "farah_jd_draft_charge",
+        "farah_message_draft_charge",
       ],
       admin_permission: [
         "scholarships",

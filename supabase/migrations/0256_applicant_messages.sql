@@ -10,6 +10,8 @@
 --      readable and creatable by the API roles, so a premium column there would have needed a change to its INSERT policy and to the 0232 withheld-column lists, while a table with no grants for the API roles needs
 --      neither. The date is set ONLY by the function (SECURITY DEFINER, service role only, audited in admin_audit_log with who, before, after and why; no purchase flow yet). The server refuses "Draft/Refine with
 --      Farah" when the organisation has no row or the date has passed. Premium is an access gate only: what Farah costs is charged to the ad wallet.
+--   4. One new value on the enum public.ad_wallet_reason, 'farah_message_draft_charge': what "Draft/Refine with Farah" on the Message candidate form debits from the employer's ad wallet (the same direct
+--      debit_ad_wallet / credit_ad_wallet shape 0181 uses for job scoping; a failed draft is credited back with the existing 'reversal' reason). The enum value is added here and not used in this file.
 --
 -- THE DAY IS THE UTC DAY. A row created at 00:00:00 UTC counts for the new day; a row one second before does not.
 --
@@ -171,6 +173,11 @@ grant execute on function public.admin_set_organization_premium(uuid, timestampt
 
 comment on function public.admin_set_organization_premium(uuid, timestamptz, uuid, text, uuid, text) is
   '0256: the only way an organisation''s Premium date changes. Sets (or ends, with null) the date and writes an admin_audit_log row with the before and after and the reason, in one call. A reason and an acting identity are required. Service role only.';
+
+alter type public.ad_wallet_reason add value if not exists 'farah_message_draft_charge';
+
+comment on type public.ad_wallet_reason is
+  'debit reasons: campaign_charge (0046/0047 ad campaigns), farah_screening_charge (0176 — per-answer AI screening review), farah_jd_draft_charge (send-368 — per-draft AI job-scoping generation), farah_message_draft_charge (0256 — per-draft AI message to an applicant); credit reasons: topup, admin_adjustment, reversal.';
 
 -- Self-check: the objects exist as designed and the API roles have only what was intended.
 do $check$
