@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { draftApplicantMessageWithFarahAction, sendApplicantMessageAction } from "@/lib/employer/applicant-message-actions";
+import { sendApplicantMessageAction } from "@/lib/employer/applicant-message-actions";
 import { MESSAGE_TEMPLATE_KINDS, TEMPLATE_LABELS, SUBJECT_MAX, BODY_MAX, type MessageTemplateKind } from "@/lib/employer/applicant-messages/constants";
 import { cn } from "@/lib/cn";
 
@@ -76,7 +76,13 @@ export function MessageCandidateForm({
     const hasText = subject.trim() !== "" || body.trim() !== "";
     startFarah(async () => {
       try {
-        const result = await draftApplicantMessageWithFarahAction({ jobId, applicationId, kind, mode: hasText ? "refine" : "draft", notes, subject, body });
+        // A route handler, not a Server Action: a draft the browser disconnects before receiving is refunded (see the route).
+        const response = await fetch("/api/employer/applicant-message-draft", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ jobId, applicationId, kind, mode: hasText ? "refine" : "draft", notes, subject, body }),
+        });
+        const result = (await response.json()) as { ok: true; subject: string; body: string } | { ok: false; error: string };
         if (result.ok) {
           setSubject(result.subject);
           setBody(result.body);

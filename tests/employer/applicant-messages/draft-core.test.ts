@@ -91,6 +91,50 @@ describe("runFarahMessageDraft: Premium gate, charge before generate, refund on 
     expect(deps.debit).toHaveBeenCalledTimes(1);
   });
 
+  it("the browser DISCONNECTS mid-generation: refunded exactly once, reported as aborted, and a late answer changes nothing", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const controller = new AbortController();
+    let resolveLate: (v: { subject: string; body: string }) => void = () => {};
+    const deps = makeDeps({ generate: vi.fn(() => new Promise<{ subject: string; body: string }>((resolve) => { resolveLate = resolve; })) });
+    const pending = runFarahMessageDraft({ ...input, signal: controller.signal }, deps);
+    await new Promise((r) => setTimeout(r, 10));
+    controller.abort();
+    expect(await pending).toMatchObject({ ok: false, kind: "aborted" });
+    expect(deps.credit).toHaveBeenCalledTimes(1);
+    resolveLate({ ...GOOD });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(deps.credit).toHaveBeenCalledTimes(1);
+    expect(deps.debit).toHaveBeenCalledTimes(1);
+  });
+
+  it("the browser disconnects just AFTER the model answered: the draft is not delivered, so the charge is refunded once", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const controller = new AbortController();
+    const deps = makeDeps({ generate: vi.fn(async () => { controller.abort(); return { ...GOOD }; }) });
+    const result = await runFarahMessageDraft({ ...input, signal: controller.signal }, deps);
+    expect(result).toMatchObject({ ok: false });
+    expect(result.ok).toBe(false);
+    expect(deps.credit).toHaveBeenCalledTimes(1);
+  });
+
+  it("already disconnected before anything starts: no Premium read, no charge, no model call", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const deps = makeDeps();
+    expect(await runFarahMessageDraft({ ...input, signal: controller.signal }, deps)).toMatchObject({ ok: false, kind: "aborted" });
+    expect(deps.hasPremium).not.toHaveBeenCalled();
+    expect(deps.debit).not.toHaveBeenCalled();
+    expect(deps.generate).not.toHaveBeenCalled();
+  });
+
+  it("a delivered draft with a live signal is charged once and not refunded", async () => {
+    const controller = new AbortController();
+    const deps = makeDeps();
+    expect(await runFarahMessageDraft({ ...input, signal: controller.signal }, deps)).toMatchObject({ ok: true });
+    expect(deps.debit).toHaveBeenCalledTimes(1);
+    expect(deps.credit).not.toHaveBeenCalled();
+  });
+
   it("an empty or unusable draft is a failure and is refunded exactly once", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     for (const bad of [{ subject: "", body: "x" }, { subject: "s", body: "   " }]) {

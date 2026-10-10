@@ -1,5 +1,5 @@
 /**
- * "Draft/Refine with Farah" on Message candidate, the Server Action layer, on a real database with the employer's REAL session and the real ad wallet. The model is replaced by a recorder (the
+ * "Draft/Refine with Farah" on Message candidate, the route handler (POST /api/employer/applicant-message-draft), on a real database with the employer's REAL session and the real ad wallet. The model is replaced by a recorder (the
  * recipe of tests/employer/draft-job-action.test.ts); Premium is set the only way it can be, through admin_set_organization_premium. ONE employer identity for the whole file.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -25,7 +25,14 @@ vi.mock("@/lib/resend/client", async (importOriginal) => ({
   getResendClient: () => ({ emails: { send: async (payload: unknown) => { mail.sent.push(payload); return { data: { id: "x" }, error: null }; } } }),
 }));
 
-const { draftApplicantMessageWithFarahAction } = await import("@/lib/employer/applicant-message-actions");
+const { POST } = await import("@/app/api/employer/applicant-message-draft/route");
+
+type Input = { jobId: string; applicationId: string; kind: string; mode: string; notes: string; subject: string; body: string };
+/** The route as the browser calls it: a JSON POST; the request's own signal aborts when the browser disconnects. */
+async function draftApplicantMessageWithFarahAction(input: Input, signal?: AbortSignal) {
+  const response = await POST(new Request("http://localhost/api/employer/applicant-message-draft", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input), ...(signal ? { signal } : {}) }));
+  return (await response.json()) as { ok: boolean; kind?: string; error?: string; subject?: string; body?: string };
+}
 
 const GOOD = JSON.stringify({ subject: "Interview for Growth Marketer at Zimcrest", body: "Hi Joy,\n\nThank you for applying. Could you share two times that work for you next week?\n\nBest regards,\nTolu, Zimcrest" });
 
@@ -191,6 +198,63 @@ describe("draftApplicantMessageWithFarahAction", () => {
     expect(prompt).toContain("Growth Marketer");
     expect(prompt).not.toContain(seeker.email);
     expect(prompt).not.toMatch(/@/);
+  });
+
+  it("DISCONNECT mid-generation: the browser goes away before the draft is delivered, so the N100 is refunded automatically, exactly once", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const controller = new AbortController();
+    generateText.mockImplementation(() => new Promise(() => {})); // the model never answers while the browser is still there
+    const pending = draftApplicantMessageWithFarahAction(base(), controller.signal);
+    for (let i = 0; i < 200 && generateText.mock.calls.length === 0; i += 1) await new Promise((r) => setTimeout(r, 10));
+    expect(generateText, "the charge happened and the model was asked").toHaveBeenCalledTimes(1);
+    expect(await balance(), "charged while the model works").toBe(1000 - FARAH_MESSAGE_DRAFT_NGN);
+    controller.abort();
+    const result = await pending;
+    expect(result).toMatchObject({ ok: false, kind: "aborted" });
+    expect(await balance()).toBe(1000);
+    expect(await ledger()).toEqual([`farah_message_draft_charge:-${FARAH_MESSAGE_DRAFT_NGN}`, `reversal:${FARAH_MESSAGE_DRAFT_NGN}`]);
+    vi.restoreAllMocks();
+  });
+
+  it("DISCONNECT after the model answered but before the draft is returned: refunded once, nothing delivered", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const controller = new AbortController();
+    generateText.mockImplementation(async () => {
+      controller.abort(); // the browser leaves just as the model finishes
+      return GOOD;
+    });
+    const result = await draftApplicantMessageWithFarahAction(base(), controller.signal);
+    expect(result).toMatchObject({ ok: false });
+    expect(await balance()).toBe(1000);
+    expect((await ledger()).filter((l) => l.startsWith("reversal")).length).toBe(1);
+    vi.restoreAllMocks();
+  });
+
+  it("a request that was already cancelled before it started is never charged", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const result = await draftApplicantMessageWithFarahAction(base(), controller.signal);
+    expect(result).toMatchObject({ ok: false });
+    expect(generateText).not.toHaveBeenCalled();
+    expect(await balance()).toBe(1000);
+    expect(await ledger()).toEqual([]);
+  });
+
+  it("a DELIVERED draft (no disconnect) is charged exactly once, even with a live signal attached", async () => {
+    const controller = new AbortController();
+    const result = await draftApplicantMessageWithFarahAction(base(), controller.signal);
+    expect(result).toMatchObject({ ok: true });
+    expect(await balance()).toBe(1000 - FARAH_MESSAGE_DRAFT_NGN);
+    expect(await ledger()).toEqual([`farah_message_draft_charge:-${FARAH_MESSAGE_DRAFT_NGN}`]);
+  });
+
+  it("a signed-out caller and a signed-in person with no organisation get 401 and 403-shaped answers, nothing charged", async () => {
+    const saved = testClientRef.current;
+    testClientRef.current = { auth: { getUser: async () => ({ data: { user: null } }) } } as unknown as DB;
+    const response = await POST(new Request("http://localhost/api/employer/applicant-message-draft", { method: "POST", body: JSON.stringify(base()) }));
+    expect(response.status).toBe(401);
+    testClientRef.current = saved;
+    expect(await balance()).toBe(1000);
   });
 
   it("a browser cannot slip in another application or kind: junk ids are refused", async () => {

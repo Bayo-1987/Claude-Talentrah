@@ -27,6 +27,8 @@ export interface DraftInput extends DraftPromptInput {
   userId: string;
   /** Overrides DRAFT_TIMEOUT_MS (tests). */
   timeoutMs?: number;
+  /** The request's own signal: it aborts when the browser disconnects before the draft is delivered. */
+  signal?: AbortSignal;
 }
 
 export interface DraftDeps {
@@ -41,7 +43,7 @@ export interface DraftDeps {
 
 export type DraftResult =
   | { ok: true; subject: string; body: string }
-  | { ok: false; kind: "premium_required" | "insufficient_balance" | "generation_error" | "invalid"; error: string };
+  | { ok: false; kind: "premium_required" | "insufficient_balance" | "generation_error" | "invalid" | "aborted"; error: string };
 
 const MONEY = /(?:₦|ngn\s?|\$|£|€|usd\s?|gbp\s?)\s?\d[\d,.]*/gi;
 const WORDS = /\b(?:salary|compensation|remuneration|stipend|bonus|equity|job offer|offer you|make you an offer|extend an offer|guarantee[ds]?|you(?:'ve| have) got the job|you(?:'re| are) hired|you will be hired)\b/gi;
@@ -101,6 +103,8 @@ export async function runFarahMessageDraft(input: DraftInput, deps: DraftDeps): 
     return { ok: false, kind: "invalid", error: "That message is too long for Farah to work on." };
   }
 
+  if (input.signal?.aborted) return { ok: false, kind: "aborted", error: "The request was cancelled." };
+
   if (!(await deps.hasPremium(input.organizationId))) {
     return { ok: false, kind: "premium_required", error: "Drafting and refining with Farah is part of Premium." };
   }
@@ -135,13 +139,28 @@ export async function runFarahMessageDraft(input: DraftInput, deps: DraftDeps): 
     const timeout = new Promise<never>((_resolve, reject) => {
       timer = setTimeout(() => reject(new Error("timed out")), input.timeoutMs ?? DRAFT_TIMEOUT_MS);
     });
+    // The browser went away before the draft could be delivered: nothing will ever arrive, so the charge is handed back.
+    let onAbort: (() => void) | undefined;
+    const disconnected = new Promise<never>((_resolve, reject) => {
+      if (input.signal?.aborted) reject(new Error("disconnected"));
+      onAbort = () => reject(new Error("disconnected"));
+      input.signal?.addEventListener("abort", onAbort, { once: true });
+    });
+    disconnected.catch(() => {});
     try {
-      draft = await Promise.race([generating, timeout]);
+      draft = await Promise.race([generating, timeout, disconnected]);
     } finally {
       clearTimeout(timer);
+      if (onAbort) input.signal?.removeEventListener("abort", onAbort);
     }
-  } catch {
-    return refund("the model call failed or timed out");
+  } catch (error) {
+    const reason = input.signal?.aborted ? "the browser disconnected before delivery" : "the model call failed or timed out";
+    const result = await refund(reason);
+    return input.signal?.aborted && !result.ok ? { ok: false, kind: "aborted", error: result.error } : result;
+  }
+  if (input.signal?.aborted) {
+    const result = await refund("the browser disconnected before delivery");
+    return result.ok ? result : { ok: false, kind: "aborted", error: result.error };
   }
 
   const normalized = normalizeMessage({ subject: draft?.subject, body: draft?.body });
