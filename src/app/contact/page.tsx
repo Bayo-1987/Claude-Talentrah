@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/seo/site";
 import { MarketingMasthead } from "@/components/marketing/marketing-masthead";
@@ -5,6 +6,7 @@ import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Container, EyebrowLabel } from "@/components/ui";
 import { getContactRecipient } from "@/lib/resend/client";
 import { ContactForm } from "./contact-form";
+import { ContactFormFromLink } from "./contact-form-from-link";
 
 export const metadata: Metadata = pageMetadata({
   title: "Contact — Talentrah",
@@ -35,7 +37,9 @@ export default function ContactPage() {
               </a>
             </p>
           </div>
-          <ContactForm />
+          <Suspense fallback={<ContactForm />}>
+            <ContactFormFromLink />
+          </Suspense>
         </Container>
       </main>
       <MarketingFooter />
