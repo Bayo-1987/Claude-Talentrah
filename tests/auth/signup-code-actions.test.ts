@@ -47,7 +47,7 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({ auth: { verifyOtp: h.verifyOtp, resend: h.resend, signUp: h.signUp } }),
 }));
 vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => h.db }));
-vi.mock("@/lib/analytics/posthog", () => ({ captureEvent: vi.fn() }));
+vi.mock("@/lib/analytics/posthog", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/analytics/posthog")>()), captureEvent: vi.fn() }));
 
 const { verifySignupCodeAction, resendSignupCodeAction, startOverSignupAction, signUpAction } = await import("@/lib/auth/actions");
 

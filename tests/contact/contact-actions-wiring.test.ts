@@ -24,7 +24,8 @@ const admin: SupabaseClient<Database> = createClient<Database>(
 
 const sentEmails: unknown[] = [];
 
-vi.mock("@/lib/resend/client", () => ({
+vi.mock("@/lib/resend/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/resend/client")>()),
   getResendClient: () => ({
     emails: {
       send: async (payload: unknown) => {

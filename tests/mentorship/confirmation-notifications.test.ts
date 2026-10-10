@@ -25,7 +25,8 @@ const admin: SupabaseClient<Database> = createClient<Database>(
 const sentEmails = vi.hoisted(() => [] as Array<{ to: string; subject: string; attachments?: Array<{ filename: string; content: unknown }> }>);
 const resendConfigured = vi.hoisted(() => ({ value: true }));
 
-vi.mock("@/lib/resend/client", () => ({
+vi.mock("@/lib/resend/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/resend/client")>()),
   getResendClient: () =>
     resendConfigured.value
       ? {

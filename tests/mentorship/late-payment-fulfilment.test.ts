@@ -33,8 +33,9 @@ vi.mock("@/lib/paystack/client", async () => {
   return { ...actual, verifyTransaction: verify };
 });
 const send = vi.hoisted(() => vi.fn(async () => ({ error: null })));
-vi.mock("@/lib/resend/client", () => ({ getResendClient: () => ({ emails: { send } }) }));
-vi.mock("@/lib/analytics/posthog", () => ({ captureEvent: vi.fn() }));
+vi.mock("@/lib/resend/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/resend/client")>()), getResendClient: () => ({ emails: { send } }) }));
+vi.mock("@/lib/analytics/posthog", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/analytics/posthog")>()), captureEvent: vi.fn() }));
 
 const { fulfillPayment } = await import("@/lib/billing/fulfill");
 

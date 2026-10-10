@@ -24,10 +24,10 @@ const text = (h: string) => h.replace(/<[^>]+>/g, "").replace(/&#x27;/g, "'");
 describe("the dated state", () => {
   const h = html({ freeRemaining: 0, nextFreeMessageAt: FUTURE, now: NOW, timeZone: "Africa/Lagos" });
   it("reads exactly: used, next free message on the date, until then each message costs the price", () => {
-    expect(text(h)).toBe(`You've used your free messages. Your next free message is available on Fri 9 Oct at 14:20. Until then, each message costs ${PRICE}.`);
+    expect(text(h)).toBe(`You've used your free messages for now. Free messages come back 30 days after you use them; your next one is on Fri 9 Oct at 14:20 WAT. Until then, each message costs ${PRICE}.`);
   });
   it("has the date line: a <time> with the instant", () => {
-    expect(h).toContain(`<time dateTime="${FUTURE}">Fri 9 Oct at 14:20</time>`);
+    expect(h).toContain(`<time dateTime="${FUTURE}">Fri 9 Oct at 14:20 WAT</time>`);
   });
 });
 
@@ -36,7 +36,7 @@ describe("the undated state (no date, a past date, or junk)", () => {
     const h = html({ freeRemaining: 0, nextFreeMessageAt: v, now: NOW, timeZone: "Africa/Lagos" });
     expect(text(h)).toBe(`You've used your free messages. Each message costs ${PRICE}.`);
     expect(h).not.toContain("<time");
-    expect(h).not.toMatch(/available on|Until then/);
+    expect(h).not.toMatch(/your next one is on|Until then|come back/);
   });
 });
 

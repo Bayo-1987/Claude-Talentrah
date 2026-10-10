@@ -39,6 +39,8 @@ describe("AdminScholarshipForm wires the generation to the editor's key", () => 
   });
   it("the generation is advanced from the create action's state, during render (no effect)", () => {
     expect(source).toContain("nextEditorGeneration(");
-    expect(source).not.toMatch(/useEffect/);
+    // Only an effect that sets the generation is banned; the banner scroll-into-view effect is fine.
+    const effectBodies = [...source.matchAll(/useEffect\(\(\) => \{([^]*?)\}, \[/g)].map((m) => m[1]).join(" ");
+    expect(effectBodies).not.toContain("setEditorGeneration");
   });
 });

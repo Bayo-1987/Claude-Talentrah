@@ -6,6 +6,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { requirePermission } from "@/lib/admin/require-admin";
 import { recordAdminAction } from "@/lib/admin/audit";
 import { blogPostSchema } from "./schemas";
+import { submittedValues, type SubmittedValues } from "@/lib/forms/keep-input";
 
 /**
  * Blog mutations, under an admin session.
@@ -46,10 +47,17 @@ import { blogPostSchema } from "./schemas";
  * dependency if that ever changes.
  */
 
+/** The fields an error hands back (never a secret): see src/lib/forms/keep-input.ts. */
+const BLOG_FIELDS = ["title", "slug", "description", "author", "body"] as const;
+
 export interface BlogActionState {
   status: "idle" | "error" | "success";
   message?: string;
   fieldErrors?: Record<string, string[]>;
+  /** Returned with an error so the form keeps what the operator typed (React 19 resets the form after any action). */
+  values?: SubmittedValues;
+  /** Returned with a successful update: the slug that was just saved, for the "View post" link (it may have been renamed). */
+  savedSlug?: string;
 }
 
 function revalidateBlog(slug?: string) {
@@ -77,8 +85,9 @@ export async function createPostAction(
   if (!parsed.success) {
     return {
       status: "error",
-      message: "Check the fields below.",
+      message: "Check the highlighted fields.",
       fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
+      values: submittedValues(formData, BLOG_FIELDS),
     };
   }
 
@@ -100,6 +109,7 @@ export async function createPostAction(
         ? "A post with that slug already exists."
         : `Couldn't create the post: ${error.message}`,
       fieldErrors: duplicate ? { slug: ["Already taken."] } : undefined,
+      values: submittedValues(formData, BLOG_FIELDS),
     };
   }
 
@@ -127,8 +137,9 @@ export async function updatePostAction(
   if (!parsed.success) {
     return {
       status: "error",
-      message: "Check the fields below.",
+      message: "Check the highlighted fields.",
       fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
+      values: submittedValues(formData, BLOG_FIELDS),
     };
   }
 
@@ -152,6 +163,7 @@ export async function updatePostAction(
       status: "error",
       message: duplicate ? "Another post already uses that slug." : `Couldn't save: ${error.message}`,
       fieldErrors: duplicate ? { slug: ["Already taken."] } : undefined,
+      values: submittedValues(formData, BLOG_FIELDS),
     };
   }
 
@@ -165,7 +177,7 @@ export async function updatePostAction(
 
   revalidateBlog(parsed.data.slug);
   if (before?.slug && before.slug !== parsed.data.slug) revalidatePath(`/blog/${before.slug}`);
-  return { status: "success", message: "Saved." };
+  return { status: "success", message: "Saved.", savedSlug: parsed.data.slug };
 }
 
 /**

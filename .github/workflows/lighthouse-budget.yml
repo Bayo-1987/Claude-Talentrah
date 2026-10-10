@@ -22,22 +22,37 @@ name: Lighthouse performance budget
 # skipping this job would save only a few Lighthouse runs and not the expensive
 # part (the deploy). That premise changed: vercel.json's `ignoreCommand`
 # (scripts/vercel-ignore-build.mjs) now skips the PREVIEW BUILD itself for a PR
-# that changes only docs, tests or e2e (the Hobby plan caps deployments at 100 per
-# rolling 24h and previews count). This job waits for the PR's own preview, so it
-# must skip for exactly the same PRs, or it would wait for a deployment that was
-# never made. The `paths-ignore` below is that same list; a PR that touches
+# that changes only docs, tests or e2e (when this was written the Hobby plan capped
+# deployments at 100 per rolling 24h and previews counted; the project moved to
+# Vercel Pro on 8 Oct 2026, owner's confirmation in the approvals log of that day,
+# so the cap no longer applies and the skip now only saves builds). This job waits
+# for the PR's own preview, so it must skip for exactly the same PRs, or it would
+# wait for a deployment that was never made. The `paths-ignore` below is that same list; a PR that touches
 # anything else still builds a preview and still runs this job.
 #
-# THE FOUR PAGES, AND WHY JOB-DETAIL IS RESOLVED AT RUNTIME, NOT HARDCODED.
-# Homepage, /jobs/remote (the real public job-search surface — plain /jobs is
-# NOT public, robots.ts's own comment already documents it as a 307-to-login
-# redirect for a signed-out visitor, so it would not have been a representative
-# choice), a job detail page, and /mentorship. A job detail page is keyed to
+# THE FOUR PAGES, AND WHY TWO OF THEM ARE RESOLVED AT RUNTIME, NOT HARDCODED.
+# Homepage, a public landing page, a job detail page, and /mentorship. The
+# landing page is the preview's own /jobs/remote (the real public job-search
+# surface — plain /jobs is NOT public, robots.ts's own comment already
+# documents it as a 307-to-login redirect for a signed-out visitor, so it would
+# not have been a representative choice) WHEN the preview's sitemap lists it,
+# and the static /about page when it does not. /jobs/remote renders only with
+# LANDING_PAGE_MIN_ENTRIES (5) remote jobs and answers 404 below that, and a
+# preview reads a small test database that can fall below it, so auditing a
+# hardcoded /jobs/remote failed this job for a reason that had nothing to do
+# with the PR. The real /jobs/remote is audited against production instead, by
+# lighthouse-production.yml (scheduled, informational, never a PR check). A job detail page is keyed to
 # one specific posting id that can close or expire, so hardcoding one risks
 # this workflow failing on an unrelated 404 months from now — the "resolve"
 # step below pulls the first real /jobs/<uuid> straight out of the preview's
 # own live sitemap.xml instead, the same source of truth
 # scripts/check-broken-links.ts already treats as canonical.
+#
+# BUDGETS, PREVIEW vs PRODUCTION (8 Oct). This job audits a Vercel PREVIEW and reads .lighthouserc.preview.json: the same performance, accessibility and best-practices
+# thresholds as .lighthouserc.json and NO SEO assertion. A preview can never satisfy SEO: Vercel serves previews with noindex (Lighthouse's `is-crawlable` fails, "Page is blocked
+# from indexing") and answers /robots.txt with its own response (`robots-txt` fails), so every page scored 0.5 to 0.61 whatever the app did. That was seen on the first run of this
+# workflow that got past the /jobs/remote 404 (PR #857): the other three categories passed on all four pages and only SEO failed, on all four. The full .lighthouserc.json,
+# SEO included, is what production is held to (lighthouse-production.yml), where SEO is meaningful.
 #
 # BUDGETS: see .lighthouserc.json's own assert.assertions — set at or
 # slightly below the real baseline measured directly against production
@@ -240,8 +255,9 @@ jobs:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
           npx --yes @lhci/cli@0.15.1 autorun \
+            --config=.lighthouserc.preview.json \
             --collect.url="${{ steps.vercel_preview.outputs.url }}/" \
-            --collect.url="${{ steps.vercel_preview.outputs.url }}/jobs/remote" \
+            --collect.url="${{ steps.resolve_urls.outputs.landing_url }}" \
             --collect.url="${{ steps.resolve_urls.outputs.job_url }}" \
             --collect.url="${{ steps.vercel_preview.outputs.url }}/mentorship" \
             --collect.settings.chromeFlags="--headless --no-sandbox --disable-gpu" \

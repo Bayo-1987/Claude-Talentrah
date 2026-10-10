@@ -98,9 +98,11 @@ chmod +x "$FAKE_BIN_DIR/curl"
 run_script
 
 [ "$STATUS" -eq 0 ] || fail "scenario 4 (success): expected exit 0, got $STATUS. Got: $OUTPUT"
-echo "$OUTPUT" | grep -q "job_url=https://example.com/jobs/$JOB_ID" \
-  || fail "scenario 4 (success): expected job_url output missing. Got: $OUTPUT"
-echo "PASS: scenario 4 (success) — resolves the real job URL, exit 0"
+echo "$OUTPUT" | grep -q "job_url=https://example-preview.vercel.app/jobs/$JOB_ID" \
+  || fail "scenario 4 (success): expected job_url output on the PREVIEW's host (the sitemap printed example.com). Got: $OUTPUT"
+echo "$OUTPUT" | grep -q "landing_url=https://example-preview.vercel.app/about" \
+  || fail "scenario 4 (success): a sitemap without /jobs/remote must fall back to the static /about page. Got: $OUTPUT"
+echo "PASS: scenario 4 (success) — resolves the real job URL and the landing page, exit 0"
 
 echo ""
 echo "All scenarios passed."

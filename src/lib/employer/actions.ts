@@ -1,6 +1,7 @@
 "use server";
 
 import { createHash } from "node:crypto";
+import { submittedValues, type SubmittedValues } from "@/lib/forms/keep-input";
 import {
   CLOSING_DATE_PASSED_MESSAGE,
   DEFAULT_NEW_POSTING_EXPIRY_DAYS,
@@ -12,6 +13,7 @@ import {
 } from "./expiry-input";
 import { readSalaryForm } from "./salary-input";
 import { revalidatePath } from "next/cache";
+import { revalidateEmbed } from "@/lib/embed/revalidate";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
@@ -48,7 +50,7 @@ const SCREENABLE_SKILL_SET = new Set(SKILL_VOCABULARY);
  * an employer just spent two minutes filling in is the difference between a
  * fixable mistake and a lost draft.
  */
-export type EmployerActionState = { error: string } | { ok: true } | null;
+export type EmployerActionState = { error: string; values?: SubmittedValues } | { ok: true } | null;
 
 async function getAuthedUser() {
   const supabase = await createClient();
@@ -106,8 +108,10 @@ export async function createOrganizationAction(
 ): Promise<EmployerActionState> {
   const { supabase, user } = await getAuthedUser();
 
+  // Handed back with every refusal below EXCEPT the one after the company exists (see "verification didn't complete"): an error keeps what was typed (owner rule, src/lib/forms/keep-input.ts).
+  const typed = submittedValues(form, ["name", "domain", "description"]);
   const name = str(form, "name");
-  if (!name) return { error: "Company name is required." };
+  if (!name) return { error: "Company name is required.", values: typed };
 
   const outcome = evaluateDomainVerification({
     userEmail: user.email,
@@ -146,6 +150,7 @@ export async function createOrganizationAction(
         error:
           `${existing.name} is already registered on ${outcome.domain}. ` +
           `Go back and choose it from the list to join your colleagues, rather than creating a second company.`,
+        values: typed,
       };
     }
   }
@@ -165,7 +170,7 @@ export async function createOrganizationAction(
     .single();
 
   if (error || !org) {
-    return { error: `Couldn't create the organisation: ${error?.message ?? "unknown error"}` };
+    return { error: `Couldn't create the organisation: ${error?.message ?? "unknown error"}`, values: typed };
   }
 
   const { error: memberError } = await supabase
@@ -188,7 +193,7 @@ export async function createOrganizationAction(
     const cleanup = createServiceRoleClient();
     const { error: cleanupError } = await cleanup.from("organizations").delete().eq("id", org.id);
     if (cleanupError) console.error(`[createOrganizationAction] orphan cleanup failed for org ${org.id}:`, cleanupError.message);
-    return { error: `Couldn't set you up as the owner: ${memberError.message}` };
+    return { error: `Couldn't set you up as the owner: ${memberError.message}`, values: typed };
   }
 
   // `verified` is deliberately not writable by any client (migration 0028), so
@@ -235,11 +240,13 @@ export async function createOrganizationAction(
           error:
             `Someone else at ${outcome.domain} registered your company while you were filling this in. ` +
             `Go back and choose it from the list to join them.`,
+          values: typed,
         };
       }
       // Not fatal — the org exists and simply stays unverified, which is the
       // safe direction. Surfacing it beats a silent downgrade the employer
-      // cannot explain.
+      // cannot explain. NO `values` here, on purpose: the company exists, and a
+      // form primed with the same entry would invite creating it a second time.
       return {
         error: `Organisation created, but verification didn't complete: ${verifyError.message}. Your jobs stay private until it does.`,
       };
@@ -335,8 +342,9 @@ export async function updateCompanyProfileAction(
   const { supabase, user } = await getAuthedUser();
   const { organization } = await requireEmployer();
 
+  const typed = submittedValues(form, ["name", "domain", "description", "logoUrl"]);
   const name = str(form, "name");
-  if (!name) return { error: "Company name is required." };
+  if (!name) return { error: "Company name is required.", values: typed };
 
   const claimedDomain = normalizeDomain(str(form, "domain"));
 
@@ -354,7 +362,7 @@ export async function updateCompanyProfileAction(
     })
     .eq("id", organization.id);
 
-  if (error) return { error: `Couldn't save your profile: ${error.message}` };
+  if (error) return { error: `Couldn't save your profile: ${error.message}`, values: typed };
 
   // Changing the domain re-runs verification in BOTH directions. Only lowering
   // it would let an employer verify with their real domain and then rename to
@@ -387,6 +395,7 @@ export async function updateCompanyProfileAction(
 
   revalidatePath("/employer/profile");
   revalidatePath("/employer/jobs");
+  revalidateEmbed(organization.id);
   return { ok: true };
 }
 
@@ -416,10 +425,11 @@ export async function submitCacVerificationAction(
   const { supabase } = await getAuthedUser();
   const { organization } = await requireEmployer();
 
+  const typed = submittedValues(form, ["cacNumber", "cacBusinessName"]);
   const cacNumber = str(form, "cacNumber");
   const cacBusinessName = str(form, "cacBusinessName");
   if (!cacNumber || !cacBusinessName) {
-    return { error: "Both the RC number and the registered business name are required." };
+    return { error: "Both the RC number and the registered business name are required.", values: typed };
   }
 
   const { error } = await supabase
@@ -427,7 +437,7 @@ export async function submitCacVerificationAction(
     .update({ cac_number: cacNumber, cac_business_name: cacBusinessName })
     .eq("id", organization.id);
 
-  if (error) return { error: `Couldn't submit for verification: ${error.message}` };
+  if (error) return { error: `Couldn't submit for verification: ${error.message}`, values: typed };
 
   revalidatePath("/employer/profile");
   return { ok: true };
@@ -649,6 +659,7 @@ export async function postJobAction(
 
   revalidatePath("/employer/jobs");
   revalidatePath("/jobs");
+  revalidateEmbed(organization.id);
   // `?posted=<id>` is how Jobs Posted knows to surface the "your posting now
   // has a real id" confirmation card and its deferred banner/assessment-file
   // uploads (src/app/employer/jobs/page.tsx) — that plumbing is genuinely
@@ -779,6 +790,7 @@ export async function updateJobAction(
 
   revalidatePath("/employer/jobs");
   revalidatePath("/jobs");
+  revalidateEmbed(organization.id);
   // `?assessmentCreated=<jobId>` (send-449) is how Jobs Posted knows to run
   // the same deferred-upload step Create's own `?posted=<id>` already
   // triggers (PostSuccessAssessmentFilesNote) — the files EditJobAssessment-
@@ -859,6 +871,7 @@ export async function setJobStatusAction(jobId: string, status: Enums<"job_statu
 
   revalidatePath("/employer/jobs");
   revalidatePath("/jobs");
+  revalidateEmbed(organization.id);
 }
 
 /**
@@ -1029,6 +1042,7 @@ async function publishDraft(
 
   revalidatePath("/employer/jobs");
   revalidatePath("/jobs");
+  revalidateEmbed(organization.id);
   return { ok: true };
 }
 
@@ -1100,6 +1114,7 @@ export async function deleteJobAction(jobId: string) {
 
   revalidatePath("/employer/jobs");
   revalidatePath("/jobs");
+  revalidateEmbed(organization.id);
   redirect("/employer/jobs?deleted=1");
 }
 
@@ -1393,6 +1408,7 @@ export async function claimJobPostingAction(
   revalidatePath("/employer/jobs");
   revalidatePath("/employer/claim");
   revalidatePath("/jobs");
+  revalidateEmbed(organization.id);
   redirect(`/employer/jobs?claimed=${row.job_posting_id}`);
 }
 

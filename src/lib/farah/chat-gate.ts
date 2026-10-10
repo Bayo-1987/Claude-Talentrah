@@ -1,7 +1,8 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { farahMessageCharge } from "@/lib/credits/farah-message-charge";
-import { spendCredits, InsufficientCreditsError } from "@/lib/credits/spend";
+import { spendCredits, grantCredits, InsufficientCreditsError } from "@/lib/credits/spend";
+import { randomUUID } from "node:crypto";
 import { logCreditGateEvent } from "@/lib/credits/gate-events";
 import { checkPassCoverage, DAILY_CAP_MESSAGE } from "@/lib/passes/entitlement";
 
@@ -62,6 +63,12 @@ export interface FarahChatAllowanceResult {
    * on the old check-then-commit path (the claim function was missing).
    */
   freeClaimId?: string;
+  /**
+   * Set only for a PAID message: its credit was TAKEN at the check (see checkFarahChatAllowance), before any model call. The route must SETTLE it like a free claim: commitFarahChatAllowance after a
+   * completed reply (nothing more is charged), releaseFarahChatAllowance on every other way out (the credit is given back). `balanceAfter` is the ledger's own balance_after for that spend;
+   * `holdId` is written to BOTH ledger rows (the spend and any refund) as related_entity_id, and to the content-free log lines, so a hold can be followed.
+   */
+  paidHold?: { credits: number; balanceAfter: number; holdId: string };
 }
 
 /**
@@ -177,9 +184,17 @@ export async function farahChatNextFreeMessageAt(userId: string, now: Date = new
 }
 
 /**
- * Read-only affordability check — call BEFORE askFarahChat/askFarahChatStream. Does not
- * mutate anything; pair with commitFarahChatAllowance after the LLM call
- * actually succeeds.
+ * The entitlement gate — call BEFORE askFarahChat/askFarahChatStream, and settle what it returns: commitFarahChatAllowance after a completed reply, releaseFarahChatAllowance on every other exit.
+ *
+ * A FREE message holds a claim on a free slot (0236). A PAID message now takes its credit HERE, in the one atomic spend (spend_credits_atomic, 0035), instead of after the reply. The old order was
+ * check the balance, stream the reply, then spend: two tabs at a balance of 1 both passed the check, both streamed a full reply, and the loser's spend threw inside the stream after its reply had
+ * already been read, so that reply was free and was never saved. Spending first makes the loser's spend fail BEFORE any model call or streaming (the route answers 402). The credit is given back
+ * (grantCredits, same reason) by the release on every exit that is not a completed reply: a failed model call, a cut-off reply, a reader that went away, an early refusal.
+ *
+ * RESIDUAL WINDOW, stated plainly: a paid hold has no expiry (the free claim expires by itself in the database after FARAH_FREE_CLAIM_HOLD_SECONDS; a paid hold would need its own table and a
+ * migration). If the process is killed between the spend and the release (a platform timeout or a crash mid-stream), the credit is not given back. Before this change that failure charged nothing.
+ * It is bounded to one credit per killed request and is findable: every hold writes a content-free "[farah-paid-hold]" line when it starts and when it completes or is released, and both ledger rows
+ * carry the same related_entity_id (the hold id), so a spend row with no refund row and no saved reply can be found by a read-only comparison.
  */
 export async function checkFarahChatAllowance(
   userId: string,
@@ -254,9 +269,27 @@ export async function checkFarahChatAllowance(
 
   if (charge.kind !== "credits") throw new Error("farahMessageCharge returned an unexpected kind for a gate call");
 
-  // A credit spend is logged as 'proceeded' immediately, unlike the two
-  // capped-resource branches above — nothing about this outcome is capped,
-  // so there's nothing a failed LLM call could over-consume by logging early.
+  // The credit is taken NOW (see the header): one atomic spend before any model call. The loser of a race for the last credit fails here and is refused like any other unaffordable message.
+  const holdId = randomUUID();
+  let balanceAfter: number;
+  try {
+    balanceAfter = await spendCredits(userId, charge.credits, FARAH_CHAT_REASON, holdId);
+  } catch (err) {
+    if (err instanceof InsufficientCreditsError) {
+      await logCreditGateEvent({
+        userId,
+        reason: FARAH_CHAT_REASON,
+        creditsRequired: err.required,
+        creditsAvailable: err.available,
+        outcome: "blocked_insufficient_credits",
+      });
+      throw new InsufficientCreditsError(err.required, err.available, coverage && !coverage.covered && coverage.reason === "daily_cap_reached" ? DAILY_CAP_MESSAGE : undefined);
+    }
+    throw err;
+  }
+  console.info(`[farah-paid-hold] started hold=${holdId} credits=${charge.credits}`);
+
+  // A credit spend is logged as 'proceeded' immediately, unlike the two capped-resource branches above: nothing about this outcome is capped.
   await logCreditGateEvent({
     userId,
     reason: FARAH_CHAT_REASON,
@@ -270,6 +303,7 @@ export async function checkFarahChatAllowance(
     creditsSpent: charge.credits,
     creditsAvailableAtCheck: balance,
     freeMessagesRemaining: 0,
+    paidHold: { credits: charge.credits, balanceAfter, holdId },
   };
 }
 
@@ -323,6 +357,12 @@ export async function commitFarahChatAllowance(
     });
     return { balanceAfter: null };
   }
+  if (allowance.paidHold) {
+    // The credit was taken at the check and the reply is complete: nothing more to charge. The balance reported is the ledger's own balance_after for that spend.
+    console.info(`[farah-paid-hold] completed hold=${allowance.paidHold.holdId}`);
+    return { balanceAfter: allowance.paidHold.balanceAfter };
+  }
+  // An allowance that carries no hold (built by hand; the check always sets one for a paid message) is charged here, as before.
   const balanceAfter = await spendCredits(userId, allowance.creditsSpent, FARAH_CHAT_REASON);
   return { balanceAfter };
 }
@@ -333,6 +373,17 @@ export async function commitFarahChatAllowance(
  * itself after FARAH_FREE_CLAIM_HOLD_SECONDS, and one content-free line says so.
  */
 export async function releaseFarahChatAllowance(userId: string, allowance: FarahChatAllowanceResult): Promise<void> {
+  if (allowance.paidHold) {
+    // Give the credit taken at the check back. Never throws: a refund that fails is logged loudly (the one case an account is left a credit short) and the exit it belongs to carries on.
+    const { credits, holdId } = allowance.paidHold;
+    try {
+      await grantCredits(userId, credits, FARAH_CHAT_REASON, holdId);
+      console.info(`[farah-paid-hold] released hold=${holdId} credits=${credits}`);
+    } catch {
+      console.error(`[farah-paid-hold] REFUND FAILED hold=${holdId} credits=${credits}: the credit taken for a message that was not delivered was not given back`);
+    }
+    return;
+  }
   if (!allowance.freeClaimId) return;
   try {
     const { error } = await rpcOf(createServiceRoleClient())("release_farah_free_claim", { p_claim_id: allowance.freeClaimId, p_user_id: userId });

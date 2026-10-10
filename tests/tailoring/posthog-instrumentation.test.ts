@@ -20,7 +20,7 @@ import { admin, createTestUser, deleteTestUsers } from "../support/auth";
 import type { AllowanceResult } from "@/lib/tailoring/gate";
 
 const captureEvent = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/analytics/posthog", () => ({ captureEvent }));
+vi.mock("@/lib/analytics/posthog", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/analytics/posthog")>()), captureEvent }));
 
 const { commitTailoringAllowance } = await import("@/lib/tailoring/gate");
 

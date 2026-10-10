@@ -5,6 +5,7 @@ import { updateProfileAction } from "@/lib/profile/settings-actions";
 import { initialSettingsActionState } from "@/lib/profile/settings-state";
 import { SIGNUP_COUNTRIES } from "@/lib/auth/schemas";
 import { TextField, SelectField, Button } from "@/components/ui";
+import { inputValue, selectKey } from "@/lib/forms/keep-input";
 
 export interface SettingsFormProps {
   firstName: string;
@@ -34,7 +35,7 @@ export function SettingsForm({ firstName, lastName, country }: SettingsFormProps
       <TextField
         label="First name"
         name="firstName"
-        defaultValue={firstName}
+        defaultValue={inputValue(state.values, "firstName", firstName)}
         autoComplete="given-name"
         required
         error={state.fieldErrors?.firstName?.[0]}
@@ -42,7 +43,7 @@ export function SettingsForm({ firstName, lastName, country }: SettingsFormProps
       <TextField
         label="Last name"
         name="lastName"
-        defaultValue={lastName}
+        defaultValue={inputValue(state.values, "lastName", lastName)}
         autoComplete="family-name"
         required
         error={state.fieldErrors?.lastName?.[0]}
@@ -54,11 +55,12 @@ export function SettingsForm({ firstName, lastName, country }: SettingsFormProps
         defect fixed in the primitive, honoured here rather than relied on.
       */}
       <SelectField
+        key={selectKey(state.values, "country")}
         label="Country"
         name="country"
         autoComplete="country-name"
         options={SIGNUP_COUNTRIES}
-        defaultValue={country ?? ""}
+        defaultValue={inputValue(state.values, "country", country ?? "")}
         required
         error={state.fieldErrors?.country?.[0]}
       />

@@ -43,22 +43,21 @@ family once it exists: the auth emails keep one in `docs/auth-email-templates/RE
 
 ### Employer job-list widget (the `/embed/*` iframe page)
 
-The widget is shipped switched OFF. It stays OFF for every employer until the owner has done step 1 and then step 2, in this order. (Code: PR #827; the switch is `EMBED_WIDGET_ENABLED`, read on the server, default off.)
+The widget is shipped switched OFF for every employer. The server-side switch is the environment variable `EMBED_WIDGET_ENABLED`, read on the server, default off. (Code: PR #827.)
 
-**Step 1: a rate-limit rule on `/embed/*`.**
+**Step 1: a rate-limit rule on `/embed/*`. Done: the rule `embed-rate-limit` is live (8 Oct 2026).**
 
 1. **What:** a Vercel Firewall rule that rate-limits requests to the embed pages, so a third-party page that loads them cannot drive the origin.
-2. **Where:** Vercel → the `claude-talentrah` project → Firewall → Custom rules → add a rule with the action "Rate limit". (The wording of the screens is Vercel's; the owner confirms the path.)
-3. **The exact value:** condition "Request path starts with `/embed/`"; the limit is the owner's number (for example 60 requests per minute per IP address, window 1 minute); action: block with the default 429 response.
-4. **How the owner sees it is live:** the rule is listed as active in the Firewall page; a script that requests one embed URL more than the limit within the window starts receiving 429.
-5. **Recorded:** a dated line in `approvals/log.md` by the owner or the CTO session ("rate-limit rule on `/embed/*` live, limit N per window").
+2. **Where:** Vercel → the `claude-talentrah` project → Firewall → Custom rules (action "Rate limit").
+3. **The exact value:** condition "Request path starts with `/embed/`"; the limit is the owner's number; action: block with the default 429 response.
+4. **How the owner sees it is live:** the rule is listed as active in the Firewall page; one embed URL requested more than the limit within the window starts receiving 429.
+5. **Recorded:** `approvals/log.md`, 8 Oct 2026.
 
-**Step 2: turn the feature on for the deployment.**
+**Step 2: turn the feature on for the deployment. The owner does this himself; sessions never change dashboard settings.**
 
 1. **What:** the environment variable `EMBED_WIDGET_ENABLED`.
-2. **Where:** Vercel → the project → Settings → Environment Variables → Production (and Preview only if the owner wants employers to be able to try it there).
-3. **The exact value:** the single character `1`. Any other value, including `true`, leaves the feature off. Redeploy afterwards (a new deployment starts with a fresh cache).
-4. **How the owner sees it is live:** the Company Profile page of an employer shows the switch ("Show my open jobs on my website") instead of "This isn't available yet"; with the switch on for a verified test organisation, `/embed/jobs/<its id>` lists its open jobs.
-5. **Recorded:** a dated line in `approvals/log.md`; the widget is not done until this line exists.
-
-Do not do step 2 before step 1.
+2. **Where:** Vercel → the project → Settings → Environment Variables → Production (and Preview only if employers should be able to try it there).
+3. **The exact value:** the single character `1`. Any other value, including `true`, leaves the feature off.
+4. **It applies on the NEXT deployment, not to the running one.** After setting it, ask S2 to redeploy (a new deployment also starts with a fresh cache).
+5. **How the owner sees it is live:** the Company Profile page of an employer shows the switch ("Show my open jobs on my website") instead of "This isn't available yet"; with the switch on for a verified test organisation, `/embed/jobs/<its id>` lists its open jobs.
+6. **Recorded:** a dated line in `approvals/log.md`; the widget is not done until this line exists.

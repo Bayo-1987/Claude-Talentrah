@@ -24,7 +24,8 @@ const sentEmails = vi.hoisted(() => [] as Array<{ to: string; subject: string; t
 const resendConfigured = vi.hoisted(() => ({ value: true }));
 const resendThrows = vi.hoisted(() => ({ value: false }));
 
-vi.mock("@/lib/resend/client", () => ({
+vi.mock("@/lib/resend/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/resend/client")>()),
   getResendClient: () =>
     resendConfigured.value
       ? {

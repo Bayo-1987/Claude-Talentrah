@@ -1,7 +1,7 @@
 import "server-only";
 import { decodeHtmlEntities } from "@/lib/jobs/extract-jd";
 import { isUrlAllowedByRobots } from "./robots";
-import { checkUrlIsSafeToFetch } from "@/lib/security/ssrf-guard";
+import { pinnedFetch, SsrfBlockedError } from "@/lib/security/pinned-fetch";
 
 const FETCH_TIMEOUT_MS = 10_000;
 
@@ -102,8 +102,7 @@ const REDIRECT_STATUS_CODES = new Set([301, 302, 303, 307, 308]);
  * `redirect: "follow"` is exactly what an SSRF-safe fetch cannot use: the
  * hostname allowlist would only ever see the URL the caller typed, not
  * where a 3xx chain actually lands. This follows redirects itself, one hop
- * at a time, re-running the full SSRF check (`checkUrlIsSafeToFetch`) on
- * every target BEFORE fetching it — including the first.
+ * at a time; every hop (the first included) goes through `pinnedFetch`, which resolves the host, checks every address and connects to that same checked address.
  */
 async function fetchWithSsrfGuard(
   startUrl: URL,
@@ -111,19 +110,18 @@ async function fetchWithSsrfGuard(
   let currentUrl = startUrl;
 
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-    const safety = await checkUrlIsSafeToFetch(currentUrl);
-    if (!safety.allowed) {
-      return { ok: false, reason: "That address can't be fetched — it points at a non-public network." };
-    }
-
+    // One call resolves the host, checks every address and connects to that same checked address (no second DNS lookup to rebind); a refusal never connects.
     let response: Response;
     try {
-      response = await fetch(currentUrl.toString(), {
-        redirect: "manual",
+      response = await pinnedFetch(currentUrl.toString(), {
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
         headers: REQUEST_HEADERS,
+        maxBodyBytes: MAX_RAW_HTML_CHARS * 2,
       });
-    } catch {
+    } catch (err) {
+      if (err instanceof SsrfBlockedError) {
+        return { ok: false, reason: "That address can't be fetched — it points at a non-public network." };
+      }
       return { ok: false, reason: "Couldn't reach that page — check the URL and try again." };
     }
 

@@ -85,7 +85,8 @@ vi.mock("@/lib/paystack/client", async () => {
 
 // Email is stubbed out — the reminder stage is not under test and sending is
 // not something a test should do.
-vi.mock("@/lib/resend/client", () => ({ getResendClient: () => null }));
+vi.mock("@/lib/resend/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/resend/client")>()), getResendClient: () => null }));
 
 let userId: string;
 let passId: string;
@@ -521,6 +522,59 @@ describe("a recurring charge is checked for amount and currency, not just status
 
     expect((await passState()).auto_renew_status).toBe("lapsed");
     expect(charge).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("a previous attempt that Paystack has not finished is NOT a failed attempt (P1 follow-up)", () => {
+  /*
+   * chargeOne settles the previous run's unresolved reference before charging again. It used to treat ANY verify answer other than "success" as "that attempt failed: clear the reference
+   * and charge afresh". An in-progress answer (pending, processing, ongoing, queued) or an abandoned one means the FIRST charge may still complete, so a fresh charge could bill the customer
+   * twice for one period. Now only failed / reversed (and a Paystack answer that the reference does not exist at all) release the reference; anything else keeps it, charges nothing, and counts as an
+   * indeterminate attempt (bounded at 3, then lapsed with the reference kept for a human).
+   */
+  async function firstRunLeavesAPendingReference() {
+    charge.mockRejectedValueOnce(timeoutError());
+    const { runPassRenewalJob } = await import("@/lib/billing/renewals");
+    await runPassRenewalJob();
+    const ref = (await transactionsForPass())[0].paystack_reference;
+    const state = await passState();
+    expect(state.auto_renew_status, "setup: the first run left the Pass renewable").toBe("active");
+    return { ref, runPassRenewalJob };
+  }
+  const answer = (status: string, reference: string) => ({ status, reference, amount: Math.round(passPriceNgn * 100), currency: "NGN", channel: "card" });
+
+  it.each(["pending", "processing", "ongoing", "queued", "abandoned", "a_status_nobody_has_seen"])(
+    "previous reference verifies as %s: no new charge, the reference is kept, the Pass stays active, the attempt is counted",
+    async (status) => {
+      const { ref, runPassRenewalJob } = await firstRunLeavesAPendingReference();
+      verify.mockResolvedValue(answer(status, ref!));
+      await runPassRenewalJob();
+      expect(charge, "DOUBLE-CHARGE RISK: charged again while the first charge may still complete").toHaveBeenCalledTimes(1);
+      const { data: up } = await admin.from("user_passes").select("pending_renewal_reference, renewal_attempt_count, auto_renew_status").eq("id", userPassId).single();
+      expect(up!.pending_renewal_reference, "the thread back to the money is kept").toBe(ref);
+      expect(up!.renewal_attempt_count).toBe(2);
+      expect(up!.auto_renew_status).toBe("active");
+    },
+  );
+
+  it("three unfinished answers in a row lapse the Pass WITH the reference kept for a human, and never charged a second time", async () => {
+    const { ref, runPassRenewalJob } = await firstRunLeavesAPendingReference();
+    verify.mockResolvedValue(answer("processing", ref!));
+    await runPassRenewalJob(); // attempt 2
+    await admin.from("user_passes").update({ next_renewal_date: new Date().toISOString().slice(0, 10) }).eq("id", userPassId);
+    await runPassRenewalJob(); // attempt 3
+    expect(charge).toHaveBeenCalledTimes(1);
+    const { data: up } = await admin.from("user_passes").select("pending_renewal_reference, auto_renew_status").eq("id", userPassId).single();
+    expect(up!.auto_renew_status).toBe("lapsed");
+    expect(up!.pending_renewal_reference).toBe(ref);
+  });
+
+  it.each(["failed", "reversed"])("previous reference verifies as %s: the reference is released and a fresh charge is made, as before", async (status) => {
+    const { ref, runPassRenewalJob } = await firstRunLeavesAPendingReference();
+    verify.mockResolvedValue(answer(status, ref!));
+    charge.mockResolvedValueOnce({ status: "success", reference: "pass_renewal_fresh", amount: Math.round(passPriceNgn * 100), currency: "NGN", channel: "card", gateway_response: "Approved" });
+    await runPassRenewalJob();
+    expect(charge, "a genuinely failed earlier attempt is retried").toHaveBeenCalledTimes(2);
   });
 });
 

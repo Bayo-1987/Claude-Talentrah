@@ -1,8 +1,9 @@
 import { requirePermission } from "@/lib/admin/require-admin";
+import Link from "next/link";
 import { pendingScholarships } from "@/lib/admin/moderation/queues";
 import { decideScholarshipAction } from "@/lib/admin/moderation/actions";
 import { DecisionForm } from "@/components/admin/decision-form";
-import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { Container, EyebrowLabel, BorderedCard, buttonClasses } from "@/components/ui";
 import { QueueEmpty, QueueHeader } from "@/components/admin/queue-chrome";
 import { formatDate } from "@/lib/format/datetime";
 
@@ -39,6 +40,14 @@ export default async function ScholarshipQueuePage() {
         newLabel="Add one by hand"
       />
 
+      <p className="text-[14px] text-ink-soft">
+        To change a listing that is already live, open{" "}
+        <Link href="/admin/scholarships/published" className="font-semibold text-rust underline underline-offset-2">
+          Published listings
+        </Link>
+        .
+      </p>
+
       {queue.length === 0 ? (
         <QueueEmpty>Nothing pending. Newly ingested listings land here.</QueueEmpty>
       ) : (
@@ -73,6 +82,10 @@ export default async function ScholarshipQueuePage() {
                   </a>
                 </div>
 
+                <Link href={`/admin/scholarships/${s.id}/edit`} className={`${buttonClasses("secondary", "sm")} self-start`}>
+                  Edit
+                </Link>
+
                 <DecisionForm
                   id={s.id}
                   action={decideScholarshipAction}
@@ -87,6 +100,7 @@ export default async function ScholarshipQueuePage() {
           ))}
         </ul>
       )}
+
     </Container>
   );
 }

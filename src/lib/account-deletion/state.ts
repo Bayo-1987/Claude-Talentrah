@@ -1,4 +1,5 @@
 import type { DeletionBlockers } from "./types";
+import type { SubmittedValues } from "@/lib/forms/keep-input";
 
 /**
  * Not in actions.ts: a `"use server"` module may export only async functions. An object export there compiles, renders, and then 500s on the
@@ -11,6 +12,8 @@ export interface DeletionRequestState {
   /** Where the confirmation link was sent. The person's own address, shown back to them. */
   sentTo?: string;
   blockers?: DeletionBlockers;
+  /** The typed confirmation phrase, handed back with a near-miss so the box keeps it. */
+  values?: SubmittedValues;
 }
 
 export const initialRequestState: DeletionRequestState = { status: "idle", error: null };

@@ -1,14 +1,14 @@
 import { requireUser } from "@/lib/auth/require-user";
 import { sessionsAsMentor } from "@/lib/mentorship/queries";
-import { confirmMentorSessionAction } from "@/lib/mentorship/actions";
-import { Container, EyebrowLabel, BorderedCard, Button } from "@/components/ui";
+import { ConfirmSessionForm } from "@/components/mentorship/confirm-session-form";
+import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { bucketSession, sessionStatusLabel } from "@/lib/mentorship/session-buckets";
 import { formatDateTime } from "@/lib/format/datetime";
 
 export const metadata = { title: "Your mentees — Talentrah" };
 
 /**
- * The mentor side of session lifecycle. `confirmMentorSessionAction`
+ * The mentor side of session lifecycle. `confirmMentorSessionAction` (behind ConfirmSessionForm)
  * generates the Jitsi meeting link at confirmation, matching 0133's own
  * `awaiting_confirmation → confirmed` transition.
  */
@@ -27,11 +27,6 @@ export default async function MentorSessionsPage() {
   const upcoming = sessions.filter((s) => s.status !== "awaiting_confirmation" && bucket(s) === "upcoming");
   const awaitingPayment = sessions.filter((s) => bucket(s) === "awaiting_payment");
   const past = sessions.filter((s) => bucket(s) === "past");
-
-  async function confirm(formData: FormData) {
-    "use server";
-    await confirmMentorSessionAction(String(formData.get("sessionId")));
-  }
 
   return (
     <Container className="flex max-w-[720px] flex-col gap-8 py-12">
@@ -54,10 +49,7 @@ export default async function MentorSessionsPage() {
                   <p className="text-[12.5px] text-amber">
                     Confirm within 24 hours of the scheduled time or this booking auto-cancels and any payment is refunded.
                   </p>
-                  <form action={confirm}>
-                    <input type="hidden" name="sessionId" value={s.id} />
-                    <Button type="submit" variant="primary" size="sm">Confirm</Button>
-                  </form>
+                  <ConfirmSessionForm sessionId={s.id} />
                 </BorderedCard>
               ))}
             </section>

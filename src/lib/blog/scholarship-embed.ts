@@ -97,7 +97,8 @@ interface EmbeddableScholarship {
  * even a bug here can never emit more than the existing allowlist permits.
  */
 export function factCardHtml(id: string, scholarship: EmbeddableScholarship): string {
-  const deadline = scholarshipDeadlineDisplay(scholarship, new Date(), { detailed: false, showClosed: false });
+  // showClosed: a listing whose deadline has passed but which is still 'verified' (the daily sweep moves it off later) reads "<date> · Closed", the same words the scholarship card and detail page use, not a bare date.
+  const deadline = scholarshipDeadlineDisplay(scholarship, new Date(), { detailed: false, showClosed: true });
   const deadlineText = scholarship.application_deadline
     ? (deadline?.text ?? formatDeadline(scholarship.application_deadline))
     : deadlineNoteOrFallback(scholarship);

@@ -2,15 +2,9 @@ import { DEADLINE_NOTE_MAX_LENGTH, NOTE_TOO_LONG_MESSAGE } from "@/lib/scholarsh
 import { z } from "zod";
 import type { NormalizedScholarship } from "./types";
 
-export const DEGREE_LEVEL_VALUES = [
-  "bsc",
-  "msc",
-  "phd",
-  "postgraduate_diploma",
-  "other",
-] as const;
-
-export const FUNDING_TYPE_VALUES = ["full", "partial"] as const;
+// The option lists live in ./types (no zod), so the admin forms, which are client components, do not pull this file and zod into the browser.
+import { DEGREE_LEVEL_VALUES, FUNDING_TYPE_VALUES } from "./types";
+export { DEGREE_LEVEL_VALUES, FUNDING_TYPE_VALUES };
 
 /**
  * A comma-separated text input turned into a clean array.
@@ -118,6 +112,14 @@ export const manualScholarshipSchema = z.object({
 });
 
 export type ManualScholarshipInput = z.input<typeof manualScholarshipSchema>;
+
+/**
+ * The same fields for EDITING a stored listing. The one difference: degree levels may be empty. A listing that came in through ingest often stores none, and an operator fixing
+ * its host or its notes must not be forced to invent a level; "pick at least one" is the rule for adding a listing by hand, not for editing what already exists.
+ */
+export const editScholarshipSchema = manualScholarshipSchema.extend({
+  degreeLevels: z.array(z.enum(DEGREE_LEVEL_VALUES)).default([]),
+});
 
 /**
  * The parsed form's one job: become the shape the writer already takes.

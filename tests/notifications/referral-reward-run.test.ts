@@ -19,7 +19,8 @@ const admin: SupabaseClient<Database> = createClient<Database>(
   { auth: { autoRefreshToken: false, persistSession: false } },
 );
 
-vi.mock("@/lib/resend/client", () => ({
+vi.mock("@/lib/resend/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/resend/client")>()),
   getResendClient: () => ({
     emails: { send: async () => ({ data: { id: "mock" }, error: null }) },
   }),

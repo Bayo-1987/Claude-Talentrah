@@ -47,8 +47,9 @@ vi.mock("@/lib/paystack/client", async () => {
   const actual = await vi.importActual<typeof import("@/lib/paystack/client")>("@/lib/paystack/client");
   return { ...actual, verifyTransaction: verify };
 });
-vi.mock("@/lib/resend/client", () => ({ getResendClient: () => null }));
-vi.mock("@/lib/analytics/posthog", () => ({ captureEvent }));
+vi.mock("@/lib/resend/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/resend/client")>()), getResendClient: () => null }));
+vi.mock("@/lib/analytics/posthog", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/analytics/posthog")>()), captureEvent }));
 
 const { fulfillPayment } = await import("@/lib/billing/fulfill");
 

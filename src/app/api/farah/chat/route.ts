@@ -37,7 +37,8 @@ import {
   estimateSpendNano,
   secondsUntilUtcMidnight,
 } from "@/lib/farah/spend-ceiling";
-import { addSpendNano, markHalfwayWarned, readSpendNano } from "@/lib/farah/spend-tally";
+import { addSpendNano, claimAlertAttempt, markAlertSent, markHalfwayWarned, readSpendNano } from "@/lib/farah/spend-tally";
+import { sendSpendAlert } from "@/lib/farah/spend-alert";
 import type { MatchExplanation } from "@/lib/matching/score";
 
 /** Which entry point to log for a quick action: the chip registry decides (an unknown or absent key is free text). */
@@ -102,7 +103,11 @@ async function handlePost(request: Request, held: { release?: () => Promise<void
    * A counter that cannot be read fails CLOSED with its own code (distinct from the ceiling's): "can't check" is not "zero spent". Each branch writes exactly one content-free log line.
    */
   try {
-    const ceiling = await checkSpendCeiling({ read: readSpendNano, markWarned: markHalfwayWarned });
+    const ceiling = await checkSpendCeiling(
+      { read: readSpendNano, markWarned: markHalfwayWarned, claimAlertAttempt, markAlertSent },
+      process.env,
+      sendSpendAlert,
+    );
     if (ceiling.status === "blocked") {
       console.warn("[farah-spend:ceiling] the daily spend ceiling is reached");
       return NextResponse.json(
@@ -166,11 +171,12 @@ async function handlePost(request: Request, held: { release?: () => Promise<void
   }
 
   /*
-   * A free message holds a CLAIM on one of the account's free slots from here (migration 0236). It is settled on every way out: committed by commitFarahChatAllowance after a completed reply, and
+   * A free message holds a CLAIM on one of the account's free slots from here (migration 0236), and a PAID message holds the credit that was taken at the check (chat-gate.ts: the credit is spent first and given back
+   * on any exit that is not a completed reply). Both are settled the same way. It is settled on every way out: committed by commitFarahChatAllowance after a completed reply, and
    * released by this on every other one (an early refusal, a failure, a cut-off reply, a reader that went away), so a message that never happened never uses a free slot. A claim nobody settles
    * (a crash) expires by itself in the database. `freeClaimHeld` makes the release happen at most once and never after a commit.
    */
-  let freeClaimHeld = Boolean(allowance.freeClaimId);
+  let freeClaimHeld = Boolean(allowance.freeClaimId || allowance.paidHold);
   const releaseIfHeld = async () => {
     if (!freeClaimHeld) return;
     freeClaimHeld = false;
@@ -447,7 +453,8 @@ async function handlePost(request: Request, held: { release?: () => Promise<void
         const truncated = finishReason === "length";
 
         // Only now — after the LLM call actually succeeded in full — commit
-        // the free allowance/Pass use or the credit spend. See
+        // the free allowance/Pass use. A paid message's credit was already taken at the check;
+        // committing it just reports the ledger's balance (a cut-off reply is released below instead). See
         // checkFarahChatAllowance's own header for why this can't happen any
         // earlier. Skipped for a cut-off reply, above.
         const committed = truncated ? undefined : await commitFarahChatAllowance(user.id, allowance);

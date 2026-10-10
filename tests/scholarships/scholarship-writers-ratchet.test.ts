@@ -13,6 +13,8 @@ const ALLOWED_WRITERS: Record<string, string> = {
     "Ingest: a NEW row lands pending, or auto-publishes only from the source config (checked by reviewer-commentary.test.ts); a CHANGED row on a verified listing returns to pending and so needs approval again; the expiry sweep only rejects.",
   "src/lib/admin/moderation/actions.ts":
     "The approval path: the one place a pending listing becomes verified (admin_moderate_scholarship), behind the reviewer-commentary guard; it writes status and note only, never public text.",
+  "src/lib/scholarships/admin-edit-action.ts":
+    "Operator edit of a PENDING or PUBLISHED listing's fields (owner row, 8 Oct 2026). It NEVER publishes: the update never sets moderation_status to verified, and a published listing whose content changes goes back to pending, so the reviewer-commentary check in the approval path runs before any edited text is public again (tests/scholarships/admin-edit.test.ts pins both).",
   "scripts/seed-catalog.ts": "Dev and CI catalogue seed: publishes only the source config, which reviewer-commentary.test.ts checks field by field.",
   "scripts/seed.ts": "Dev and CI seed: sets status and note on config rows only; adds no public text.",
 };

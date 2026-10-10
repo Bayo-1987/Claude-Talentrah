@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { EyebrowLabel, FarahMark } from "@/components/ui";
@@ -52,6 +52,8 @@ export interface FarahPanelProps {
    */
   initialJobSeed?: FarahJobSeed;
 }
+
+const subscribeNothing = () => () => {};
 
 /**
  * The four job-seed actions (two real chat starters, tailor, cover letter) —
@@ -140,10 +142,13 @@ function JobSeedMarker({
  * (app)/layout.tsx, because both run the length of the COLUMN and this
  * component is only ever as tall as its content. What stays here is what marks
  * where Farah's content begins: the 3px rust top rule and the mark beside the
- * eyebrow. Farah's turns are set in
- * italic Newsreader (matching the greeting copy this replaced); the user's
- * are plain body text — that typographic split is the only visual
- * differentiation, on purpose, rather than chat-bubble styling.
+ * eyebrow. Farah's replies and the user's messages are both regular body text
+ * (IBM Plex Sans; italic only for emphasis inside a reply, owner 8 Oct): the
+ * differentiation is the user's right alignment and Farah's marginalia column,
+ * on purpose, rather than chat-bubble styling or a different typeface. The
+ * panel's ASIDES (greeting, allowance line, "Farah is thinking…", the cut-off
+ * note, "Continue where you left off?") keep the italic Newsreader that
+ * CLAUDE.md reserves for quiet, secondary text.
  */
 export function FarahPanel({ firstName, initialMessages, initialJobSeed }: FarahPanelProps) {
   const reportCreditsBalance = useReportCreditsBalance();
@@ -249,6 +254,9 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
   const [freeRemaining, setFreeRemaining] = useState<number | null | undefined>(undefined);
   // When the next free message comes back (an ISO time), from the history route and the chat `done` event. null = no date to show. Display only.
   const [nextFreeMessageAt, setNextFreeMessageAt] = useState<string | null>(null);
+  // False on the server and during hydration, true in the browser afterwards. The date is written in the READER's zone ("Fri 9 Oct at 14:20 WAT"), which only the browser knows, so it is
+  // never rendered on the server: the first client render is the same undated sentence the server sent, and there is no hydration mismatch.
+  const mounted = useSyncExternalStore(subscribeNothing, () => true, () => false);
   // The history fetch settled without giving a count (a non-OK response or a network error): stop calling the
   // count "loading" so the chips fall back to prefill instead of staying disabled for the whole session.
   const [historyFailed, setHistoryFailed] = useState(false);
@@ -602,7 +610,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
         silence is correct there, it's only a hard 0 with no warning that
         reads as broken.
       */}
-      <FarahAllowanceNote freeRemaining={freeRemaining} nextFreeMessageAt={nextFreeMessageAt} />
+      <FarahAllowanceNote freeRemaining={freeRemaining} nextFreeMessageAt={mounted ? nextFreeMessageAt : null} />
 
       <div ref={scrollRef} className="flex max-h-80 flex-col gap-3 overflow-y-auto">
         {messages.length === 0 ? (

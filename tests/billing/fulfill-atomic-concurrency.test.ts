@@ -47,7 +47,8 @@ vi.mock("@/lib/paystack/client", async () => {
 });
 
 // Sending is not under test.
-vi.mock("@/lib/resend/client", () => ({ getResendClient: () => null }));
+vi.mock("@/lib/resend/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/resend/client")>()), getResendClient: () => null }));
 
 let userId: string;
 let packId: string;

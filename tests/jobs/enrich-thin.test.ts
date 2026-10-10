@@ -29,7 +29,7 @@ const updates = vi.hoisted(() => [] as Array<{ id: string; patch: Record<string,
 const candidateRows = vi.hoisted(() => [] as Array<Record<string, unknown>>);
 const extractSkills = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/flags/read", () => ({
+vi.mock("@/lib/flags/read", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/flags/read")>()),
   isFeatureEnabled: vi.fn(async (key: string) => {
     expect(key).toBe("ingest_llm_enrichment");
     return flagValue.enabled;

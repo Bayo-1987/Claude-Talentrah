@@ -1,9 +1,11 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { TextField, Button, EyebrowLabel } from "@/components/ui";
 import { TextArea } from "@/components/ui/text-area";
 import type { BlogActionState } from "@/lib/admin/blog/actions";
+import { inputValue } from "@/lib/forms/keep-input";
+import { BlogSaveNotice } from "@/components/admin/blog-save-notice";
 
 const initial: BlogActionState = { status: "idle" };
 
@@ -17,6 +19,8 @@ interface Props {
     author: string;
     body: string;
   };
+  /** Whether the post is live: a saved published post gets a "View post" link, a draft says it is not public yet. */
+  published?: boolean;
   /** Server-rendered preview HTML, refreshed on save. */
   previewHtml?: string;
   submitLabel: string;
@@ -42,26 +46,21 @@ interface Props {
  * Markdown renderer to the browser or a request per keystroke, and neither is
  * worth it for a screen where saving is one click.
  */
-export function BlogPostForm({ action, post, previewHtml, submitLabel }: Props) {
+export function BlogPostForm({ action, post, published = false, previewHtml, submitLabel }: Props) {
   const [state, formAction, pending] = useActionState(action, initial);
   const [tab, setTab] = useState<"write" | "preview">("write");
+  const noticeRef = useRef<HTMLDivElement>(null);
+  // After a save (or a refused save) bring the result into view, whatever the scroll position of the long form.
+  useEffect(() => {
+    if (state.status !== "idle") noticeRef.current?.scrollIntoView({ block: "nearest" });
+  }, [state]);
 
   const err = (field: string) => state.fieldErrors?.[field]?.[0];
+  // A failed save hands the submitted values back, and React 19 resets the form after any action to its defaults, so those are the defaults (owner rule: an error keeps what was typed).
+  const keep = (field: "title" | "slug" | "description" | "author" | "body", fallback?: string) => inputValue(state.values, field, post?.[field], fallback);
 
   return (
     <div className="flex flex-col gap-6">
-      {state.status !== "idle" && state.message && (
-        <p
-          className={
-            state.status === "error"
-              ? "border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust"
-              : "border-[1.5px] border-green px-3.5 py-2.5 text-[13.5px] text-green"
-          }
-        >
-          {state.message}
-        </p>
-      )}
-
       <div className="flex gap-5 border-b border-line">
         {(["write", "preview"] as const).map((t) => (
           <button
@@ -86,9 +85,9 @@ export function BlogPostForm({ action, post, previewHtml, submitLabel }: Props) 
       <div className={tab === "preview" ? "hidden" : "block"}>
         <form action={formAction} className="flex flex-col gap-5">
           {post && <input type="hidden" name="id" value={post.id} />}
-          <TextField label="Title" name="title" defaultValue={post?.title} required error={err("title")} />
+          <TextField label="Title" name="title" defaultValue={keep("title")} required error={err("title")} />
           <div className="flex flex-col gap-1.5">
-            <TextField label="Slug" name="slug" defaultValue={post?.slug} required error={err("slug")} />
+            <TextField label="Slug" name="slug" defaultValue={keep("slug")} required error={err("slug")} />
             <p className="text-[12.5px] text-ink-soft">
               Becomes the public URL: /blog/your-slug. Lowercase, hyphens, no spaces.
             </p>
@@ -97,7 +96,7 @@ export function BlogPostForm({ action, post, previewHtml, submitLabel }: Props) 
             <TextField
               label="Description"
               name="description"
-              defaultValue={post?.description}
+              defaultValue={keep("description")}
               required
               error={err("description")}
             />
@@ -105,13 +104,13 @@ export function BlogPostForm({ action, post, previewHtml, submitLabel }: Props) 
               The search result and share-card snippet. Around 155 characters reads best.
             </p>
           </div>
-          <TextField label="Author" name="author" defaultValue={post?.author ?? "The Talentrah Team"} required error={err("author")} />
+          <TextField label="Author" name="author" defaultValue={keep("author", "The Talentrah Team")} required error={err("author")} />
 
           <TextArea
             id="body"
             name="body"
             label="Body"
-            defaultValue={post?.body}
+            defaultValue={keep("body")}
             required
             minRows={22}
             mono
@@ -130,9 +129,15 @@ export function BlogPostForm({ action, post, previewHtml, submitLabel }: Props) 
             }
           />
 
-          <Button type="submit" disabled={pending} className="self-start">
-            {pending ? "Saving…" : submitLabel}
-          </Button>
+          <div className="flex flex-col items-start gap-3">
+            <Button type="submit" disabled={pending}>
+              {pending ? "Saving…" : submitLabel}
+            </Button>
+            {/* Right beside the button, where the operator is looking: the old banner at the top of this long form was never seen. */}
+            <div ref={noticeRef} className="scroll-mb-6">
+              <BlogSaveNotice state={state} slug={post?.slug ?? ""} published={published} />
+            </div>
+          </div>
         </form>
       </div>
 

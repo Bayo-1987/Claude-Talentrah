@@ -121,7 +121,11 @@ export async function POST(request: Request) {
     try {
       coverLetterAllowance = await checkTailoringAllowance(user.id, "cover_letter");
     } catch (err) {
-      if (!(err instanceof InsufficientCreditsError)) throw err;
+      if (!(err instanceof InsufficientCreditsError)) {
+        // The tailoring leg may already hold the free trial (claimed at the check): give it back before the error surfaces.
+        await tailoringAllowance.release?.();
+        throw err;
+      }
       // Proceed with the tailoring (still affordable) but skip the letter.
     }
   }
@@ -136,6 +140,9 @@ export async function POST(request: Request) {
     // than a generic "Gemini failed" — the LLM call now goes through
     // whichever provider LLM_PROVIDER selects, not always Gemini.
     console.error("Tailoring: LLM call failed", err);
+    // A free trial claimed at the check is given back: a failed generation does not burn the one-time trial (TAILOR-RACE-1).
+    await tailoringAllowance.release?.();
+    await coverLetterAllowance?.release?.();
     return NextResponse.json(
       { error: "Farah couldn't tailor this one — try again in a moment." },
       { status: 502 },
@@ -143,10 +150,32 @@ export async function POST(request: Request) {
   }
 
   // Only now — after the LLM call actually succeeded — commit the spend.
-  const tailoringCommit = await commitTailoringAllowance(user.id, "tailoring", tailoringAllowance);
-  const coverLetterCommit = coverLetterAllowance
-    ? await commitTailoringAllowance(user.id, "cover_letter", coverLetterAllowance)
-    : undefined;
+  //
+  // The paid check only READS the balance; the atomic spend is here (TAILOR-RACE-2). Of several simultaneous requests that each read enough credit for one run, the one that spends first wins and the
+  // others' spends fail with InsufficientCreditsError. That used to escape as an empty 500 with the work already done. Now: the tailoring leg's shortfall is a 402 with the normal message (nothing was
+  // charged, nothing is delivered, a free cover-letter trial claimed at the check is given back); the cover-letter leg's shortfall delivers the tailored resume without the letter, as the check-time
+  // shortfall already does.
+  let tailoringCommit;
+  try {
+    tailoringCommit = await commitTailoringAllowance(user.id, "tailoring", tailoringAllowance);
+  } catch (err) {
+    if (!(err instanceof InsufficientCreditsError)) throw err;
+    await coverLetterAllowance?.release?.();
+    return NextResponse.json(
+      { error: err.capMessage ?? "Not enough credits for a tailoring run.", needsCredits: true },
+      { status: 402 },
+    );
+  }
+  let coverLetterCommit;
+  if (coverLetterAllowance) {
+    try {
+      coverLetterCommit = await commitTailoringAllowance(user.id, "cover_letter", coverLetterAllowance);
+    } catch (err) {
+      if (!(err instanceof InsufficientCreditsError)) throw err;
+      await coverLetterAllowance.release?.();
+      coverLetterAllowance = null;
+    }
+  }
   // The balance the LAST spend left (the two commits run in sequence, so that is the final ledger state);
   // a free-trial or Pass leg contributes null and falls back to the earlier leg. null when nothing was
   // spent at all (issue #605: the masthead updates from this without a reload).
@@ -170,7 +199,7 @@ export async function POST(request: Request) {
   }
 
   let coverLetterResumeId: string | null = null;
-  if (result.coverLetter) {
+  if (result.coverLetter && coverLetterAllowance) {
     const { data: letterRow } = await supabase
       .from("resumes")
       .insert({

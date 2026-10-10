@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { requireEmployer, type EmployerContext } from "@/lib/employer/membership";
 import type { EmployerActionState } from "@/lib/employer/actions";
+import { submittedValues } from "@/lib/forms/keep-input";
 
 /**
  * Ad campaign actions. Schema and the money boundary live in migrations 0046
@@ -53,6 +54,8 @@ function requireSpendAuthority(context: EmployerContext): EmployerActionState | 
   return null;
 }
 
+const CAMPAIGN_FIELDS = ["name", "jobPostingId", "dailyRate", "totalBudget", "endsOn", "targetLocations"];
+
 function readCampaignForm(form: FormData) {
   const num = (k: string) => {
     const raw = form.get(k);
@@ -85,14 +88,15 @@ export async function createCampaignAction(
 
   const supabase = await createClient();
   const f = readCampaignForm(form);
+  const typed = submittedValues(form, CAMPAIGN_FIELDS);
 
-  if (!f.name) return { error: "Give the campaign a name." };
-  if (!f.jobPostingId) return { error: "Choose which job this campaign promotes." };
+  if (!f.name) return { error: "Give the campaign a name.", values: typed };
+  if (!f.jobPostingId) return { error: "Choose which job this campaign promotes.", values: typed };
   if (!Number.isFinite(f.dailyRate) || f.dailyRate <= 0) {
-    return { error: "Set a daily budget above zero." };
+    return { error: "Set a daily budget above zero.", values: typed };
   }
   if (!Number.isFinite(f.totalBudget) || f.totalBudget < f.dailyRate) {
-    return { error: "The total budget has to cover at least one day." };
+    return { error: "The total budget has to cover at least one day.", values: typed };
   }
 
   // Through the user's client: the INSERT policy checks membership AND that
@@ -119,9 +123,11 @@ export async function createCampaignAction(
     // 42501 is the RLS refusal, which here almost always means the chosen
     // posting is not this organisation's.
     if (error?.code === "42501") {
-      return { error: "That job posting doesn't belong to your company." };
+      return { error: "That job posting doesn't belong to your company.", values: typed };
     }
-    return { error: `Couldn't create the campaign: ${error?.message ?? "unknown error"}` };
+    // The raw database text can name tables and constraints: it goes to the server log, the employer gets a plain sentence.
+    console.error(`[campaigns] create failed (org ${context.organization.id}): ${error?.message ?? "unknown error"}`);
+    return { error: "Couldn't create the campaign; nothing was changed. The error is in the server log.", values: typed };
   }
 
   revalidatePath("/employer/campaigns");
@@ -139,9 +145,10 @@ export async function updateCampaignAction(
 
   const supabase = await createClient();
   const f = readCampaignForm(form);
-  if (!f.name) return { error: "Give the campaign a name." };
+  const typed = submittedValues(form, CAMPAIGN_FIELDS);
+  if (!f.name) return { error: "Give the campaign a name.", values: typed };
   if (!Number.isFinite(f.totalBudget) || f.totalBudget < f.dailyRate) {
-    return { error: "The total budget has to cover at least one day." };
+    return { error: "The total budget has to cover at least one day.", values: typed };
   }
 
   // The UPDATE policy restricts this to `status = 'draft'`, and the column
@@ -159,7 +166,10 @@ export async function updateCampaignAction(
     })
     .eq("id", campaignId);
 
-  if (error) return { error: `Couldn't save the campaign: ${error.message}` };
+  if (error) {
+    console.error(`[campaigns] save failed (campaign ${campaignId}): ${error.message}`);
+    return { error: "Couldn't save the campaign; nothing was changed. The error is in the server log.", values: typed };
+  }
   revalidatePath(`/employer/campaigns/${campaignId}`);
   return { ok: true };
 }
@@ -181,7 +191,10 @@ export async function submitCampaignForReviewAction(
     p_campaign_id: campaignId,
     p_actor_user_id: context.userId,
   });
-  if (error) return { error: `Couldn't submit for review: ${error.message}` };
+  if (error) {
+    console.error(`[campaigns] submit for review failed (campaign ${campaignId}): ${error.message}`);
+    return { error: "Couldn't submit for review; nothing was changed. The error is in the server log." };
+  }
   if (!data) return { error: "Only a draft campaign can be submitted for review." };
 
   revalidatePath(`/employer/campaigns/${campaignId}`);
@@ -197,7 +210,10 @@ export async function pauseCampaignAction(campaignId: string): Promise<EmployerA
 
   const admin = createServiceRoleClient();
   const { data, error } = await admin.rpc("pause_ad_campaign", { p_campaign_id: campaignId });
-  if (error) return { error: `Couldn't pause the campaign: ${error.message}` };
+  if (error) {
+    console.error(`[campaigns] pause failed (campaign ${campaignId}): ${error.message}`);
+    return { error: "Couldn't pause the campaign; nothing was changed. The error is in the server log." };
+  }
   if (!data) return { error: "That campaign isn't running." };
 
   revalidatePath(`/employer/campaigns/${campaignId}`);
@@ -225,7 +241,10 @@ export async function resumeCampaignAction(campaignId: string): Promise<Employer
     p_campaign_id: campaignId,
     p_actor_user_id: context.userId,
   });
-  if (error) return { error: `Couldn't resume the campaign: ${error.message}` };
+  if (error) {
+    console.error(`[campaigns] resume failed (campaign ${campaignId}): ${error.message}`);
+    return { error: "Couldn't resume the campaign; nothing was changed. The error is in the server log." };
+  }
 
   const result = data?.[0];
   if (!result?.ok) {
@@ -270,7 +289,10 @@ async function assertCampaignBelongsToOrg(
     .eq("organization_id", context.organization.id)
     .maybeSingle();
 
-  if (error) return { error: `Couldn't load that campaign: ${error.message}` };
+  if (error) {
+    console.error(`[campaigns] ownership lookup failed (campaign ${campaignId}): ${error.message}`);
+    return { error: "Couldn't load that campaign; nothing was changed. The error is in the server log." };
+  }
   // Same answer for "no such campaign" and "not yours", so this cannot be used
   // to probe which campaign ids exist.
   if (!data) return { error: "That campaign isn't available." };

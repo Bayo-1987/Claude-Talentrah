@@ -82,8 +82,9 @@ describe("the supported subset renders as real elements", () => {
   it("keeps the same visual face lists inherit from the paragraph text — no separate style introduced", () => {
     const html = render("* one\n* two");
     const ulOpenTag = html.match(/<ul[^>]*>/)?.[0] ?? "";
-    expect(ulOpenTag).toContain("italic");
-    expect(ulOpenTag).toContain("font-display");
+    expect(ulOpenTag).toContain("font-body"); // a reply is regular body text; italic is only for emphasis (owner, 8 Oct)
+    expect(ulOpenTag).not.toContain("italic");
+    expect(ulOpenTag).not.toContain("font-display");
   });
 
   it("renders a heading as bold text, not a heading element", () => {
@@ -119,12 +120,13 @@ describe("the supported subset renders as real elements", () => {
     expect(html).toContain("--");
   });
 
-  it("renders a blockquote with an indent/border, keeping the panel's italic face", () => {
+  it("renders a blockquote with an indent/border, in the same regular reply face (the border is the only mark of a quote)", () => {
     const html = render('> "Thank you for the offer. I\'m excited about this role."');
     expect(html).not.toContain("&gt;");
     expect(html).toContain("Thank you for the offer");
     const quoteTag = html.match(/<p[^>]*>[^<]*Thank you for the offer[^]*?<\/p>/)?.[0] ?? "";
-    expect(quoteTag).toContain("italic");
+    expect(quoteTag).not.toContain("italic");
+    expect(quoteTag).toContain("font-body");
     expect(quoteTag).toContain("border-l");
   });
 

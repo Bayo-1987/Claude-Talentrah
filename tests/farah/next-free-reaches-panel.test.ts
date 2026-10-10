@@ -28,8 +28,8 @@ describe("nextFreeMessageAt reaches the allowance note, link by link", () => {
     const kept = readNextFreeMessageAt(event.nextFreeMessageAt);
     expect(kept).toBe(FUTURE);
     const parts = farahAllowanceText({ freeRemaining: event.freeMessagesRemaining, nextFreeMessageAt: kept, now: NOW, timeZone: "Africa/Lagos" });
-    expect(parts?.when).toEqual({ iso: FUTURE, label: "Mon 2 Nov at 14:20" });
-    expect(parts?.text).toContain("Your next free message is available on Mon 2 Nov at 14:20.");
+    expect(parts?.when).toEqual({ iso: FUTURE, label: "Mon 2 Nov at 14:20 WAT" });
+    expect(parts?.text).toContain("your next one is on Mon 2 Nov at 14:20 WAT.");
   });
   it("a done line whose field is null, or absent (an older server), reaches the panel as no date", async () => {
     for (const done of [{ freeMessagesRemaining: 0, nextFreeMessageAt: null }, { freeMessagesRemaining: 0 }]) {

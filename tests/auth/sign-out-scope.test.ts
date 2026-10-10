@@ -23,7 +23,7 @@ const auth = vi.hoisted(() => ({
 const redirect = vi.hoisted(() => vi.fn((to: string) => { throw Object.assign(new Error("NEXT_REDIRECT"), { to }); }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ auth }) }));
 vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => ({}) }));
-vi.mock("@/lib/analytics/posthog", () => ({ captureEvent: vi.fn() }));
+vi.mock("@/lib/analytics/posthog", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/analytics/posthog")>()), captureEvent: vi.fn() }));
 vi.mock("next/navigation", () => ({ redirect }));
 vi.mock("next/headers", () => ({ headers: async () => ({ get: () => null }), cookies: async () => ({ get: () => undefined, getAll: () => [], set: () => {}, delete: () => {} }) }));
 

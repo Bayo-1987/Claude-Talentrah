@@ -22,3 +22,16 @@ The 250,000 tokens a minute used for the primary provider's bound is a console f
 
 - `GET <project url>/rest/v1/` returns an OpenAPI document whose `paths` contains `/rpc/add_llm_usage`.
 - `GET <project url>/rest/v1/llm_daily_usage?select=bucket&limit=1` returns 200 with the service key, and a permission error (not an empty 200) with the anon key.
+
+## The operator alerts (migration 0235)
+
+Two emails go to the address in `ADMIN_ALERT_EMAIL` (the same operator alert as the payment and refund ones, through `sendAdminAlert`):
+
+- **"Farah has used 80% of today's budget"**: sent by a request that sees the day's estimated spend at or above 80% of the ceiling. Farah is still replying.
+- **"Farah has used today's whole budget"**: sent by a request that is blocked at the ceiling. Farah is not replying until 00:00 UTC.
+
+**An alert counts as done only after a send succeeded.** Each alert has its own row for the day in `llm_daily_usage_alert_markers` (added by 0235), and two functions decide, in the database, who sends: `claim_llm_alert_attempt` gives an attempt to one caller at a time (an attempt that began in the last 10 seconds holds the others off), at most 3 attempts per alert per day, and none once the day's alert is recorded as sent; `mark_llm_alert_sent` records the success. A send that fails (the recipient or the mail key not set, the provider refused, no answer within 2 seconds) writes one content-free line (`[farah-spend:alert-not-sent] level=eighty|reached`) and records nothing, so a later request the same day tries again, until the 3 attempts are used. The 80% and "reached" alerts are separate rows: an 80% alert earlier in the day cannot swallow the "reached" one. A retry never changes the reply or the 503, and the only wait is the sender's own 2-second cap on the request that took the attempt. The text has only figures and the name of the setting to change (`FARAH_DAILY_SPEND_CEILING_USD`); no user data.
+
+**Duplicates, honestly.** Concurrent requests cannot both send (the lease). But an attempt can reach the mail provider and still be recorded as failed (the 2-second cap gave up on it, or the call that records the success failed), and the retry then sends a second copy. The most that can happen is the 3 attempts of one alert in one day, so at most 3 emails for one alert, and only in those failure sequences.
+
+If no email arrives: look in the log. `[farah-spend:alert-not-sent]` followed by `[admin-alert] NOT SENT (reason)` means the send failed and says why (`ADMIN_ALERT_EMAIL` or the Resend key unset, or the provider refused); after 3 such lines for the same alert in a day it stops until 00:00 UTC. `[farah-spend:alert-counter-failed] ... code=42883` (or `PGRST202`, `42P01`) means 0235 is not applied to this project; the alert is skipped, the reply is never affected. `[farah-spend:alert-mark-failed]` means the mail went out but could not be recorded, so a duplicate may follow. An alert is a convenience; the ceiling is the safeguard.
