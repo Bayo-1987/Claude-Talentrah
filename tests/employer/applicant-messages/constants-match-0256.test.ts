@@ -14,8 +14,8 @@ describe("the app's limits and kinds are the database's (0256), read from the mi
   });
 
   it("the subject and body limits are the CHECK limits", () => {
-    expect(SQL).toContain(`char_length(subject) between 1 and ${SUBJECT_MAX}`);
-    expect(SQL).toContain(`char_length(body) between 1 and ${BODY_MAX}`);
+    expect(SQL).toContain(`char_length(subject) between 0 and ${SUBJECT_MAX}`);
+    expect(SQL).toContain(`char_length(body) between 0 and ${BODY_MAX}`);
   });
 
   it("the daily limit is the function's default", () => {

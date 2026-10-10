@@ -13,6 +13,11 @@
 --   4. One new value on the enum public.ad_wallet_reason, 'farah_message_draft_charge': what "Draft/Refine with Farah" on the Message candidate form debits from the employer's ad wallet (the same direct
 --      debit_ad_wallet / credit_ad_wallet shape 0181 uses for job scoping; a failed draft is credited back with the existing 'reversal' reason). The enum value is added here and not used in this file.
 --
+-- WHEN THE CANDIDATE IS DELETED (owner decision, 10 Oct): the log row STAYS (the organisation's record that it sent something, and the daily count, are unchanged), the link to the application is detached (the existing ON DELETE SET
+-- NULL) and SUBJECT AND BODY ARE BLANKED, because they can name or describe the person. That is why both columns now allow an empty string. A BEFORE DELETE trigger on applications does the blanking (SECURITY DEFINER, pinned search_path, no grant
+-- to any API role), so EVERY path that removes an application is covered: the account deletion cascade, a direct delete, an application removed with its job. kind, sender, organisation, status, created_at and sent_at are kept. The trigger
+-- swallows its own error with a warning: a failure here must never block a person's account deletion (the warning is the signal; the log keeps no address).
+--
 -- THE DAY IS THE UTC DAY. A row created at 00:00:00 UTC counts for the new day; a row one second before does not.
 --
 -- ACCESS. applicant_messages is read-only to the API: members of the organisation can SELECT their own organisation's log (is_org_member), nobody can INSERT/UPDATE/DELETE through the API, and anon has nothing.
@@ -31,8 +36,8 @@ create table if not exists public.applicant_messages (
   job_posting_id   uuid references public.job_postings(id) on delete set null,
   sender_user_id   uuid references public.profiles(id) on delete set null,
   kind             text not null check (kind in ('invite_interview', 'request_info', 'not_moving_forward', 'custom', 'interview_invite')),
-  subject          text not null check (char_length(subject) between 1 and 200),
-  body             text not null check (char_length(body) between 1 and 5000),
+  subject          text not null check (char_length(subject) between 0 and 200),
+  body             text not null check (char_length(body) between 0 and 5000),
   status           text not null default 'claimed' check (status in ('claimed', 'sent', 'failed')),
   failure_reason   text,
   created_at       timestamptz not null default now(),
@@ -56,6 +61,28 @@ create policy applicant_messages_member_select
 
 revoke all on public.applicant_messages from anon, authenticated;
 grant select on public.applicant_messages to authenticated;
+
+create or replace function public.blank_applicant_messages_on_application_delete()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $f$
+begin
+  update public.applicant_messages set subject = '', body = '' where application_id = old.id and (subject <> '' or body <> '');
+  return old;
+exception when others then
+  raise warning '0256: could not blank the messages of deleted application %: %', old.id, sqlerrm;
+  return old;
+end
+$f$;
+
+revoke all on function public.blank_applicant_messages_on_application_delete() from public, anon, authenticated;
+
+drop trigger if exists applications_blank_applicant_messages on public.applications;
+create trigger applications_blank_applicant_messages
+  before delete on public.applications
+  for each row execute function public.blank_applicant_messages_on_application_delete();
 
 create or replace function public.claim_applicant_message(
   p_organization_id uuid,
@@ -201,6 +228,13 @@ begin
      or has_table_privilege('authenticated', 'public.organization_premium', 'update')
      or has_table_privilege('authenticated', 'public.organization_premium', 'delete') then
     raise exception '0256: an API role has a privilege on organization_premium';
+  end if;
+  if not exists (select 1 from pg_trigger where tgname = 'applications_blank_applicant_messages' and tgrelid = 'public.applications'::regclass and not tgisinternal) then
+    raise exception '0256: the blank-on-deletion trigger is missing on applications';
+  end if;
+  if has_function_privilege('authenticated', 'public.blank_applicant_messages_on_application_delete()', 'execute')
+     or has_function_privilege('anon', 'public.blank_applicant_messages_on_application_delete()', 'execute') then
+    raise exception '0256: an API role can execute the blanking function';
   end if;
   if has_function_privilege('authenticated', 'public.claim_applicant_message(uuid, uuid, uuid, uuid, text, text, text, integer)', 'execute')
      or has_function_privilege('anon', 'public.claim_applicant_message(uuid, uuid, uuid, uuid, text, text, text, integer)', 'execute') then

@@ -201,6 +201,79 @@ describe("the daily limit (20 per organisation per UTC day)", () => {
   });
 });
 
+describe("when a candidate is deleted (owner decision): the row stays, subject and body are blanked", () => {
+  async function loggedMessageFor(applicationId: string, status: "claimed" | "sent") {
+    const { data, error } = await admin
+      .from("applicant_messages")
+      .insert({ organization_id: orgA, application_id: applicationId, sender_user_id: ownerA.id, kind: "invite_interview", subject: "Interview for Joy", body: "Hi Joy, welcome.", status, ...(status === "sent" ? { sent_at: new Date().toISOString() } : {}) })
+      .select("id, created_at")
+      .single();
+    if (error || !data) throw new Error(`message: ${error?.message}`);
+    return data;
+  }
+  async function fixtureApplication(): Promise<{ userId: string; applicationId: string; jobId: string }> {
+    const { data: created, error } = await admin.auth.admin.createUser({ email: `amsg-del-${randomUUID().slice(0, 8)}@talentrah.test`, email_confirm: true });
+    if (error || !created.user) throw new Error(`user: ${error?.message}`);
+    const { data: job, error: jobError } = await admin
+      .from("job_postings")
+      .insert({ source_type: "internal", organization_id: orgA, company_name: "EMPLOYER-TEST Co", title: "Del role", description: "Fixture.", structured_jd: {}, status: "open", posted_at: new Date().toISOString(), dedup_fingerprint: randomUUID() })
+      .select("id")
+      .single();
+    if (jobError || !job) throw new Error(`job: ${jobError?.message}`);
+    const { data: app, error: appError } = await admin.from("applications").insert({ user_id: created.user.id, job_posting_id: job.id, stage: "applied", source: "internal_apply", applied_at: new Date().toISOString() }).select("id").single();
+    if (appError || !app) throw new Error(`application: ${appError?.message}`);
+    return { userId: created.user.id, applicationId: app.id, jobId: job.id };
+  }
+
+  it("deleting the CANDIDATE ACCOUNT keeps the row (kind, sender, organisation, status, times), detaches the application, blanks subject and body, and the day's count is unchanged", async () => {
+    await resetOrg(orgA);
+    const { userId, applicationId } = await fixtureApplication();
+    const sent = await loggedMessageFor(applicationId, "sent");
+    const claimed = await loggedMessageFor(applicationId, "claimed");
+    const before = await countRows(orgA, ["claimed", "sent"]);
+
+    const { error } = await admin.auth.admin.deleteUser(userId);
+    expect(error).toBeNull();
+
+    const { data: rows } = await admin.from("applicant_messages").select("id, application_id, subject, body, kind, status, sender_user_id, organization_id, created_at, sent_at").in("id", [sent.id, claimed.id]);
+    expect(rows).toHaveLength(2);
+    for (const row of rows!) {
+      expect(row.application_id, "the link to the application is gone").toBeNull();
+      expect(row.subject).toBe("");
+      expect(row.body).toBe("");
+      expect(row.kind).toBe("invite_interview");
+      expect(row.organization_id).toBe(orgA);
+      expect(row.sender_user_id).toBe(ownerA.id);
+    }
+    expect(rows!.find((r) => r.id === sent.id)!.status).toBe("sent");
+    expect(rows!.find((r) => r.id === sent.id)!.sent_at).toBeTruthy();
+    expect(await countRows(orgA, ["claimed", "sent"]), "the daily count still includes both").toBe(before);
+    expect((await claim()).data, "and the slots they used stay used").toBeTruthy();
+  });
+
+  it("deleting the APPLICATION directly (any other path) blanks the messages of that application only", async () => {
+    await resetOrg(orgA);
+    const one = await fixtureApplication();
+    const two = await fixtureApplication();
+    const mine = await loggedMessageFor(one.applicationId, "sent");
+    const theirs = await loggedMessageFor(two.applicationId, "sent");
+    expect((await admin.from("applications").delete().eq("id", one.applicationId)).error).toBeNull();
+    const { data: a } = await admin.from("applicant_messages").select("application_id, subject, body").eq("id", mine.id).single();
+    expect(a).toEqual({ application_id: null, subject: "", body: "" });
+    const { data: b } = await admin.from("applicant_messages").select("application_id, subject, body").eq("id", theirs.id).single();
+    expect(b).toMatchObject({ application_id: two.applicationId, subject: "Interview for Joy", body: "Hi Joy, welcome." });
+    await admin.auth.admin.deleteUser(one.userId);
+    await admin.auth.admin.deleteUser(two.userId);
+  });
+
+  it("the blanking function is not callable by an employer's session or an anonymous caller", async () => {
+    const asMember = await ownerA.client.rpc("blank_applicant_messages_on_application_delete" as never);
+    expect(asMember.error).not.toBeNull();
+    const asAnon = await createAnonClient().rpc("blank_applicant_messages_on_application_delete" as never);
+    expect(asAnon.error).not.toBeNull();
+  });
+});
+
 describe("who can reach the function and the log", () => {
   it("claim_applicant_message is service-role only: a signed-in member and an anonymous caller are refused", async () => {
     const args = {
