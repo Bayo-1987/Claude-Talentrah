@@ -9,7 +9,8 @@ test("a signed-in visitor on /blog still reaches the signed-in app, and the home
   await page.goto("/blog");
   await page.getByRole("link", { name: /go to your dashboard/i }).first().click();
   await page.waitForURL(/\/(jobs|employer|onboarding)(\/|$|\?)/, { timeout: 30_000 });
-  await expect(page.getByTestId("farah-panel").or(page.getByRole("heading").first())).toBeVisible();
+  // One element: the Farah panel and a heading can both be on the page by now, and a locator that matches two is a strict-mode error.
+  await expect(page.getByTestId("farah-panel").or(page.getByRole("heading").first()).first()).toBeVisible();
 
   await page.goto("/blog");
   await page.getByRole("banner").getByRole("link", { name: /talentrah/i }).first().click();

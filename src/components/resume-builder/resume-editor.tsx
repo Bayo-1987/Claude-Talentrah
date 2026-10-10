@@ -191,6 +191,7 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
   const [rewriteError, setRewriteError] = useState<string | null>(null);
   const [rewriteErrorKey, setRewriteErrorKey] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   /*
    * "Has the user changed something since load or the last Save". NOT the inverse of `saved`: `saved` starts
    * false on a freshly opened, untouched resume (the button reads "Save"), so using it would warn people who
@@ -291,7 +292,20 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
 
   function handleSave() {
     startTransition(async () => {
-      await saveResumeAction(resumeId, content, title);
+      let result: Awaited<ReturnType<typeof saveResumeAction>>;
+      try {
+        result = await saveResumeAction(resumeId, content, title);
+      } catch {
+        // A dropped connection rejects the call itself; that must not replace the editor with the error screen either.
+        setSaveError("Couldn't reach the server, so this was not saved. What you typed is still on this page; try Save again in a moment.");
+        return;
+      }
+      if (!result.ok) {
+        // Stay on the page, keep the edit (and the unsaved guard), and say why. (A refusal used to throw and replace this page with "This page couldn't load".)
+        setSaveError(result.error);
+        return;
+      }
+      setSaveError(null);
       setSaved(true);
       setDirty(false);
     });
@@ -370,6 +384,11 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
           </Button>
         </div>
       </div>
+      {saveError && (
+        <p role="alert" className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust">
+          {saveError}
+        </p>
+      )}
 
       {/* Contact */}
       <section className="flex flex-col gap-3">

@@ -1,8 +1,11 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef } from "react";
 import { initialModerationState, type ModerationState } from "@/lib/admin/moderation/state";
 import { Button } from "@/components/ui";
+import { wrapDecisionAction } from "@/lib/admin/moderation/decision-action";
+import { announceDecision } from "@/lib/admin/moderation/decision-notice";
+import { inputValue } from "@/lib/forms/keep-input";
 import { MinimalRichEditor } from "@/components/rich-text/minimal-rich-editor";
 import { TextArea } from "@/components/ui/text-area";
 
@@ -61,14 +64,23 @@ export function DecisionForm({
   decisionName?: string;
   richNote?: boolean;
 }) {
-  const [state, formAction, pending] = useActionState(action, initialModerationState);
+  /*
+   * ONE wrapper around whichever action a queue passes (eight callers): an error comes back with the typed note, so the plain textarea keeps it (QA DECISION-NOTE-1), and a success whose row
+   * the same response removed is announced in the admin layout's notice, because the row's own banner went with it (DECISION-SILENT-1). The ref is read only in the delayed check, never in render.
+   */
+  const formRef = useRef<HTMLFormElement>(null);
+  const [state, formAction, pending] = useActionState(
+    (prev: ModerationState, formData: FormData) =>
+      wrapDecisionAction(action, { noteName, rowIsGone: () => formRef.current === null || !formRef.current.isConnected, announce: announceDecision })(prev, formData),
+    initialModerationState,
+  );
 
   // One shared action powers every row on the page, so a result must only
   // render against the row it belongs to.
   const mine = state.targetId === id;
 
   return (
-    <form action={formAction} className="flex flex-col gap-3">
+    <form ref={formRef} action={formAction} className="flex flex-col gap-3">
       <input type="hidden" name="id" value={id} />
 
       {richNote ? (
@@ -86,6 +98,7 @@ export function DecisionForm({
           label="Note"
           hideLabel
           placeholder={notePlaceholder}
+          defaultValue={inputValue(mine ? state.values : undefined, noteName)}
         />
       )}
 

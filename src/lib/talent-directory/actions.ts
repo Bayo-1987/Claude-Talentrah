@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/require-user";
 import { requireEmployer } from "@/lib/employer/membership";
 import { createClient } from "@/lib/supabase/server";
+import { submittedValues } from "@/lib/forms/keep-input";
 import {
   runTalentVerification,
   runTalentVerificationHumanReview,
@@ -59,7 +60,9 @@ export async function addPortfolioItemAction(_prev: unknown, formData: FormData)
   const supabase = await createClient();
 
   const title = String(formData.get("title") ?? "").trim();
-  if (!title) return { status: "error" as const, message: "A title is required." };
+  // An error hands the typed fields back so the form keeps them (QA SAMPLE-KEEP-1); the success below hands none, so the next sample starts clean.
+  const typed = submittedValues(formData, ["title", "url", "description"]);
+  if (!title) return { status: "error" as const, message: "A title is required.", values: typed };
 
   const { error } = await supabase.from("talent_portfolio_items").insert({
     user_id: user.id,
@@ -68,7 +71,7 @@ export async function addPortfolioItemAction(_prev: unknown, formData: FormData)
     url: String(formData.get("url") ?? "").trim() || null,
   });
 
-  if (error) return { status: "error" as const, message: "Something went wrong." };
+  if (error) return { status: "error" as const, message: "Something went wrong.", values: typed };
   revalidatePath("/talent-directory/verify");
   return { status: "success" as const, message: "Added." };
 }

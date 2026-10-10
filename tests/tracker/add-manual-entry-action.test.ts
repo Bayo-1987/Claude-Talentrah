@@ -14,6 +14,8 @@
  * Everything is mocked, no database, same convention as update-stage-action.test.ts.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const idle = { status: "idle" } as const;
 import { TRACKER_STAGES } from "@/lib/tracker/stages";
 
 const hiredEmail = vi.hoisted(() => vi.fn(async () => {}));
@@ -59,7 +61,9 @@ beforeEach(() => {
 describe("a forged stage is refused on the server", () => {
   for (const forged of ["bogus", "HIRED", " hired", "hired ", "all", "", "null", "undefined", "saved'; drop table applications;--"]) {
     it(`rejects stage ${JSON.stringify(forged)} and writes nothing`, async () => {
-      await expect(addManualEntryAction(form({ stage: forged }))).rejects.toThrow(/stage/i);
+      const result = await addManualEntryAction(idle, form({ stage: forged }));
+      expect(result.status).toBe("error");
+      expect(result.message).toMatch(/stage/i);
       expect(state.inserts, "a row was inserted with a forged stage").toEqual([]);
     });
   }
@@ -68,7 +72,7 @@ describe("a forged stage is refused on the server", () => {
 describe("every real stage is accepted, from the one list", () => {
   for (const { key } of TRACKER_STAGES) {
     it(`inserts stage ${key}`, async () => {
-      await addManualEntryAction(form({ stage: key }));
+      await addManualEntryAction(idle, form({ stage: key }));
       expect(state.inserts).toHaveLength(1);
       expect(state.inserts[0].stage).toBe(key);
       expect(state.inserts[0].source).toBe("manual");
@@ -80,14 +84,14 @@ describe("every real stage is accepted, from the one list", () => {
   }
 
   it("falls back to saved when the field is absent (the form always sends one; a hand-made POST may not)", async () => {
-    await addManualEntryAction(form({ stage: null }));
+    await addManualEntryAction(idle, form({ stage: null }));
     expect(state.inserts[0].stage).toBe("saved");
   });
 });
 
 describe("a manually added Hired entry is backfilled history, not a celebration", () => {
   it("sends no hired-moment email and does not redirect to the referral banner", async () => {
-    await addManualEntryAction(form({ stage: "hired" }));
+    await addManualEntryAction(idle, form({ stage: "hired" }));
     expect(state.inserts[0].stage).toBe("hired");
     expect(hiredEmail).not.toHaveBeenCalled();
     expect(redirect).not.toHaveBeenCalled();
@@ -96,9 +100,28 @@ describe("a manually added Hired entry is backfilled history, not a celebration"
 });
 
 describe("a database refusal is not reported as success", () => {
-  it("throws when the insert fails, instead of revalidating as if it had landed", async () => {
+  it("returns an error (never throws into the error boundary) when the insert fails, without the raw database text, and does not revalidate as if it had landed", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
     state.insertError = { message: "violates check constraint" };
-    await expect(addManualEntryAction(form({ stage: "applied" }))).rejects.toThrow();
+    const result = await addManualEntryAction(idle, form({ stage: "applied" }));
+    expect(result.status).toBe("error");
+    expect(result.message).toBe("Could not add that job. Nothing was saved; please try again.");
+    expect(result.message).not.toContain("check constraint");
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("violates check constraint"));
     expect(revalidatePath).not.toHaveBeenCalled();
+    log.mockRestore();
+  });
+});
+
+describe("a refused submission is a message in place and keeps what was typed (TRACKER-ADD-1)", () => {
+  it("a blank company returns the message and every typed value, and writes nothing", async () => {
+    const result = await addManualEntryAction(idle, form({ stage: "applied", companyName: "   ", title: "Engineer", location: "Lagos", url: "https://x.test/j", notes: "n" }));
+    expect(result).toMatchObject({ status: "error", message: "Company and title are required." });
+    expect(result.values).toMatchObject({ companyName: "   ", title: "Engineer", location: "Lagos", url: "https://x.test/j", notes: "n", stage: "applied" });
+    expect(state.inserts).toEqual([]);
+  });
+  it("a saved entry says so and returns no values (the form starts clean)", async () => {
+    const result = await addManualEntryAction(idle, form({ stage: "applied" }));
+    expect(result).toEqual({ status: "success", message: "Added to your tracker." });
   });
 });
