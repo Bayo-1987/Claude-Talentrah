@@ -2,10 +2,11 @@
 -- Run it as `postgres` in the SQL Editor (one transaction). To keep what the schema ledger says honest, record it as a NEW migration (do not delete 0256's ledger row). `supabase/rollbacks/` is outside
 -- supabase/migrations, so neither the migration-numbering check nor `supabase db push` ever sees it.
 --
--- WHAT IT CHANGES: the message log (and every row in it), the claim function and the premium_until column (and any date set on it) are dropped and the organizations INSERT policy returns to 0120's text; nothing else. ORDER: deploy the code that sends messages and reads
+-- WHAT IT CHANGES: the message log (and every row in it), the claim function, the premium function and the premium_until column (audit rows already written stay in admin_audit_log) (and any date set on it) are dropped and the organizations INSERT policy returns to 0120's text; nothing else. ORDER: deploy the code that sends messages and reads
 -- premium_until away first (or the page that sends would fail); the 20-per-day limit and the audit of what was sent are gone with the table.
 begin;
 
+drop function if exists public.admin_set_organization_premium(uuid, timestamptz, uuid, text, uuid, text);
 drop function if exists public.claim_applicant_message(uuid, uuid, uuid, uuid, text, text, text, integer);
 drop table if exists public.applicant_messages;
 

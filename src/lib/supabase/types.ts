@@ -4185,6 +4185,17 @@ export type Database = {
         Args: { p_holder: string; p_name: string }
         Returns: boolean
       }
+      admin_set_organization_premium: {
+        Args: {
+          p_admin_email: string
+          p_admin_session_id: string
+          p_admin_user_id: string
+          p_organization_id: string
+          p_premium_until: string
+          p_reason: string
+        }
+        Returns: string
+      }
       claim_ai_talent_verification: {
         Args: { p_user_id: string }
         Returns: {

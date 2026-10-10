@@ -6,7 +6,7 @@
 --   2. public.claim_applicant_message(...): the ONE place the limit of 20 employer-sent messages per organisation per UTC day is decided. It takes a per-organisation advisory lock, counts today's live rows
 --      (status claimed or sent; a failed message gives its slot back) and inserts the new row in the same call, so two overlapping sends can never both pass at 19. Interview invites (0253) call this same function
 --      with kind 'interview_invite', so the limit cannot drift between messages and invites. Confirmations, reminders, .ics files and "None of these work" never claim.
---   3. public.organizations.premium_until (timestamptz, nullable): the date until which an organisation has Premium. Set by an administrator only (no purchase flow yet); the server refuses "Draft/Refine with Farah" when it is
+--   3. public.organizations.premium_until (timestamptz, nullable): the date until which an organisation has Premium. Set by an administrator only, through admin_set_organization_premium (audited, service role only; no purchase flow yet); the server refuses "Draft/Refine with Farah" when it is
 --      null or in the past. It is NOT readable by the API roles either (0232's column-level SELECT list is left as it is, so a column added later is unreadable until granted; the server reads it with the service role), and it
 --      joins the withheld list in tests/support/identifier-column-guard-titles.ts and fake-grants-client.ts. Nobody with an API session can write it (the organizations UPDATE grant is column-level since 0028, and this column is not in it; the INSERT policy requires it to be null).
 --
@@ -120,6 +120,59 @@ create policy "authenticated users can create an organization"
     and premium_until is null
   );
 
+-- The ONLY way premium_until changes: an administrator, through this function, and every change leaves a row in admin_audit_log (who, what it was, what it became, why). No API role can UPDATE the column (the
+-- grant is column-level and does not include it), none can set it when creating an organisation (the INSERT policy above), and none can execute this function: it is service-role only, called by admin tooling that
+-- passes the acting operator's identity. A reason is required, so an unexplained Premium cannot exist. Premium is an access gate only (Farah drafting on the Message candidate form); what Farah costs is charged to the ad wallet.
+create or replace function public.admin_set_organization_premium(
+  p_organization_id uuid,
+  p_premium_until timestamptz,
+  p_admin_user_id uuid,
+  p_admin_email text,
+  p_admin_session_id uuid,
+  p_reason text
+) returns timestamptz
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  v_before timestamptz;
+begin
+  if p_admin_email is null or btrim(p_admin_email) = '' then
+    raise exception 'admin_set_organization_premium: an acting identity (email) is required';
+  end if;
+  if p_reason is null or btrim(p_reason) = '' then
+    raise exception 'admin_set_organization_premium: a reason is required';
+  end if;
+
+  select premium_until into v_before from public.organizations where id = p_organization_id for update;
+  if not found then
+    raise exception 'admin_set_organization_premium: organization % not found', p_organization_id;
+  end if;
+
+  update public.organizations set premium_until = p_premium_until where id = p_organization_id;
+
+  insert into public.admin_audit_log (admin_user_id, admin_email, admin_session_id, action, target_table, target_id, detail)
+  values (
+    p_admin_user_id,
+    p_admin_email,
+    p_admin_session_id,
+    'organization.premium_set',
+    'organizations',
+    p_organization_id::text,
+    jsonb_build_object('from', v_before, 'to', p_premium_until, 'reason', p_reason)
+  );
+
+  return p_premium_until;
+end
+$fn$;
+
+revoke all on function public.admin_set_organization_premium(uuid, timestamptz, uuid, text, uuid, text) from public, anon, authenticated;
+grant execute on function public.admin_set_organization_premium(uuid, timestamptz, uuid, text, uuid, text) to service_role;
+
+comment on function public.admin_set_organization_premium(uuid, timestamptz, uuid, text, uuid, text) is
+  '0256: the only way organizations.premium_until changes. Sets (or clears, with null) the date and writes an admin_audit_log row with the before and after and the reason, in one call. A reason and an acting identity are required. Service role only.';
+
 -- Self-check: the objects exist as designed and the API roles have only what was intended.
 do $check$
 begin
@@ -142,6 +195,10 @@ begin
   if has_column_privilege('authenticated', 'public.organizations', 'premium_until', 'update')
      or has_column_privilege('anon', 'public.organizations', 'premium_until', 'update') then
     raise exception '0256: an API role can UPDATE organizations.premium_until';
+  end if;
+  if has_function_privilege('authenticated', 'public.admin_set_organization_premium(uuid, timestamptz, uuid, text, uuid, text)', 'execute')
+     or has_function_privilege('anon', 'public.admin_set_organization_premium(uuid, timestamptz, uuid, text, uuid, text)', 'execute') then
+    raise exception '0256: an API role can execute admin_set_organization_premium';
   end if;
   if not exists (
     select 1 from pg_policy

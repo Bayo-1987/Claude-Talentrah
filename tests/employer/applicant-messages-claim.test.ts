@@ -265,6 +265,78 @@ describe("organizations.premium_until", () => {
     if (plain.data) orgIds.push(plain.data.id);
   });
 
+  it("an employer cannot give their own organisation Premium through the function either (RPC refused, nothing changes, nothing audited)", async () => {
+    const args = {
+      p_organization_id: orgA,
+      p_premium_until: new Date(Date.now() + 86_400_000 * 30).toISOString(),
+      p_admin_user_id: null as unknown as string,
+      p_admin_email: ownerA.email,
+      p_admin_session_id: null as unknown as string,
+      p_reason: "I would like Premium",
+    };
+    const asMember = await ownerA.client.rpc("admin_set_organization_premium", args);
+    expect(asMember.error, "a signed-in member cannot execute the function").not.toBeNull();
+    const asAnon = await createAnonClient().rpc("admin_set_organization_premium", args);
+    expect(asAnon.error, "an anonymous caller cannot either").not.toBeNull();
+    const { data } = await admin.from("organizations").select("premium_until").eq("id", orgA).single();
+    expect(data?.premium_until).toBeNull();
+    const { count } = await admin.from("admin_audit_log").select("id", { count: "exact", head: true }).eq("target_id", orgA).eq("action", "organization.premium_set");
+    expect(count ?? 0).toBe(0);
+  });
+
+  it("the admin function sets the date and writes ONE audit row with who, before, after and why; clearing is audited too", async () => {
+    const until = new Date(Date.now() + 86_400_000 * 30).toISOString();
+    const set = await admin.rpc("admin_set_organization_premium", {
+      p_organization_id: orgA,
+      p_premium_until: until,
+      p_admin_user_id: null as unknown as string,
+      p_admin_email: "operator@talentrah.internal",
+      p_admin_session_id: null as unknown as string,
+      p_reason: "Pilot customer, 30 days",
+    });
+    expect(set.error).toBeNull();
+    const { data: org } = await admin.from("organizations").select("premium_until").eq("id", orgA).single();
+    expect(new Date(org!.premium_until!).getTime()).toBe(new Date(until).getTime());
+    const { data: rows } = await admin.from("admin_audit_log").select("admin_email, target_table, detail").eq("target_id", orgA).eq("action", "organization.premium_set");
+    expect(rows).toHaveLength(1);
+    expect(rows![0]).toMatchObject({ admin_email: "operator@talentrah.internal", target_table: "organizations" });
+    expect(rows![0].detail).toMatchObject({ from: null, reason: "Pilot customer, 30 days" });
+    expect(new Date((rows![0].detail as { to: string }).to).getTime()).toBe(new Date(until).getTime());
+
+    const cleared = await admin.rpc("admin_set_organization_premium", {
+      p_organization_id: orgA,
+      p_premium_until: null as unknown as string,
+      p_admin_user_id: null as unknown as string,
+      p_admin_email: "operator@talentrah.internal",
+      p_admin_session_id: null as unknown as string,
+      p_reason: "Ended",
+    });
+    expect(cleared.error).toBeNull();
+    const { data: after } = await admin.from("organizations").select("premium_until").eq("id", orgA).single();
+    expect(after?.premium_until).toBeNull();
+    const { count } = await admin.from("admin_audit_log").select("id", { count: "exact", head: true }).eq("target_id", orgA).eq("action", "organization.premium_set");
+    expect(count, "the clear is a second audited change").toBe(2);
+  });
+
+  it("the admin function refuses a missing reason, a missing identity and an unknown organisation, changing and auditing nothing", async () => {
+    const base = {
+      p_organization_id: orgB,
+      p_premium_until: new Date(Date.now() + 86_400_000).toISOString(),
+      p_admin_user_id: null as unknown as string,
+      p_admin_email: "operator@talentrah.internal",
+      p_admin_session_id: null as unknown as string,
+      p_reason: "ok",
+    };
+    const { data: before } = await admin.from("organizations").select("premium_until").eq("id", orgB).single();
+    expect((await admin.rpc("admin_set_organization_premium", { ...base, p_reason: "  " })).error).not.toBeNull();
+    expect((await admin.rpc("admin_set_organization_premium", { ...base, p_admin_email: "" })).error).not.toBeNull();
+    expect((await admin.rpc("admin_set_organization_premium", { ...base, p_organization_id: randomUUID() })).error).not.toBeNull();
+    const { data: after } = await admin.from("organizations").select("premium_until").eq("id", orgB).single();
+    expect(after?.premium_until).toBe(before?.premium_until);
+    const { count } = await admin.from("admin_audit_log").select("id", { count: "exact", head: true }).eq("target_id", orgB).eq("action", "organization.premium_set");
+    expect(count ?? 0).toBe(0);
+  });
+
   it("the service role can set it", async () => {
     const until = new Date(Date.now() + 86_400_000).toISOString();
     const { error } = await admin.from("organizations").update({ premium_until: until }).eq("id", orgB);
