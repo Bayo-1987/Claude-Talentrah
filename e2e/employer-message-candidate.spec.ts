@@ -183,4 +183,13 @@ test.describe("Message candidate", () => {
     const { count } = await admin.from("applicant_messages").select("id", { count: "exact", head: true }).eq("organization_id", mine.orgId);
     expect(count ?? 0).toBe(0);
   });
+
+  test("from the applicants list, clicking 'Message candidate' opens that applicant's message page", async ({ authedPage: page, testUser }) => {
+    const mine = await org(testUser.id, "own");
+    const joy = await applicant(mine.jobId);
+    await page.goto(`/employer/jobs/${mine.jobId}/applicants`);
+    await page.getByRole("link", { name: "Message candidate" }).click();
+    await expect(page).toHaveURL(new RegExp(`/employer/jobs/${mine.jobId}/applicants/${joy.applicationId}/message$`));
+    await expect(page.getByRole("heading", { name: "Message Joy Akindele" })).toBeVisible();
+  });
 });

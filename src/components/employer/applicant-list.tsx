@@ -356,7 +356,7 @@ export function ApplicantList({
                   )}
                 </div>
               </div>
-              <div className="flex flex-shrink-0 items-center gap-4">
+              <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-x-4 gap-y-1">
                 {applicant.match_score !== null ? (
                   <MatchTierBadge
                     score={applicant.match_score}
@@ -375,6 +375,13 @@ export function ApplicantList({
                     View resume
                   </Link>
                 )}
+                {/* MESSAGE-ENTRY-1: the way into Message candidate (0256). Not conditional on a resume: anyone who applied can be written to; the page itself re-checks that they are this organisation's applicant. */}
+                <Link
+                  href={`/employer/jobs/${jobId}/applicants/${applicant.application_id}/message`}
+                  className="font-body text-[13px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
+                >
+                  Message candidate
+                </Link>
                 {/*
                   Keyed by `status`: this control owns its OWN local state
                   once mounted (see its header comment) and would not
