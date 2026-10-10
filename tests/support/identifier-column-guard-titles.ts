@@ -7,7 +7,7 @@ export const IDENTIFIER_TABLES = ["organizations", "scholarships", "blog_posts",
 
 /** The columns each table withholds from signed-out visitors and signed-in users (0232). Adding to this list is a decision, not a fix for a failing test. */
 export const WITHHELD_IDENTIFIER_COLUMNS: Record<(typeof IDENTIFIER_TABLES)[number], readonly string[]> = {
-  organizations: ["cac_number", "cac_business_name", "cac_confirmed_by", "created_by"],
+  organizations: ["cac_number", "cac_business_name", "cac_confirmed_by", "created_by", "premium_until"],
   scholarships: ["moderation_note", "moderated_by"],
   blog_posts: ["created_by", "updated_by"],
   mentorship_reviews: ["reviewer_id", "session_id"],
