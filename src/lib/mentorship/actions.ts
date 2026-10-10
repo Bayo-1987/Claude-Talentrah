@@ -13,6 +13,7 @@ import { callbackOutcome } from "@/lib/billing/callback-outcome";
 import { findOpenSessionPayment } from "@/lib/mentorship/open-payment";
 import { generateMeetingLink } from "@/lib/mentorship/meeting-link";
 import { notifySessionConfirmed } from "@/lib/mentorship/notifications";
+import { ALREADY_CONFIRMED_MESSAGE, CONFIRM_ERROR_MESSAGE, UNAVAILABLE_MESSAGE, type ConfirmSessionState } from "@/lib/mentorship/confirm-state";
 import type { MentorshipSessionType } from "@/lib/mentorship/pricing";
 import { captureEvent } from "@/lib/analytics/posthog";
 import { warnIfNameLooksLikeOwnOrg } from "@/lib/mentorship/name-validation";
@@ -389,7 +390,8 @@ export async function cancelUnpaidMentorSessionAction(sessionId: string) {
  * `p_mentor_id`, checked against the session row's own `mentor_id` inside
  * the function rather than trusted blindly.
  */
-export async function confirmMentorSessionAction(sessionId: string) {
+export async function confirmMentorSessionAction(_prev: ConfirmSessionState, formData: FormData): Promise<ConfirmSessionState> {
+  const sessionId = String(formData.get("sessionId") ?? "");
   const { user } = await requireUser();
   const serviceClient = createServiceRoleClient();
 
@@ -399,7 +401,24 @@ export async function confirmMentorSessionAction(sessionId: string) {
     p_meeting_link: generateMeetingLink(),
   });
 
-  if (error || !ok) throw new Error("Could not confirm that session.");
+  if (error) {
+    // Returned, not thrown (QA MENTOR-CONFIRM-1): a thrown error replaces the whole mentor page with "This page couldn't load". Nothing was changed, so a retry is safe.
+    console.error("[mentorship] confirm session failed", error.message);
+    return { status: "error", message: CONFIRM_ERROR_MESSAGE };
+  }
+
+  if (!ok) {
+    /*
+     * The conditional UPDATE matched nothing: the session is not awaiting this mentor's confirmation any more. The usual cause is the same Confirm pressed in a second, stale tab (or by a double click):
+     * the first one won. Say which, in place. Looked up only on this path, and only this mentor's own session is described: someone else's session, or one that does not exist, gets the same words as a
+     * cancelled one, so this cannot be used to probe which sessions exist or what state they are in.
+     */
+    const { data: row } = await serviceClient.from("mentorship_sessions").select("status, mentor_id").eq("id", sessionId).maybeSingle();
+    if (row && row.mentor_id === user.id && (row.status === "confirmed" || row.status === "completed")) {
+      return { status: "already_confirmed", message: ALREADY_CONFIRMED_MESSAGE };
+    }
+    return { status: "unavailable", message: UNAVAILABLE_MESSAGE };
+  }
 
   // Best-effort — notifySessionConfirmed never throws (see its own header).
   // The confirmation itself already succeeded above; a notification failure
@@ -408,6 +427,7 @@ export async function confirmMentorSessionAction(sessionId: string) {
 
   revalidatePath("/mentorship/sessions/mentor");
   revalidatePath("/mentorship/sessions");
+  return { status: "confirmed", message: "Confirmed." };
 }
 
 export async function submitMentorshipReviewAction(sessionId: string, mentorId: string, rating: number, reviewText: string) {
