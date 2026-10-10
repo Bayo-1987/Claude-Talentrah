@@ -171,11 +171,12 @@ async function handlePost(request: Request, held: { release?: () => Promise<void
   }
 
   /*
-   * A free message holds a CLAIM on one of the account's free slots from here (migration 0236). It is settled on every way out: committed by commitFarahChatAllowance after a completed reply, and
+   * A free message holds a CLAIM on one of the account's free slots from here (migration 0236), and a PAID message holds the credit that was taken at the check (chat-gate.ts: the credit is spent first and given back
+   * on any exit that is not a completed reply). Both are settled the same way. It is settled on every way out: committed by commitFarahChatAllowance after a completed reply, and
    * released by this on every other one (an early refusal, a failure, a cut-off reply, a reader that went away), so a message that never happened never uses a free slot. A claim nobody settles
    * (a crash) expires by itself in the database. `freeClaimHeld` makes the release happen at most once and never after a commit.
    */
-  let freeClaimHeld = Boolean(allowance.freeClaimId);
+  let freeClaimHeld = Boolean(allowance.freeClaimId || allowance.paidHold);
   const releaseIfHeld = async () => {
     if (!freeClaimHeld) return;
     freeClaimHeld = false;
@@ -452,7 +453,8 @@ async function handlePost(request: Request, held: { release?: () => Promise<void
         const truncated = finishReason === "length";
 
         // Only now — after the LLM call actually succeeded in full — commit
-        // the free allowance/Pass use or the credit spend. See
+        // the free allowance/Pass use. A paid message's credit was already taken at the check;
+        // committing it just reports the ledger's balance (a cut-off reply is released below instead). See
         // checkFarahChatAllowance's own header for why this can't happen any
         // earlier. Skipped for a cut-off reply, above.
         const committed = truncated ? undefined : await commitFarahChatAllowance(user.id, allowance);
