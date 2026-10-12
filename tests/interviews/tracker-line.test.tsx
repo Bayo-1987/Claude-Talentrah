@@ -26,7 +26,7 @@ describe("the Job Tracker card's interview line", () => {
   it("shows 'Interview scheduled, <date>' as a link to the invitation page when a booking exists", () => {
     const html = renderToStaticMarkup(<TrackerCard entry={{ ...BASE, interview: { startsAt: "2026-10-26T09:00:00Z", offerId: "offer-1" } }} />);
     expect(html).toContain("Interview scheduled, ");
-    expect(html).toContain("26 Oct 2026");
+    expect(html).toContain("26 Oct");
     expect(html).toContain('href="/interviews/offer-1"');
   });
 

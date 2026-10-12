@@ -54,7 +54,7 @@ describe("bookInterviewSlot", () => {
     await bookInterviewSlot({ userId: "cand-1", slotId: "slot-1", timeZone: "Europe/London" }, deps);
     const byRecipient = new Map(deps.deliver.mock.calls.map((c) => [c[0].to, c[0]]));
     expect(byRecipient.get("joy@candidate-mail.example")!.text).toMatch(/09:00 to 09:45 GMT/);
-    expect(byRecipient.get("hiring@zimcrest.example")!.text).toMatch(/10:00 to 10:45 GMT\+1/);
+    expect(byRecipient.get("hiring@zimcrest.example")!.text).toMatch(/10:00 to 10:45 WAT/);
     for (const mail of byRecipient.values()) expect(mail.text).toContain("09:00 UTC");
   });
 

@@ -1,5 +1,6 @@
 import { buildCancellationEmail, buildReminderEmail } from "./emails";
 import { formatInterviewRange } from "./format";
+import { formatTime } from "@/lib/format/datetime";
 import { EMPLOYER_EMAIL_ZONE } from "./booking";
 
 export interface NoticeBooking {
@@ -51,7 +52,7 @@ export interface NoticeSummary {
 export const REMINDER_FROM_HOURS = 23;
 export const REMINDER_TO_HOURS = 25;
 
-const utcClock = (iso: string) => `${new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "UTC" }).format(new Date(iso))} UTC`;
+const utcClock = (iso: string) => formatTime(iso, { timeZone: "UTC" });
 
 /**
  * The scheduled interview emails, run hourly. (1) The backstops: cancel anything the trigger missed and close offers whose times have all passed. (2) The cancellation notice: ONE neutral email to the CANDIDATE (the employer acted) for each

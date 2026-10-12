@@ -1,6 +1,7 @@
 import { buildIcs } from "./ics";
 import { buildCancellationEmail, buildConfirmationEmail, buildNoneWorkEmail } from "./emails";
 import { formatInterviewRange } from "./format";
+import { formatTime } from "@/lib/format/datetime";
 import type { InterviewKind } from "./constants";
 
 /** Where the employer's emails read the time: Lagos (UTC+1 all year); the candidate's emails read it in the zone their browser reported. The calendar file is UTC either way. */
@@ -51,7 +52,7 @@ const FAILURES: Record<string, { reason: BookFailure; message: string }> = {
   not_found: { reason: "not_found", message: "We couldn't find that invitation." },
 };
 
-const utcClock = (iso: string) => `${new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "UTC" }).format(new Date(iso))} UTC`;
+const utcClock = (iso: string) => formatTime(iso, { timeZone: "UTC" });
 
 /**
  * The candidate books one offered time. The database decides (ownership, the atomic claim: the loser of a race gets "That time was just taken"); this then sends the confirmation, with a calendar

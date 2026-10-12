@@ -3,17 +3,12 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { bookInterviewSlotAction, noneOfTheseTimesWorkAction } from "@/lib/interviews/actions";
+import { viewerTimeZone } from "@/lib/format/datetime";
 import { LocalTime } from "./local-time";
 
 type Slot = { id: string; startsAt: string; durationMinutes: number };
 
-function browserZone(): string {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-  } catch {
-    return "UTC";
-  }
-}
+const browserZone = (): string => viewerTimeZone() ?? "UTC";
 
 /** The candidate's side: pick one offered time (each shown in THEIR zone), or say none of them work. The loser of a race is told "That time was just taken" and the page refreshes to the remaining times. */
 export function InterviewPicker({ offerId, slots }: { offerId: string; slots: Slot[] }) {

@@ -1,16 +1,11 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { viewerTimeZone } from "@/lib/format/datetime";
 import { formatInterviewRange, formatInterviewTime } from "@/lib/interviews/format";
 
 const subscribe = () => () => {};
-const clientZone = () => {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-  } catch {
-    return "UTC";
-  }
-};
+const clientZone = () => viewerTimeZone() ?? "UTC";
 const serverZone = () => "UTC";
 
 /**
