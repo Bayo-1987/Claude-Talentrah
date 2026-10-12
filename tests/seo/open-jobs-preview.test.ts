@@ -101,7 +101,9 @@ describe("loadOpenJobsPreview", () => {
     const row = mine(jobs)[0];
     expect(row, "no fixture row to inspect").toBeTruthy();
     expect(Object.keys(row).sort()).toEqual(
-      ["company_name", "id", "location", "posted_at", "source_type", "title", "work_type"],
+      // import_feed_id is the one marker the card needs to decide link-out (src/lib/jobs/link-out.ts);
+      // it is an opaque id, with no feed URL or credential. Any other addition should still fail here.
+      ["company_name", "id", "import_feed_id", "location", "posted_at", "source_type", "title", "work_type"],
     );
   });
 

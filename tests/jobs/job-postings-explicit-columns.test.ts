@@ -233,7 +233,8 @@ describe("src/lib/jobs/job-columns.ts", () => {
   it("the detail list is every column except the internal ones it deliberately leaves out", async () => {
     const mod = await import("@/lib/jobs/job-columns");
     const left = realColumns.filter((c) => !split(mod.JOB_DETAIL_COLUMNS).includes(c)).sort();
-    expect(left).toEqual([NOTE, "search_vector"].sort());
+    // 0246: import_key and employer_closed_at are the import sync's own bookkeeping, unreadable by anon and authenticated (tests/rls/job-postings-column-grants.test.ts); import_feed_id IS in the list.
+    expect(left).toEqual([NOTE, "search_vector", "import_key", "employer_closed_at"].sort());
   });
 });
 

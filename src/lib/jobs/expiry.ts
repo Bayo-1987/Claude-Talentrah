@@ -77,6 +77,8 @@ export async function closeExpiredInternalPostings(
     // both mean the wrong thing for that job.
     .update({ status: "closed", closed_at: now.toISOString() })
     .eq("source_type", "internal")
+    // An imported posting has no Talentrah expiry: it closes through its feed (removal on the employer's page, the grace period, the employer or an operator), never by this sweep.
+    .is("import_feed_id", null)
     .eq("status", "open")
     /*
      * `.lt` alone would be wrong: in PostgREST a comparison against NULL is

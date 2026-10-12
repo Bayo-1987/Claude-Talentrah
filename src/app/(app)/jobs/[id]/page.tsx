@@ -34,6 +34,7 @@ import {
 import { defaultCountryForProfile } from "@/lib/jobs/country";
 import { logCountryDefaultEvent, type CountryState } from "@/lib/jobs/country-events";
 import { bannerIsEligibleToRender, bannerPublicUrl } from "@/lib/employer/banner";
+import { isLinkOutPosting, provenanceLabel } from "@/lib/jobs/link-out";
 
 const WORK_TYPE_LABEL: Record<string, string> = {
   remote: "Remote",
@@ -331,7 +332,9 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
     ? (await computeAndStoreMatchScores(supabase, user.id, resume, [job]))[0]
     : null;
 
-  const isExternal = job.source_type === "external";
+  // Apply mode and provenance are different questions (src/lib/jobs/link-out.ts): an imported posting is applied for on the employer's own site (link-out) but is not "sourced externally".
+  const isExternal = isLinkOutPosting(job);
+  const provenance = provenanceLabel(job);
   // Mirrors the feed's own `hasBaseResume` shape exactly (jobs/(feed)/page.tsx)
   // so the two surfaces can never disagree about whether this signed-in user
   // has a resume to apply with. `null` only for a signed-out reader, who
@@ -548,7 +551,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
       <div className="flex flex-col gap-1 border-y border-line py-3">
         <span className="text-[12.5px] text-ink-soft">
           {postingAgeLine(job)}
-          {isExternal && " · sourced externally"}
+          {provenance && ` · ${provenance}`}
         </span>
         {/*
           send-447 — "no longer open" is false for a draft an org member is
