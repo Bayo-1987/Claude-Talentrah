@@ -59,6 +59,7 @@ handed over.
 | `feedback.triaged_by` | profiles | SET NULL | detach | an admin's triage of someone else's feedback |
 | `feedback.user_id` | profiles | CASCADE | delete | the person's own feedback |
 | `job_posting_assessments.created_by` | profiles | SET NULL | detach | who wrote an organisation's assessment; the assessment stays |
+| `interview_offers.created_by` | profiles | SET NULL | detach | the employer member who offered the times; the offer, and any booking on it, stay with the applicant's application |
 | `job_posting_reports.reporter_id` | profiles | CASCADE | delete | reports the person filed |
 | `job_postings.admin_reviewed_by` | profiles | SET NULL | detach | an admin's review of someone else's posting |
 | `job_postings.removed_by` | profiles | SET NULL | detach | an admin's removal of someone else's posting |

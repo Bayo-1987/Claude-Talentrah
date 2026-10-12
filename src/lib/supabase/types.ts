@@ -1613,6 +1613,117 @@ export type Database = {
           },
         ]
       }
+      interview_bookings: {
+        Row: {
+          application_id: string
+          booked_at: string
+          cancel_reason: string | null
+          cancellation_email_sent_at: string | null
+          cancelled_at: string | null
+          duration_minutes: number
+          id: string
+          job_posting_id: string
+          offer_id: string
+          organization_id: string
+          reminder_sent_at: string | null
+          slot_id: string
+          starts_at: string
+          status: string
+        }
+        Insert: {
+          application_id: string
+          booked_at?: string
+          cancel_reason?: string | null
+          cancellation_email_sent_at?: string | null
+          cancelled_at?: string | null
+          duration_minutes: number
+          id?: string
+          job_posting_id: string
+          offer_id: string
+          organization_id: string
+          reminder_sent_at?: string | null
+          slot_id: string
+          starts_at: string
+          status?: string
+        }
+        Update: {
+          application_id?: string
+          booked_at?: string
+          cancel_reason?: string | null
+          cancellation_email_sent_at?: string | null
+          cancelled_at?: string | null
+          duration_minutes?: number
+          id?: string
+          job_posting_id?: string
+          offer_id?: string
+          organization_id?: string
+          reminder_sent_at?: string | null
+          slot_id?: string
+          starts_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      interview_offers: {
+        Row: {
+          application_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          job_posting_id: string
+          kind: string
+          message_id: string | null
+          note: string | null
+          organization_id: string
+          status: string
+        }
+        Insert: {
+          application_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          job_posting_id: string
+          kind: string
+          message_id?: string | null
+          note?: string | null
+          organization_id: string
+          status?: string
+        }
+        Update: {
+          application_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          job_posting_id?: string
+          kind?: string
+          message_id?: string | null
+          note?: string | null
+          organization_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      interview_slots: {
+        Row: {
+          duration_minutes: number
+          id: string
+          offer_id: string
+          starts_at: string
+        }
+        Insert: {
+          duration_minutes: number
+          id?: string
+          offer_id: string
+          starts_at: string
+        }
+        Update: {
+          duration_minutes?: number
+          id?: string
+          offer_id?: string
+          starts_at?: string
+        }
+        Relationships: []
+      }
       job_expiry_reminders: {
         Row: {
           closes_at: string
@@ -3967,6 +4078,79 @@ export type Database = {
       }
       application_applicant_is_active: {
         Args: { p_application_id: string }
+        Returns: boolean
+      }
+      book_interview_slot: {
+        Args: { p_slot: string; p_user: string }
+        Returns: {
+          booking_id: string
+          ok: boolean
+          outcome: string
+          starts_at: string
+        }[]
+      }
+      cancel_stale_interview_bookings: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      claim_interview_cancellation_emails: {
+        Args: { p_limit?: number }
+        Returns: {
+          applicant_user_id: string
+          application_id: string
+          booking_id: string
+          job_posting_id: string
+          organization_id: string
+          recipient: string
+          starts_at: string
+        }[]
+      }
+      claim_interview_reminders: {
+        Args: { p_from: string; p_limit?: number; p_to: string }
+        Returns: {
+          applicant_user_id: string
+          application_id: string
+          booking_id: string
+          duration_minutes: number
+          job_posting_id: string
+          organization_id: string
+          starts_at: string
+        }[]
+      }
+      create_interview_offer: {
+        Args: { p_application: string; p_kind: string; p_note: string; p_slots: Json; p_user: string }
+        Returns: {
+          message_id: string
+          offer_id: string
+          ok: boolean
+          outcome: string
+        }[]
+      }
+      expire_interview_offers: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      interview_offer_state: {
+        Args: { p_offer: string }
+        Returns: string
+      }
+      interview_overlaps: {
+        Args: { p_organization: string; p_slots: Json; p_user: string }
+        Returns: {
+          application_id: string
+          booking_id: string
+          duration_minutes: number
+          job_posting_id: string
+          slot_index: number
+          starts_at: string
+        }[]
+      }
+      release_interview_cancellation_email: {
+        Args: { p_booking: string }
+        Returns: boolean
+      }
+      release_interview_reminder: {
+        Args: { p_booking: string }
         Returns: boolean
       }
       submission_applicant_is_active: {
