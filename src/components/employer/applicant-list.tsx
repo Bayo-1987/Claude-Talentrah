@@ -382,6 +382,13 @@ export function ApplicantList({
                 >
                   Message candidate
                 </Link>
+                {/* MESSAGE-ENTRY-1: the way into Schedule interview (0253). The page re-checks that the application is this organisation's own applicant. */}
+                <Link
+                  href={`/employer/jobs/${jobId}/applicants/${applicant.application_id}/schedule`}
+                  className="font-body text-[13px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
+                >
+                  Offer interview times
+                </Link>
                 {/*
                   Keyed by `status`: this control owns its OWN local state
                   once mounted (see its header comment) and would not

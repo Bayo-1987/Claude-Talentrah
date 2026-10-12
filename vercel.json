@@ -20,6 +20,10 @@
       "schedule": "0 7 * * *"
     },
     {
+      "path": "/api/admin/send-interview-notices",
+      "schedule": "7 * * * *"
+    },
+    {
       "path": "/api/admin/send-scholarship-deadline-alerts",
       "schedule": "30 7 * * *"
     },

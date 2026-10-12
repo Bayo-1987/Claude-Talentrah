@@ -1,0 +1,25 @@
+# Employer to applicant contact, interview scheduling, new-applicant notices
+
+Written 10 Oct 2026 with the three features (Message candidate + Farah drafting, Schedule interview, new-applicant notifications). Read this before changing any of them. The migrations carry the long reasoning (0256, 0253, 0254, 0259); this is the map and the rules that are easy to break.
+
+## The rules that matter
+- **The candidate's email address never leaves the server.** It is read with the service role for the one send, and appears in no result, page, log line, log table row or in-app note. Replies go to the sending member's own address (Reply-To). Tests assert this at unit, database and browser level.
+- **One daily counter.** `claim_applicant_message` (0256) is the only place the limit of 20 employer-sent messages per organisation per UTC day is decided: one advisory lock + count + insert in one call. Interview invitations call it (kind `interview_invite`) from `create_interview_offer` (0253). Confirmations, reminders, `.ics` files, "None of these work" and cancellation notices never touch it. A failed email hands its unit back with a conditional update (`status = 'claimed'` only), so it happens once.
+- **Only a verified company sends.** Messages and invitations leave from Talentrah's address; an unverified, self-created organisation is refused before anything is claimed.
+- **Who may act is decided by the employer's own session, twice**: `requireEmployer()` (their organisation) and `employer_job_applicants` through their own session (the application is a submitted one on a job that organisation owns). Only then does the service role run. A foreign job, a foreign application, a bookmark and a made-up id all answer not-found.
+- **Premium is an admin-set date in its own table** (`organization_premium`, no grants, no policy). The only writer is `admin_set_organization_premium` (service role, audited in `admin_audit_log`, reason required). It is an access gate for "Draft/Refine with Farah" only; the draft itself is charged to the ad wallet (`FARAH_MESSAGE_DRAFT_NGN`, charge before the model, refund on any failure, once).
+- **Farah never sends.** The draft route returns text; the employer presses Send. The model sees only the job title, the organisation's name, two first names and what the employer wrote. A draft that contains a figure, clock time, date, salary/offer/guarantee word the employer did not write is refused and refunded. The draft is a route handler (`/api/employer/applicant-message-draft`) because only a route sees `request.signal`: a browser that disconnects before delivery is refunded.
+- **A deleted candidate**: the message row stays (the organisation's record and the daily count), `application_id` goes null, subject and body are blanked by a BEFORE DELETE trigger on `applications`.
+- **Interview times are stored in UTC and shown in the viewer's own zone** (`src/lib/interviews/format.ts`, `local-time.tsx`; the `.ics` is UTC). Emails write Lagos time with the UTC time beside it because the server does not know a recipient's zone. Lagos is UTC+1 all year; London changes on 25 Oct 2026: that is tested, not assumed.
+- **A time is exclusive per job** (database unique index): the loser of a race sees "That time was just taken". The overlap warning is UI-only and never blocks.
+- **Cancellation**: a booked interview is cancelled only when the EMPLOYER marks the applicant `not_a_fit` (the one negative status the employer has). A candidate archiving their own tracker card cancels nothing. ONE neutral email goes to the party who did not act. There is no candidate "Withdraw application" action.
+- **New-applicant emails**: the first applicant of an internal job is emailed at once to members on `instant` (claimed once in the database), everyone else in one digest at 07:05Z; name, job and link only. QA accounts (applicant or recipient) produce nothing. "N new" = submitted applications with no employer status yet (0259).
+
+## Where things live
+- Message candidate: `src/lib/employer/applicant-messages/` (core, relay email, templates, Farah draft), page `employer/jobs/[id]/applicants/[applicationId]/message`, action `applicant-message-actions.ts`.
+- Schedule interview: `src/lib/interviews/` (offer, booking, notices, emails, ics, format), pages `.../schedule` (employer) and `(app)/interviews/[offerId]` (candidate), actions `interviews/actions.ts`, hourly route `/api/admin/send-interview-notices`.
+- New applicants: `src/lib/employer/new-applicants/`, hooked from `performInAppApply` (an `after()` block), daily route `/api/admin/send-new-applicant-digest`, setting on Jobs Posted.
+- Tests worth reading first: `tests/employer/applicant-messages-claim.test.ts`, `tests/interviews/flow-integration.test.ts`, `tests/employer/new-applicants/apply-wiring.test.ts`.
+
+## Apply order on hosted projects
+0256, then 0253, then 0254, then 0259 (0259 needs 0254). Each is additive and applied BEFORE its code merges.

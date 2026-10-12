@@ -5,6 +5,7 @@ import { StageSelect } from "@/components/tracker/stage-select";
 import { NotesForm } from "@/components/tracker/notes-form";
 import { formatTrackerDate as formatDate } from "@/lib/tracker/format-date";
 import { trackerStageLabel } from "@/lib/tracker/stages";
+import { LocalDateTime } from "@/components/interviews/local-time";
 
 export interface TrackerEntry {
   id: string;
@@ -45,6 +46,8 @@ export interface TrackerEntry {
    * this never gates or delays anything the employer does.
    */
   firstViewedAt: string | null;
+  /** The next BOOKED interview for this application (0253), if any: read from the booking, never from the stage. Absent for every other card. */
+  interview?: { startsAt: string; offerId: string } | null;
 }
 
 export function TrackerCard({ entry }: { entry: TrackerEntry }) {
@@ -80,6 +83,11 @@ export function TrackerCard({ entry }: { entry: TrackerEntry }) {
           app to an absent state.
         */}
         {entry.firstViewedAt && <span>Viewed {formatDate(entry.firstViewedAt)}</span>}
+        {entry.interview && (
+          <Link href={`/interviews/${entry.interview.offerId}`} className="font-semibold text-ink underline underline-offset-2 hover:text-rust">
+            Interview scheduled, <LocalDateTime startsAt={entry.interview.startsAt} />
+          </Link>
+        )}
         {entry.url && (
           <a href={entry.url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-rust">
             Job posting
