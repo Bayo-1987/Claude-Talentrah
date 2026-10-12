@@ -68,14 +68,14 @@ test.describe("schedule interview", () => {
 
     const lagos = await candidatePage(browser, baseURL, joy, "Africa/Lagos");
     await lagos.page.goto(`/interviews/${offerId}`);
-    await expect(lagos.page.getByText(/Sat, 24 Oct 2026, 10:00 to 10:45/)).toBeVisible();
-    await expect(lagos.page.getByText(/Mon, 26 Oct 2026, 10:00 to 10:45/)).toBeVisible();
+    await expect(lagos.page.getByText(/Sat 24 Oct at 10:00 to 10:45 WAT/)).toBeVisible();
+    await expect(lagos.page.getByText(/Mon 26 Oct at 10:00 to 10:45 WAT/)).toBeVisible();
     await lagos.context.close();
 
     const london = await candidatePage(browser, baseURL, joy, "Europe/London");
     await london.page.goto(`/interviews/${offerId}`);
-    await expect(london.page.getByText(/Sat, 24 Oct 2026, 10:00 to 10:45 BST/)).toBeVisible();
-    await expect(london.page.getByText(/Mon, 26 Oct 2026, 09:00 to 09:45 GMT/)).toBeVisible();
+    await expect(london.page.getByText(/Sat 24 Oct at 10:00 to 10:45 BST/)).toBeVisible();
+    await expect(london.page.getByText(/Mon 26 Oct at 09:00 to 09:45 GMT/)).toBeVisible();
     await london.context.close();
   });
 
