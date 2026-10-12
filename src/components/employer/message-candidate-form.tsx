@@ -5,6 +5,7 @@ import Link from "next/link";
 import { sendApplicantMessageAction } from "@/lib/employer/applicant-message-actions";
 import { MESSAGE_TEMPLATE_KINDS, TEMPLATE_LABELS, SUBJECT_MAX, BODY_MAX, type MessageTemplateKind } from "@/lib/employer/applicant-messages/constants";
 import { cn } from "@/lib/cn";
+import { TextArea } from "@/components/ui/text-area";
 
 export type TemplateTexts = Record<MessageTemplateKind, { subject: string; body: string }>;
 
@@ -186,18 +187,15 @@ export function MessageCandidateForm({
       </div>
 
       <div className="mt-5 flex flex-col gap-1.5">
-        <label htmlFor="message-body" className="font-body text-[13px] font-semibold text-ink">
-          Message
-        </label>
-        <textarea
+        <TextArea
           id="message-body"
+          label="Message"
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          maxLength={BODY_MAX}
-          rows={12}
-          className="border-[1.5px] border-ink bg-card px-3.5 py-3 font-body text-[15px] leading-[1.6] text-ink outline-none focus:border-rust"
+          limit={BODY_MAX}
+          minRows={12}
+          help="Plain text only. A link you type is sent as text, not as a link."
         />
-        <p className="font-body text-[12.5px] text-ink-soft">Plain text only. A link you type is sent as text, not as a link.</p>
       </div>
 
       {premium ? (
@@ -207,17 +205,15 @@ export function MessageCandidateForm({
               <span className="font-semibold text-rust">Farah</span> drafted this from your notes and the job. Review it before sending.
             </p>
           )}
-          <label htmlFor="farah-notes" className={cn("block font-body text-[13px] font-semibold text-ink", drafted && "mt-3")}>
-            Notes for Farah (optional)
-          </label>
-          <textarea
+          <TextArea
             id="farah-notes"
+            label="Notes for Farah (optional)"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            maxLength={2000}
-            rows={2}
+            limit={2000}
+            counterFrom={1500}
             placeholder="What should the message say? Farah only uses what you write here."
-            className="mt-1.5 w-full border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[14px] text-ink outline-none focus:border-rust"
+            wrapperClassName={drafted ? "mt-3" : undefined}
           />
           {farahError && (
             <p role="alert" className="mt-3 font-body text-[13.5px] text-rust">

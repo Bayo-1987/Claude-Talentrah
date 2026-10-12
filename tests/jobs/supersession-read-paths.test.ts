@@ -38,6 +38,7 @@ const ALLOWED: Record<string, string> = {
   "src/lib/employer-verification-reminders/send.ts": "the employer's own postings",
   "src/lib/jobs/expiry-reminders/extend.ts": "reads one posting by the id on its own Extend link; internal only (supersession is external-only), and it refuses anything else",
   "src/app/api/employer/job-banner/route.ts": "the employer's own postings",
+  "src/lib/employer/applicant-messages/send-deps.ts": "reads only the TITLE of the posting an application belongs to, after requireEmployer + isApplicantOfMyJob already proved the application is this organisation's own applicant on that job; a superseded posting's applicants stay that employer's applicants, so filtering superseded_at would wrongly block messaging them; exposes no row to any visitor",
   "src/lib/admin/moderation/queues.ts": "admins must see every row, hidden or not",
   "src/lib/admin/moderation/search.ts": "admins must see every row, hidden or not",
   "src/lib/admin/moderation/actions.ts": "admins must see every row, hidden or not",
