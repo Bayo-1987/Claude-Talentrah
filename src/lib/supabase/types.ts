@@ -609,6 +609,80 @@ export type Database = {
           },
         ]
       }
+      applicant_messages: {
+        Row: {
+          application_id: string | null
+          body: string
+          created_at: string
+          failure_reason: string | null
+          id: string
+          job_posting_id: string | null
+          kind: string
+          organization_id: string
+          sender_user_id: string | null
+          sent_at: string | null
+          status: string
+          subject: string
+        }
+        Insert: {
+          application_id?: string | null
+          body: string
+          created_at?: string
+          failure_reason?: string | null
+          id?: string
+          job_posting_id?: string | null
+          kind: string
+          organization_id: string
+          sender_user_id?: string | null
+          sent_at?: string | null
+          status?: string
+          subject: string
+        }
+        Update: {
+          application_id?: string | null
+          body?: string
+          created_at?: string
+          failure_reason?: string | null
+          id?: string
+          job_posting_id?: string | null
+          kind?: string
+          organization_id?: string
+          sender_user_id?: string | null
+          sent_at?: string | null
+          status?: string
+          subject?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "applicant_messages_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applicant_messages_job_posting_id_fkey"
+            columns: ["job_posting_id"]
+            isOneToOne: false
+            referencedRelation: "job_postings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applicant_messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applicant_messages_sender_user_id_fkey"
+            columns: ["sender_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       application_assessment_response_files: {
         Row: {
           application_assessment_submission_id: string
@@ -2460,6 +2534,32 @@ export type Database = {
           },
         ]
       }
+      organization_premium: {
+        Row: {
+          organization_id: string
+          premium_until: string
+          updated_at: string
+        }
+        Insert: {
+          organization_id: string
+          premium_until: string
+          updated_at?: string
+        }
+        Update: {
+          organization_id?: string
+          premium_until?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_premium_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           cac_business_name: string | null
@@ -4143,6 +4243,17 @@ export type Database = {
         Args: { p_holder: string; p_name: string }
         Returns: boolean
       }
+      admin_set_organization_premium: {
+        Args: {
+          p_admin_email: string
+          p_admin_session_id: string
+          p_admin_user_id: string
+          p_organization_id: string
+          p_premium_until: string
+          p_reason: string
+        }
+        Returns: string
+      }
       claim_ai_talent_verification: {
         Args: { p_user_id: string }
         Returns: {
@@ -4158,6 +4269,19 @@ export type Database = {
           allowed: boolean
           reason: string
         }[]
+      }
+      claim_applicant_message: {
+        Args: {
+          p_application_id: string
+          p_body: string
+          p_daily_limit?: number
+          p_job_posting_id: string
+          p_kind: string
+          p_organization_id: string
+          p_sender_user_id: string
+          p_subject: string
+        }
+        Returns: string
       }
       claim_external_job_posting: {
         Args: {
@@ -4900,6 +5024,7 @@ export type Database = {
         | "reversal"
         | "farah_screening_charge"
         | "farah_jd_draft_charge"
+        | "farah_message_draft_charge"
       admin_permission:
         | "scholarships"
         | "reported_postings"
@@ -5143,6 +5268,7 @@ export const Constants = {
         "reversal",
         "farah_screening_charge",
         "farah_jd_draft_charge",
+        "farah_message_draft_charge",
       ],
       admin_permission: [
         "scholarships",
