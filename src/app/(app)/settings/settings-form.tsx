@@ -1,11 +1,12 @@
 "use client";
 
 import { useActionState } from "react";
+import { savedSelect } from "@/lib/forms/saved-select";
 import { updateProfileAction } from "@/lib/profile/settings-actions";
 import { initialSettingsActionState } from "@/lib/profile/settings-state";
 import { SIGNUP_COUNTRIES } from "@/lib/auth/schemas";
 import { TextField, SelectField, Button } from "@/components/ui";
-import { inputValue, selectKey } from "@/lib/forms/keep-input";
+import { inputValue } from "@/lib/forms/keep-input";
 
 export interface SettingsFormProps {
   firstName: string;
@@ -18,6 +19,7 @@ export function SettingsForm({ firstName, lastName, country }: SettingsFormProps
     updateProfileAction,
     initialSettingsActionState,
   );
+  const countrySelect = savedSelect("country", country, state.values);
 
   return (
     <form action={formAction} className="flex flex-col gap-5">
@@ -55,12 +57,12 @@ export function SettingsForm({ firstName, lastName, country }: SettingsFormProps
         defect fixed in the primitive, honoured here rather than relied on.
       */}
       <SelectField
-        key={selectKey(state.values, "country")}
+        key={countrySelect.key}
         label="Country"
         name="country"
         autoComplete="country-name"
         options={SIGNUP_COUNTRIES}
-        defaultValue={inputValue(state.values, "country", country ?? "")}
+        defaultValue={countrySelect.defaultValue}
         required
         error={state.fieldErrors?.country?.[0]}
       />

@@ -55,6 +55,10 @@ export async function POST(request: Request) {
    * Checked before parsing the body so a flood of malformed requests is
    * counted too.
    */
+  // Burst first (TAILOR-RACE-2): a request refused here costs nothing else and does not use up the hourly allowance.
+  const burst = await consumeRateLimit(user.id, "tailoringBurst");
+  // The form shows this message as it is: a refused burst almost always means a run is already going, so say so.
+  if (!burst.allowed) return rateLimited(burst, "A tailoring run is already in progress. Please wait a moment for it to finish.");
   const quota = await consumeRateLimit(user.id, "tailoring");
   if (!quota.allowed) return rateLimited(quota);
 
@@ -150,10 +154,32 @@ export async function POST(request: Request) {
   }
 
   // Only now — after the LLM call actually succeeded — commit the spend.
-  const tailoringCommit = await commitTailoringAllowance(user.id, "tailoring", tailoringAllowance);
-  const coverLetterCommit = coverLetterAllowance
-    ? await commitTailoringAllowance(user.id, "cover_letter", coverLetterAllowance)
-    : undefined;
+  //
+  // The paid check only READS the balance; the atomic spend is here (TAILOR-RACE-2). Of several simultaneous requests that each read enough credit for one run, the one that spends first wins and the
+  // others' spends fail with InsufficientCreditsError. That used to escape as an empty 500 with the work already done. Now: the tailoring leg's shortfall is a 402 with the normal message (nothing was
+  // charged, nothing is delivered, a free cover-letter trial claimed at the check is given back); the cover-letter leg's shortfall delivers the tailored resume without the letter, as the check-time
+  // shortfall already does.
+  let tailoringCommit;
+  try {
+    tailoringCommit = await commitTailoringAllowance(user.id, "tailoring", tailoringAllowance);
+  } catch (err) {
+    if (!(err instanceof InsufficientCreditsError)) throw err;
+    await coverLetterAllowance?.release?.();
+    return NextResponse.json(
+      { error: err.capMessage ?? "Not enough credits for a tailoring run.", needsCredits: true },
+      { status: 402 },
+    );
+  }
+  let coverLetterCommit;
+  if (coverLetterAllowance) {
+    try {
+      coverLetterCommit = await commitTailoringAllowance(user.id, "cover_letter", coverLetterAllowance);
+    } catch (err) {
+      if (!(err instanceof InsufficientCreditsError)) throw err;
+      await coverLetterAllowance.release?.();
+      coverLetterAllowance = null;
+    }
+  }
   // The balance the LAST spend left (the two commits run in sequence, so that is the final ledger state);
   // a free-trial or Pass leg contributes null and falls back to the earlier leg. null when nothing was
   // spent at all (issue #605: the masthead updates from this without a reload).
@@ -177,7 +203,7 @@ export async function POST(request: Request) {
   }
 
   let coverLetterResumeId: string | null = null;
-  if (result.coverLetter) {
+  if (result.coverLetter && coverLetterAllowance) {
     const { data: letterRow } = await supabase
       .from("resumes")
       .insert({

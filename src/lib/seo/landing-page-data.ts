@@ -351,11 +351,11 @@ export async function loadOpenScholarshipsPreview(
  * NOT cached, per this file's own rule above: a fresh query every call, and the page that calls it is
  * dynamically rendered (asserted from the response headers in e2e/jobs-tracker-public-landing.spec.ts).
  */
-const JOB_PREVIEW_COLUMNS = "id, title, company_name, location, work_type, source_type, posted_at";
+const JOB_PREVIEW_COLUMNS = "id, title, company_name, location, work_type, source_type, posted_at, import_feed_id";
 
 export type OpenJobPreview = Pick<
   Tables<"job_postings">,
-  "id" | "title" | "company_name" | "location" | "work_type" | "source_type" | "posted_at"
+  "id" | "title" | "company_name" | "location" | "work_type" | "source_type" | "posted_at" | "import_feed_id"
 >;
 
 export interface OpenJobsPreviewResult {

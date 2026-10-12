@@ -6,7 +6,7 @@
  * marked "use server" is a stub on the client (the action is called over the network, its code is not shipped) so the walk stops there, and `import type` is erased. A client file that reaches `from "zod"`
  * is reported, unless it is on the list below.
  *
- * THE LIST ONLY SHRINKS. The six entries are forms that already did this before the check existed (their pages pay the same ~94 KB); each is a separate small change (move what the client needs, a constant or a
+ * THE LIST ONLY SHRINKS. The remaining entries are forms that already did this before the check existed (their pages pay the same ~94 KB); each is a separate small change (move what the client needs, a constant or a
  * type, to a module without zod). A new client file, or a seventh, fails here. When an entry is fixed, delete it: the "stale entry" test fails until you do.
  */
 import { readdirSync, readFileSync } from "node:fs";
@@ -20,8 +20,6 @@ const SRC = path.join(ROOT, "src");
 export const ALLOWED: Record<string, string> = {
   "src/app/(app)/feedback/feedback-form.tsx": "src/lib/feedback/schemas.ts",
   "src/app/(app)/settings/settings-form.tsx": "src/lib/auth/schemas.ts",
-  "src/app/admin/(protected)/scholarships/[id]/edit/edit-scholarship-form.tsx": "src/lib/scholarships/schemas.ts",
-  "src/app/admin/(protected)/scholarships/new/admin-scholarship-form.tsx": "src/lib/scholarships/schemas.ts",
   "src/app/contact/contact-form.tsx": "src/lib/contact/schemas.ts",
   "src/components/auth/signup-form.tsx": "src/lib/auth/schemas.ts",
 };

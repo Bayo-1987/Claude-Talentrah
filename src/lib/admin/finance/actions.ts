@@ -4,6 +4,7 @@ import { requirePermission } from "@/lib/admin/require-admin";
 import { recordAdminAction } from "@/lib/admin/audit";
 import { findPerson } from "./queries";
 import type { PersonLookupState } from "./state";
+import { submittedValues } from "@/lib/forms/keep-input";
 
 /**
  * Look one person up, and record that it happened.
@@ -35,6 +36,8 @@ export async function lookUpPersonAction(
 ): Promise<PersonLookupState> {
   const admin = await requirePermission("people");
   const term = String(formData.get("term") ?? "").trim();
+  // The term comes back with every real lookup (React 19 resets the box after the action): a typo in a long email or reference should not have to be retyped.
+  const typed = submittedValues(formData, ["term"]);
 
   if (!term) {
     return { status: "idle" };
@@ -45,12 +48,13 @@ export async function lookUpPersonAction(
     person = await findPerson(term);
   } catch (err) {
     console.error("[admin-finance] lookup", err);
-    return { status: "error", message: "Something went wrong on our end." };
+    return { status: "error", message: "Something went wrong on our end.", values: typed };
   }
 
   if (!person) {
     return {
       status: "not_found",
+      values: typed,
       message:
         "No match. This searches exact email, user id or Paystack reference — there is no partial matching.",
     };
@@ -68,5 +72,5 @@ export async function lookUpPersonAction(
     detail: { matched_by: term.includes("@") ? "email" : /^[0-9a-f-]{36}$/i.test(term) ? "user_id" : "reference" },
   });
 
-  return { status: "found", person };
+  return { status: "found", person, values: typed };
 }

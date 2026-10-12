@@ -10,7 +10,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { wrapDecisionAction } from "@/lib/admin/moderation/decision-action";
+import { ANNOUNCE_WINDOW_MS, announcementDueAtUnmount, wrapDecisionAction } from "@/lib/admin/moderation/decision-action";
 import { announceDecision, dismissDecisionNotice, getDecisionNotice, subscribeDecisionNotice } from "@/lib/admin/moderation/decision-notice";
 import type { ModerationState } from "@/lib/admin/moderation/state";
 
@@ -25,71 +25,67 @@ const form = (note: string, extra: Record<string, string> = {}) => {
   for (const [k, v] of Object.entries(extra)) f.set(k, v);
   return f;
 };
-/** Runs the scheduled "is the row gone?" check at once, so a test can see what was announced. */
-const now = (fn: () => void) => fn();
 
 describe("wrapDecisionAction: an error keeps the note (DECISION-NOTE-1)", () => {
   it("an error comes back with the note exactly as typed", async () => {
-    const run = wrapDecisionAction(async () => ({ status: "error", message: "Already decided by someone else.", targetId: "org-1" }), { noteName: "note", rowIsGone: () => false });
+    const run = wrapDecisionAction(async () => ({ status: "error", message: "Already decided by someone else.", targetId: "org-1" }), { noteName: "note" });
     const out = await run(idle, form("  they sent two different CAC numbers  "));
     expect(out.status).toBe("error");
     expect(out.values).toEqual({ note: "  they sent two different CAC numbers  " });
   });
   it("an error that already carries its own values is left alone", async () => {
     const own = { status: "error", message: "x", targetId: "org-1", values: { note: "kept by the action" } } as const;
-    const out = await wrapDecisionAction(async () => own, { noteName: "note", rowIsGone: () => false })(idle, form("typed"));
+    const out = await wrapDecisionAction(async () => own, { noteName: "note" })(idle, form("typed"));
     expect(out.values).toEqual({ note: "kept by the action" });
   });
   it("a success hands back no values, so the next note box starts clean", async () => {
-    const out = await wrapDecisionAction(async () => ({ status: "success", message: "Verified.", targetId: "org-1" }), { noteName: "note", rowIsGone: () => false })(idle, form("typed"));
+    const out = await wrapDecisionAction(async () => ({ status: "success", message: "Verified.", targetId: "org-1" }), { noteName: "note" })(idle, form("typed"));
     expect(out.values).toBeUndefined();
   });
   it("it follows the caller's note field name", async () => {
     const f = new FormData();
     f.set("reason", "because");
-    const out = await wrapDecisionAction(async () => ({ status: "error", message: "x" }), { noteName: "reason", rowIsGone: () => false })(idle, f);
+    const out = await wrapDecisionAction(async () => ({ status: "error", message: "x" }), { noteName: "reason" })(idle, f);
     expect(out.values).toEqual({ reason: "because" });
   });
   it("it passes the previous state and the form data to the real action untouched", async () => {
     const real = vi.fn(async (): Promise<ModerationState> => idle);
     const f = form("n");
-    await wrapDecisionAction(real, { noteName: "note", rowIsGone: () => false })(idle, f);
+    await wrapDecisionAction(real, { noteName: "note" })(idle, f);
     expect(real).toHaveBeenCalledWith(idle, f);
   });
 });
 
-describe("wrapDecisionAction: a decision that removes the row still says so (DECISION-SILENT-1)", () => {
-  it("a success whose row is gone is announced once, with the action's own message", async () => {
-    const announce = vi.fn();
-    await wrapDecisionAction(async () => ({ status: "success", message: "Verified “Acme”.", targetId: "org-1" }), { noteName: "note", rowIsGone: () => true, announce, schedule: now })(idle, form(""));
-    expect(announce).toHaveBeenCalledTimes(1);
-    expect(announce).toHaveBeenCalledWith("Verified “Acme”.");
+describe("wrapDecisionAction: a success is remembered for the row, to be announced if the row goes (DECISION-SILENT-1/2)", () => {
+  it("a success with a message is handed to onSuccess once, with the time it happened", async () => {
+    const onSuccess = vi.fn();
+    await wrapDecisionAction(async () => ({ status: "success", message: "Verified “Acme”.", targetId: "org-1" }), { noteName: "note", onSuccess, now: () => 1234 })(idle, form(""));
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+    expect(onSuccess).toHaveBeenCalledWith("Verified “Acme”.", 1234);
   });
-  it("a success whose row is still on the page is NOT announced (the row's own banner says it)", async () => {
-    const announce = vi.fn();
-    await wrapDecisionAction(async () => ({ status: "success", message: "Saved.", targetId: "org-1" }), { noteName: "note", rowIsGone: () => false, announce, schedule: now })(idle, form(""));
-    expect(announce).not.toHaveBeenCalled();
+  it("an error is never remembered", async () => {
+    const onSuccess = vi.fn();
+    await wrapDecisionAction(async () => ({ status: "error", message: "Already decided by someone else." }), { noteName: "note", onSuccess })(idle, form(""));
+    expect(onSuccess).not.toHaveBeenCalled();
   });
-  it("an error is never announced there", async () => {
-    const announce = vi.fn();
-    await wrapDecisionAction(async () => ({ status: "error", message: "Already decided by someone else." }), { noteName: "note", rowIsGone: () => true, announce, schedule: now })(idle, form(""));
-    expect(announce).not.toHaveBeenCalled();
+  it("a success with no message is not remembered", async () => {
+    const onSuccess = vi.fn();
+    await wrapDecisionAction(async () => ({ status: "success" }), { noteName: "note", onSuccess })(idle, form(""));
+    expect(onSuccess).not.toHaveBeenCalled();
   });
-  it("a success with no message announces nothing", async () => {
-    const announce = vi.fn();
-    await wrapDecisionAction(async () => ({ status: "success" }), { noteName: "note", rowIsGone: () => true, announce, schedule: now })(idle, form(""));
-    expect(announce).not.toHaveBeenCalled();
+});
+
+describe("announcementDueAtUnmount: the row going away is the signal, however late it goes (DECISION-SILENT-2)", () => {
+  // The first version looked once, 600 ms after the success, and announced only if the row was already gone. A slow revalidation (a busy server, a slow phone) removes the row later than that, so
+  // the check found it still there, announced nothing, and the confirmation was lost: QA saw it missing in 1 run of 12, even after 10 s. Now the form tells on its own unmount.
+  const at = 1_000_000;
+  it("the row is removed 0.1 s, 2 s, 8 s or 25 s after the success: the message is due each time", () => {
+    for (const later of [100, 2_000, 8_000, 25_000]) expect(announcementDueAtUnmount({ message: "Verified.", at }, at + later), `${later} ms`).toBe("Verified.");
   });
-  it("the check waits (the row is removed by the same response), it does not run inside the action", async () => {
-    const scheduled: Array<{ fn: () => void; ms: number }> = [];
-    const announce = vi.fn();
-    await wrapDecisionAction(async () => ({ status: "success", message: "Done." }), { noteName: "note", rowIsGone: () => true, announce, schedule: (fn, ms) => scheduled.push({ fn, ms }) })(idle, form(""));
-    expect(announce).not.toHaveBeenCalled();
-    expect(scheduled).toHaveLength(1);
-    expect(scheduled[0].ms).toBeGreaterThan(0);
-    scheduled[0].fn();
-    expect(announce).toHaveBeenCalledWith("Done.");
+  it("a row that goes long after (the person left the page minutes later) announces nothing stale", () => {
+    expect(announcementDueAtUnmount({ message: "Verified.", at }, at + ANNOUNCE_WINDOW_MS + 1)).toBeNull();
   });
+  it("nothing remembered: nothing due (a row that was never decided, or an error)", () => expect(announcementDueAtUnmount(null, at)).toBeNull());
 });
 
 describe("the notice store", () => {
@@ -125,6 +121,13 @@ describe("wiring", () => {
     expect(formSrc).toContain('inputValue(mine ? state.values : undefined, noteName)');
     expect(formSrc).toContain("defaultValue=");
     expect(formSrc.indexOf("defaultValue=")).toBeGreaterThan(formSrc.indexOf("<TextArea"));
+  });
+  it("the form remembers its success and announces it from its OWN unmount cleanup, not from a timed look at the page", () => {
+    expect(formSrc).toContain("announcementDueAtUnmount(");
+    expect(formSrc).toMatch(/useEffect\(\s*\(\) => \(\) => \{[^}]*announceDecision\(/);
+    expect(formSrc).not.toContain("setTimeout");
+    expect(formSrc).not.toContain("rowIsGone");
+    expect(formSrc).not.toContain("isConnected");
   });
   it("the notice host sits in the protected admin layout, outside every row", () => {
     expect(read("src/app/admin/(protected)/layout.tsx")).toContain("<DecisionNoticeHost />");

@@ -38,7 +38,9 @@ describe("operator row (role select)", () => {
     expect(actions).toContain('result.status === "error" ? { ...result, values: submittedValues(formData, ["roleId"]) } : result');
   });
   it("the select is keyed by the returned value (a select does not pick up a changed defaultValue on its own) and defaults to it", () => {
-    expect(form).toContain('key={selectKey(roleState.values, "roleId")}');
-    expect(form).toContain('inputValue(roleState.values, "roleId", roleId)');
+    // SELECT-REMOUNT-2: key and default come from the saved role AND the typed one.
+    expect(form).toContain('const roleSelect = savedSelect("roleId", roleId, roleState.values);');
+    expect(form).toContain("key={roleSelect.key}");
+    expect(form).toContain("defaultValue={roleSelect.defaultValue}");
   });
 });

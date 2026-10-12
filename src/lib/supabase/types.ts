@@ -1864,11 +1864,14 @@ export type Database = {
           dedup_fingerprint: string
           description: string
           description_preview: string
+          employer_closed_at: string | null
           employment_type: Database["public"]["Enums"]["employment_type"] | null
           expires_at: string | null
           external_source: string | null
           external_url: string | null
           id: string
+          import_feed_id: string | null
+          import_key: string | null
           last_checked_at: string
           llm_enrichment_attempted_at: string | null
           location: string | null
@@ -1910,6 +1913,7 @@ export type Database = {
           dedup_fingerprint: string
           description: string
           description_preview?: string
+          employer_closed_at?: string | null
           employment_type?:
             | Database["public"]["Enums"]["employment_type"]
             | null
@@ -1917,6 +1921,8 @@ export type Database = {
           external_source?: string | null
           external_url?: string | null
           id?: string
+          import_feed_id?: string | null
+          import_key?: string | null
           last_checked_at?: string
           llm_enrichment_attempted_at?: string | null
           location?: string | null
@@ -1958,6 +1964,7 @@ export type Database = {
           dedup_fingerprint?: string
           description?: string
           description_preview?: string
+          employer_closed_at?: string | null
           employment_type?:
             | Database["public"]["Enums"]["employment_type"]
             | null
@@ -1965,6 +1972,8 @@ export type Database = {
           external_source?: string | null
           external_url?: string | null
           id?: string
+          import_feed_id?: string | null
+          import_key?: string | null
           last_checked_at?: string
           llm_enrichment_attempted_at?: string | null
           location?: string | null
@@ -2660,6 +2669,9 @@ export type Database = {
           product_id: string | null
           product_type: Database["public"]["Enums"]["payment_product_type"]
           rail: string
+          reconcile_attempts: number
+          reconcile_checked_at: string | null
+          reconcile_result: string | null
           renewal_for_pass_id: string | null
           status: Database["public"]["Enums"]["payment_status"]
           user_id: string | null
@@ -2676,6 +2688,9 @@ export type Database = {
           product_id?: string | null
           product_type: Database["public"]["Enums"]["payment_product_type"]
           rail?: string
+          reconcile_attempts?: number
+          reconcile_checked_at?: string | null
+          reconcile_result?: string | null
           renewal_for_pass_id?: string | null
           status?: Database["public"]["Enums"]["payment_status"]
           user_id?: string | null
@@ -2692,6 +2707,9 @@ export type Database = {
           product_id?: string | null
           product_type?: Database["public"]["Enums"]["payment_product_type"]
           rail?: string
+          reconcile_attempts?: number
+          reconcile_checked_at?: string | null
+          reconcile_result?: string | null
           renewal_for_pass_id?: string | null
           status?: Database["public"]["Enums"]["payment_status"]
           user_id?: string | null
@@ -3481,6 +3499,7 @@ export type Database = {
           pending_renewal_reference: string | null
           plan_id: string
           renewal_attempt_count: number
+          renewal_claimed_at: string | null
           renewal_reminder_sent_at: string | null
           started_at: string
           status: string
@@ -3498,6 +3517,7 @@ export type Database = {
           pending_renewal_reference?: string | null
           plan_id: string
           renewal_attempt_count?: number
+          renewal_claimed_at?: string | null
           renewal_reminder_sent_at?: string | null
           started_at?: string
           status?: string
@@ -3515,6 +3535,7 @@ export type Database = {
           pending_renewal_reference?: string | null
           plan_id?: string
           renewal_attempt_count?: number
+          renewal_claimed_at?: string | null
           renewal_reminder_sent_at?: string | null
           started_at?: string
           status?: string
@@ -3913,6 +3934,20 @@ export type Database = {
       account_deletion_stop_renewals: {
         Args: { p_user_id: string }
         Returns: Json
+      }
+      activate_talent_directory_subscription: {
+        Args: {
+          p_auto_renew: boolean
+          p_authorization_code?: string
+          p_payment_transaction_id: string
+          p_subscription_id: string
+        }
+        Returns: {
+          activated: boolean
+          expires_at: string
+          plan_name: string
+          reason: string
+        }[]
       }
       account_deletion_create_request: {
         Args: { p_token_hash: string; p_user_id: string }

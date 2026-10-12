@@ -533,6 +533,7 @@ describe("§2 — cron GETs fail closed too", () => {
       "/api/admin/delete-stale-postings": () =>
         import("@/app/api/admin/delete-stale-postings/route"),
       "/api/admin/purge-demo-attempts": () => import("@/app/api/admin/purge-demo-attempts/route"),
+      "/api/admin/sweep-farah-paid-holds": () => import("@/app/api/admin/sweep-farah-paid-holds/route"),
       "/api/admin/mentorship-sweep": () => import("@/app/api/admin/mentorship-sweep/route"),
       "/api/admin/renew-talent-directory-subscriptions": () =>
         import("@/app/api/admin/renew-talent-directory-subscriptions/route"),
