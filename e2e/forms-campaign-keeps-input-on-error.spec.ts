@@ -7,6 +7,7 @@
 import { randomUUID } from "node:crypto";
 import { test, expect, admin } from "./fixtures/authed";
 import { deleteOrgsCascade, deletePostingsCascade } from "../tests/support/delete-orgs";
+import { submitAndSettle, expectStaysFor } from "./support/form-keeps";
 
 test("campaign form: a budget error keeps what was typed (no campaign is created)", async ({ authedPage: page, testUser }, info) => {
   const shot = async (step: string) => info.attach(step, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
@@ -23,15 +24,10 @@ test("campaign form: a budget error keeps what was typed (no campaign is created
     await page.getByLabel(/Total budget/).fill("1000");
     await page.getByLabel(/Target locations/).fill("Lagos, Abuja");
     await shot("1-filled-total-below-daily");
-    await page.locator("form", { has: page.getByLabel("Campaign name") }).locator("button[type=submit]").click();
+    await submitAndSettle(page, () => page.locator("form", { has: page.getByLabel("Campaign name") }).locator("button[type=submit]").click());
     await expect(page.getByText(/total budget has to cover at least one day/i)).toBeVisible({ timeout: 15_000 });
-    await page.waitForTimeout(3000); // let the action settle and React re-render the form
     await shot("2-error-after-settling");
-    await expect(page.getByLabel("Campaign name"), "the name is kept").toHaveValue(`QA Campaign ${tag}`);
-    await expect(page.locator("select[name=jobPostingId]"), "the job choice is kept").toHaveValue(job.id);
-    await expect(page.getByLabel(/Daily budget/), "the daily budget is kept").toHaveValue("5000");
-    await expect(page.getByLabel(/Total budget/), "the total budget is kept").toHaveValue("1000");
-    await expect(page.getByLabel(/Target locations/), "the locations are kept").toHaveValue("Lagos, Abuja");
+    await expectStaysFor(async () => ({ name: await page.getByLabel("Campaign name").inputValue(), job: await page.locator("select[name=jobPostingId]").inputValue(), daily: await page.getByLabel(/Daily budget/).inputValue(), total: await page.getByLabel(/Total budget/).inputValue(), locations: await page.getByLabel(/Target locations/).inputValue() }), { name: `QA Campaign ${tag}`, job: job.id, daily: "5000", total: "1000", locations: "Lagos, Abuja" }, "after a refused submission the typed values stay in the form, throughout");
     const { count } = await admin.from("ad_campaigns").select("id", { count: "exact", head: true }).eq("organization_id", org!.id);
     expect(count, "no campaign was created").toBe(0);
   } finally {

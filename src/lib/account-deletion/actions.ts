@@ -18,6 +18,7 @@ import {
   isWellFormedDeletionToken,
 } from "./token";
 import type { DeletionBlockers } from "./types";
+import { submittedValues } from "@/lib/forms/keep-input";
 import type { DeletionConfirmState, DeletionRequestState } from "./state";
 
 /**
@@ -48,7 +49,8 @@ export async function requestAccountDeletionAction(
   formData: FormData,
 ): Promise<DeletionRequestState> {
   if (!confirmPhraseMatches(formData.get("confirmation"))) {
-    return { status: "error", error: `Type "${DELETION_CONFIRM_PHRASE}" exactly to continue.` };
+    // The near-miss comes back so the box keeps it (React 19 resets the form): the person fixes the typo instead of retyping. The phrase is a public, fixed sentence, not a secret.
+    return { status: "error", error: `Type "${DELETION_CONFIRM_PHRASE}" exactly to continue.`, values: submittedValues(formData, ["confirmation"]) };
   }
 
   const supabase = await createClient();

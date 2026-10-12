@@ -1,3 +1,5 @@
+import type { SubmittedValues } from "@/lib/forms/keep-input";
+
 /**
  * Result shape for the three moderation forms. Kept out of actions.ts because
  * a `"use server"` module may export nothing but async functions — an exported
@@ -9,6 +11,8 @@ export interface ModerationState {
   message?: string;
   /** Which row the message belongs to, so one banner does not appear on all of them. */
   targetId?: string;
+  /** The submitted fields, handed back with an error so the form keeps what was typed (src/lib/forms/keep-input.ts). A success hands none. */
+  values?: SubmittedValues;
 }
 
 export const initialModerationState: ModerationState = { status: "idle" };

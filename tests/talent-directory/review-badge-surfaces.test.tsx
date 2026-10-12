@@ -22,6 +22,7 @@ vi.mock("@/lib/supabase/service-role", () => ({
       const q: Record<string, unknown> = {};
       q.select = () => q;
       q.eq = () => q;
+      q.gt = () => q; // 0228: the page's subscription read now asks for a RUNNING row (expires_at in the future)
       q.maybeSingle = async () => ({ data: table === "talent_directory_subscriptions" ? { status: "active", expires_at: "2027-01-01T00:00:00Z" } : null, error: null });
       q.then = (resolve: (v: unknown) => void) => resolve({ data: [], error: null });
       return q;

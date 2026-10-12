@@ -32,7 +32,7 @@ vi.mock("@/lib/passes/entitlement", () => ({
 }));
 const logCreditGateEvent = vi.fn(async () => undefined);
 vi.mock("@/lib/credits/gate-events", () => ({ logCreditGateEvent }));
-vi.mock("@/lib/credits/spend", () => ({
+vi.mock("@/lib/credits/spend", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/credits/spend")>()),
   spendCredits: async () => ({ balanceAfter: 0 }),
   InsufficientCreditsError: class InsufficientCreditsError extends Error {
     constructor(public required: number, public available: number, public capMessage?: string) {

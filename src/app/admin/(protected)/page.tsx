@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/admin/require-admin";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { formatDateTime } from "@/lib/format/datetime";
+import { deniedAreaLabel } from "@/lib/admin/permission-labels";
 
 /**
  * M1's landing page. Deliberately thin: it exists so /admin is a real
@@ -42,11 +43,18 @@ const DASHBOARD_LINKS = [
   },
 ] as const;
 
-export default async function AdminHomePage() {
+export default async function AdminHomePage({ searchParams }: { searchParams: Promise<{ denied?: string | string[] }> }) {
   const admin = await requireAdmin();
+  const { denied } = await searchParams;
+  const deniedArea = deniedAreaLabel(denied, admin.permissions);
 
   return (
     <Container className="flex max-w-[900px] flex-col gap-8 py-12">
+      {deniedArea && (
+        <p role="alert" className="max-w-[640px] border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[14.5px] text-rust">
+          You no longer have access to {deniedArea}. If you think that is a mistake, ask whoever manages Operators.
+        </p>
+      )}
       <div className="flex flex-col gap-3">
         <EyebrowLabel>Admin</EyebrowLabel>
         <h1 className="text-[30px] leading-[1.2]">

@@ -7,6 +7,7 @@ import { recordAdminAction } from "@/lib/admin/audit";
 import { PLACEHOLDER_MARKER } from "./courses";
 import { PRICE_TIERS } from "./constants";
 import type { ModerationState } from "@/lib/admin/moderation/state";
+import { submittedValues } from "@/lib/forms/keep-input";
 
 /**
  * Editing the course catalog, under an admin session.
@@ -132,13 +133,15 @@ export async function updateCourseAction(
   const title = String(formData.get("title") ?? "").trim();
   const affiliateUrl = String(formData.get("affiliate_url") ?? "").trim();
   const priceTier = String(formData.get("price_tier") ?? "").trim();
+  // A refused save hands the typed fields back so the form keeps them (keep-input); the success below hands none.
+  const typed = submittedValues(formData, ["title", "provider", "skill_tag", "price_tier", "affiliate_url"]);
 
-  if (!id) return { status: "error", message: "Missing course.", targetId: id };
+  if (!id) return { status: "error", message: "Missing course.", targetId: id, values: typed };
   if (!skillTag || !provider || !title || !affiliateUrl) {
-    return { status: "error", message: "Every field except the note is required.", targetId: id };
+    return { status: "error", message: "Every field except the note is required.", targetId: id, values: typed };
   }
   if (!(PRICE_TIERS as readonly string[]).includes(priceTier)) {
-    return { status: "error", message: "Pick a price tier.", targetId: id };
+    return { status: "error", message: "Pick a price tier.", targetId: id, values: typed };
   }
   /*
    * Mirrors course_recommendations_url_is_http. The database is the authority
@@ -146,7 +149,7 @@ export async function updateCourseAction(
    * violation string into a sentence, and does not replace the constraint.
    */
   if (!/^https?:\/\//i.test(affiliateUrl)) {
-    return { status: "error", message: "The link must start with http:// or https://.", targetId: id };
+    return { status: "error", message: "The link must start with http:// or https://.", targetId: id, values: typed };
   }
 
   const supabase = createServiceRoleClient();
@@ -169,6 +172,7 @@ export async function updateCourseAction(
     return {
       status: "error",
       targetId: id,
+      values: typed,
       message:
         "That course is live — putting a placeholder link on it would publish an un-earning link. Deactivate it first.",
     };
@@ -187,7 +191,7 @@ export async function updateCourseAction(
   });
   if (error) {
     console.error("[admin-catalog] update", error);
-    return { status: "error", message: "Something went wrong on our end.", targetId: id };
+    return { status: "error", message: "Something went wrong on our end.", targetId: id, values: typed };
   }
   if (!res?.[0]?.ok) {
     return {
@@ -197,6 +201,7 @@ export async function updateCourseAction(
           ? "You do not have permission to edit the course catalog."
           : "That course no longer exists — reload the page.",
       targetId: id,
+      values: typed,
     };
   }
 

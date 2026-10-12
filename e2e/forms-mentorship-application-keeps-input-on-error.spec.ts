@@ -5,6 +5,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { test, expect, admin, seedBaseResume } from "./fixtures/authed";
+import { submitAndSettle, expectStaysFor } from "./support/form-keeps";
 
 test("mentor application: a too-short bio error keeps everything typed", async ({ authedPage: page, testUser }, info) => {
   const shot = async (step: string) => info.attach(step, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
@@ -20,16 +21,10 @@ test("mentor application: a too-short bio error keeps everything typed", async (
   await page.getByLabel(/Years of experience/).fill("7");
   await page.getByLabel(/Price per session/).fill("15000");
   await shot("1-filled-with-a-short-bio");
-  await page.locator("form", { has: page.getByLabel(/Display name/) }).locator("button[type=submit]").click();
+  await submitAndSettle(page, () => page.locator("form", { has: page.getByLabel(/Display name/) }).locator("button[type=submit]").click());
   await expect(page.getByText(/at least 80/i).last()).toBeVisible({ timeout: 15_000 });
-  await page.waitForTimeout(3000); // let the action settle and React re-render the form
   await shot("2-error-after-settling");
-  await expect(page.getByLabel(/Display name/), "display name kept").toHaveValue(`QA Applicant ${tag}`);
-  await expect(page.getByRole("textbox", { name: /Bio/ }), "bio kept").toContainText("Too short a bio.");
-  await expect(page.getByLabel(/Roles you can speak to/), "roles kept").toHaveValue("Product Manager, Engineer");
-  await expect(page.getByLabel(/Industries/), "industries kept").toHaveValue("Fintech");
-  await expect(page.getByLabel(/Years of experience/), "years kept").toHaveValue("7");
-  await expect(page.getByLabel(/Price per session/), "price kept").toHaveValue("15000");
+  await expectStaysFor(async () => ({ name: await page.getByLabel(/Display name/).inputValue(), bio: ((await page.getByRole("textbox", { name: /Bio/ }).innerText()) || "").trim(), roles: await page.getByLabel(/Roles you can speak to/).inputValue(), industries: await page.getByLabel(/Industries/).inputValue(), years: await page.getByLabel(/Years of experience/).inputValue(), price: await page.getByLabel(/Price per session/).inputValue() }), { name: `QA Applicant ${tag}`, bio: "Too short a bio.", roles: "Product Manager, Engineer", industries: "Fintech", years: "7", price: "15000" }, "after a refused application every typed value stays in the form, throughout");
   const { count } = await admin.from("mentor_profiles").select("user_id", { count: "exact", head: true }).eq("user_id", testUser.id);
   expect(count, "nothing was saved").toBe(0);
 });

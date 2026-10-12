@@ -67,11 +67,12 @@ const fakeDb = () => ({
   auth: { getUser: async () => ({ data: { user: { id: USER } } }) },
 });
 
-const spendCredits = vi.fn(async () => 4);
+const spendCredits = vi.fn(async (..._args: unknown[]) => 4);
+const grantCredits = vi.fn(async (..._args: unknown[]) => 5);
 const askFarahChatStream = vi.fn();
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => fakeDb() }));
 vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => fakeDb() }));
-vi.mock("@/lib/credits/spend", () => ({ spendCredits, InsufficientCreditsError: class InsufficientCreditsError extends Error { constructor(public required: number, public available: number, public capMessage?: string) { super("insufficient"); } } }));
+vi.mock("@/lib/credits/spend", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/credits/spend")>()), spendCredits, grantCredits, InsufficientCreditsError: class InsufficientCreditsError extends Error { constructor(public required: number, public available: number, public capMessage?: string) { super("insufficient"); } } }));
 vi.mock("@/lib/farah/client", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/farah/client")>()), askFarahChatStream }));
 vi.mock("@/lib/farah/session-events", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/farah/session-events")>()), logFarahSessionMessage: vi.fn(async () => undefined) }));
 vi.mock("@/lib/farah/spend-tally", async () => (await import("./support/route-mocks")).safeSpendTally());
@@ -105,6 +106,7 @@ beforeEach(() => {
   persistFails = false;
   nextId = 1;
   spendCredits.mockClear();
+  grantCredits.mockClear();
   askFarahChatStream.mockReset().mockImplementation(async function* () {
     yield "A reply.";
   });
@@ -146,7 +148,7 @@ describe("a paid message whose transcript fails to save (the 'not saved' done ev
     expect(done).toMatchObject({ type: "done", persisted: false, id: null, freeMessagesRemaining: 0 });
     expect(done.nextFreeMessageAt).toBe(at(5)); // -25 days + 30 days
     expect(spendCredits).toHaveBeenCalledTimes(1);
-    expect(spendCredits).toHaveBeenCalledWith(USER, CREDIT_COSTS.farahChatMessage, "farah_chat_message");
+    expect(spendCredits).toHaveBeenCalledWith(USER, CREDIT_COSTS.farahChatMessage, "farah_chat_message", expect.any(String));
     expect(freeEvents()).toHaveLength(3); // unchanged: a paid message is not a free one
   });
 });
@@ -211,7 +213,12 @@ describe("a message whose model call FAILS leaves everything as it was", () => {
     const failed = await send();
     expect(doneOf(failed)).toBeUndefined();
     expect(failed.some((e) => e.type === "error")).toBe(true);
-    expect(spendCredits).not.toHaveBeenCalled();
+    // The credit is taken at the check and given back when the reply fails: one spend, one refund of the same amount, nothing used.
+    expect(spendCredits).toHaveBeenCalledTimes(1);
+    expect(grantCredits).toHaveBeenCalledTimes(1);
+    expect(grantCredits.mock.calls[0].slice(0, 3)).toEqual(spendCredits.mock.calls[0].slice(0, 3));
+    spendCredits.mockClear();
+    grantCredits.mockClear();
     expect(freeEvents()).toHaveLength(3);
     // The gate may log a 'proceeded' check for a paid message only at CHECK time for credits; no free-allowance event and no charge exist.
     expect(rows("credit_gate_events").filter((r) => r.outcome === "covered_by_free_allowance")).toHaveLength(3);

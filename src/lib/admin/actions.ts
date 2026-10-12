@@ -7,6 +7,7 @@ import { safeRedirectTo } from "@/lib/auth/redirect-to";
 import type { Database } from "@/lib/supabase/types";
 import { adminLoginSchema } from "./schemas";
 import type { AdminLoginState } from "./login-state";
+import { submittedValues } from "@/lib/forms/keep-input";
 import { createAdminSession, getAdminIdentity, revokeCurrentAdminSession } from "./session";
 import { recordAdminAction, recordFailedAdminLogin } from "./audit";
 import { consumeLoginRateLimit } from "@/lib/security/login-rate-limit";
@@ -50,11 +51,13 @@ export async function adminLoginAction(
   _prev: AdminLoginState,
   formData: FormData,
 ): Promise<AdminLoginState> {
+  // Only the email travels back to the form (React 19 resets it after the action). The password is never echoed: the field name is refused by submittedValues on purpose.
+  const typed = submittedValues(formData, ["email"]);
   const parsed = adminLoginSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
   });
-  if (!parsed.success) return { error: GENERIC_FAILURE };
+  if (!parsed.success) return { error: GENERIC_FAILURE, values: typed };
 
   const { email, password } = parsed.data;
 
@@ -70,7 +73,7 @@ export async function adminLoginAction(
    */
   const ip = await getRequestIp();
   const rateLimit = await consumeLoginRateLimit(ip, "adminLogin");
-  if (!rateLimit.allowed) return { error: GENERIC_FAILURE };
+  if (!rateLimit.allowed) return { error: GENERIC_FAILURE, values: typed };
 
   /*
    * Password first, admin-membership second, and never the other way round.
@@ -95,7 +98,7 @@ export async function adminLoginAction(
       .eq("email", email.toLowerCase())
       .maybeSingle();
     if (known) await recordFailedAdminLogin(known.id, known.email);
-    return { error: GENERIC_FAILURE };
+    return { error: GENERIC_FAILURE, values: typed };
   }
 
   const { data: adminUser, error: lookupError } = await supabase
@@ -106,14 +109,14 @@ export async function adminLoginAction(
 
   if (lookupError) {
     console.error("[admin-login] admin_users lookup failed", lookupError);
-    return { error: "Something went wrong on our end. Try again shortly." };
+    return { error: "Something went wrong on our end. Try again shortly.", values: typed };
   }
 
   // Not an admin, or no longer one. A perfectly valid seeker password lands
   // here and gets the same sentence as a typo.
   if (!adminUser || adminUser.disabled_at) {
     if (adminUser) await recordFailedAdminLogin(adminUser.id, adminUser.email);
-    return { error: GENERIC_FAILURE };
+    return { error: GENERIC_FAILURE, values: typed };
   }
 
   /*
@@ -126,7 +129,7 @@ export async function adminLoginAction(
     sessionId = await createAdminSession(adminUser.id);
   } catch (err) {
     console.error("[admin-login] could not open session", err);
-    return { error: "Something went wrong on our end. Try again shortly." };
+    return { error: "Something went wrong on our end. Try again shortly.", values: typed };
   }
 
   await recordAdminAction({
