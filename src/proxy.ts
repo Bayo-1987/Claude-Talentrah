@@ -8,6 +8,7 @@ import { createPublicReadClient } from "@/lib/supabase/public-read";
 import { REFERRAL_CODE_PATTERN, REFERRAL_COOKIE, REFERRAL_COOKIE_MAX_AGE_SECONDS } from "@/lib/referrals/cookie";
 import { isProtectedSeekerPath } from "@/lib/auth/seeker-gate-paths";
 import { pendingDeletionGate } from "@/lib/auth/pending-deletion-gate";
+import { googleCountryGate } from "@/lib/auth/google-country-gate";
 
 /**
  * A first pass on /admin, before anything renders.
@@ -247,7 +248,9 @@ export async function proxy(request: NextRequest, event: NextFetchEvent) {
   touchLastActive(event, user, accessToken);
 
   const seekerGated = seekerAppGate(request, user, response);
-  const finalResponse = seekerGated ?? response;
+  // A Google sign-up with no country is asked for one before the app (a data-quality step, not a security gate; see google-country-gate.ts).
+  const countryGated = seekerGated ? null : googleCountryGate(request, response, user);
+  const finalResponse = seekerGated ?? countryGated ?? response;
 
   await captureReferral(request, finalResponse, user);
 
