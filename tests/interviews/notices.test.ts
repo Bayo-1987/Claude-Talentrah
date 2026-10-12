@@ -90,6 +90,21 @@ describe("runInterviewNotices: reminders", () => {
   });
 });
 
+describe("runInterviewNotices: a run with nothing due", () => {
+  it("is clean: ok, every count zero, no error logged, NO email sent, nothing claimed twice or released", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const deps = makeDeps();
+    const summary = await runInterviewNotices(deps, NOW);
+    expect(summary).toEqual({ ok: true, cancelledByBackstop: 0, expired: 0, cancellationsClaimed: 0, cancellationsSent: 0, cancellationsReleased: 0, remindersClaimed: 0, remindersSent: 0, remindersReleased: 0 });
+    expect(deps.send).not.toHaveBeenCalled();
+    expect(deps.context).not.toHaveBeenCalled();
+    expect(deps.releaseCancellation).not.toHaveBeenCalled();
+    expect(deps.releaseReminder).not.toHaveBeenCalled();
+    expect(error).not.toHaveBeenCalled();
+  });
+});
+
 describe("runInterviewNotices: robustness", () => {
   it("a failing backstop sweep is reported but the notices still go out", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});

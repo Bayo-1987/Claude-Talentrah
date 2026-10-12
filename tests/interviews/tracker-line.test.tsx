@@ -38,4 +38,10 @@ describe("the Job Tracker card's interview line", () => {
     expect(without).toContain("Growth Marketer");
     expect(without).toContain("Applied");
   });
+
+  it("a job seeker with no applications on screen has no lookup at all: the answer is an empty map, so no card gets a line and nothing errors", async () => {
+    const { loadBookedInterviewsFor } = await import("@/lib/interviews/read");
+    const none = await loadBookedInterviewsFor("00000000-0000-0000-0000-000000000000", []);
+    expect(none.size).toBe(0);
+  });
 });

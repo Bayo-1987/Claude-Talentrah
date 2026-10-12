@@ -16,6 +16,14 @@ import vercelConfig from "../../vercel.json";
 const crons = (vercelConfig as { crons: Array<{ path: string; schedule: string }> }).crons;
 const MAX_CRONS_PER_PROJECT = 100;
 
+/** The only jobs allowed to run more than once a day, each with the exact schedule and the reason (an exception is a decision, not a drift). */
+const HOURLY_EXCEPTIONS: Record<string, { schedule: string; reason: string }> = {
+  "/api/admin/send-interview-notices": {
+    schedule: "7 * * * *",
+    reason: "owner-approved 12 Oct 2026; 24h reminder window is 2h wide, cancellation/expiry notices go within the hour; Vercel Pro",
+  },
+};
+
 describe("vercel.json crons", () => {
   it("stays under the per-project cron limit", () => {
     expect(crons.length).toBeGreaterThan(0);
@@ -24,6 +32,11 @@ describe("vercel.json crons", () => {
 
   it("runs every job at most once a day (a fixed minute and hour; the day fields may narrow it, never widen it)", () => {
     for (const c of crons) {
+      const exception = HOURLY_EXCEPTIONS[c.path];
+      if (exception) {
+        expect(c.schedule, `${c.path}: its owner-approved hourly exception is exactly "${exception.schedule}"`).toBe(exception.schedule);
+        continue;
+      }
       const [minute, hour] = c.schedule.split(/\s+/);
       expect(minute, `${c.path}: minute must be a single number`).toMatch(/^\d{1,2}$/);
       expect(hour, `${c.path}: hour must be a single number`).toMatch(/^\d{1,2}$/);
