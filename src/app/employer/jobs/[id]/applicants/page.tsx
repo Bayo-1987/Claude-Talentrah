@@ -147,6 +147,11 @@ export default async function JobApplicantsPage({
         <div className="mt-4">
           <EyebrowLabel>Applicants</EyebrowLabel>
           <h1 className="mt-2 font-display text-[30px] leading-[1.15] font-medium text-ink">{job.title}</h1>
+          {rows.some((r) => r.status === "new") && (
+            <p className="mt-2 inline-flex min-h-6 items-center bg-rust-soft px-2 font-body text-[12px] font-bold text-rust">
+              {`${rows.filter((r) => r.status === "new").length} new`}
+            </p>
+          )}
         </div>
       </div>
 

@@ -9,6 +9,8 @@ import { findActiveCampaignForJobPosting, recordAdEvent } from "@/lib/ads/promot
 import { computeAndStoreApplicationMatchScore } from "@/lib/matching/compute-and-store";
 import { captureEvent } from "@/lib/analytics/posthog";
 import { runFarahScreeningReview } from "@/lib/screening/farah-review";
+import { notifyFirstApplicant } from "@/lib/employer/new-applicants/instant";
+import { defaultInstantDeps } from "@/lib/employer/new-applicants/deps";
 
 async function getAuthedUserId() {
   const supabase = await createClient();
@@ -173,6 +175,17 @@ async function performInAppApply(
   // matches are handed_off, never applied, and that distinction should
   // survive into analytics rather than being flattened into one event.
   captureEvent(userId, "application_submitted", { channel: "in_app" });
+
+  // 0254: tell the organisation about the FIRST applicant of an internal job, at once, to the members on "instant". The database decides who is first and claims the email exactly once; a
+  // repeat apply, a second applicant, a QA account and an external posting all claim nothing. Deferred and swallowed like every other side effect of an apply: it must never fail or slow the
+  // applicant's own request, and notifyFirstApplicant never throws.
+  after(async () => {
+    try {
+      await notifyFirstApplicant(applicationId, defaultInstantDeps());
+    } catch (err) {
+      console.error("[new-applicant-instant] could not notify:", err instanceof Error ? err.message : "unknown error");
+    }
+  });
 
   // Deferred, not awaited: logCountryDefaultEvent's own header documents
   // that a logging failure inside it is swallowed (caught and console.error'd,

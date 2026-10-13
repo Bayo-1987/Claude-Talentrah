@@ -1372,6 +1372,7 @@ export type Database = {
           digest_last_sent_at: string | null
           employer_resume_view: boolean
           job_match_digest: boolean
+          new_applicant_notice: string
           proactive_match_alert: boolean
           scholarship_deadline_alert: boolean
           unsubscribe_token: string
@@ -1386,6 +1387,7 @@ export type Database = {
           digest_last_sent_at?: string | null
           employer_resume_view?: boolean
           job_match_digest?: boolean
+          new_applicant_notice?: string
           proactive_match_alert?: boolean
           scholarship_deadline_alert?: boolean
           unsubscribe_token?: string
@@ -1400,6 +1402,7 @@ export type Database = {
           digest_last_sent_at?: string | null
           employer_resume_view?: boolean
           job_match_digest?: boolean
+          new_applicant_notice?: string
           proactive_match_alert?: boolean
           scholarship_deadline_alert?: boolean
           unsubscribe_token?: string
@@ -1414,6 +1417,64 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: true
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employer_applicant_notifications: {
+        Row: {
+          application_id: string
+          created_at: string
+          digested_at: string | null
+          id: string
+          instant_sent_at: string | null
+          is_first: boolean
+          job_posting_id: string
+          organization_id: string
+          suppressed_reason: string | null
+        }
+        Insert: {
+          application_id: string
+          created_at?: string
+          digested_at?: string | null
+          id?: string
+          instant_sent_at?: string | null
+          is_first?: boolean
+          job_posting_id: string
+          organization_id: string
+          suppressed_reason?: string | null
+        }
+        Update: {
+          application_id?: string
+          created_at?: string
+          digested_at?: string | null
+          id?: string
+          instant_sent_at?: string | null
+          is_first?: boolean
+          job_posting_id?: string
+          organization_id?: string
+          suppressed_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_applicant_notifications_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: true
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_applicant_notifications_job_posting_id_fkey"
+            columns: ["job_posting_id"]
+            isOneToOne: false
+            referencedRelation: "job_postings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_applicant_notifications_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -4126,6 +4187,13 @@ export type Database = {
           outcome: string
         }[]
       }
+      employer_new_applicant_counts: {
+        Args: { p_organization_id: string }
+        Returns: {
+          job_posting_id: string
+          new_count: number
+        }[]
+      }
       expire_interview_offers: {
         Args: Record<PropertyKey, never>
         Returns: number
@@ -4144,6 +4212,23 @@ export type Database = {
           slot_index: number
           starts_at: string
         }[]
+      }
+      new_applicant_recipients: {
+        Args: { p_organization: string }
+        Returns: {
+          email: string
+          first_name: string
+          mode: string
+          user_id: string
+        }[]
+      }
+      release_applicant_digest: {
+        Args: { p_ids: string[] }
+        Returns: number
+      }
+      release_applicant_instant: {
+        Args: { p_application: string }
+        Returns: boolean
       }
       release_interview_cancellation_email: {
         Args: { p_booking: string }
@@ -4452,6 +4537,25 @@ export type Database = {
         Returns: {
           allowed: boolean
           reason: string
+        }[]
+      }
+      claim_applicant_digest: {
+        Args: { p_limit?: number; p_until: string }
+        Returns: {
+          already_announced: boolean
+          application_id: string
+          created_at: string
+          is_first: boolean
+          job_posting_id: string
+          notification_id: string
+          organization_id: string
+        }[]
+      }
+      claim_applicant_instant: {
+        Args: { p_application: string }
+        Returns: {
+          job_posting_id: string
+          organization_id: string
         }[]
       }
       claim_applicant_message: {

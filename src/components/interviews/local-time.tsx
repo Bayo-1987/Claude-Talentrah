@@ -17,7 +17,7 @@ export function LocalTime({ startsAt, durationMinutes }: { startsAt: string; dur
   return <time dateTime={startsAt} suppressHydrationWarning>{formatInterviewRange(startsAt, durationMinutes, zone)}</time>;
 }
 
-/** The start only ("Mon, 26 Oct 2026, 10:00 GMT+1"), in the viewer's zone: the Job Tracker's "Interview scheduled, <date>". */
+/** The start only ("Mon 26 Oct at 10:00 WAT"), in the viewer's zone: the Job Tracker's "Interview scheduled, <date>". */
 export function LocalDateTime({ startsAt }: { startsAt: string }) {
   const zone = useSyncExternalStore(subscribe, clientZone, serverZone);
   return <time dateTime={startsAt} suppressHydrationWarning>{formatInterviewTime(startsAt, zone)}</time>;
