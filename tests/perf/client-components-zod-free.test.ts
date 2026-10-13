@@ -20,7 +20,6 @@ const SRC = path.join(ROOT, "src");
 export const ALLOWED: Record<string, string> = {
   "src/app/(app)/feedback/feedback-form.tsx": "src/lib/feedback/schemas.ts",
   "src/app/(app)/settings/settings-form.tsx": "src/lib/auth/schemas.ts",
-  "src/app/contact/contact-form.tsx": "src/lib/contact/schemas.ts",
   "src/components/auth/signup-form.tsx": "src/lib/auth/schemas.ts",
 };
 

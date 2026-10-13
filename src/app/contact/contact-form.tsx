@@ -6,7 +6,7 @@ import {
   CONTACT_TOPICS,
   CONTACT_HONEYPOT_FIELD,
   initialContactActionState,
-} from "@/lib/contact/schemas";
+} from "@/lib/contact/constants";
 import { TextField, SelectField, Button } from "@/components/ui";
 import { TextArea } from "@/components/ui/text-area";
 import { FIELD_LIMITS } from "@/lib/text-limits";

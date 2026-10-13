@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { contactTopicFromParam } from "@/lib/contact/schemas";
+import { contactTopicFromParam } from "@/lib/contact/constants";
 import { ContactForm } from "./contact-form";
 
 /**
