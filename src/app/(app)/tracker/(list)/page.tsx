@@ -9,6 +9,7 @@ import { HiredReferralBanner } from "@/components/tracker/hired-referral-banner"
 import { Constants, type Enums } from "@/lib/supabase/types";
 import { parseResumeSnapshot } from "@/lib/applications/resume-snapshot";
 import { pageMetadata } from "@/lib/seo/site";
+import { loadBookedInterviewsFor } from "@/lib/interviews/read";
 import { TrackerPublicLanding } from "@/components/tracker/public-landing";
 
 /**
@@ -91,6 +92,9 @@ export default async function TrackerPage({ searchParams }: { searchParams: Sear
     (viewStatusRows ?? []).map((r) => [r.application_id, r.first_viewed_at]),
   );
 
+  // 0253: the "Interview scheduled, <date>" line comes from the booking, never from the stage (a candidate archiving a card cancels nothing). A failure here only means no line: the tracker itself never waits on it.
+  const interviews = await loadBookedInterviewsFor(user.id, (rows ?? []).map((row) => row.id)).catch(() => new Map<string, { startsAt: string; offerId: string }>());
+
   const entries: TrackerEntry[] = (rows ?? []).map((row) => {
     const snapshot = row.manual_job_snapshot as {
       companyName: string;
@@ -127,6 +131,7 @@ export default async function TrackerPage({ searchParams }: { searchParams: Sear
         .map((h) => ({ stage: h.stage, changedAt: h.changed_at }))
         .sort((a, b) => new Date(a.changedAt).getTime() - new Date(b.changedAt).getTime()),
       firstViewedAt: firstViewedAtByApplicationId.get(row.id) ?? null,
+      interview: interviews.get(row.id) ?? null,
     };
   });
 

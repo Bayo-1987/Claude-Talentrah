@@ -14,6 +14,7 @@ import type { MatchExplanation } from "@/lib/matching/score";
 import { toggleSaveAction, applyInAppAction, markAppliedExternallyAction } from "@/lib/applications/actions";
 import type { CountryState } from "@/lib/jobs/country-events";
 import type { Tables } from "@/lib/supabase/types";
+import { isLinkOutPosting, provenanceLabel } from "@/lib/jobs/link-out";
 
 const WORK_TYPE_LABEL: Record<string, string> = {
   remote: "Remote",
@@ -58,7 +59,7 @@ export interface JobCardProps {
   // and matches what the query actually returns.
   // closed_at (0102) is also never selected by the feed query — it filters
   // to status = 'open', where closed_at is always null anyway.
-  job: Omit<Tables<"job_postings">, "description_preview" | "search_vector" | "closing_date_source" | "closed_at" | "unlisted_at" | "superseded_by" | "superseded_at" | "banner_path" | "admin_review_decision" | "admin_review_note" | "admin_review_requested_at" | "admin_reviewed_at" | "admin_reviewed_by" | "claimed_by_organization_id" | "claimed_at" | "llm_enrichment_attempted_at">;
+  job: Omit<Tables<"job_postings">, "description_preview" | "search_vector" | "closing_date_source" | "closed_at" | "unlisted_at" | "superseded_by" | "superseded_at" | "banner_path" | "admin_review_decision" | "admin_review_note" | "admin_review_requested_at" | "admin_reviewed_at" | "admin_reviewed_by" | "claimed_by_organization_id" | "claimed_at" | "llm_enrichment_attempted_at" | "import_key" | "employer_closed_at">;
   score: number;
   isSaved: boolean;
   applicationStage: Tables<"applications">["stage"] | null;
@@ -126,7 +127,9 @@ export function JobCard({
     job.seniority ? SENIORITY_LABEL[job.seniority] : null,
   ]);
 
-  const isExternal = job.source_type === "external";
+  // Apply mode and provenance are different questions: an imported posting is applied for on the employer's own site (link-out) but is not "sourced externally" (src/lib/jobs/link-out.ts).
+  const isExternal = isLinkOutPosting(job);
+  const provenance = provenanceLabel(job);
   // Own line, same call as the detail page (jobs/[id]/page.tsx) and the same
   // reason: the one fact on the card most worth scanning for shouldn't be
   // buried mid-string in the middot-joined company/location/seniority line.
@@ -181,9 +184,9 @@ export function JobCard({
               >
                 {job.title}
               </Link>
-              {isExternal && (
+              {provenance && (
                 <span className="ml-2 border border-line px-2 py-0.5 font-display text-[10.5px] font-bold italic text-ink-soft">
-                  sourced externally
+                  {provenance}
                 </span>
               )}
               {/*

@@ -68,11 +68,17 @@ export async function purchaseTalentDirectorySubscriptionAction(planId: string) 
     );
   }
 
+  // A row refuses a new subscription only while it is RUNNING (expires_at in the future) or is WAITING ON AN AUTOMATIC RENEWAL
+  // (auto_renew_status = 'active': the renewal job will extend it, so a second subscription would be charged beside it). A row whose date
+  // has passed and that is not renewing no longer counts: nothing ever flipped its status, so checking the status alone refused every
+  // organisation whose non-card subscription had ended. activate_talent_directory_subscription (0228) lapses such rows at activation.
   const { data: existingActive } = await serviceClient
     .from("talent_directory_subscriptions")
     .select("id")
     .eq("organization_id", context.organization.id)
     .eq("status", "active")
+    .or(`expires_at.gt.${new Date().toISOString()},auto_renew_status.eq.active`)
+    .limit(1)
     .maybeSingle();
   if (existingActive) {
     redirect("/employer/talent-directory?error=" + encodeURIComponent("This organisation already has an active subscription."));
@@ -91,6 +97,8 @@ export async function purchaseTalentDirectorySubscriptionAction(planId: string) 
     .insert({
       organization_id: context.organization.id,
       plan_id: plan!.id,
+      // PROVISIONAL: the column is NOT NULL. The paid period starts when payment is confirmed (activate_talent_directory_subscription, 0228,
+      // overwrites this with now() + the plan's duration), so time spent on the Paystack page is never taken off what was paid for.
       expires_at: new Date(Date.now() + plan!.duration_days * 24 * 60 * 60 * 1000).toISOString(),
     })
     .select("id")

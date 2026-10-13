@@ -92,3 +92,33 @@ export async function alertDuplicateSessionPayment(args: { reference: string; am
     console.error(`[fulfill] could not send the duplicate-payment refund alert: ${err instanceof Error ? err.message : String(err)}`);
   }
 }
+
+/**
+ * A Talent Directory subscription payment was verified with Paystack but there is nothing to activate: another subscription already holds the
+ * organisation's one active slot (it is running, or it is waiting on its automatic renewal), or the pending row or its plan is gone
+ * (activate_talent_directory_subscription, 0228, returned activated = false for a reason other than "already activated"). The money is taken for
+ * something that will not be delivered, so a person has to refund it in Paystack. Same two best-effort signals as above, neither able to
+ * throw. The transaction is `needs_refund` in payment_transactions and therefore visible in the finance status buckets.
+ */
+export async function alertSubscriptionPaymentNeedsRefund(args: { reference: string; amountNgn: number; reason: string }): Promise<void> {
+  const amount = `₦${args.amountNgn.toLocaleString("en-NG")}`;
+  console.error(
+    `[fulfill] NEEDS REFUND: Talent Directory subscription payment ${args.reference} (${amount}) could not be activated (${args.reason}). ` +
+      `It is recorded as needs_refund in payment_transactions. Refund the transaction in Paystack.`,
+  );
+  try {
+    await sendAdminAlert({
+      subject: `Refund needed: ${amount} Talent Directory payment`,
+      text: [
+        `A Talent Directory subscription payment was confirmed but could not be activated (${args.reason}).`,
+        ``,
+        `Amount:             ${amount}`,
+        `Paystack reference: ${args.reference}`,
+        ``,
+        `What to do: refund the charge in the Paystack dashboard using the reference above. The transaction is recorded as needs_refund.`,
+      ].join("\n"),
+    });
+  } catch (err) {
+    console.error(`[fulfill] could not send the subscription refund alert: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}

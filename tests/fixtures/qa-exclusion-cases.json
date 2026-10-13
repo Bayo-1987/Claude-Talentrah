@@ -387,5 +387,141 @@
     "last": null,
     "display": "\u00a0QA x",
     "qa": false
+  },
+  {
+    "name": "owner plus-address, plain tag",
+    "email": "stonebridgehibr1+test@gmail.com",
+    "first": null,
+    "last": null,
+    "display": null,
+    "qa": true
+  },
+  {
+    "name": "owner plus-address, tag with dot underscore hyphen digit",
+    "email": "stonebridgehibr1+a.b_c-d9@gmail.com",
+    "first": null,
+    "last": null,
+    "display": null,
+    "qa": true
+  },
+  {
+    "name": "owner plus-address, any case",
+    "email": "StoneBridgeHibr1+Amara@GMAIL.COM",
+    "first": null,
+    "last": null,
+    "display": null,
+    "qa": true
+  },
+  {
+    "name": "owner plus-address, surrounded by spaces",
+    "email": "  stonebridgehibr1+x@gmail.com  ",
+    "first": null,
+    "last": null,
+    "display": null,
+    "qa": true
+  },
+  {
+    "name": "owner bare mailbox is the owner's real account, not QA",
+    "email": "stonebridgehibr1@gmail.com",
+    "first": null,
+    "last": null,
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "owner plus-address with an empty tag",
+    "email": "stonebridgehibr1+@gmail.com",
+    "first": null,
+    "last": null,
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "another mailbox that starts the same",
+    "email": "stonebridgehibr12+x@gmail.com",
+    "first": null,
+    "last": null,
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "something before the owner mailbox",
+    "email": "xstonebridgehibr1+x@gmail.com",
+    "first": null,
+    "last": null,
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "dotted variant of the owner mailbox",
+    "email": "stonebridge.hibr1+x@gmail.com",
+    "first": null,
+    "last": null,
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "owner plus-address at googlemail.com",
+    "email": "stonebridgehibr1+x@googlemail.com",
+    "first": null,
+    "last": null,
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "owner plus-address at gmail.co",
+    "email": "stonebridgehibr1+x@gmail.co",
+    "first": null,
+    "last": null,
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "owner plus-address with a domain suffix",
+    "email": "stonebridgehibr1+x@gmail.com.evil.test",
+    "first": null,
+    "last": null,
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "owner plus-address with a prefix on the domain",
+    "email": "stonebridgehibr1+x@evilgmail.com",
+    "first": null,
+    "last": null,
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "owner plus-address with a second @",
+    "email": "stonebridgehibr1+x@y@gmail.com",
+    "first": null,
+    "last": null,
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "owner plus-address with a space in the tag",
+    "email": "stonebridgehibr1+x y@gmail.com",
+    "first": null,
+    "last": null,
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "owner plus-address followed by a newline",
+    "email": "stonebridgehibr1+x@gmail.com\n",
+    "first": null,
+    "last": null,
+    "display": null,
+    "qa": false
+  },
+  {
+    "name": "the name Amara Test alone is not a rule",
+    "email": "someone@example.com",
+    "first": "Amara",
+    "last": "Test",
+    "display": null,
+    "qa": false
   }
 ]

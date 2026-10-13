@@ -50,6 +50,8 @@ export default function robots(): MetadataRoute.Robots {
           "/settings",
           "/tailor",
           "/tracker/",
+          // Interview invitations (0253): /interviews/[offerId] is one candidate's private page.
+          "/interviews/",
           "/onboarding",
           "/dashboard",
           /*

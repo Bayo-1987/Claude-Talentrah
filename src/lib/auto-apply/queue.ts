@@ -8,6 +8,7 @@ import {
 } from "./config";
 import { checkPassCoverage } from "@/lib/passes/entitlement";
 import { freshnessFloorISO } from "@/lib/jobs/freshness";
+import { queueSourceType } from "@/lib/jobs/link-out";
 import { isThinScreenableTagSet } from "@/lib/match-tier";
 import type { MatchExplanation } from "@/lib/matching/score";
 
@@ -233,7 +234,7 @@ export async function scanAndQueue(userId: string): Promise<ScanResult> {
     // it needs the floor applied here too.
     admin
       .from("job_postings")
-      .select("id, source_type, status, organization_id")
+      .select("id, source_type, status, organization_id, import_feed_id")
       .in("id", jobIds)
       .eq("status", "open")
       // 0202: a superseded duplicate is hidden everywhere public; this client bypasses RLS, so say it here.
@@ -289,7 +290,8 @@ export async function scanAndQueue(userId: string): Promise<ScanResult> {
       job_posting_id: s.job_posting_id,
       match_score: s.score,
       tier: s.tier,
-      source_type: openById.get(s.job_posting_id)!.source_type,
+      // The apply mode, not the storage type: an imported posting is stored `internal` but applied for on the employer's own site, so it is queued as `external` and the claim hands it off (never submits).
+      source_type: queueSourceType(openById.get(s.job_posting_id)!),
       status: "pending" as const,
     }));
 

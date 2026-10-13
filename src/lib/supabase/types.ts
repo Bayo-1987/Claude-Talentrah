@@ -609,6 +609,80 @@ export type Database = {
           },
         ]
       }
+      applicant_messages: {
+        Row: {
+          application_id: string | null
+          body: string
+          created_at: string
+          failure_reason: string | null
+          id: string
+          job_posting_id: string | null
+          kind: string
+          organization_id: string
+          sender_user_id: string | null
+          sent_at: string | null
+          status: string
+          subject: string
+        }
+        Insert: {
+          application_id?: string | null
+          body: string
+          created_at?: string
+          failure_reason?: string | null
+          id?: string
+          job_posting_id?: string | null
+          kind: string
+          organization_id: string
+          sender_user_id?: string | null
+          sent_at?: string | null
+          status?: string
+          subject: string
+        }
+        Update: {
+          application_id?: string | null
+          body?: string
+          created_at?: string
+          failure_reason?: string | null
+          id?: string
+          job_posting_id?: string | null
+          kind?: string
+          organization_id?: string
+          sender_user_id?: string | null
+          sent_at?: string | null
+          status?: string
+          subject?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "applicant_messages_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applicant_messages_job_posting_id_fkey"
+            columns: ["job_posting_id"]
+            isOneToOne: false
+            referencedRelation: "job_postings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applicant_messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applicant_messages_sender_user_id_fkey"
+            columns: ["sender_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       application_assessment_response_files: {
         Row: {
           application_assessment_submission_id: string
@@ -1539,6 +1613,117 @@ export type Database = {
           },
         ]
       }
+      interview_bookings: {
+        Row: {
+          application_id: string
+          booked_at: string
+          cancel_reason: string | null
+          cancellation_email_sent_at: string | null
+          cancelled_at: string | null
+          duration_minutes: number
+          id: string
+          job_posting_id: string
+          offer_id: string
+          organization_id: string
+          reminder_sent_at: string | null
+          slot_id: string
+          starts_at: string
+          status: string
+        }
+        Insert: {
+          application_id: string
+          booked_at?: string
+          cancel_reason?: string | null
+          cancellation_email_sent_at?: string | null
+          cancelled_at?: string | null
+          duration_minutes: number
+          id?: string
+          job_posting_id: string
+          offer_id: string
+          organization_id: string
+          reminder_sent_at?: string | null
+          slot_id: string
+          starts_at: string
+          status?: string
+        }
+        Update: {
+          application_id?: string
+          booked_at?: string
+          cancel_reason?: string | null
+          cancellation_email_sent_at?: string | null
+          cancelled_at?: string | null
+          duration_minutes?: number
+          id?: string
+          job_posting_id?: string
+          offer_id?: string
+          organization_id?: string
+          reminder_sent_at?: string | null
+          slot_id?: string
+          starts_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      interview_offers: {
+        Row: {
+          application_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          job_posting_id: string
+          kind: string
+          message_id: string | null
+          note: string | null
+          organization_id: string
+          status: string
+        }
+        Insert: {
+          application_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          job_posting_id: string
+          kind: string
+          message_id?: string | null
+          note?: string | null
+          organization_id: string
+          status?: string
+        }
+        Update: {
+          application_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          job_posting_id?: string
+          kind?: string
+          message_id?: string | null
+          note?: string | null
+          organization_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      interview_slots: {
+        Row: {
+          duration_minutes: number
+          id: string
+          offer_id: string
+          starts_at: string
+        }
+        Insert: {
+          duration_minutes: number
+          id?: string
+          offer_id: string
+          starts_at: string
+        }
+        Update: {
+          duration_minutes?: number
+          id?: string
+          offer_id?: string
+          starts_at?: string
+        }
+        Relationships: []
+      }
       job_expiry_reminders: {
         Row: {
           closes_at: string
@@ -1790,11 +1975,14 @@ export type Database = {
           dedup_fingerprint: string
           description: string
           description_preview: string
+          employer_closed_at: string | null
           employment_type: Database["public"]["Enums"]["employment_type"] | null
           expires_at: string | null
           external_source: string | null
           external_url: string | null
           id: string
+          import_feed_id: string | null
+          import_key: string | null
           last_checked_at: string
           llm_enrichment_attempted_at: string | null
           location: string | null
@@ -1836,6 +2024,7 @@ export type Database = {
           dedup_fingerprint: string
           description: string
           description_preview?: string
+          employer_closed_at?: string | null
           employment_type?:
             | Database["public"]["Enums"]["employment_type"]
             | null
@@ -1843,6 +2032,8 @@ export type Database = {
           external_source?: string | null
           external_url?: string | null
           id?: string
+          import_feed_id?: string | null
+          import_key?: string | null
           last_checked_at?: string
           llm_enrichment_attempted_at?: string | null
           location?: string | null
@@ -1884,6 +2075,7 @@ export type Database = {
           dedup_fingerprint?: string
           description?: string
           description_preview?: string
+          employer_closed_at?: string | null
           employment_type?:
             | Database["public"]["Enums"]["employment_type"]
             | null
@@ -1891,6 +2083,8 @@ export type Database = {
           external_source?: string | null
           external_url?: string | null
           id?: string
+          import_feed_id?: string | null
+          import_key?: string | null
           last_checked_at?: string
           llm_enrichment_attempted_at?: string | null
           location?: string | null
@@ -2451,6 +2645,32 @@ export type Database = {
           },
         ]
       }
+      organization_premium: {
+        Row: {
+          organization_id: string
+          premium_until: string
+          updated_at: string
+        }
+        Insert: {
+          organization_id: string
+          premium_until: string
+          updated_at?: string
+        }
+        Update: {
+          organization_id?: string
+          premium_until?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_premium_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           cac_business_name: string | null
@@ -2560,6 +2780,9 @@ export type Database = {
           product_id: string | null
           product_type: Database["public"]["Enums"]["payment_product_type"]
           rail: string
+          reconcile_attempts: number
+          reconcile_checked_at: string | null
+          reconcile_result: string | null
           renewal_for_pass_id: string | null
           status: Database["public"]["Enums"]["payment_status"]
           user_id: string | null
@@ -2576,6 +2799,9 @@ export type Database = {
           product_id?: string | null
           product_type: Database["public"]["Enums"]["payment_product_type"]
           rail?: string
+          reconcile_attempts?: number
+          reconcile_checked_at?: string | null
+          reconcile_result?: string | null
           renewal_for_pass_id?: string | null
           status?: Database["public"]["Enums"]["payment_status"]
           user_id?: string | null
@@ -2592,6 +2818,9 @@ export type Database = {
           product_id?: string | null
           product_type?: Database["public"]["Enums"]["payment_product_type"]
           rail?: string
+          reconcile_attempts?: number
+          reconcile_checked_at?: string | null
+          reconcile_result?: string | null
           renewal_for_pass_id?: string | null
           status?: Database["public"]["Enums"]["payment_status"]
           user_id?: string | null
@@ -3381,6 +3610,7 @@ export type Database = {
           pending_renewal_reference: string | null
           plan_id: string
           renewal_attempt_count: number
+          renewal_claimed_at: string | null
           renewal_reminder_sent_at: string | null
           started_at: string
           status: string
@@ -3398,6 +3628,7 @@ export type Database = {
           pending_renewal_reference?: string | null
           plan_id: string
           renewal_attempt_count?: number
+          renewal_claimed_at?: string | null
           renewal_reminder_sent_at?: string | null
           started_at?: string
           status?: string
@@ -3415,6 +3646,7 @@ export type Database = {
           pending_renewal_reference?: string | null
           plan_id?: string
           renewal_attempt_count?: number
+          renewal_claimed_at?: string | null
           renewal_reminder_sent_at?: string | null
           started_at?: string
           status?: string
@@ -3814,6 +4046,20 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: Json
       }
+      activate_talent_directory_subscription: {
+        Args: {
+          p_auto_renew: boolean
+          p_authorization_code?: string
+          p_payment_transaction_id: string
+          p_subscription_id: string
+        }
+        Returns: {
+          activated: boolean
+          expires_at: string
+          plan_name: string
+          reason: string
+        }[]
+      }
       account_deletion_create_request: {
         Args: { p_token_hash: string; p_user_id: string }
         Returns: Json
@@ -3832,6 +4078,79 @@ export type Database = {
       }
       application_applicant_is_active: {
         Args: { p_application_id: string }
+        Returns: boolean
+      }
+      book_interview_slot: {
+        Args: { p_slot: string; p_user: string }
+        Returns: {
+          booking_id: string
+          ok: boolean
+          outcome: string
+          starts_at: string
+        }[]
+      }
+      cancel_stale_interview_bookings: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      claim_interview_cancellation_emails: {
+        Args: { p_limit?: number }
+        Returns: {
+          applicant_user_id: string
+          application_id: string
+          booking_id: string
+          job_posting_id: string
+          organization_id: string
+          recipient: string
+          starts_at: string
+        }[]
+      }
+      claim_interview_reminders: {
+        Args: { p_from: string; p_limit?: number; p_to: string }
+        Returns: {
+          applicant_user_id: string
+          application_id: string
+          booking_id: string
+          duration_minutes: number
+          job_posting_id: string
+          organization_id: string
+          starts_at: string
+        }[]
+      }
+      create_interview_offer: {
+        Args: { p_application: string; p_kind: string; p_note: string; p_slots: Json; p_user: string }
+        Returns: {
+          message_id: string
+          offer_id: string
+          ok: boolean
+          outcome: string
+        }[]
+      }
+      expire_interview_offers: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      interview_offer_state: {
+        Args: { p_offer: string }
+        Returns: string
+      }
+      interview_overlaps: {
+        Args: { p_organization: string; p_slots: Json; p_user: string }
+        Returns: {
+          application_id: string
+          booking_id: string
+          duration_minutes: number
+          job_posting_id: string
+          slot_index: number
+          starts_at: string
+        }[]
+      }
+      release_interview_cancellation_email: {
+        Args: { p_booking: string }
+        Returns: boolean
+      }
+      release_interview_reminder: {
+        Args: { p_booking: string }
         Returns: boolean
       }
       submission_applicant_is_active: {
@@ -4108,6 +4427,17 @@ export type Database = {
         Args: { p_holder: string; p_name: string }
         Returns: boolean
       }
+      admin_set_organization_premium: {
+        Args: {
+          p_admin_email: string
+          p_admin_session_id: string
+          p_admin_user_id: string
+          p_organization_id: string
+          p_premium_until: string
+          p_reason: string
+        }
+        Returns: string
+      }
       claim_ai_talent_verification: {
         Args: { p_user_id: string }
         Returns: {
@@ -4123,6 +4453,19 @@ export type Database = {
           allowed: boolean
           reason: string
         }[]
+      }
+      claim_applicant_message: {
+        Args: {
+          p_application_id: string
+          p_body: string
+          p_daily_limit?: number
+          p_job_posting_id: string
+          p_kind: string
+          p_organization_id: string
+          p_sender_user_id: string
+          p_subject: string
+        }
+        Returns: string
       }
       claim_external_job_posting: {
         Args: {
@@ -4865,6 +5208,7 @@ export type Database = {
         | "reversal"
         | "farah_screening_charge"
         | "farah_jd_draft_charge"
+        | "farah_message_draft_charge"
       admin_permission:
         | "scholarships"
         | "reported_postings"
@@ -5108,6 +5452,7 @@ export const Constants = {
         "reversal",
         "farah_screening_charge",
         "farah_jd_draft_charge",
+        "farah_message_draft_charge",
       ],
       admin_permission: [
         "scholarships",

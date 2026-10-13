@@ -1,6 +1,6 @@
 /**
  * What a QA account is (owner, 6-7 Oct 2026): an account whose email contains "+qa-" (the QA Seeker / QA Employer / QA Mentor addresses, hello+qa-*@talentrah.com),
- * or whose name starts with "QA ". Those accounts are owner-authorised test accounts that live on production, so they are kept out of what the public, employers and
+ * or whose name starts with "QA ", or whose email is one of the owner's plus-address test accounts (0251). Those accounts are owner-authorised test accounts that live on production, so they are kept out of what the public, employers and
  * analytics see: mentor lists and counts, product analytics events, ad analytics. (The Talent Directory and the referral leaderboard are read through SQL and carry
  * the same rule there: public.is_qa_account, S3-21.)
  *
@@ -37,8 +37,15 @@ export interface QaAccountFields {
   leaderboardName?: string | null;
 }
 
+/**
+ * The owner's own test accounts (0251): the WHOLE email, lower-cased and trimmed of spaces, is stonebridgehibr1+<non-empty tag>@gmail.com. The bare mailbox is the owner's real account and
+ * is NOT matched; neither is any other mailbox, domain or empty tag. Same pattern as public.is_qa_account (0251).
+ */
+const OWNER_TEST_EMAIL = /^stonebridgehibr1\+[a-z0-9._-]+@gmail\.com$/;
+
 export function isQaAccount(fields: QaAccountFields): boolean {
   if ((fields.email ?? "").toLowerCase().includes(QA_EMAIL_MARKER)) return true;
+  if (OWNER_TEST_EMAIL.test(trimSpaces(fields.email).toLowerCase())) return true;
   const first = trimSpaces(fields.firstName);
   const last = trimSpaces(fields.lastName);
   const full = [first, last].filter(Boolean).join(" ");

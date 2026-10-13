@@ -324,6 +324,33 @@ describe("what does not change", () => {
   });
 });
 
+describe("the hold id on the saved messages", () => {
+  it("a completed paid message saves its hold id (the second completion marker) on both saved rows; a free message saves none", async () => {
+    seed({ freeUsedAt: USED_UP, balance: 5 });
+    await send();
+    const hold = spendCredits.mock.calls[0][3];
+    expect(hold).toEqual(expect.any(String));
+    const saved = rows("farah_messages");
+    expect(saved).toHaveLength(2);
+    for (const r of saved) expect((r.context as Record<string, unknown>).hold).toBe(hold);
+
+    seed({ freeUsedAt: [-20], balance: 5 });
+    await send();
+    for (const r of rows("farah_messages")) expect((r.context as Record<string, unknown>).hold).toBeUndefined();
+  });
+
+  it("a cut-off paid reply is saved WITH its hold id too (the hold is refunded, so the id is only a record)", async () => {
+    seed({ freeUsedAt: USED_UP, balance: 5 });
+    askFarahChatStream.mockImplementation(async function* (_t: unknown, _c: unknown, _m: unknown, opts?: { onFinish?: (r: string) => void }) {
+      yield "cut o";
+      opts?.onFinish?.("length");
+    });
+    await send();
+    for (const r of rows("farah_messages")) expect((r.context as Record<string, unknown>).hold).toBe(spendCredits.mock.calls[0][3]);
+    expect(grantCredits).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("a paid hold can be followed afterwards", () => {
   it("a completed message writes a 'started' and a 'completed' line with the same hold id; a failed one writes 'started' and 'released'; no line carries the message text or the user id", async () => {
     seed({ freeUsedAt: USED_UP, balance: 5 });

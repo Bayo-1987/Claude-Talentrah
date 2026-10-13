@@ -478,7 +478,9 @@ async function handlePost(request: Request, held: { release?: () => Promise<void
             nextFreeMessageAt = null;
           }
         }
-        const rowContext = truncated ? { ...context, truncated: true } : context;
+        // A paid message's hold id rides on the saved rows: with the gate event written at commit it is the second, independent marker that this message was delivered (the paid-hold sweep reads both).
+        const holdContext = allowance.paidHold ? { hold: allowance.paidHold.holdId } : {};
+        const rowContext = truncated ? { ...context, ...holdContext, truncated: true } : { ...context, ...holdContext };
         // The reply row (only) also carries the token counts, so daily totals can be summed from saved rows: runtime logs are kept about an hour.
         // No migration: `context` is the existing JSON column. Absent when the provider reported none (unknown is not zero).
         const replyContext = usage ? { ...rowContext, tokens: { prompt: usage.inputTokens, completion: usage.outputTokens } } : rowContext;

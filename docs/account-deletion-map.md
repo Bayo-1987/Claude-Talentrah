@@ -37,6 +37,7 @@ handed over.
 | `ad_events.user_id` | profiles | CASCADE | delete | the person's own impressions and clicks |
 | `ad_wallet_ledger.actor_user_id` | profiles | SET NULL | detach | who made an organisation's wallet movement; the movement stays |
 | `admin_users.id` | auth.users | CASCADE | delete | admin identity (0060); deleted with the account |
+| `applicant_messages.sender_user_id` | profiles | SET NULL | detach | the employer member who sent a message to an applicant (0256); the organisation's record of what it sent stays, only the person's link is detached. A deleted CANDIDATE: the row stays with application_id null and subject and body BLANKED (a BEFORE DELETE trigger on applications), the daily count unchanged |
 | `api_rate_limits.user_id` | profiles | CASCADE | delete | per-person throttle counters |
 | `application_stage_events.user_id` | profiles | CASCADE | delete | the person's own tracker history |
 | `applications.user_id` | profiles | CASCADE | delete | the person's own applications and tracker; the applications an organisation received on its postings are other people's records and are kept (see Employers above) |
@@ -49,6 +50,8 @@ handed over.
 | `credit_ledger.user_id` | profiles | SET NULL | anonymise | tax and audit record (0209): kept, detached from the person |
 | `email_preferences.user_id` | profiles | CASCADE | delete | the person's own mail settings |
 | `employer_applicant_status.updated_by` | profiles | NO ACTION | block | PR 3 nulls it first: an employer member's review mark on someone else's applicant |
+| `employer_job_feed_attempts.user_id` | profiles | SET NULL | anonymise | who tried to connect or check a job feed (0246): the attempt stays for the rate limits and the audit, the link to the person is dropped |
+| `employer_job_feeds.consented_by` | profiles | SET NULL | anonymise | who ticked the consent for an organisation's job feed (0246): the feed and its consent record belong to the organisation and stay, the person's link is dropped |
 | `farah_free_claims.user_id` | profiles | CASCADE | delete | a pending claim on one free Farah message (0236), held for at most 120 seconds; transient state, never kept past the person |
 | `farah_messages.user_id` | profiles | CASCADE | delete | Farah threads |
 | `farah_session_events.user_id` | profiles | CASCADE | delete | Farah session analytics |
@@ -56,6 +59,7 @@ handed over.
 | `feedback.triaged_by` | profiles | SET NULL | detach | an admin's triage of someone else's feedback |
 | `feedback.user_id` | profiles | CASCADE | delete | the person's own feedback |
 | `job_posting_assessments.created_by` | profiles | SET NULL | detach | who wrote an organisation's assessment; the assessment stays |
+| `interview_offers.created_by` | profiles | SET NULL | detach | the employer member who offered the times; the offer, and any booking on it, stay with the applicant's application |
 | `job_posting_reports.reporter_id` | profiles | CASCADE | delete | reports the person filed |
 | `job_postings.admin_reviewed_by` | profiles | SET NULL | detach | an admin's review of someone else's posting |
 | `job_postings.removed_by` | profiles | SET NULL | detach | an admin's removal of someone else's posting |

@@ -289,14 +289,8 @@ export async function checkFarahChatAllowance(
   }
   console.info(`[farah-paid-hold] started hold=${holdId} credits=${charge.credits}`);
 
-  // A credit spend is logged as 'proceeded' immediately, unlike the two capped-resource branches above: nothing about this outcome is capped.
-  await logCreditGateEvent({
-    userId,
-    reason: FARAH_CHAT_REASON,
-    creditsRequired: charge.credits,
-    creditsAvailable: balance,
-    outcome: "proceeded",
-  });
+  // NOT logged as 'proceeded' here: that row is the COMPLETION marker of a paid hold (see commitFarahChatAllowance), so it is written when the reply is complete, with the hold id. A hold that never completes has
+  // no such row, which is how the daily paid-hold sweep tells a killed request from a delivered reply.
   return {
     isFreeAllowance: false,
     isPassCovered: false,
@@ -359,6 +353,16 @@ export async function commitFarahChatAllowance(
   }
   if (allowance.paidHold) {
     // The credit was taken at the check and the reply is complete: nothing more to charge. The balance reported is the ledger's own balance_after for that spend.
+    // The completion marker: a 'proceeded' funnel row carrying the hold id (best-effort, like every funnel write). Together with the hold id on the saved reply (route.ts) it is what lets the paid-hold sweep
+    // (src/lib/farah/paid-hold-sweep.ts) know this message was delivered. It also means 'proceeded' now counts DELIVERED paid messages.
+    await logCreditGateEvent({
+      userId,
+      reason: FARAH_CHAT_REASON,
+      creditsRequired: allowance.paidHold.credits,
+      creditsAvailable: allowance.creditsAvailableAtCheck,
+      outcome: "proceeded",
+      relatedEntityId: allowance.paidHold.holdId,
+    });
     console.info(`[farah-paid-hold] completed hold=${allowance.paidHold.holdId}`);
     return { balanceAfter: allowance.paidHold.balanceAfter };
   }

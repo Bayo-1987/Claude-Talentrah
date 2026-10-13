@@ -55,6 +55,8 @@ vi.mock("@/lib/supabase/service-role", () => ({
       const q: Record<string, unknown> = {};
       q.select = () => q;
       q.eq = () => q;
+      q.or = () => q; // the already-active check asks for a running or renewing row
+      q.limit = () => q;
       q.update = () => q;
       q.insert = (row: unknown) => {
         state.inserts.push({ table, row });

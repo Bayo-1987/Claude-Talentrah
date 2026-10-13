@@ -9,7 +9,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 const health = vi.hoisted(() => ({
   value: {
-    payments: [{ status: "success", rail: "paystack", count: 1, totalAmount: 5000, currency: "NGN", oldestAt: "2026-10-01T10:00:00Z" }],
+    payments: [{ status: "success", rail: "paystack", count: 1, totalAmount: 5000, currency: "NGN", oldestAt: "2026-10-01T10:00:00Z" }, { status: "success", rail: "card", count: 1, totalAmount: 2500, currency: "NGN", oldestAt: "2026-10-02T10:00:00Z" }],
     pendingCount: 0, pendingRecent: 0, pendingCounted: 0, stalePending: 0, creditsByReason: [], passesByStatus: {}, passesAwaitingRenewalOutcome: 0, adWalletBalanceNgn: 12000, adWalletCount: 1,
   } as Record<string, unknown>,
 }));
@@ -25,6 +25,10 @@ describe("the Finance page's money", async () => {
   it("a payments row with amount 5000 shows N5,000, not N50", () => {
     expect(out).toContain("₦5,000");
     expect(out).not.toMatch(/₦50(?![,\d])/);
+  });
+  it("a payments row with amount 2500 shows N2,500, not N25", () => {
+    expect(out).toContain("₦2,500");
+    expect(out).not.toMatch(/₦25(?![,\d])/);
   });
   it("an ad wallet balance of 12,000 shows N12,000", () => {
     expect(out).toContain("₦12,000");

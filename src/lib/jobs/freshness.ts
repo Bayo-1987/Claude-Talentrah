@@ -1,4 +1,5 @@
 import type { Tables } from "@/lib/supabase/types";
+import { isLinkOutPosting } from "@/lib/jobs/link-out";
 import { relativeDayLabel, formatRelativeTime } from "@/lib/format-relative-time";
 
 /**
@@ -69,7 +70,7 @@ export function jobDateFilterSinceISO(filter: JobDateFilter | undefined, now: nu
   return new Date(now - cappedDays * 24 * 60 * 60 * 1000).toISOString();
 }
 
-type AgeLineInput = Pick<Tables<"job_postings">, "source_type" | "posted_at" | "last_checked_at">;
+type AgeLineInput = Pick<Tables<"job_postings">, "source_type" | "posted_at" | "last_checked_at"> & { import_feed_id?: string | null };
 
 /**
  * "Posted 2 days ago · re-verified today" — the single, always-shown line
@@ -91,6 +92,7 @@ type AgeLineInput = Pick<Tables<"job_postings">, "source_type" | "posted_at" | "
  */
 export function postingAgeLine(job: AgeLineInput, now: number = Date.now()): string {
   const posted = formatRelativeTime(job.posted_at, now);
-  if (job.source_type !== "external" || !job.last_checked_at) return posted;
+  // An imported posting is re-read from the employer's own page by the daily sync, so its last_checked_at is a real re-confirmation, like an aggregated posting's (src/lib/jobs/link-out.ts).
+  if (!isLinkOutPosting(job) || !job.last_checked_at) return posted;
   return `${posted} · re-verified ${relativeDayLabel(job.last_checked_at, now)}`;
 }

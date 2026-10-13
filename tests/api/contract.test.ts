@@ -533,6 +533,7 @@ describe("§2 — cron GETs fail closed too", () => {
       "/api/admin/delete-stale-postings": () =>
         import("@/app/api/admin/delete-stale-postings/route"),
       "/api/admin/purge-demo-attempts": () => import("@/app/api/admin/purge-demo-attempts/route"),
+      "/api/admin/sweep-farah-paid-holds": () => import("@/app/api/admin/sweep-farah-paid-holds/route"),
       "/api/admin/mentorship-sweep": () => import("@/app/api/admin/mentorship-sweep/route"),
       "/api/admin/renew-talent-directory-subscriptions": () =>
         import("@/app/api/admin/renew-talent-directory-subscriptions/route"),
@@ -547,6 +548,7 @@ describe("§2 — cron GETs fail closed too", () => {
         import("@/app/api/admin/send-scholarship-deadline-alerts/route"),
       "/api/admin/send-winback-emails": () => import("@/app/api/admin/send-winback-emails/route"),
       "/api/admin/send-expiry-reminders": () => import("@/app/api/admin/send-expiry-reminders/route"),
+      "/api/admin/send-interview-notices": () => import("@/app/api/admin/send-interview-notices/route"),
     };
 
     expect(vercelConfig.crons.length).toBeGreaterThan(0);
