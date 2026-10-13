@@ -24,6 +24,10 @@
       "schedule": "7 * * * *"
     },
     {
+      "path": "/api/admin/send-new-applicant-digest",
+      "schedule": "5 7 * * *"
+    },
+    {
       "path": "/api/admin/send-scholarship-deadline-alerts",
       "schedule": "30 7 * * *"
     },

@@ -12,6 +12,8 @@ import { evaluateDomainVerification, employerBannerMessage } from "@/lib/employe
 import { mintUnlistedLink } from "@/lib/employer/mint-unlisted-link";
 import { getClaimCandidates } from "@/lib/employer/claim";
 import { dismissClaimReviewAction } from "@/lib/employer/actions";
+import { NewApplicantNoticeSelect } from "@/components/employer/new-applicant-notice-select";
+import { loadNewApplicantCounts, readNewApplicantNotice } from "@/lib/employer/new-applicants/read-notice";
 import { getSiteOrigin } from "@/lib/referrals/url";
 
 export const metadata = { title: "Jobs Posted — Talentrah" };
@@ -33,6 +35,7 @@ export default async function JobsPostedPage({
   const { posted, claimed, deleted, error: actionError, assessmentCreated } = await searchParams;
   const supabase = await createClient();
   const origin = await getSiteOrigin();
+  const noticeMode = await readNewApplicantNotice(userId);
 
   // "Claim your listing" (0128/0129): only worth checking for a VERIFIED
   // org — job_posting_claim_candidates matches against the verified
@@ -44,7 +47,7 @@ export default async function JobsPostedPage({
   // Folded into the same Promise.all as the postings/counts queries below —
   // it only needs `supabase`/`organization.id`, both already resolved, and
   // depends on neither of the other two reads.
-  const [claimCandidates, { data: jobs, error: jobsError }, { data: counts, error: countsError }] =
+  const [claimCandidates, { data: jobs, error: jobsError }, { data: counts, error: countsError }, newByJob] =
     await Promise.all([
       organization.verified && !organization.claim_review_dismissed_at
         ? getClaimCandidates(supabase, organization.id).catch(() => [])
@@ -62,6 +65,8 @@ export default async function JobsPostedPage({
       // applications" on every posting — wrong, and silently so. Migration 0029
       // exists for exactly this, and returns counts without applicant identity.
       supabase.rpc("org_application_counts", { p_organization_id: organization.id }),
+      // 0259: how many of those are still NEW (no status from the employer yet). An error here only means no badge.
+      loadNewApplicantCounts(supabase, organization.id),
     ]);
   const claimCandidateCount = claimCandidates.length;
 
@@ -117,6 +122,7 @@ export default async function JobsPostedPage({
     adminReviewRequestedAt: job.admin_review_requested_at,
     adminReviewDecision: job.admin_review_decision,
     applicationCount: countByJob.get(job.id) ?? 0,
+    newApplicantCount: newByJob.get(job.id) ?? 0,
   }));
 
   const openCount = rows.filter((r) => r.status === "open").length;
@@ -174,9 +180,12 @@ export default async function JobsPostedPage({
               : `${openCount} open · ${rows.length} total`}
           </p>
         </div>
-        <Link href="/employer/jobs/new" className={buttonClasses("primary", "md", "no-underline")}>
-          Post a job
-        </Link>
+        <div className="flex flex-wrap items-end gap-4">
+          <NewApplicantNoticeSelect initialMode={noticeMode} />
+          <Link href="/employer/jobs/new" className={buttonClasses("primary", "md", "no-underline")}>
+            Post a job
+          </Link>
+        </div>
       </div>
 
       {/*

@@ -15,6 +15,8 @@ export interface PostedJob {
   removalReason: string | null;
   postedAt: string;
   applicationCount: number;
+  /** Submitted applications the employer has not yet given a status (0259). Optional: absent means the count could not be read, and no badge is shown. */
+  newApplicantCount?: number;
   workType: string | null;
   employmentType: string | null;
   /** Non-null once a private link has been minted for this posting (0107). */
@@ -168,12 +170,22 @@ export function PostedJobRow({
             click, and the count already says so.
           */}
           {job.applicationCount > 0 ? (
-            <Link
-              href={`/employer/jobs/${job.id}/applicants`}
-              className="font-semibold text-ink underline underline-offset-2 hover:text-rust"
-            >
-              {job.applicationCount} {job.applicationCount === 1 ? "application" : "applications"}
-            </Link>
+            <>
+              <Link
+                href={`/employer/jobs/${job.id}/applicants`}
+                className="font-semibold text-ink underline underline-offset-2 hover:text-rust"
+              >
+                {job.applicationCount} {job.applicationCount === 1 ? "application" : "applications"}
+              </Link>
+              {(job.newApplicantCount ?? 0) > 0 && (
+                <Link
+                  href={`/employer/jobs/${job.id}/applicants`}
+                  className="ml-2 inline-flex min-h-6 items-center bg-rust-soft px-2 font-body text-[12px] font-bold text-rust no-underline hover:underline"
+                >
+                  {`${job.newApplicantCount} new`}
+                </Link>
+              )}
+            </>
           ) : (
             <span className="font-semibold text-ink">
               {job.applicationCount} applications

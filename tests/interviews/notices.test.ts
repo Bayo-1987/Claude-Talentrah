@@ -93,9 +93,10 @@ describe("runInterviewNotices: reminders", () => {
 describe("runInterviewNotices: a run with nothing due", () => {
   it("is clean: ok, every count zero, no error logged, NO email sent, nothing claimed twice or released", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    vi.spyOn(console, "log").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const deps = makeDeps();
     const summary = await runInterviewNotices(deps, NOW);
+    expect(log, "a counts-only line is logged even when nothing was due").toHaveBeenCalledWith(expect.stringMatching(/^\[interview-notices\] cancelled=0 expired=0 .*remind_sent=0/));
     expect(summary).toEqual({ ok: true, cancelledByBackstop: 0, expired: 0, cancellationsClaimed: 0, cancellationsSent: 0, cancellationsReleased: 0, remindersClaimed: 0, remindersSent: 0, remindersReleased: 0 });
     expect(deps.send).not.toHaveBeenCalled();
     expect(deps.context).not.toHaveBeenCalled();
