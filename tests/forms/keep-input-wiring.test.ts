@@ -51,7 +51,7 @@ describe("contact form", () => {
   it("every error return (validation, rate limit, mailer not wired, send failed) hands the typed values back; the honeypot and the success hand none", () => {
     expect(actions).toContain('const typed = submittedValues(formData, ["name", "email", "topic", "message"]);');
     expect(count(actions, "values: typed")).toBe(4);
-    expect(read("src/lib/contact/schemas.ts")).toContain("values?: SubmittedValues");
+    expect(read("src/lib/contact/constants.ts")).toContain("values?: SubmittedValues");
   });
   it("name, email, message default to the returned values; the Topic <select> is keyed by it", () => {
     for (const f of ["name", "email", "topic", "message"]) expect(form, f).toContain(`inputValue(state.values, "${f}")`);
