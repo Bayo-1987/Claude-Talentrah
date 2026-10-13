@@ -6,6 +6,12 @@ export interface BuiltEmail {
   html: string;
 }
 
+/** The footers (owner-approved wording, 13 Oct). Both link to the Jobs Posted page, where the setting lives; no clock time or timezone. */
+export const INSTANT_FOOTER_SENTENCE = "You get a quick alert for the first new applicant on each job, then a daily summary.";
+export const INSTANT_FOOTER_LINK_TEXT = "Change this in your jobs settings";
+export const DIGEST_FOOTER_SENTENCE = "The daily summary lists names and counts, never contact details.";
+export const DIGEST_FOOTER_LINK_TEXT = "Change how often we email you";
+
 /** The most names listed for one job in a digest; the rest are "and N more". */
 export const DIGEST_NAMES_PER_JOB = 10;
 
@@ -26,13 +32,13 @@ export function buildInstantEmail({
 }): BuiltEmail {
   const who = applicantName.trim() || "A new applicant";
   const subject = `New applicant for ${jobTitle}`;
-  const text = `${who} applied for ${jobTitle}.\n\nSee the applicant: ${applicantsUrl}\n\nChoose how often you hear about new applicants (instant, daily digest or off) on your Jobs Posted page: ${settingsUrl}\n\n— Talentrah`;
+  const text = `${who} applied for ${jobTitle}.\n\nSee the applicant: ${applicantsUrl}\n\n${INSTANT_FOOTER_SENTENCE} ${INSTANT_FOOTER_LINK_TEXT}: ${settingsUrl}\n\n— Talentrah`;
   const html = renderBrandedEmail({
     bodyHtml: [
       emailParagraph(`${escEmail(who)} applied for ${escEmail(jobTitle)}.`),
       emailButton("See the applicant", applicantsUrl),
     ].join("\n"),
-    footerHtml: `Choose how often you hear about new applicants (instant, daily digest or off) on your <a href="${escEmail(settingsUrl)}">Jobs Posted</a> page.`,
+    footerHtml: `${INSTANT_FOOTER_SENTENCE} <a href="${escEmail(settingsUrl)}">${INSTANT_FOOTER_LINK_TEXT}</a>`,
   });
   return { subject, text, html };
 }
@@ -58,7 +64,7 @@ export function buildDigestEmail({ groups, settingsUrl }: { groups: DigestGroup[
 
   const text = [
     ...groups.map((g) => `${g.jobTitle}: ${g.count} new (${listed(g)})\n${g.applicantsUrl}`),
-    `Choose how often you hear about new applicants (instant, daily digest or off) on your Jobs Posted page: ${settingsUrl}`,
+    `${DIGEST_FOOTER_SENTENCE} ${DIGEST_FOOTER_LINK_TEXT}: ${settingsUrl}`,
     "— Talentrah",
   ].join("\n\n");
 
@@ -66,7 +72,7 @@ export function buildDigestEmail({ groups, settingsUrl }: { groups: DigestGroup[
     bodyHtml: groups
       .map((g) => emailParagraph(`<strong>${escEmail(g.jobTitle)}</strong>: ${g.count} new (${escEmail(listed(g))})<br /><a href="${escEmail(g.applicantsUrl)}">See the applicants</a>`))
       .join("\n"),
-    footerHtml: `Choose how often you hear about new applicants (instant, daily digest or off) on your <a href="${escEmail(settingsUrl)}">Jobs Posted</a> page.`,
+    footerHtml: `${DIGEST_FOOTER_SENTENCE} <a href="${escEmail(settingsUrl)}">${DIGEST_FOOTER_LINK_TEXT}</a>`,
   });
   return { subject, text, html };
 }
