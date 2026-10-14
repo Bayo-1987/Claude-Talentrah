@@ -13,9 +13,7 @@ import { renderInlineMarkdown } from "@/lib/farah/render-markdown";
 import {
   setApplicantStatusAction,
   getApplicationScreeningAnswersAction,
-  getApplicationAssessmentSubmissionAction,
   type ScreeningAnswerDetail,
-  type AssessmentSubmissionDetail,
 } from "@/lib/employer/actions";
 import type { MatchExplanation } from "@/lib/matching/score";
 import type { Enums } from "@/lib/supabase/types";
@@ -188,15 +186,11 @@ export function ApplicantList({
   const [screeningAnswers, setScreeningAnswers] = useState<
     Record<string, ScreeningAnswerDetail[] | "loading" | "error">
   >({});
-  const [assessmentSubmissions, setAssessmentSubmissions] = useState<
-    Record<string, AssessmentSubmissionDetail | null | "loading" | "error">
-  >({});
   // A separate transition from the bulk-action one above: "View answers" is a
   // read-only, single-row fetch and must never disable the bulk-action bar or
   // show its "Updating…" label while it's in flight — the two are unrelated
   // operations that happened to share `pending` before this fix.
   const [, startAnswersTransition] = useTransition();
-  const [, startSubmissionTransition] = useTransition();
 
   function toggleAnswers(applicationId: string) {
     if (applicationId in screeningAnswers) {
@@ -212,24 +206,6 @@ export function ApplicantList({
       setScreeningAnswers((prev) => ({
         ...prev,
         [applicationId]: "error" in result ? "error" : result.answers,
-      }));
-    });
-  }
-
-  function toggleSubmission(applicationId: string) {
-    if (applicationId in assessmentSubmissions) {
-      setAssessmentSubmissions((prev) =>
-        Object.fromEntries(Object.entries(prev).filter(([id]) => id !== applicationId)),
-      );
-      return;
-    }
-
-    setAssessmentSubmissions((prev) => ({ ...prev, [applicationId]: "loading" }));
-    startSubmissionTransition(async () => {
-      const result = await getApplicationAssessmentSubmissionAction(applicationId);
-      setAssessmentSubmissions((prev) => ({
-        ...prev,
-        [applicationId]: "error" in result ? "error" : result.submission,
       }));
     });
   }
@@ -344,15 +320,12 @@ export function ApplicantList({
                     </button>
                   )}
                   {hasAssessment && (
-                    <button
-                      type="button"
-                      onClick={() => toggleSubmission(applicant.application_id)}
+                    <Link
+                      href={`/employer/jobs/${jobId}/applicants/${applicant.application_id}/assessment`}
                       className="mt-0.5 block min-h-6 font-body text-[12.5px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
                     >
-                      {applicant.application_id in assessmentSubmissions
-                        ? "Hide assessment response"
-                        : "View assessment response"}
-                    </button>
+                      View assessment response
+                    </Link>
                   )}
                 </div>
               </div>
@@ -429,67 +402,6 @@ export function ApplicantList({
                       <FarahReviewNote a={a} />
                     </div>
                   ))}
-                </div>
-              );
-            })()}
-            {(() => {
-              const state = assessmentSubmissions[applicant.application_id];
-              if (!state) return null;
-              if (state === "loading") {
-                return <p className="font-body text-[12.5px] text-ink-soft">Loading response…</p>;
-              }
-              if (state === "error") {
-                return (
-                  <p className="font-body text-[12.5px] text-rust">Couldn&apos;t load the response — try again.</p>
-                );
-              }
-              if (state === null) {
-                return (
-                  <p className="font-body text-[12.5px] text-ink-soft">No assessment response submitted.</p>
-                );
-              }
-              return (
-                <div className="flex flex-col gap-2 border-[1.5px] border-ink bg-card p-4">
-                  {state.responseText && (
-                    <p className="font-body text-[13px] whitespace-pre-wrap text-ink-soft">{state.responseText}</p>
-                  )}
-                  {state.responseFiles.length > 0 && (
-                    <div className="flex flex-col gap-1">
-                      {state.responseFiles.map((file, index) =>
-                        file.url ? (
-                          <a
-                            key={`${file.originalFilename}-${index}`}
-                            href={file.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="w-fit font-body text-[13px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
-                          >
-                            View response file: {file.originalFilename}
-                          </a>
-                        ) : (
-                          <p
-                            key={`${file.originalFilename}-${index}`}
-                            className="font-body text-[13px] text-rust"
-                          >
-                            {file.originalFilename} — couldn&apos;t generate a link, try refreshing.
-                          </p>
-                        ),
-                      )}
-                    </div>
-                  )}
-                  {state.responseLink && (
-                    <a
-                      href={state.responseLink}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="w-fit font-body text-[13px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
-                    >
-                      Open response link
-                    </a>
-                  )}
-                  {!state.responseText && state.responseFiles.length === 0 && !state.responseLink && (
-                    <p className="font-body text-[13px] text-ink-soft">Empty response.</p>
-                  )}
                 </div>
               );
             })()}

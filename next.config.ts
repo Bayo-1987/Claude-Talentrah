@@ -197,6 +197,15 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // An applicant's assessment response (ASSESSMENT-VIEWER-1): a candidate's own written work, so the page is never indexed and never cached by a browser, proxy or CDN.
+        // Sent as response headers (not only the page's robots meta) so they hold for every response from this route, including a redirect or an error page.
+        source: "/employer/jobs/:id/applicants/:applicationId/assessment",
+        headers: [
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
+          { key: "Cache-Control", value: "private, no-store" },
+        ],
+      },
+      {
         // The employer job-list widget (iframe, owner-approved 7 Oct 2026): public
         // information only, no session, no form, no script. Framable by any site
         // (frame-ancestors *), so NO X-Frame-Options at all (never ALLOW-FROM,

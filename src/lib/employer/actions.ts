@@ -29,7 +29,6 @@ import {
 import { extractStructuredJd, SKILL_VOCABULARY } from "@/lib/jobs/extract-jd";
 import { parseScreeningQuestionsForm, reconcileScreeningQuestions } from "@/lib/employer/screening-questions";
 import { parseJobPostingAssessmentForm, reconcileJobPostingAssessment } from "@/lib/employer/job-posting-assessment";
-import { ASSESSMENT_SUBMISSION_BUCKET } from "@/lib/employer/assessment-document";
 import { Constants, type Enums, type Json } from "@/lib/supabase/types";
 
 /**
@@ -1252,85 +1251,6 @@ export async function getApplicationScreeningAnswersAction(
       farahTier: row.farah_tier,
       farahSummary: row.farah_summary,
     })),
-  };
-}
-
-export interface AssessmentSubmissionResponseFile {
-  /** A short-lived signed URL — never a public one, since job-assessment-submissions is a private bucket. Null if signing itself failed. */
-  url: string | null;
-  originalFilename: string;
-}
-
-export interface AssessmentSubmissionDetail {
-  responseText: string | null;
-  /** Up to MAX_ASSESSMENT_FILES entries (send-365 — was a single responseFileUrl before this). */
-  responseFiles: AssessmentSubmissionResponseFile[];
-  responseLink: string | null;
-  submittedAt: string;
-}
-
-/**
- * send-346 v2 — on-demand read of a candidate's assessment submission,
- * mirroring getApplicationScreeningAnswersAction's own shape. Widened by
- * send-365/0179 from a single file to a list.
- *
- * UNLIKE the screening-answers read above, this does NOT go through a
- * SECURITY DEFINER function — application_assessment_submissions' own
- * table RLS (0177: the submitting candidate OR is_org_member(organization_id))
- * already lets an org member read the row directly through their own
- * session client, and 0179's own new table RLS on
- * application_assessment_response_files makes the identical two-party
- * check available for the child rows, so a second privileged layer would
- * just duplicate what RLS already grants.
- *
- * Each file is resolved to a SIGNED url via the caller's own client —
- * `createSignedUrl` itself is subject to the bucket's RLS SELECT policy
- * (can_access_assessment_submission, rewritten by 0179 to join through the
- * new child table), so an employer outside the owning org is refused here
- * the same way a direct download would be, not because of an extra check
- * in this function but because Storage evaluates the identical policy
- * either way.
- */
-export async function getApplicationAssessmentSubmissionAction(
-  applicationId: string,
-): Promise<{ error: string } | { ok: true; submission: AssessmentSubmissionDetail | null }> {
-  const { supabase } = await getAuthedUser();
-  await requireEmployer();
-
-  const { data, error } = await supabase
-    .from("application_assessment_submissions")
-    .select("id, response_text, response_link, submitted_at")
-    .eq("application_id", applicationId)
-    .maybeSingle();
-  if (error) return { error: `Couldn't load the assessment response: ${error.message}` };
-  if (!data) return { ok: true, submission: null };
-
-  const { data: fileRows, error: filesError } = await supabase
-    .from("application_assessment_response_files")
-    .select("file_path, original_filename")
-    .eq("application_assessment_submission_id", data.id)
-    .order("created_at", { ascending: true });
-  if (filesError) return { error: `Couldn't load the response's files: ${filesError.message}` };
-
-  const responseFiles: AssessmentSubmissionResponseFile[] = [];
-  for (const row of fileRows ?? []) {
-    const { data: signed, error: signError } = await supabase.storage
-      .from(ASSESSMENT_SUBMISSION_BUCKET)
-      .createSignedUrl(row.file_path, 3600);
-    if (signError) {
-      console.error(`[assessment-submission] could not sign ${row.file_path}:`, signError.message);
-    }
-    responseFiles.push({ url: signError ? null : signed.signedUrl, originalFilename: row.original_filename });
-  }
-
-  return {
-    ok: true,
-    submission: {
-      responseText: data.response_text,
-      responseFiles,
-      responseLink: data.response_link,
-      submittedAt: data.submitted_at,
-    },
   };
 }
 
