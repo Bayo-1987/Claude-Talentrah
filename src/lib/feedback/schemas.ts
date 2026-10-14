@@ -1,25 +1,10 @@
 import { z } from "zod";
 import { FIELD_LIMITS, fitsLimit } from "@/lib/text-limits";
 
-/**
- * The three buckets, and their labels.
- *
- * Value and label are separate because the value is a database enum and the
- * label is a sentence. "bug" is the right column value and the wrong thing to
- * show someone — a person reporting that resume export produced a blank PDF
- * should not have to decide whether that counts as a "bug".
- */
-export const FEEDBACK_CATEGORIES = [
-  { value: "bug", label: "Something's broken" },
-  { value: "idea", label: "An idea or a request" },
-  { value: "other", label: "Something else" },
-] as const;
-
-export const FEEDBACK_CATEGORY_VALUES = FEEDBACK_CATEGORIES.map((c) => c.value) as unknown as [
-  "bug",
-  "idea",
-  "other",
-];
+// The categories live in ./categories (no zod), so the feedback form, a client component, can render them without shipping the validator.
+// Re-exported here so every other importer is unchanged.
+import { FEEDBACK_CATEGORIES, FEEDBACK_CATEGORY_VALUES } from "./categories";
+export { FEEDBACK_CATEGORIES, FEEDBACK_CATEGORY_VALUES };
 
 /**
  * `page_path` is supplied by the browser — once as `?from=` on the URL, once

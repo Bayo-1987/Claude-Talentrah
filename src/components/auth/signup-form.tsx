@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { signUpAction, type AuthActionState } from "@/lib/auth/actions";
-import { SIGNUP_COUNTRIES } from "@/lib/auth/schemas";
+import { SIGNUP_COUNTRIES } from "@/lib/auth/countries";
 import { PASSWORD_MIN_LENGTH } from "@/lib/auth/password";
 import { TextField, PasswordField, SelectField, Button } from "@/components/ui";
 import { PasswordRequirements } from "./password-requirements";
