@@ -2,39 +2,36 @@
 
 import { useState, useTransition } from "react";
 import { setNewApplicantNoticeAction } from "@/lib/employer/new-applicant-notice-actions";
-import { NOTICE_LABELS, NOTICE_MODES, isNoticeMode, type NoticeMode } from "@/lib/employer/new-applicants/notice-mode";
+import { NOTICE_HELP, NOTICE_LABELS, NOTICE_MODES, NOTICE_OPTION_HELP, NOTICE_SAVED, isNoticeMode, type NoticeMode } from "@/lib/employer/new-applicants/notice-mode";
 
-/** How this person hears about new applicants. Saves on change; a failed save puts the previous choice back and says so. */
-export function NewApplicantNoticeSelect({ initialMode }: { initialMode: NoticeMode }) {
-  const [mode, setMode] = useState(initialMode);
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-
-  function change(event: React.ChangeEvent<HTMLSelectElement>) {
-    const next = event.target.value;
-    if (!isNoticeMode(next)) return;
-    const previous = mode;
-    setMode(next);
-    setError(null);
-    startTransition(async () => {
-      const result = await setNewApplicantNoticeAction(next);
-      if (!result.ok) {
-        setMode(previous);
-        setError(result.error);
-      }
-    });
-  }
-
+/** What the setting looks like for a given state. Pure, so the label, the options, the help text and the Saved message can be rendered and checked without a browser. */
+export function NewApplicantNoticeView({
+  mode,
+  saved,
+  error,
+  pending,
+  onChange,
+}: {
+  mode: NoticeMode;
+  saved: boolean;
+  error: string | null;
+  pending: boolean;
+  onChange: (event: React.ChangeEvent<HTMLSelectElement>) => void;
+}) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex max-w-[360px] flex-col gap-1">
       <label htmlFor="new-applicant-notice" className="font-body text-[12.5px] font-semibold text-ink-soft">
         Emails about new applicants
       </label>
+      <p id="new-applicant-notice-help" className="font-body text-[12.5px] leading-[1.5] text-ink-soft">
+        {NOTICE_HELP}
+      </p>
       <select
         id="new-applicant-notice"
         value={mode}
-        onChange={change}
+        onChange={onChange}
         disabled={pending}
+        aria-describedby="new-applicant-notice-help new-applicant-notice-option-help"
         className="min-h-11 border-[1.5px] border-ink bg-card px-3 font-body text-[13.5px] text-ink outline-none focus:border-rust disabled:opacity-60"
       >
         {NOTICE_MODES.map((m) => (
@@ -43,6 +40,14 @@ export function NewApplicantNoticeSelect({ initialMode }: { initialMode: NoticeM
           </option>
         ))}
       </select>
+      <p id="new-applicant-notice-option-help" className="font-body text-[12.5px] leading-[1.5] text-ink-soft">
+        {NOTICE_OPTION_HELP[mode]}
+      </p>
+      {saved && !error && (
+        <span role="status" className="font-body text-[12.5px] font-semibold text-green">
+          {NOTICE_SAVED}
+        </span>
+      )}
       {error && (
         <span role="alert" className="font-body text-[12.5px] text-rust">
           {error}
@@ -50,4 +55,32 @@ export function NewApplicantNoticeSelect({ initialMode }: { initialMode: NoticeM
       )}
     </div>
   );
+}
+
+/** How this person hears about new applicants. Saves on change; says "Saved" once it has, and a failed save puts the previous choice back and says so. */
+export function NewApplicantNoticeSelect({ initialMode }: { initialMode: NoticeMode }) {
+  const [mode, setMode] = useState(initialMode);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  function change(event: React.ChangeEvent<HTMLSelectElement>) {
+    const next = event.target.value;
+    if (!isNoticeMode(next)) return;
+    const previous = mode;
+    setMode(next);
+    setError(null);
+    setSaved(false);
+    startTransition(async () => {
+      const result = await setNewApplicantNoticeAction(next);
+      if (!result.ok) {
+        setMode(previous);
+        setError(result.error);
+        return;
+      }
+      setSaved(true);
+    });
+  }
+
+  return <NewApplicantNoticeView mode={mode} saved={saved} error={error} pending={pending} onChange={change} />;
 }

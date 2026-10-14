@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { requireEmployer } from "@/lib/employer/membership";
-import { isNoticeMode, type NoticeMode } from "@/lib/employer/new-applicants/notice-mode";
+import { NOTICE_SAVE_FAILED, isNoticeMode, type NoticeMode } from "@/lib/employer/new-applicants/notice-mode";
 
 export type NoticeResult = { ok: true; mode: NoticeMode } | { ok: false; error: string };
 
@@ -29,7 +29,7 @@ export async function setNewApplicantNoticeAction(mode: string): Promise<NoticeR
     .select("user_id");
   if (error || !data || data.length === 0) {
     console.error("[new-applicant-notice] could not save the setting:", error?.message ?? "no preference row");
-    return { ok: false, error: "Couldn't save that. Try again." };
+    return { ok: false, error: NOTICE_SAVE_FAILED };
   }
   return { ok: true, mode };
 }

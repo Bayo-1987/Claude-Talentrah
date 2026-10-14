@@ -57,6 +57,7 @@ test.describe("new applicants on Jobs Posted and the applicants page", () => {
     const select = page.getByLabel("Emails about new applicants");
     await expect(select).toHaveValue("instant");
     await select.selectOption("digest");
+    await expect(page.getByRole("status").filter({ hasText: "Saved" })).toBeVisible(); // NEW-APPLICANT-NOTICE-UX-1: the setting says so once it is saved
     await expect.poll(async () => (await admin.from("email_preferences").select("new_applicant_notice").eq("user_id", testUser.id).single()).data?.new_applicant_notice).toBe("digest");
     await page.reload();
     await expect(page.getByLabel("Emails about new applicants")).toHaveValue("digest");
