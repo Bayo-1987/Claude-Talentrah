@@ -5,7 +5,7 @@ import Link from "next/link";
 import { getOptionalUser } from "@/lib/auth/require-user";
 import { needsGoogleCountryStep, COUNTRY_STEP_PATH } from "@/lib/auth/google-country-gate";
 import { destinationAfterStep } from "@/lib/auth/country-step-destination";
-import { countryFromAcceptLanguage } from "@/lib/auth/country-from-locale";
+import { COUNTRY_IP_HEADER, suggestCountry } from "@/lib/auth/country-from-locale";
 import { isSignupCountry } from "@/lib/auth/countries";
 import { EyebrowLabel } from "@/components/ui";
 import { CountryStepForm } from "@/components/auth/country-step-form";
@@ -18,7 +18,7 @@ export const metadata: Metadata = { title: "One last step — Talentrah", robots
  *  - signed out: to /login;
  *  - nobody who needs it (email sign-up, or a country is already on record): straight on to where they were going;
  *  - a Google account whose PROFILE already has a country (set in Settings, or before this step existed): the sync route copies it to the account and carries on, so they never see the form;
- *  - otherwise the form, with the country the browser's locale suggests, if it maps to a listed one.
+ *  - otherwise the form, with the country of the request's IP (else the browser's locale) pre-selected, if it maps to a listed one.
  */
 export default async function CountryStepPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const params = await searchParams;
@@ -30,7 +30,9 @@ export default async function CountryStepPage({ searchParams }: { searchParams: 
   if (!needsGoogleCountryStep(user)) redirect(next);
   if (profile.country && isSignupCountry(profile.country)) redirect(`${COUNTRY_STEP_PATH}/sync?next=${encodeURIComponent(next)}`);
 
-  const suggested = countryFromAcceptLanguage((await headers()).get("accept-language"));
+  // The country of the request's IP (Vercel's header) first, then the browser's language; neither is logged or stored, and nothing is saved until Continue.
+  const requestHeaders = await headers();
+  const { country: suggested, source } = suggestCountry(requestHeaders.get(COUNTRY_IP_HEADER), requestHeaders.get("accept-language"));
   const meta = user.user_metadata as { given_name?: string; full_name?: string; name?: string };
   const firstName = profile.first_name?.trim() || meta.given_name?.trim() || (meta.full_name ?? meta.name ?? "").trim().split(/\s+/)[0] || "";
 
@@ -51,7 +53,7 @@ export default async function CountryStepPage({ searchParams }: { searchParams: 
               {firstName ? `Welcome, ${firstName}. ` : "Welcome. "}We use your country to show jobs, salaries and scholarships that fit where you live.
             </p>
           </div>
-          <CountryStepForm suggested={suggested} next={next} />
+          <CountryStepForm suggested={suggested} source={source} next={next} />
           <p className="text-[14px] text-ink-soft">You can change this later in Settings.</p>
         </div>
       </main>
