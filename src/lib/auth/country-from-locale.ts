@@ -38,3 +38,31 @@ export function countryFromAcceptLanguage(header: string | null | undefined): st
   }
   return null;
 }
+
+/** Vercel sets this request header to the two-letter country of the caller's IP. It is absent in local development, in CI and anywhere not behind Vercel; the page then falls back to the browser language. Read in ONE place (the country step page). */
+export const COUNTRY_IP_HEADER = "x-vercel-ip-country";
+
+/**
+ * The sign-up list's own name for a two-letter country code (the IP country), or null. Accepts lowercase and surrounding space. An unknown or reserved code (XX, T1 for Tor), anything that is not exactly
+ * two letters, an empty value and the list's "Other" entry all give null: the step then falls back to the language and, failing that, starts empty. Built on the same code-to-name map as the language path,
+ * so a suggestion can only ever be a listed value.
+ */
+export function countryFromIpCode(code: string | null | undefined): string | null {
+  const trimmed = code?.trim();
+  if (!trimmed || !/^[A-Za-z]{2}$/.test(trimmed)) return null;
+  return NAME_BY_CODE.get(trimmed.toUpperCase()) ?? null;
+}
+
+export type CountrySuggestionSource = "ip" | "browser";
+
+/** What to pre-select on the country step and where it came from: the IP country first, then the browser language, else nothing. Only ever a suggestion; nothing is saved until Continue. */
+export function suggestCountry(
+  ipCountryCode: string | null | undefined,
+  acceptLanguage: string | null | undefined,
+): { country: string | null; source: CountrySuggestionSource | null } {
+  const fromIp = countryFromIpCode(ipCountryCode);
+  if (fromIp) return { country: fromIp, source: "ip" };
+  const fromLanguage = countryFromAcceptLanguage(acceptLanguage);
+  if (fromLanguage) return { country: fromLanguage, source: "browser" };
+  return { country: null, source: null };
+}

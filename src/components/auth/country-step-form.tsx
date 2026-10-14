@@ -4,15 +4,17 @@ import { useActionState, useState } from "react";
 import { saveGoogleCountryAction } from "@/lib/auth/google-country-actions";
 import { initialCountryStepState } from "@/lib/auth/country-step-state";
 import { SIGNUP_COUNTRIES } from "@/lib/auth/countries";
+import type { CountrySuggestionSource } from "@/lib/auth/country-from-locale";
 import { inputValue, selectKey } from "@/lib/forms/keep-input";
 import { Button, SelectField } from "@/components/ui";
 
 /**
- * The Google country step's form. The country list is the sign-up form's own (src/lib/auth/countries.ts, one list). `suggested` is the country the browser's locale
- * maps to, or null: it only PRE-SELECTS the box and nothing is saved until Continue is pressed; the hint under the box shows only while the box still holds that suggestion.
+ * The Google country step's form. The country list is the sign-up form's own (src/lib/auth/countries.ts, one list). `suggested` is the country to pre-select, or null: the country of the
+ * request's IP, else the one the browser's locale maps to, and `source` says which (it only changes the hint's wording). It only PRE-SELECTS the box and nothing is saved until Continue is
+ * pressed; the hint under the box shows only while the box still holds that suggestion.
  * Empty submit: the server answers "Select a country to continue." and saves nothing.
  */
-export function CountryStepForm({ suggested, next }: { suggested: string | null; next: string }) {
+export function CountryStepForm({ suggested, source, next }: { suggested: string | null; source: CountrySuggestionSource | null; next: string }) {
   const [state, formAction] = useActionState(saveGoogleCountryAction, initialCountryStepState);
   const initial = inputValue(state.values, "country", suggested);
   const [chosen, setChosen] = useState<string>(suggested ?? "");
@@ -33,7 +35,11 @@ export function CountryStepForm({ suggested, next }: { suggested: string | null;
         onChange={(e) => setChosen(e.target.value)}
         error={state.status === "error" ? state.message : undefined}
       />
-      {showHint && <p className="-mt-3 text-[13.5px] text-ink-soft">Suggested from your browser. Change it if it&apos;s wrong.</p>}
+      {showHint && (
+        <p className="-mt-3 text-[13.5px] text-ink-soft">
+          {source === "ip" ? "Suggested from your location." : "Suggested from your browser."} Change it if it&apos;s wrong.
+        </p>
+      )}
       <Button type="submit" size="md" className="w-full">
         Continue to my dashboard
       </Button>
