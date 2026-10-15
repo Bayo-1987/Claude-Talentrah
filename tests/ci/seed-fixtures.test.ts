@@ -175,7 +175,8 @@ describe("the flag is CI-only: read nowhere in production code, set only on the 
     expect(mentioning).toEqual(["ci.yml"]);
     const jobs = (parse(readFileSync(path.join(dir, "ci.yml"), "utf8")) as { jobs: Record<string, { steps?: { run?: string; env?: Record<string, string> }[] }> }).jobs;
     const withFlag = Object.values(jobs).flatMap((j) => (j.steps ?? []).filter((s) => s.env && "SEED_FIXTURES" in s.env));
-    expect(withFlag.length).toBe(2);
+    // checks, the e2e shards, and the embed-widget-on job (e2e-embed-widget-on, a third job that seeds the same way). Every one is still held to the rules below.
+    expect(withFlag.length).toBe(3);
     // Skipping the live scholarship ingestion removes the only thing that put the catalog into the e2e database: every job that sets the flag
     // must seed the catalog itself, before the seed step (found by the first CI run of the draft: every scholarship spec failed on a missing row).
     for (const job of Object.values(jobs)) {
