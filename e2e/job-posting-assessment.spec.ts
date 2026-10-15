@@ -213,7 +213,7 @@ base.describe("job posting assessment — full loop", () => {
       await expect(employerPage.getByText("Years of backend experience?")).toBeVisible();
       await expect(employerPage.getByText("3", { exact: true })).toBeVisible();
 
-      await employerPage.getByRole("button", { name: "View assessment response" }).click();
+      await employerPage.getByRole("link", { name: "View assessment response" }).click();
       const fileLink = employerPage.getByRole("link", { name: "View response file" });
       await expect(fileLink).toBeVisible();
 
@@ -693,7 +693,7 @@ base.describe("job posting assessment — candidate attaches multiple response f
       const employerPage2 = await employerContext2.newPage();
 
       await employerPage2.goto(`/employer/jobs/${jobId}/applicants`);
-      await employerPage2.getByRole("button", { name: "View assessment response" }).click();
+      await employerPage2.getByRole("link", { name: "View assessment response" }).click();
 
       const approachLink = employerPage2.getByRole("link", { name: /approach\.txt/ });
       const notesLink = employerPage2.getByRole("link", { name: /notes\.txt/ });

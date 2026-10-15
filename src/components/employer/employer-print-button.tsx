@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { waitForFontsSettled } from "@/lib/resume-builder/wait-for-fonts";
-import { printWithTitle, resumePrintTitle } from "@/lib/resume-builder/print-title";
+import { assessmentPrintTitle, printWithTitle, resumePrintTitle } from "@/lib/resume-builder/print-title";
 
 /**
  * Print-to-PDF for the employer's own applicant-resume view (0125).
@@ -27,7 +27,7 @@ import { printWithTitle, resumePrintTitle } from "@/lib/resume-builder/print-tit
  * and the button carries the same "Save as PDF" wording and help line as the
  * seeker's.
  */
-export function EmployerPrintButton({ applicantName }: { applicantName?: string }) {
+export function EmployerPrintButton({ applicantName, kind = "resume" }: { applicantName?: string; /** Which file this prints, for the saved file's name. A string, not a function: this is rendered from Server Components. */ kind?: "resume" | "assessment" }) {
   const [preparing, setPreparing] = useState(false);
 
   async function handleClick() {
@@ -38,7 +38,7 @@ export function EmployerPrintButton({ applicantName }: { applicantName?: string 
     } finally {
       setPreparing(false);
     }
-    printWithTitle(resumePrintTitle(applicantName));
+    printWithTitle((kind === "assessment" ? assessmentPrintTitle : resumePrintTitle)(applicantName));
   }
 
   return (

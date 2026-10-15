@@ -17,15 +17,24 @@ const UNSAFE_FILENAME_CHARS = /[\\/:*?"<>|\u0000-\u001f]/g;
  * than something like `-Resume`.
  */
 export function resumePrintTitle(name: string | undefined | null): string {
+  return namedPrintTitle(name, "Resume");
+}
+
+/** `Ada Obi` -> `Ada-Obi-Assessment`: the saved file's name for an applicant's written assessment response (same rules as the resume's, another noun). */
+export function assessmentPrintTitle(name: string | undefined | null): string {
+  return namedPrintTitle(name, "Assessment");
+}
+
+function namedPrintTitle(name: string | undefined | null, noun: string): string {
   // Split on whitespace BEFORE stripping: tab/newline are control characters
   // too, and removing them first would glue "Ada\tObi" into "AdaObi".
   const parts = (name ?? "")
     .split(/\s+/)
     .map((part) => part.replace(UNSAFE_FILENAME_CHARS, ""))
     .filter((part) => part.length > 0);
-  if (parts.length === 0) return "Resume";
+  if (parts.length === 0) return noun;
   const nameParts = parts.length === 1 ? parts : [parts[0], parts[parts.length - 1]];
-  return `${nameParts.join("-")}-Resume`;
+  return `${nameParts.join("-")}-${noun}`;
 }
 
 /**
