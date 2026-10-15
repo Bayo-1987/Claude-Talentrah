@@ -16,6 +16,14 @@ test("template unlock: charged once, even from two tabs at the same instant; too
   const [t1, t2] = tpls!;
   const balance = async () => (await admin.from("profiles").select("credits_balance").eq("id", testUser.id).single()).data!.credits_balance as number;
   const unlocks = async (id: string) => ((await admin.from("user_template_unlocks").select("id").eq("user_id", testUser.id).eq("template_id", id)).data ?? []).length;
+  /** The user's credit_ledger rows that charged this template's unlock: exactly one per paid unlock. */
+  const unlockCharges = async (id: string) =>
+    ((await admin.from("credit_ledger").select("id").eq("user_id", testUser.id).eq("reason", "template_unlock").eq("related_entity_id", id)).data ?? []).length;
+  /**
+   * unlockTemplateAction inserts the unlock row FIRST and spends after, so the row appearing does not mean the charge has landed: a balance read in between is the pre-debit value. Wait for the
+   * balance to reach the expected post-debit value before using it as a baseline (UNLOCK-SPEC-SETTLE-1).
+   */
+  const settledAt = (expected: number) => expect.poll(balance, { timeout: 30_000, message: `the balance settles at ${expected} once the unlock's charge lands` }).toBe(expected);
   const card = (p: import("@playwright/test").Page, name: string) => p.locator("div", { has: p.getByRole("heading", { name }) }).filter({ has: p.getByRole("button", { name: /Unlock for/ }) }).last();
 
   // (3) first: too few credits.
@@ -34,6 +42,7 @@ test("template unlock: charged once, even from two tabs at the same instant; too
   await open(page, t1.name);
   await card(page, t1.name).getByRole("button", { name: /Unlock for/ }).click();
   await expect.poll(() => unlocks(t1.id), { timeout: 30_000 }).toBe(1);
+  await settledAt(start - t1.unlock_cost_credits);
   expect(await balance(), "charged exactly the cost").toBe(start - t1.unlock_cost_credits);
   await info.attach("1-unlocked", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
 
@@ -69,15 +78,19 @@ test("template unlock: charged once, even from two tabs at the same instant; too
   // A stale tab: loaded before the unlock, pressed after it. No charge, no error; the template is unlocked.
   const t3 = (await admin.from("resume_templates").select("id, name, unlock_cost_credits").eq("is_premium", true).not("id", "in", `(${[t1.id, t2.id, ...more!.map((m) => m.id)].join(",")})`).order("unlock_cost_credits").limit(1).single()).data!;
   await open(page, t3.name); await open(page2, t3.name);
+  const beforeT3 = await balance();
   await card(page, t3.name).getByRole("button", { name: /Unlock for/ }).click();
   await expect.poll(() => unlocks(t3.id), { timeout: 30_000 }).toBe(1);
+  await settledAt(beforeT3 - t3.unlock_cost_credits);
   const afterFirst = await balance();
+  expect(await unlockCharges(t3.id), "the first unlock charged once").toBe(1);
   const staleAnswered = actionResponse(page2);
   await card(page2, t3.name).getByRole("button", { name: /Unlock for/ }).click();
   await staleAnswered;
   await page2.waitForLoadState("networkidle");
   expect(await balance(), "a stale tab pressing Unlock after the unlock charges nothing").toBe(afterFirst);
   expect(await unlocks(t3.id)).toBe(1);
+  expect(await unlockCharges(t3.id), "the ledger holds exactly one template_unlock charge for this template after the stale click").toBe(1);
   expect((await page2.locator("body").innerText()), "...and shows no error").not.toMatch(/Couldn.t save the unlock|This page couldn.t load/i);
   await page2.reload();
   await open(page2, t3.name);
