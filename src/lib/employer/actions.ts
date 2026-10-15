@@ -170,7 +170,9 @@ export async function createOrganizationAction(
     .single();
 
   if (error || !org) {
-    return { error: `Couldn't create the organisation: ${error?.message ?? "unknown error"}`, values: typed };
+    // The database's own wording stays in the server log (with the user id, never the typed values); the person gets a plain sentence.
+    console.error(`[createOrganizationAction] organisation insert failed for user ${user.id}:`, error?.message ?? "unknown error");
+    return { error: "Couldn't create the organisation. Nothing was saved. Please try again.", values: typed };
   }
 
   const { error: memberError } = await supabase
@@ -193,7 +195,8 @@ export async function createOrganizationAction(
     const cleanup = createServiceRoleClient();
     const { error: cleanupError } = await cleanup.from("organizations").delete().eq("id", org.id);
     if (cleanupError) console.error(`[createOrganizationAction] orphan cleanup failed for org ${org.id}:`, cleanupError.message);
-    return { error: `Couldn't set you up as the owner: ${memberError.message}`, values: typed };
+    console.error(`[createOrganizationAction] owner link failed for org ${org.id}, user ${user.id}:`, memberError.message);
+    return { error: "Couldn't set you up as the owner. Please try again.", values: typed };
   }
 
   // `verified` is deliberately not writable by any client (migration 0028), so
