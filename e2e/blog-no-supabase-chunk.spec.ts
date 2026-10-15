@@ -6,8 +6,9 @@
  *
  * Two assertions, both by what the browser really does, not by file names (chunk names change every build):
  *  1. no router prefetch request for the home route is issued from /blog or from a blog post;
- *  2. no JS response loaded by the page contains the auth client (its `GoTrueClient` class), with /login as the positive control: the same check must FIND it there,
- *     because One Tap mounts on /login, so a pass on /blog is not a check that cannot fail.
+ *  2. no JS response loaded by the page contains the auth client (its `GoTrueClient` class), with the home page as the positive control: the same check must FIND it there,
+ *     because the sticky CTA and the demo input load it on mount, so a pass on /blog is not a check that cannot fail. (/login is not the control: One Tap loads the client only
+ *     when a Google client id is configured, which a CI build does not have.)
  * Database-free (a signed-out visit to public pages); needs only a built app: `npm run build && npm start`.
  */
 import { test, expect, type Page } from "@playwright/test";
@@ -56,8 +57,8 @@ test.describe("the blog does not pull in the Supabase auth client", () => {
     expect(jsBodies.filter((b) => b.hasAuthClient).map((b) => b.url)).toEqual([]);
   });
 
-  test("control: /login DOES load the auth client (One Tap mounts there), so the check can fail", async ({ page }) => {
-    const { jsBodies } = await visit(page, "/login");
-    expect(jsBodies.filter((b) => b.hasAuthClient).length, "the auth client chunk on /login").toBeGreaterThanOrEqual(1);
+  test("control: the home page DOES load the auth client (the sticky CTA and the demo input mount there), so the check can fail", async ({ page }) => {
+    const { jsBodies } = await visit(page, "/");
+    expect(jsBodies.filter((b) => b.hasAuthClient).length, "the auth client chunk on /").toBeGreaterThanOrEqual(1);
   });
 });

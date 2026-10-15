@@ -5,8 +5,8 @@
  * "@/lib/supabase/client"` puts the whole auth client (GoTrueClient) in the static chunk list of every route that renders the importing component. A dynamic `import()` keeps
  * it out of that list, so prefetch and first paint do not carry it; it loads right after mount, off the critical path.
  *
- * This is a ratchet: no file under src/ may import the client statically, except the files in ALLOWLIST. The allowlist holds exactly the files not yet converted (the One Tap
- * component, a separate careful-lane change, because it is the Google sign-in completion path) and a stale entry fails the second test, so the list can only shrink.
+ * This is a ratchet: no file under src/ may import the client statically, except the files in ALLOWLIST. The allowlist holds exactly the files not yet converted (empty now: the One Tap
+ * component was the last) and a stale entry fails the second test, so the list can only shrink.
  * The browser half, that /blog really downloads no Supabase chunk, is e2e/blog-no-supabase-chunk.spec.ts.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
@@ -16,7 +16,7 @@ import { describe, expect, it } from "vitest";
 const SRC = join(__dirname, "../../src");
 
 /** Files that still import the client statically. Remove an entry when its file is converted. */
-const ALLOWLIST = ["src/components/auth/google-one-tap.tsx"];
+const ALLOWLIST: string[] = [];
 
 function files(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {

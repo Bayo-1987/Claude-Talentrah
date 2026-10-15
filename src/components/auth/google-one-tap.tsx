@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { getOneTapNonceAction } from "@/lib/auth/one-tap-actions";
 import { completeOneTapSignIn, oneTapSuccessDestination } from "@/lib/auth/one-tap-client";
 import { returnPathFor } from "@/lib/auth/redirect-to";
@@ -128,10 +127,19 @@ export function GoogleOneTap() {
 
     (async () => {
       try {
-        // Created inside the try block, deliberately: constructing the
-        // browser client can itself throw (a misconfigured/missing Supabase
-        // URL, most concretely), and that must degrade exactly like every
-        // other failure here — never an uncaught throw inside an effect.
+        // Loaded by dynamic import, after the client-id check above, so the
+        // auth client (a large chunk) is not in the static chunk list of every
+        // page this mounts on: it downloads once this effect has decided to
+        // run, off the critical path, and not at all where the feature is off.
+        // tests/ui/no-static-supabase-client-import.test.ts keeps it that way.
+        //
+        // Inside the try block, deliberately: the chunk failing to load
+        // (offline) and constructing the browser client (a misconfigured or
+        // missing Supabase URL, most concretely) can both throw, and both must
+        // degrade exactly like every other failure here — never an uncaught
+        // throw inside an effect.
+        const { createClient } = await import("@/lib/supabase/client");
+        if (cancelled) return;
         const supabase = createClient();
 
         const {
