@@ -266,3 +266,36 @@ export function describeMatchConfidence(
 
   return { displayScore, tier: effectiveTier, label, isThin, isUnscreened };
 }
+
+/**
+ * The noun the evidence line counts, singular. The SAME one the page's own "Skill coverage" cell uses ("0 of 3 tags", match-breakdown.tsx): one term per concept on one page. A single constant so the owner
+ * can swap it ("skill") in one place; the plural is added by `evidenceCountText`.
+ */
+export const MATCH_EVIDENCE_NOUN = "tag";
+
+/** "2 of 5 tags matched" / "1 of 1 tag matched": the counts and the noun, nothing else. Exported so the singular/plural rule is tested on its own. */
+export function evidenceCountText(matched: number, total: number): string {
+  return `${matched} of ${total} ${MATCH_EVIDENCE_NOUN}${total === 1 ? "" : "s"} matched`;
+}
+
+/**
+ * SCORE-EXPLANATION-LINE-1: under an applicant's score below the display floor, ONE line saying what the score was built from, as counts the row already carries: "0 of 3 tags matched".
+ * An addition BESIDE `describeMatchConfidence`, not a replacement: that function still decides the number, the tier and the label; this only explains a number that has no tier word.
+ *
+ * - Shown only when `getDisplayMatchTier` says there is no tier (below 60), so the line and a tier word can never appear together and the floor lives in one place.
+ * - NOT shown for a THIN set (`isThinScreenableTagSet`, 2 tags or fewer): the Skill coverage cell (match-breakdown.tsx) already says why in words there ("thin — none of the named skills matched",
+ *   "only \"x\" — thin", "no screenable skills listed"), so the line would only repeat it. It is the same helper that cell uses, so there is no second threshold: the line appears exactly where that cell has no sub-line.
+ * - Counts only: two numbers and fixed words. No percent (never build a percent string by hand: tests/lib/match-confidence-enforcement.test.ts), no skill names, nothing from the verification marks.
+ * - Nothing honest to say means null: no explanation, a malformed one, a thin set (which includes a job with no listed tags: never "0 of 0").
+ * - Pure: no database, no query, nothing written; the stored score is untouched.
+ */
+export function matchEvidenceLine(score: number | null | undefined, explanation: unknown): string | null {
+  if (typeof score !== "number" || Number.isNaN(score)) return null;
+  if (getDisplayMatchTier(score) !== null) return null;
+  const e = explanation as { matchedSkills?: unknown; missingSkills?: unknown } | null | undefined;
+  if (!e || !Array.isArray(e.matchedSkills) || !Array.isArray(e.missingSkills)) return null;
+  const matched = e.matchedSkills.length;
+  const total = matched + e.missingSkills.length;
+  if (isThinScreenableTagSet(total)) return null;
+  return evidenceCountText(matched, total);
+}

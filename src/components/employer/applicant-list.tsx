@@ -8,6 +8,7 @@ import { ResumeReviewedBadge } from "@/components/talent-directory/resume-review
 import type { ReviewMethod } from "@/lib/talent-directory/review-badge";
 import { ApplicantStatusSelect } from "./applicant-status-select";
 import { MatchBreakdown } from "@/components/jobs/match-breakdown";
+import { MatchEvidenceLine } from "@/components/employer/match-evidence-line";
 import { formatTrackerDate } from "@/lib/tracker/format-date";
 import { renderInlineMarkdown } from "@/lib/farah/render-markdown";
 import {
@@ -358,10 +359,13 @@ export function ApplicantList({
               </div>
               <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-x-4 gap-y-1">
                 {applicant.match_score !== null ? (
-                  <MatchTierBadge
-                    score={applicant.match_score}
-                    explanation={applicant.explanation ?? undefined}
-                  />
+                  <>
+                    <MatchTierBadge
+                      score={applicant.match_score}
+                      explanation={applicant.explanation ?? undefined}
+                    />
+                    <MatchEvidenceLine score={applicant.match_score} explanation={applicant.explanation} />
+                  </>
                 ) : (
                   <span className="font-body text-[11px] font-bold tracking-[0.14em] text-ink-soft uppercase">
                     Not yet scored
