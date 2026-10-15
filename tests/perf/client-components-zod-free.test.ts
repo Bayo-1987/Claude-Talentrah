@@ -6,8 +6,8 @@
  * marked "use server" is a stub on the client (the action is called over the network, its code is not shipped) so the walk stops there, and `import type` is erased. A client file that reaches `from "zod"`
  * is reported, unless it is on the list below.
  *
- * THE LIST ONLY SHRINKS. The remaining entries are forms that already did this before the check existed (their pages pay the same ~94 KB); each is a separate small change (move what the client needs, a constant or a
- * type, to a module without zod). A new client file, or a seventh, fails here. When an entry is fixed, delete it: the "stale entry" test fails until you do.
+ * THE LIST ONLY SHRINKS, and it is now empty: the last three forms (feedback, settings, signup) moved what they render into zod-free modules. A new client file that reaches zod fails here; if one genuinely must, add it with the module it
+ * reaches and say why. An entry that gets fixed must be deleted: the "stale entry" test fails until you do.
  */
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -17,11 +17,7 @@ const ROOT = path.join(__dirname, "../..");
 const SRC = path.join(ROOT, "src");
 
 /** client file (relative to the repo root) -> the zod module it reaches. Shrink only. */
-export const ALLOWED: Record<string, string> = {
-  "src/app/(app)/feedback/feedback-form.tsx": "src/lib/feedback/schemas.ts",
-  "src/app/(app)/settings/settings-form.tsx": "src/lib/auth/schemas.ts",
-  "src/components/auth/signup-form.tsx": "src/lib/auth/schemas.ts",
-};
+export const ALLOWED: Record<string, string> = {};
 
 function walk(dir: string, out: Map<string, string>): Map<string, string> {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {

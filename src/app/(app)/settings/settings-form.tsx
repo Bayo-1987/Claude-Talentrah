@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { savedSelect } from "@/lib/forms/saved-select";
 import { updateProfileAction } from "@/lib/profile/settings-actions";
 import { initialSettingsActionState } from "@/lib/profile/settings-state";
-import { SIGNUP_COUNTRIES } from "@/lib/auth/schemas";
+import { SIGNUP_COUNTRIES } from "@/lib/auth/countries";
 import { TextField, SelectField, Button } from "@/components/ui";
 import { inputValue } from "@/lib/forms/keep-input";
 
