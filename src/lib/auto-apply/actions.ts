@@ -113,7 +113,11 @@ export async function confirmAutoApplyAction(queueId: string): Promise<AutoApply
     p_credit_cost: CREDIT_COSTS.autoApplySubmission,
     p_has_active_pass: coverage.covered,
   });
-  if (claimError) return { ok: false, error: `Couldn't confirm: ${claimError.message}` };
+  if (claimError) {
+    // The database's own wording stays in the server log with the ids; the person gets a plain sentence.
+    console.error(`[confirmAutoApplyAction] claim failed for user ${userId}, queue ${queueId}:`, claimError.message);
+    return { ok: false, error: "Couldn't confirm. Please try again." };
+  }
 
   const verdict = verdicts?.[0];
   if (!verdict) return { ok: false, error: "Couldn't confirm: no response from the queue." };
