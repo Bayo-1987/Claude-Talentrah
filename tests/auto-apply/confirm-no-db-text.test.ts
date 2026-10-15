@@ -10,6 +10,7 @@ const h = vi.hoisted(() => ({
   rpcResult: { data: null, error: null } as { data: unknown; error: null | { message: string } },
   tableCalls: [] as { table: string; op: string }[],
   spend: vi.fn(),
+  covered: false,
 }));
 
 function chain(table: string, result: () => unknown): Record<string, unknown> {
@@ -46,15 +47,27 @@ vi.mock("@/lib/credits/spend", async (importOriginal) => ({ ...(await importOrig
 vi.mock("@/lib/credits/gate-events", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/credits/gate-events")>()), logCreditGateEvent: vi.fn() }));
 vi.mock("@/lib/passes/entitlement", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/passes/entitlement")>()),
-  checkPassCoverage: async () => ({ covered: false, reason: "no_active_pass" }),
+  checkPassCoverage: async () => ({ covered: h.covered, reason: "no_active_pass" }),
 }));
 vi.mock("@/lib/applications/job-snapshot", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/applications/job-snapshot")>()), loadJobSnapshot: async () => null }));
 vi.mock("@/lib/analytics/posthog", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/analytics/posthog")>()), captureEvent: vi.fn() }));
 
 import { confirmAutoApplyAction } from "@/lib/auto-apply/actions";
+import { AUTO_APPLY_DAILY_SUBMIT_CAP, AUTO_APPLY_FREE_PER_WEEK, AUTO_APPLY_MIN_SCORE } from "@/lib/auto-apply/config";
+import { CREDIT_COSTS } from "@/lib/credits/costs";
 
 const MARKER = 'auto_apply_queue_status_check violates check constraint "zz_marker_9137"';
 const QUEUE_ID = "queue-77";
+/** The claim's seven arguments, in full: the constants are imported, never hardcoded, so a changed gate value is caught here. */
+const claimArgs = (hasActivePass: boolean) => ({
+  p_user_id: "user-1",
+  p_queue_id: QUEUE_ID,
+  p_min_score: AUTO_APPLY_MIN_SCORE,
+  p_daily_cap: AUTO_APPLY_DAILY_SUBMIT_CAP,
+  p_free_per_week: AUTO_APPLY_FREE_PER_WEEK,
+  p_credit_cost: CREDIT_COSTS.autoApplySubmission,
+  p_has_active_pass: hasActivePass,
+});
 let errorLog: ReturnType<typeof vi.spyOn>;
 const logged = () => errorLog.mock.calls.map((c: unknown[]) => c.map(String).join(" ")).join("\n");
 
@@ -62,6 +75,7 @@ beforeEach(() => {
   h.rpcCalls = [];
   h.rpcResult = { data: null, error: null };
   h.tableCalls = [];
+  h.covered = false;
   h.spend.mockReset();
   errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -88,8 +102,14 @@ describe("the claim call fails with a database error", () => {
   it("(c) a failed claim leaves nothing claimed and nothing released: one claim call, no spend, no table write", async () => {
     await confirmAutoApplyAction(QUEUE_ID);
     expect(h.rpcCalls).toHaveLength(1);
+    expect(h.rpcCalls[0]).toEqual({ name: "auto_apply_claim_submission", args: claimArgs(false) });
     expect(h.spend).not.toHaveBeenCalled();
     expect(h.tableCalls).toEqual([]);
+  });
+  it("(c) makes the same claim call whether or not a pass covers the user (the coverage flag is passed through)", async () => {
+    h.covered = true;
+    await confirmAutoApplyAction(QUEUE_ID);
+    expect(h.rpcCalls).toEqual([{ name: "auto_apply_claim_submission", args: claimArgs(true) }]);
   });
 });
 
@@ -99,7 +119,7 @@ describe("(c) a claim that succeeds", () => {
     const out = await confirmAutoApplyAction(QUEUE_ID);
     expect(out).toEqual({ ok: true, outcome: "handed_off", externalUrl: "https://example.com/job/1" });
     expect(h.rpcCalls).toHaveLength(1);
-    expect(h.rpcCalls[0]).toMatchObject({ name: "auto_apply_claim_submission", args: { p_user_id: "user-1", p_queue_id: QUEUE_ID } });
+    expect(h.rpcCalls[0]).toEqual({ name: "auto_apply_claim_submission", args: claimArgs(false) });
     expect(h.tableCalls.filter((c) => c.table === "auto_apply_queue")).toEqual([]);
     expect(h.spend).not.toHaveBeenCalled();
   });
