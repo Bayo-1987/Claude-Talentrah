@@ -19,7 +19,7 @@ export function NewApplicantNoticeView({
   onChange: (event: React.ChangeEvent<HTMLSelectElement>) => void;
 }) {
   return (
-    <div className="flex max-w-[360px] flex-col gap-1">
+    <div data-testid="new-applicant-notice-row" className="flex max-w-[600px] flex-col gap-1">
       <label htmlFor="new-applicant-notice" className="font-body text-[12.5px] font-semibold text-ink-soft">
         Emails about new applicants
       </label>
@@ -32,7 +32,7 @@ export function NewApplicantNoticeView({
         onChange={onChange}
         disabled={pending}
         aria-describedby="new-applicant-notice-help new-applicant-notice-option-help"
-        className="min-h-11 border-[1.5px] border-ink bg-card px-3 font-body text-[13.5px] text-ink outline-none focus:border-rust disabled:opacity-60"
+        className="h-12 w-full max-w-[360px] border-[1.5px] border-ink bg-card px-3 font-body text-[13.5px] text-ink outline-none focus:border-rust disabled:opacity-60"
       >
         {NOTICE_MODES.map((m) => (
           <option key={m} value={m}>
@@ -40,19 +40,20 @@ export function NewApplicantNoticeView({
           </option>
         ))}
       </select>
-      <p id="new-applicant-notice-option-help" className="font-body text-[12.5px] leading-[1.5] text-ink-soft">
+      {/* The help line and the status each keep a fixed amount of room, so choosing another option or "Saved" appearing never moves what is below the row. */}
+      <p id="new-applicant-notice-option-help" className="min-h-[38px] font-body text-[12.5px] leading-[1.5] text-ink-soft sm:min-h-[19px]">
         {NOTICE_OPTION_HELP[mode]}
       </p>
-      {saved && !error && (
-        <span role="status" className="font-body text-[12.5px] font-semibold text-green">
-          {NOTICE_SAVED}
+      <div className="h-5 leading-5">
+        <span role="status" aria-live="polite" className="font-body text-[12.5px] font-semibold text-green">
+          {saved && !error ? NOTICE_SAVED : null}
         </span>
-      )}
-      {error && (
-        <span role="alert" className="font-body text-[12.5px] text-rust">
-          {error}
-        </span>
-      )}
+        {error && (
+          <span role="alert" className="font-body text-[12.5px] text-rust">
+            {error}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

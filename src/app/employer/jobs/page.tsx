@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireEmployer } from "@/lib/employer/membership";
-import { BorderedCard, EyebrowLabel, buttonClasses } from "@/components/ui";
+import { BorderedCard, buttonClasses } from "@/components/ui";
 import { PostedJobRow, type PostedJob } from "@/components/employer/posted-job-row";
 import { EmployerJobShareInline } from "@/components/employer/job-share-button";
 import { PostSuccessBannerNote } from "@/components/employer/post-success-banner-note";
@@ -12,6 +12,7 @@ import { evaluateDomainVerification, employerBannerMessage } from "@/lib/employe
 import { mintUnlistedLink } from "@/lib/employer/mint-unlisted-link";
 import { getClaimCandidates } from "@/lib/employer/claim";
 import { dismissClaimReviewAction } from "@/lib/employer/actions";
+import { JobsPostedHeader } from "@/components/employer/jobs-posted-header";
 import { NewApplicantNoticeSelect } from "@/components/employer/new-applicant-notice-select";
 import { loadNewApplicantCounts, readNewApplicantNotice } from "@/lib/employer/new-applicants/read-notice";
 import { getSiteOrigin } from "@/lib/referrals/url";
@@ -168,25 +169,13 @@ export default async function JobsPostedPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <EyebrowLabel>{organization.name}</EyebrowLabel>
-          <h1 className="mt-2 font-display text-[30px] leading-[1.15] font-medium text-ink">
-            Jobs Posted
-          </h1>
-          <p className="mt-1.5 font-body text-[14px] text-ink-soft">
-            {rows.length === 0
-              ? "Nothing posted yet."
-              : `${openCount} open · ${rows.length} total`}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-end gap-4">
-          <NewApplicantNoticeSelect initialMode={noticeMode} />
-          <Link href="/employer/jobs/new" className={buttonClasses("primary", "md", "no-underline")}>
-            Post a job
-          </Link>
-        </div>
-      </div>
+      <JobsPostedHeader
+        organizationName={organization.name}
+        summary={rows.length === 0 ? "Nothing posted yet." : `${openCount} open · ${rows.length} total`}
+      />
+
+      {/* The email preference has its own row, under the header and above the verification banner, so the header holds only the title block and "Post a job". */}
+      <NewApplicantNoticeSelect initialMode={noticeMode} />
 
       {/*
         The verification state is stated on the page an employer actually looks
