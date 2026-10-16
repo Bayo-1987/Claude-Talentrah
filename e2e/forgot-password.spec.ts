@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import type { Database } from "../src/lib/supabase/types";
+import { forgetRememberedEmail } from "./support/remembered-account";
 
 /**
  * The whole password-recovery loop, on its own throwaway account.
@@ -120,6 +121,7 @@ test("the whole loop: request, reset, and the old password stops working", async
     baseURL,
   }) => {
     test.setTimeout(120_000);
+    await forgetRememberedEmail(page);
 
     const email = `reset-${randomUUID()}@talentrah.test`;
     const { data: created, error: createErr } = await admin!.auth.admin.createUser({
