@@ -26,7 +26,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/supabase/types";
 import { SEED_SCHOLARSHIPS } from "../src/lib/scholarships/sources.config";
 import { computeScholarshipFingerprint } from "../src/lib/scholarships/dedup";
-import { RESUME_TEMPLATES, CREDIT_PACKS, RETIRED_CREDIT_PACKS, PASSES } from "../src/lib/billing/catalog";
+import { RESUME_TEMPLATES, CREDIT_PACKS, RETIRED_CREDIT_PACKS, PASSES, assertValidTemplateDefinitions } from "../src/lib/billing/catalog";
 import { refuseIfProduction } from "./refuse-production";
 
 async function main() {
@@ -36,6 +36,8 @@ async function main() {
     throw new Error("seed-catalog needs NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.");
   }
   refuseIfProduction("seed-catalog", url);
+  // A premium template at cost 0 (or a priced one that is not premium) is refused BEFORE anything is written.
+  assertValidTemplateDefinitions(RESUME_TEMPLATES);
   const db = createClient<Database>(url, key, { auth: { persistSession: false } });
 
   const { error: tplErr } = await db

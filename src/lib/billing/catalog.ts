@@ -79,6 +79,35 @@ export interface ResumeTemplateDefinition {
   structure_schema: Json;
 }
 
+/**
+ * What is wrong with one template definition, in words; empty when it is fine. A premium template must have an unlock cost of at least 1 credit (a whole number): a premium template at 0, a negative or no
+ * cost would unlock for free (or never), and a template that charges must say it is premium. A free template is not premium and costs 0. Pure, so tests and both seeders share it.
+ */
+export function templateDefinitionProblems(t: ResumeTemplateDefinition): string[] {
+  const problems: string[] = [];
+  const cost = t.unlock_cost_credits as unknown;
+  const validCost = typeof cost === "number" && Number.isInteger(cost) && cost >= 0;
+  if (t.is_premium) {
+    if (!(typeof cost === "number" && Number.isInteger(cost) && cost >= 1)) {
+      problems.push(`${t.slug}: a premium template needs an unlock cost of at least 1 credit (got ${String(cost)})`);
+    }
+  } else if (!validCost || cost !== 0) {
+    problems.push(`${t.slug}: a template that is not premium is free and must cost 0 (got ${String(cost)}); mark it premium if it should charge`);
+  }
+  return problems;
+}
+
+/** Throws one error naming every invalid template and every duplicate slug. Called by both seeders before they write anything. */
+export function assertValidTemplateDefinitions(templates: readonly ResumeTemplateDefinition[]): void {
+  const problems = templates.flatMap(templateDefinitionProblems);
+  const seen = new Set<string>();
+  for (const t of templates) {
+    if (seen.has(t.slug)) problems.push(`${t.slug}: duplicate slug (the seeders upsert on slug, so one definition would silently overwrite the other)`);
+    seen.add(t.slug);
+  }
+  if (problems.length > 0) throw new Error(`Invalid resume template definitions:\n- ${problems.join("\n- ")}`);
+}
+
 export const RESUME_TEMPLATES: readonly ResumeTemplateDefinition[] = [
   {
     name: "Clean Professional",

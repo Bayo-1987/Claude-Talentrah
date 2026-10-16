@@ -24,7 +24,7 @@ import { extractStructuredJd } from "../src/lib/jobs/extract-jd";
 // renamed token -> identifier and the hand-written type below kept
 // compiling while every log line printed "greenhouse/undefined".
 import type { IngestSourceResult } from "../src/lib/jobs/ingest";
-import { RESUME_TEMPLATES, CREDIT_PACKS, PASSES } from "../src/lib/billing/catalog";
+import { RESUME_TEMPLATES, CREDIT_PACKS, PASSES, assertValidTemplateDefinitions } from "../src/lib/billing/catalog";
 import { refuseIfProduction } from "./refuse-production";
 import { announceDbTarget, describeDbTarget } from "./db-target";
 import { buildFixtureJobRows, relativeDeadline } from "./seed-fixtures";
@@ -396,6 +396,8 @@ async function findUserByEmail(
    * matching on `name` would create a duplicate row the moment catalog copy
    * was edited, and duplicates are what the constraint exists to prevent.
    */
+  // Refused before any template is written: a premium template at cost 0 would unlock for free.
+  assertValidTemplateDefinitions(RESUME_TEMPLATES);
   const templateIdBySlug = new Map<string, string>();
   for (const t of RESUME_TEMPLATES) {
     const { data: existingTemplate } = await supabase
