@@ -10,6 +10,12 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { admin, createTestUser, deleteTestUsers } from "../support/auth";
+import { signingKeyProblem } from "../support/signing-key";
+
+// ENV-SKIP-1: these tests sign sessions with the project's JWT secret. Without one the project accepts, they skip with the reason below instead of failing in the hook. CI's ephemeral database keeps running them.
+const keyProblem = await signingKeyProblem();
+const needsKey = describe.skipIf(keyProblem !== null);
+if (keyProblem) it.skip(`SKIPPED: ${keyProblem}`, () => {});
 
 for (const key of ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const) {
   if (!process.env[key]) throw new Error(`own-profile-details-read suite cannot run: ${key} is not set.`);
@@ -52,6 +58,7 @@ async function signInAs(user: { id: string; email: string }) {
 }
 
 beforeAll(async () => {
+  if (keyProblem) return;
   [approved, rejected, pending, suspended, other] = await Promise.all([
     createTestUser(`opr-approved-${tag}`),
     createTestUser(`opr-rejected-${tag}`),
@@ -70,11 +77,12 @@ beforeAll(async () => {
 }, 90_000);
 
 afterAll(async () => {
+  if (keyProblem) return;
   await admin.from("mentor_profiles").delete().in("user_id", [approved.id, rejected.id, pending.id, suspended.id]);
   await deleteTestUsers([approved.id, rejected.id, pending.id, suspended.id, other.id]);
 }, 60_000);
 
-describe("own details", () => {
+needsKey("own details", () => {
   it("a mentor reads their own details", async () => {
     await signInAs(approved);
     expect(await getOwnPayoutDetails(approved.id)).toEqual({ bankCode: "058", accountNumber: "0123456789", accountName: "Test Mentor", verifiedAt: expect.anything() });
@@ -97,7 +105,7 @@ describe("own details", () => {
   });
 });
 
-describe("own application page data and the reviewer note", () => {
+needsKey("own application page data and the reviewer note", () => {
   it("a rejected applicant sees the reviewer's note", async () => {
     await signInAs(rejected);
     expect(await getOwnMentorProfile(rejected.id)).toMatchObject({ status: "rejected", displayName: "Own Details Rejected", reviewNote: "Please add detail" });
@@ -126,7 +134,7 @@ describe("own application page data and the reviewer note", () => {
   });
 });
 
-describe("no session, and an id that is not the session's", () => {
+needsKey("no session, and an id that is not the session's", () => {
   it("with no session, the own-details reader returns null for any id", async () => {
     await signOut();
     expect(await getOwnPayoutDetails(approved.id)).toBeNull();
@@ -148,7 +156,7 @@ describe("no session, and an id that is not the session's", () => {
   });
 });
 
-describe("a user with no mentor row, the apply page, and the logged-out public landing", () => {
+needsKey("a user with no mentor row, the apply page, and the logged-out public landing", () => {
   it("a signed-in user with no mentor row: the own-details reader returns null and the apply page still renders", async () => {
     await signInAs(other);
     expect(await getOwnPayoutDetails(other.id)).toBeNull();
