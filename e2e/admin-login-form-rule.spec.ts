@@ -11,11 +11,28 @@ import type { Database } from "../src/lib/supabase/types";
 import { fakeSecret } from "../tests/support/fake-secret";
 import { runCleanups } from "../tests/support/teardown";
 import { submitAndSettle } from "./support/form-keeps";
+import { BOUNDARY_SLACK_MS, msToWaitForSafeWindow } from "./support/rate-limit-window";
 
 const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (process.env.CI && !(URL_ && SERVICE)) throw new Error("admin-login-form-rule cannot run in CI: missing Supabase URL or service-role key");
 const db = URL_ && SERVICE ? createClient<Database>(URL_, SERVICE, { auth: { persistSession: false } }) : null;
+
+/*
+ * THE LOCKOUT SEQUENCE MUST NOT STRADDLE A RATE-LIMIT WINDOW BOUNDARY (ADMIN-LOCKOUT-WINDOW-1).
+ *
+ * The admin login allows 8 attempts per 900 s (`adminLogin`, src/lib/security/login-rate-limit.ts), counted in a WALL-CLOCK window
+ * (`consume_anonymous_rate_limit`, migration 0117: window_start = floor(epoch / 900) * 900). If a boundary falls between the first and the ninth attempt below, the counter
+ * restarts and the ninth (the right password) is allowed, so the test fails a few percent of runs for no product reason. The test therefore starts only when enough of the
+ * current window is left, and otherwise waits until just after the next boundary.
+ *
+ * MEASURED, NOT GUESSED: the ten attempts (8 wrong, 1 right, 1 from the other address) took 4.0 to 4.98 s over five local runs, so 5 s. The margin is twice that plus 30 s
+ * (the 30 s covers a slower machine and a clock a little off the database's): 40 s, which is about 4% of a 900 s window, so about 1 run in 22 waits, for at most 41 s.
+ * A sliding window in the product would make this wait unnecessary; that is a separate decision (it needs a migration), so nothing under src/ or supabase/ changes here.
+ */
+const ADMIN_LOGIN_WINDOW_SECONDS = 15 * 60;
+const MEASURED_SEQUENCE_MS = 5_000;
+const WINDOW_MARGIN_MS = 2 * MEASURED_SEQUENCE_MS + 30_000;
 
 const tag = randomUUID().slice(0, 8);
 const octet = () => 1 + Math.floor(Math.random() * 250);
@@ -80,7 +97,8 @@ test.describe("admin login form rule", () => {
   });
 
   test("8 wrong attempts from one address lock that address out, even for the right password; another address is fine", async ({ browser }, info) => {
-    test.setTimeout(180_000);
+    // 180 s for the sequence as before, plus the longest possible wait for a safe window (the margin, plus the slack past the boundary): 180 + 40 + 1 = 221 s.
+    test.setTimeout(180_000 + WINDOW_MARGIN_MS + BOUNDARY_SLACK_MS);
     const attempt = async (ip: string, password: string) => {
       const ctx = await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": ip } });
       const page = await ctx.newPage();
@@ -96,6 +114,8 @@ test.describe("admin login form rule", () => {
       await ctx.close();
       return outcome;
     };
+    const waitMs = msToWaitForSafeWindow(Date.now(), ADMIN_LOGIN_WINDOW_SECONDS, WINDOW_MARGIN_MS);
+    if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, waitMs));
     for (let i = 0; i < 8; i++) expect(await attempt(ipA, op.wrong)).toMatch(/Incorrect email or password/);
     expect(await attempt(ipA, op.password), "locked: the right password is refused from the same address").toMatch(/Incorrect email or password/);
     expect(await attempt(ipB, op.password), "another address is not locked").toBe("in");
