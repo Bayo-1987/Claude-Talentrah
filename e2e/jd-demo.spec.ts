@@ -117,32 +117,43 @@ test.describe("the anonymous demo", () => {
     // The static worked example is what's on screen until there is a real one.
     await expect(page.getByText("this is an example")).toBeVisible();
 
-    await page.getByLabel("Job description").fill(JD);
-    await page.getByRole("button", { name: "Send to Farah" }).click();
-
     /*
      * Loading: CLAUDE.md §8 requires it past ~2s, and this is a model call.
      *
-     * CHECKED CONCURRENTLY, NOT ONE AFTER THE OTHER. Both conditions come
-     * from the same state transition (the same setState call that flips
-     * `busy` true also puts up "Farah is reading"), so they become true in
-     * the same render — but checking them sequentially still races a fast
-     * response: the second `await expect(...)` only starts polling once the
-     * first one resolves, and CI's stubbed provider can complete the whole
-     * request in that gap, flipping the field back to enabled before the
-     * disabled check ever looks. Starting both polls at once, right after
-     * the click, removes that ordering dependency instead of hoping the gap
-     * stays small.
+     * THE BUSY STATE IS HELD, NOT RACED. This used to click and then poll for "Farah is reading" and the disabled field, which only works if the
+     * request is slower than the poll. CI's stub provider answers in milliseconds, so now and then the demo had already finished and the transient
+     * text was never visible (main run 37657225786 on 7 Oct, #936's first attempt: JD-DEMO-FLAKE-1). Here the request is parked on a promise in a
+     * route handler until the assertions have looked, then released with `route.continue()`: it still reaches the REAL route, so the one-free-run limit
+     * and the cookie are exercised exactly as before (the run count is asserted below, so a handler that answered by itself would be noticed).
      */
-    await Promise.all([
-      expect(page.getByText("Farah is reading")).toBeVisible(),
-      expect(page.getByLabel("Job description")).toBeDisabled(),
-    ]);
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await page.route("**/api/public/jd-demo", async (route) => {
+      await held;
+      await route.continue();
+    });
 
+    await page.getByLabel("Job description").fill(JD);
+    await page.getByRole("button", { name: "Send to Farah" }).click();
+
+    // While the request is held: the busy state, both halves of it.
+    await expect(page.getByText("Farah is reading")).toBeVisible();
+    await expect(page.getByLabel("Job description")).toBeDisabled();
+
+    release();
     await expect(page.getByText("What Farah sent back")).toBeVisible({ timeout: 90000 });
     // The framing is the honest half of the demo: this is not their resume.
     await expect(page.getByText("Scored against a sample resume")).toBeVisible();
     await expect(page.getByText("this is an example")).toHaveCount(0);
+
+    // The held request really went through the real route: it spent exactly one run, and the cookie it set is what refuses the second attempt below.
+    const { data: spent } = await admin!
+      .from("anonymous_demo_daily")
+      .select("runs")
+      .eq("day", new Date().toISOString().slice(0, 10))
+      .maybeSingle();
+    expect(spent?.runs).toBe(1);
+    await page.unroute("**/api/public/jd-demo");
 
     // Second attempt, same browser context — the cookie carries the limit.
     await page.reload();
