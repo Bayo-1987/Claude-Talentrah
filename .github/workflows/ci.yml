@@ -569,7 +569,7 @@ jobs:
 
       - name: Download the shards' blob reports
         if: needs.e2e-shard.result != 'skipped'
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           pattern: blob-report-shard-*
           path: all-blob-reports
