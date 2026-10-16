@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { spendCredits } from "@/lib/credits/spend";
+import { InsufficientCreditsError, spendCredits } from "@/lib/credits/spend";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { logCreditGateEvent } from "@/lib/credits/gate-events";
 import { checkPassCoverage, DAILY_CAP_MESSAGE } from "@/lib/passes/entitlement";
@@ -15,6 +15,7 @@ import {
   AUTO_APPLY_MIN_SCORE,
 } from "./config";
 import { scanAndQueue } from "./queue";
+import { UserFacingSubmitError } from "./user-facing-error";
 import { loadJobSnapshot } from "@/lib/applications/job-snapshot";
 import { captureEvent } from "@/lib/analytics/posthog";
 
@@ -219,7 +220,7 @@ export async function confirmAutoApplyAction(queueId: string): Promise<AutoApply
       baseResume?.structured_content &&
       hasUneditedExampleContent(baseResume.structured_content as unknown as StructuredResume)
     ) {
-      throw new Error(
+      throw new UserFacingSubmitError(
         "your resume still has unedited example content — update it in the Resume Builder first",
       );
     }
@@ -257,10 +258,15 @@ export async function confirmAutoApplyAction(queueId: string): Promise<AutoApply
       .from("auto_apply_queue")
       .update({ status: "pending", decided_at: null, credits_spent: 0 })
       .eq("id", queueId);
-    return {
-      ok: false,
-      error: err instanceof Error ? `Couldn't submit: ${err.message}` : "Couldn't submit.",
-    };
+    // Only errors written for the person reach them (matched by type, not by text: spendCredits' own "Couldn't spend credits: ..." messages carry ledger text). Anything else goes to the server log with the ids.
+    if (err instanceof InsufficientCreditsError || err instanceof UserFacingSubmitError) {
+      return { ok: false, error: `Couldn't submit: ${err.message}` };
+    }
+    if (err instanceof Error) {
+      console.error(`[confirmAutoApplyAction] submit failed for user ${userId}, queue ${queueId}:`, err.message);
+      return { ok: false, error: "Couldn't submit. Please try again." };
+    }
+    return { ok: false, error: "Couldn't submit." };
   }
 
   revalidatePath("/auto-apply");
