@@ -139,7 +139,7 @@ describe("the claim release is unchanged", () => {
       () => h.spend.mockRejectedValue(new InsufficientCreditsError(5, 2)),
       () => { h.spend.mockResolvedValue(undefined); h.exampleResume = true; },
     ];
-    // AUTO-APPLY-REFUND-1, deliberate: the refund is part of the failure path where the spend completed (cases 2 and 4: the upsert fails, the example resume throws) and absent where it did not (cases 1 and 3: the
+    // AUTO-APPLY-REFUND-1, deliberate: the old "no other write" assertion here had locked in the missing refund (the person kept paying for a submit that failed). The refund is part of the failure path where the spend completed (cases 2 and 4: the upsert fails, the example resume throws) and absent where it did not (cases 1 and 3: the
     // spend itself failed). The table writes asserted below are unchanged: the refund is a ledger call, not a table write.
     const refundExpected = [false, true, false, true];
     for (const [i, arrange] of cases.entries()) {
@@ -153,6 +153,7 @@ describe("the claim release is unchanged", () => {
       expect(queueWrites).toEqual([RELEASE]);
       expect(h.writes.filter((w) => w.table !== "auto_apply_queue" && w.table !== "applications")).toEqual([]);
       expect(h.grant).toHaveBeenCalledTimes(refundExpected[i] ? 1 : 0);
+      if (refundExpected[i]) expect(h.grant).toHaveBeenCalledWith("user-1", 5, "auto_apply_run", QUEUE_ID);
     }
   });
 });

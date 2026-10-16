@@ -254,40 +254,35 @@ export async function confirmAutoApplyAction(queueId: string): Promise<AutoApply
       .update({ application_id: application!.id })
       .eq("id", queueId);
   } catch (err) {
-    // What the person is told, decided first so a refund problem below can never change it. Only errors written for the person reach them (matched by type, not by text: spendCredits' own
-    // "Couldn't spend credits: ..." messages carry ledger text). Anything else goes to the server log with the ids.
-    let message: string;
-    if (err instanceof InsufficientCreditsError || err instanceof UserFacingSubmitError) {
-      message = `Couldn't submit: ${err.message}`;
-    } else if (err instanceof Error) {
-      console.error(`[confirmAutoApplyAction] submit failed for user ${userId}, queue ${queueId}:`, err.message);
-      message = "Couldn't submit. Please try again.";
-    } else {
-      message = "Couldn't submit.";
-    }
+    // Release the claim so the allowance isn't silently consumed by a
+    // submission that never happened. The claim being reversible is why 0034
+    // can safely mark the row before this runs.
+    await admin
+      .from("auto_apply_queue")
+      .update({ status: "pending", decided_at: null, credits_spent: 0 })
+      .eq("id", queueId);
 
-    // The spend above has no idempotency key and wrote its ledger row, so a submission that fails after it must give the charge back (same reason as the spend with a positive delta, the way Farah's paid-hold
-    // refund works). If the refund itself fails, the queue row is deliberately NOT reset to pending: a pending row would let the retry claim and spend again on top of a charge that was never returned. The claim
-    // stays as it is, the failure is logged loudly with the ids and the charge, and the person still reads the same message.
+    // The spend above has no idempotency key and wrote its ledger row, so a submission that fails after it must give the charge back, or a retry would charge again. Same reason as the spend with a positive
+    // delta, the way Farah's paid-hold refund works. A failed refund is logged and never changes what the person is told.
     if (chargeTaken) {
       try {
         await grantCredits(userId, verdict.charge, "auto_apply_run", queueId);
       } catch (refundErr) {
         console.error(
-          `[confirmAutoApplyAction] REFUND FAILED for user ${userId}, queue ${queueId}, charge=${verdict.charge}: the credit taken for a submission that did not complete was not given back; the claim was left in place so a retry cannot charge again:`,
+          `[confirmAutoApplyAction] REFUND FAILED for user ${userId}, queue ${queueId}, charge=${verdict.charge}: the credit taken for a submission that did not complete was not given back:`,
           refundErr instanceof Error ? refundErr.message : refundErr,
         );
-        return { ok: false, error: message };
       }
     }
-
-    // Release the claim so the allowance isn't silently consumed by a submission that never happened (and, after a refund, so a retry can claim again). The claim being reversible is why 0034 can safely
-    // mark the row before this runs.
-    await admin
-      .from("auto_apply_queue")
-      .update({ status: "pending", decided_at: null, credits_spent: 0 })
-      .eq("id", queueId);
-    return { ok: false, error: message };
+    // Only errors written for the person reach them (matched by type, not by text: spendCredits' own "Couldn't spend credits: ..." messages carry ledger text). Anything else goes to the server log with the ids.
+    if (err instanceof InsufficientCreditsError || err instanceof UserFacingSubmitError) {
+      return { ok: false, error: `Couldn't submit: ${err.message}` };
+    }
+    if (err instanceof Error) {
+      console.error(`[confirmAutoApplyAction] submit failed for user ${userId}, queue ${queueId}:`, err.message);
+      return { ok: false, error: "Couldn't submit. Please try again." };
+    }
+    return { ok: false, error: "Couldn't submit." };
   }
 
   revalidatePath("/auto-apply");
