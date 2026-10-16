@@ -1,5 +1,6 @@
 import { test, expect, admin, seedBaseResume } from "./fixtures/authed";
 import { randomUUID } from "node:crypto";
+import { forgetRememberedEmail } from "./support/remembered-account";
 
 /**
  * Signing in with a password must reach onboarding, exactly like the other
@@ -50,6 +51,7 @@ async function passwordAccount(): Promise<{ id: string; email: string; password:
 }
 
 async function signIn(page: import("@playwright/test").Page, email: string, password: string) {
+  await forgetRememberedEmail(page);
   await page.goto("/login");
   await page.getByLabel("Email").fill(email);
   // exact: true — the password reveal toggle's own accessible name also

@@ -5,6 +5,7 @@
 import { randomUUID } from "node:crypto";
 import { test, expect, admin } from "./fixtures/authed";
 import { settle } from "./support/settle";
+import { forgetRememberedEmail } from "./support/remembered-account";
 
 test("seeker login: wrong password keeps the email; right password in, out, in; same message for an unknown email", async ({ page }, info) => {
   test.setTimeout(120_000);
@@ -15,6 +16,7 @@ test("seeker login: wrong password keeps the email; right password in, out, in; 
   const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { first_name: "QA", last_name: "Login", country: "Nigeria" } });
   if (error) throw error;
   try {
+    await forgetRememberedEmail(page);
     await page.goto("/login");
     await page.getByLabel("Email").fill(email);
     await page.getByLabel("Password", { exact: true }).fill("Wrong" + password);
