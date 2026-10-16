@@ -176,13 +176,15 @@ test("g) starting a Google sign-in forgets the remembered email, so the card is 
   expect(await storedEmail(page)).toBeNull();
 });
 
-test("h) leaving the page while a sign-in is still in flight never writes the email", async ({ page }) => {
-  // Hold the server action's POST so the form is guaranteed to still be waiting for an answer when the person navigates away.
+test("h) a full page load away while a sign-in is still in flight never writes the email", async ({ page }) => {
+  // Hold the server action's POST so the form is guaranteed to still be waiting for an answer when the person leaves.
+  // A CLIENT-side navigation cannot be used here: Next queues it behind a pending server action, so the form never unmounts mid-flight (found by tracing it).
+  // That half, "the form unmounts with its submit unanswered", is pinned deterministically in tests/auth/remembered-account-wiring.test.tsx.
   let release!: () => void;
   const gate = new Promise<void>((resolve) => (release = resolve));
   await page.route("**/login", async (route) => {
     if (route.request().method() === "POST" && route.request().headers()["next-action"] !== undefined) await gate;
-    await route.continue();
+    await route.continue().catch(() => {}); // the page has navigated away by then, so the request may already be gone
   });
 
   await page.goto("/login");
@@ -190,10 +192,7 @@ test("h) leaving the page while a sign-in is still in flight never writes the em
   await submitLoginForm(page, user.email, "wrong-password-held-in-flight");
   await expect(page.getByRole("button", { name: "Logging in…" })).toBeVisible();
 
-  // Client-side navigation: the form unmounts with its submit unanswered, which is also what a real success looks like.
-  // (The page's own "Create a free account" link is a plain anchor, i.e. a full page load that never unmounts React, so use the router.)
-  await page.evaluate(() => (window as unknown as { next: { router: { push: (u: string) => void } } }).next.router.push("/signup"));
-  await page.waitForURL("**/signup");
+  await page.goto("/signup");
   release();
 
   expect(await storedEmail(page)).toBeNull();
