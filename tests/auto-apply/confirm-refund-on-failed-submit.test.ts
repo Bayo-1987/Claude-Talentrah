@@ -137,8 +137,8 @@ describe("no refund where nothing was taken", () => {
   });
 });
 
-describe("(f) a refund that fails never changes the outcome", () => {
-  it("returns the original message, logs the failure with the ids and the charge, and throws nothing", async () => {
+describe("(f) a refund that fails never changes the outcome, and never lets a retry charge again", () => {
+  it("returns the original message, logs the failure with the ids and the charge, throws nothing, and leaves the claim in place (not reset to pending)", async () => {
     h.appError = { message: "db text" };
     h.grant.mockRejectedValue(new Error("Couldn't grant credits: ledger_down zz_marker_5521"));
     const out = await confirmAutoApplyAction(QUEUE_ID);
@@ -147,9 +147,18 @@ describe("(f) a refund that fails never changes the outcome", () => {
     expect(logged()).toContain("REFUND FAILED");
     expect(logged()).toContain("user-1");
     expect(logged()).toContain(QUEUE_ID);
-    expect(logged()).toMatch(/charge[= ]+5/);
+    expect(logged()).toMatch(/charge=5/);
     expect(logged()).toContain("zz_marker_5521");
-    expect(releases()).toHaveLength(1);
+    // The queue row stays claimed: resetting it to pending after a refund that did not happen would let the retry claim and spend again.
+    expect(releases()).toHaveLength(0);
+    expect(h.writes.filter((w) => w.table === "auto_apply_queue")).toEqual([]);
+  });
+  it("the same holds for the other post-spend failure (the unedited example resume): the user text is unchanged and the claim is left in place", async () => {
+    h.exampleResume = true;
+    h.grant.mockRejectedValue(new Error("ledger_down"));
+    const out = await confirmAutoApplyAction(QUEUE_ID);
+    expect(returned(out)).toBe(EXAMPLE);
+    expect(releases()).toHaveLength(0);
   });
 });
 

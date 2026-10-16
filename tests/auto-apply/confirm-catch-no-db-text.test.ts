@@ -10,6 +10,7 @@ const h = vi.hoisted(() => ({
   appError: null as null | { message: string },
   exampleResume: false,
   spend: vi.fn(),
+  grant: vi.fn(),
 }));
 
 function chain(table: string, result: () => unknown): Record<string, unknown> {
@@ -43,7 +44,11 @@ vi.mock("@/lib/supabase/service-role", async (importOriginal) => ({
       }),
   }),
 }));
-vi.mock("@/lib/credits/spend", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/credits/spend")>()), spendCredits: (...a: unknown[]) => h.spend(...a) }));
+vi.mock("@/lib/credits/spend", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/credits/spend")>()),
+  spendCredits: (...a: unknown[]) => h.spend(...a),
+  grantCredits: (...a: unknown[]) => h.grant(...a),
+}));
 vi.mock("@/lib/credits/gate-events", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/credits/gate-events")>()), logCreditGateEvent: vi.fn() }));
 vi.mock("@/lib/passes/entitlement", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/passes/entitlement")>()),
@@ -71,6 +76,8 @@ beforeEach(() => {
   h.appError = null;
   h.exampleResume = false;
   h.spend.mockReset();
+  h.grant.mockReset();
+  h.grant.mockResolvedValue(undefined);
   errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -99,6 +106,10 @@ describe("database and ledger text never reaches the person", () => {
     expect(logged()).toContain(QUEUE_ID);
     expect(h.writes.map((w) => `${w.table}.${w.op}`)).toEqual(["applications.upsert", "auto_apply_queue.update"]);
     expect(h.writes[1]).toEqual(RELEASE);
+    // AUTO-APPLY-REFUND-1, deliberate: the spend had already completed (this test's spend mock resolves, and the claim's charge is 5), so the failure path now also gives that charge back. Before, "no other write"
+    // here described a failure path that kept the person's credit; the table writes are unchanged, and the refund goes through the ledger helper.
+    expect(h.grant).toHaveBeenCalledTimes(1);
+    expect(h.grant).toHaveBeenCalledWith("user-1", 5, "auto_apply_run", QUEUE_ID);
   });
 });
 
@@ -114,6 +125,9 @@ describe("text meant for the person still reaches them, unchanged", () => {
     const out = await confirmAutoApplyAction(QUEUE_ID);
     expect(returned(out)).toBe("Couldn't submit: your resume still has unedited example content — update it in the Resume Builder first");
     expect(h.writes).toEqual([RELEASE]);
+    // AUTO-APPLY-REFUND-1, deliberate: the spend completed before the example-resume check threw, so the charge is given back (once, with the queue id).
+    expect(h.grant).toHaveBeenCalledTimes(1);
+    expect(h.grant).toHaveBeenCalledWith("user-1", 5, "auto_apply_run", QUEUE_ID);
   });
 });
 
@@ -125,7 +139,11 @@ describe("the claim release is unchanged", () => {
       () => h.spend.mockRejectedValue(new InsufficientCreditsError(5, 2)),
       () => { h.spend.mockResolvedValue(undefined); h.exampleResume = true; },
     ];
-    for (const arrange of cases) {
+    // AUTO-APPLY-REFUND-1, deliberate: the refund is part of the failure path where the spend completed (cases 2 and 4: the upsert fails, the example resume throws) and absent where it did not (cases 1 and 3: the
+    // spend itself failed). The table writes asserted below are unchanged: the refund is a ledger call, not a table write.
+    const refundExpected = [false, true, false, true];
+    for (const [i, arrange] of cases.entries()) {
+      h.grant.mockClear();
       h.writes = [];
       h.appError = null;
       h.exampleResume = false;
@@ -134,6 +152,7 @@ describe("the claim release is unchanged", () => {
       const queueWrites = h.writes.filter((w) => w.table === "auto_apply_queue");
       expect(queueWrites).toEqual([RELEASE]);
       expect(h.writes.filter((w) => w.table !== "auto_apply_queue" && w.table !== "applications")).toEqual([]);
+      expect(h.grant).toHaveBeenCalledTimes(refundExpected[i] ? 1 : 0);
     }
   });
 });
