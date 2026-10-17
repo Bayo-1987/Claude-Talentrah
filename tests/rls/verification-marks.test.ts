@@ -211,7 +211,8 @@ describe("expiry: twelve months, with an injected clock", () => {
   it("is live up to the expiry instant (exclusive): live at -1 s, not live at 0 and at +1 s", async () => {
     const [m] = await marksOf(cand.id);
     const at = (ms: number) => new Date(new Date(m.expires_at).getTime() + ms).toISOString();
-    const live = async (ms: number) => (await admin.rpc("verification_mark_is_live", { p_expires_at: m.expires_at, p_now: at(ms) })).data as unknown as boolean;
+    // The database keeps microseconds ("...14.148415+00:00") and a JS Date keeps milliseconds, so at(0) would be up to 999 microseconds BEFORE the real expiry and read as live. The instant itself is therefore passed back unchanged.
+    const live = async (ms: number) => (await admin.rpc("verification_mark_is_live", { p_expires_at: m.expires_at, p_now: ms === 0 ? m.expires_at : at(ms) })).data as unknown as boolean;
     expect(await live(-1000)).toBe(true);
     expect(await live(0)).toBe(false);
     expect(await live(1000)).toBe(false);
@@ -220,12 +221,13 @@ describe("expiry: twelve months, with an injected clock", () => {
     const edge = async (offsetMs: number) => {
       const earned = new Date(Date.now() + offsetMs);
       earned.setUTCFullYear(earned.getUTCFullYear() - 1);
-      const { error } = await admin.rpc("award_verification_mark", { p_user_id: candOptOut.id, p_mark_type: "resume_reviewed", p_field: null, p_level: null, p_review_type: "ai", p_source_id: null, p_resume_hash: null, p_earned_at: earned.toISOString() });
+      // A skills_check mark in its own field, not a second resume_reviewed one: the applicants read returns only the NEWEST mark per (application, type, field), and candOptOut already holds a resume_reviewed mark dated today (from
+      // beforeAll) that would hide an older injected one. The table cannot be cleaned up from here (service_role holds only SELECT and INSERT on it, by design), so the test does not try; a failed delete used to be ignored.
+      const { error } = await admin.rpc("award_verification_mark", { p_user_id: candOptOut.id, p_mark_type: "skills_check", p_field: `expiry-edge-${offsetMs}`, p_level: "passed", p_review_type: null, p_source_id: null, p_resume_hash: null, p_earned_at: earned.toISOString() });
       expect(error, error?.message).toBeNull();
       await admin.from("profiles").update({ talent_directory_opt_in: true }).eq("id", candOptOut.id);
       const rows = (await applicants(employer)).rows.filter((x) => x.application_id === appOf[candOptOut.id]);
-      await admin.from("verification_marks").delete().eq("user_id", candOptOut.id).eq("earned_at", earned.toISOString());
-      return rows.some((x) => new Date(x.earned_at).getTime() === earned.getTime());
+      return rows.some((x) => x.mark_type === "skills_check" && new Date(x.earned_at).getTime() === earned.getTime());
     };
     expect(await edge(3_600_000)).toBe(true);
     expect(await edge(-3_600_000)).toBe(false);
