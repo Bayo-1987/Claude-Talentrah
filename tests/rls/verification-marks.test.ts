@@ -15,12 +15,29 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { admin as typedAdmin, createAuthedTestUser, deleteTestUsers } from "../support/auth";
+import { admin as typedAdmin, deleteTestUsers, sessionFor } from "../support/auth";
 import { deleteOrgsCascade } from "../support/delete-orgs";
 
 const admin = typedAdmin as unknown as SupabaseClient;
-type Authed = Awaited<ReturnType<typeof createAuthedTestUser>>;
+type Authed = { id: string; email: string; client: Awaited<ReturnType<typeof sessionFor>> };
 const as = (a: Authed) => a.client as unknown as SupabaseClient;
+/**
+ * NOT POOLED, on purpose. createAuthedTestUser hands out a reused identity from test_user_pool and releases it afterwards, and service_role cannot delete from verification_marks (SELECT and INSERT only, by design), so
+ * marks written for a pooled identity would stay on it for ever and break the next run that claimed it (4, 6 and 2 failures on three re-runs of this file on one database). These users are plain auth users created here and
+ * removed with deleteTestUsers, which deletes them; their marks go with them (verification_marks.user_id references profiles on delete cascade), and afterAll checks that nothing is left.
+ */
+async function createUnpooledAuthedUser(prefix: string): Promise<Authed> {
+  const email = `${prefix}-${randomUUID()}@talentrah.test`;
+  for (let attempt = 1; ; attempt++) {
+    const { data, error } = await typedAdmin.auth.admin.createUser({ email, email_confirm: true });
+    if (!error && data.user) return { id: data.user.id, email, client: await sessionFor(email, data.user.id) };
+    if (attempt < 4 && error && /rate limit/i.test(error.message)) {
+      await new Promise((r) => setTimeout(r, 500 * attempt));
+      continue;
+    }
+    throw new Error(`createUser ${email}: ${error?.message ?? "no user returned"}`);
+  }
+}
 const tag = randomUUID().slice(0, 6);
 
 type MarkRow = { candidate_id: string; mark_type: string; field: string | null; level: string | null; review_type: string | null; earned_at: string; expires_at: string; changed_since_review: boolean };
@@ -67,11 +84,11 @@ const appIdsOf = (...users: Authed[]) => users.map((u) => appOf[u.id]).sort();
 
 beforeAll(async () => {
   [cand, candOptOut, candQa, employer, employerNoSub] = await Promise.all([
-    createAuthedTestUser(`marks-cand-${tag}`),
-    createAuthedTestUser(`marks-optout-${tag}`),
-    createAuthedTestUser(`marks-qa-${tag}`),
-    createAuthedTestUser(`marks-emp-${tag}`),
-    createAuthedTestUser(`marks-nosub-${tag}`),
+    createUnpooledAuthedUser(`marks-cand-${tag}`),
+    createUnpooledAuthedUser(`marks-optout-${tag}`),
+    createUnpooledAuthedUser(`marks-qa-${tag}`),
+    createUnpooledAuthedUser(`marks-emp-${tag}`),
+    createUnpooledAuthedUser(`marks-nosub-${tag}`),
   ]);
   userIds.push(cand.id, candOptOut.id, candQa.id, employer.id, employerNoSub.id);
   await admin.from("profiles").update({ talent_directory_opt_in: true }).in("id", [cand.id, candQa.id]);
@@ -99,6 +116,13 @@ beforeAll(async () => {
 afterAll(async () => {
   await deleteOrgsCascade(typedAdmin, orgIds);
   await deleteTestUsers(userIds);
+  // Deleting a user removes its marks (cascade). Proven here on every run: nothing of this file's may remain.
+  const { data: left, error: leftError } = await admin.from("verification_marks").select("id").in("user_id", userIds);
+  if (leftError) throw new Error(`could not check for leftover marks: ${leftError.message}`);
+  if ((left ?? []).length > 0) throw new Error(`${left!.length} mark(s) survived deleting their users`);
+  const { data: leftProfiles, error: profError } = await admin.from("profiles").select("id").in("id", userIds);
+  if (profError) throw new Error(`could not check for leftover profiles: ${profError.message}`);
+  if ((leftProfiles ?? []).length > 0) throw new Error(`${leftProfiles!.length} test profile(s) survived deletion`);
 }, 90_000);
 
 describe("parity: a passed review awards exactly one mark that matches what the profile shows", () => {
