@@ -37,6 +37,12 @@ type ApiResult = {
   creditsBalance?: number | null;
   /** Ranked by the M1 matcher, server-side. Usually empty — see below. */
   courseRecommendations?: RankedRecommendation[];
+  /**
+   * Set by the server (#951) when the resume saved but the cover letter did not and the letter's charge was
+   * given back; it also carries the "contact support" wording when that give-back itself failed. Shown as
+   * sent, never rewritten here.
+   */
+  notice?: string;
 };
 
 /**
@@ -243,7 +249,7 @@ export function TailorForm({
   }
 
   if (data) {
-    const { result, isFreeTrial, isPassCovered, creditsSpent, resumeId, coverLetterResumeId } = data;
+    const { result, isFreeTrial, isPassCovered, creditsSpent, resumeId, coverLetterResumeId, notice } = data;
     /*
      * `?? []`: this field is required in the real API's response shape
      * (tailorResumeToJob always sets it), but e2e tests that stub
@@ -270,6 +276,18 @@ export function TailorForm({
               ? ". Included with your Pass."
               : "."}
         </p>
+
+        {/*
+          TAILORING-NOTICE-UI-1. The server's own sentence about a cover letter that did not save and what happened to its
+          charge, shown right under the charge line so it is on screen before anything else is read. Information, not an
+          error, so role="status"; plain text with no close control, because "your credits were returned" (or "contact
+          support") is not something to lose to a stray tap. Only a non-empty string renders anything.
+        */}
+        {typeof notice === "string" && notice.trim() !== "" && (
+          <p role="status" data-testid="tailoring-notice" className="text-[13.5px] text-rust">
+            {notice}
+          </p>
+        )}
 
         {/*
           Truncation used to be silent, which meant a weaker result from a
