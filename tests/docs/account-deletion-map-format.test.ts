@@ -17,7 +17,7 @@ const map = parseAccountDeletionMap(doc);
 describe("docs/account-deletion-map.md", () => {
   it("has foreign-key rows and storage rows", () => {
     expect(map.keys.length).toBeGreaterThan(40);
-    expect(map.buckets.map((b) => b.bucket).sort()).toEqual(["job-assessment-exercises", "job-assessment-submissions", "job-banners"]);
+    expect(map.buckets.map((b) => b.bucket).sort()).toEqual(["data-exports", "job-assessment-exercises", "job-assessment-submissions", "job-banners"]);
   });
 
   it("lists every key once", () => {

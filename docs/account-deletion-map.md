@@ -48,6 +48,7 @@ handed over.
 | `course_recommendation_clicks.user_id` | profiles | SET NULL | anonymise | an aggregate click log; the row is kept without the person |
 | `credit_gate_events.user_id` | profiles | CASCADE | delete | product analytics about the person |
 | `credit_ledger.user_id` | profiles | SET NULL | anonymise | tax and audit record (0209): kept, detached from the person |
+| `data_export_files.user_id` | profiles | CASCADE | delete | the state row of an admin-produced data export (0263): ids, a status and times, no personal content. The row goes with the account; THE BUCKET OBJECT DOES NOT (see Storage), the hourly sweep removes it |
 | `email_preferences.user_id` | profiles | CASCADE | delete | the person's own mail settings |
 | `employer_applicant_status.updated_by` | profiles | NO ACTION | block | PR 3 nulls it first: an employer member's review mark on someone else's applicant |
 | `employer_job_feed_attempts.user_id` | profiles | SET NULL | anonymise | who tried to connect or check a job feed (0246): the attempt stays for the rate limits and the audit, the link to the person is dropped |
@@ -115,5 +116,6 @@ A final reminder before the hard delete (a later PR) would be added here too, wi
 | `job-assessment-submissions` | `<applicant user id>/<posting id>/<file>` | delete | the applicant's own uploads: the purge deletes every object under their id before the account |
 | `job-assessment-exercises` | `<organisation id>/<posting id>/<file>` | keep | an organisation's exercise files, not the person's |
 | `job-banners` | `<organisation id>/<file>` | keep | an organisation's posting banners, not the person's |
+| `data-exports` | `<export id>/<attempt id>.json` | delete | the person's own data, produced by an admin on a support request (0263): private, single use, deleted on first download or after 72 hours. The path holds the export id, not the person's id, and the state row cascades with the account while the object does not, so the purge cannot find it by user id: the hourly sweep (`/api/admin/sweep-data-exports`) lists the whole bucket and deletes every object with no live row |
 
 Storage classes: `delete` (the person's objects, removed by the purge), `keep` (not the person's).
