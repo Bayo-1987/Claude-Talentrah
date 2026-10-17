@@ -3,10 +3,10 @@
  *   signed out -> 401, nothing written; an admin WITHOUT `data_export` -> 403 and a people.export_denied row; with the permission -> the start or the cancel runs.
  * Malformed form fields are a 400 that writes nothing; a target that is not a uuid is an audited refusal that copies nothing.
  */
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { acquireBucketLock, releaseBucketLock } from "../support/bucket-lock";
-import { auditRowsSince, cleanupAll, flags, makeAdmin, makePerson, PERSON_FIRST_NAME, PERSON_LAST_NAME } from "../support/data-export-fixtures";
+import { auditRowsSince, cleanupAll, releaseCreated, flags, makeAdmin, makePerson, PERSON_FIRST_NAME, PERSON_LAST_NAME } from "../support/data-export-fixtures";
 import type { AdminIdentity } from "@/lib/admin/session";
 
 const h = vi.hoisted(() => ({ identity: null as unknown, sent: [] as Array<{ template: string }> }));
@@ -44,6 +44,7 @@ beforeEach(() => {
   h.sent.length = 0;
   flags.failAuditInsert = false;
 });
+afterEach(releaseCreated, 60_000);
 afterAll(async () => {
   try {
     await cleanupAll();

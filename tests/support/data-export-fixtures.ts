@@ -148,21 +148,29 @@ export async function emptyBucket(): Promise<void> {
   if (error) throw new Error(`emptyBucket: ${error.message}`);
 }
 
-export async function cleanupAll(): Promise<void> {
-  flags.failAuditInsert = false;
-  flags.failRemove = 0;
-  await emptyBucket();
+/**
+ * Gives back the accounts the test just made (pooled test users are RELEASED, not deleted). Called after every test so a file never holds more than a few of the pool's 40 at once:
+ * holding dozens until the end of the file starves other files that run in parallel (tests/support/test-user-pool.test.ts failed under exactly that).
+ */
+export async function releaseCreated(): Promise<void> {
   for (const p of people) {
     const { error } = await service.from("data_export_files").delete().eq("user_id", p.id);
-    if (error) throw new Error(`cleanup data_export_files: ${error.message}`);
+    if (error) throw new Error(`release data_export_files: ${error.message}`);
   }
-  const { error: auditError } = await service.from("admin_audit_log").delete().like("action", "people.export_%").gte("created_at", startedAt);
-  if (auditError) throw new Error(`cleanup admin_audit_log: ${auditError.message}`);
   for (const a of admins) {
     const { error } = await service.from("admin_users").delete().eq("id", a.id);
-    if (error) throw new Error(`cleanup admin_users: ${error.message}`);
+    if (error) throw new Error(`release admin_users: ${error.message}`);
   }
   await deleteTestUsers([...people.map((p) => p.id), ...admins.map((a) => a.id)]);
   people.length = 0;
   admins.length = 0;
+}
+
+export async function cleanupAll(): Promise<void> {
+  flags.failAuditInsert = false;
+  flags.failRemove = 0;
+  await emptyBucket();
+  await releaseCreated();
+  const { error: auditError } = await service.from("admin_audit_log").delete().like("action", "people.export_%").gte("created_at", startedAt);
+  if (auditError) throw new Error(`cleanup admin_audit_log: ${auditError.message}`);
 }

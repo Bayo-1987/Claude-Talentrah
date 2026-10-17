@@ -2,11 +2,11 @@
  * The download (GET /data-export/<id>) against the real local database and bucket: only the signed-in owner, once, before expiry; the object is deleted whether the stream finishes, fails or the
  * client drops; HEAD, OPTIONS and a prefetch never claim. The session is a fake `getUser` (the route supplies the real cookie reader); everything else is real.
  */
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { admin as realService } from "../support/auth";
 import { acquireBucketLock, releaseBucketLock } from "../support/bucket-lock";
-import { auditRowsSince, bucketPaths, cleanupAll, countedService, fakeMailer, flags, makeAdmin, makePerson, putObject } from "../support/data-export-fixtures";
+import { auditRowsSince, bucketPaths, cleanupAll, releaseCreated, countedService, fakeMailer, flags, makeAdmin, makePerson, putObject } from "../support/data-export-fixtures";
 import { finish, getRow, insertGenerating, pathFor, setRow } from "../support/data-export-db";
 import { handleDownload, isPrefetch } from "@/lib/data-export/download";
 import { startExport } from "@/lib/data-export/start";
@@ -29,6 +29,7 @@ beforeEach(() => {
   flags.failAuditInsert = false;
   flags.failRemove = 0;
 });
+afterEach(releaseCreated, 60_000);
 afterAll(async () => {
   try {
     await cleanupAll();

@@ -2,13 +2,13 @@
  * The start of an admin-produced data export and the cancel of an unused one, against the real local database, the real private bucket and the real audit log (only the mailer is fake).
  * Read docs/admin-data-export.md for the order these tests pin. The tests are named for what the build prompt calls them (T-A1 ... T-B2).
  */
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { admin as realService } from "../support/auth";
 import { fakeSecret } from "../support/fake-secret";
 import { acquireBucketLock, releaseBucketLock } from "../support/bucket-lock";
 import {
-  PERSON_FIRST_NAME, PERSON_LAST_NAME, auditRowsSince, bucketPaths, cleanupAll, countedService, fakeMailer, flags, makeAdmin, makePerson, putObject,
+  PERSON_FIRST_NAME, PERSON_LAST_NAME, auditRowsSince, bucketPaths, cleanupAll, releaseCreated, countedService, fakeMailer, flags, makeAdmin, makePerson, putObject,
 } from "../support/data-export-fixtures";
 import { ageAttempt, finish as finishRow, getRow, insertGenerating, pathFor, setRow } from "../support/data-export-db";
 import { startExport, cancelExport, type StartDeps } from "@/lib/data-export/start";
@@ -44,6 +44,7 @@ beforeEach(() => {
 beforeAll(async () => {
   await acquireBucketLock();
 }, 300_000);
+afterEach(releaseCreated, 60_000);
 afterAll(async () => {
   try {
     await cleanupAll();

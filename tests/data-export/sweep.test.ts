@@ -4,11 +4,11 @@
  * Pass 1 works from ROWS; pass 2 works from the BUCKET, which is the one that finds what rows cannot (an account deleted inside the 72 hours takes its row with it and leaves the object).
  * The bucket is shared by the whole stack, so the suite takes the cross-file bucket lock.
  */
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { admin as realService } from "../support/auth";
 import { acquireBucketLock, releaseBucketLock } from "../support/bucket-lock";
-import { auditRowsSince, bucketPaths, cleanupAll, countedService, emptyBucket, flags, makePerson, putObject } from "../support/data-export-fixtures";
+import { auditRowsSince, bucketPaths, cleanupAll, releaseCreated, countedService, emptyBucket, flags, makePerson, putObject } from "../support/data-export-fixtures";
 import { ageAttempt, finish, getRow, insertGenerating, pathFor, setRow } from "../support/data-export-db";
 import { sweepDataExports } from "@/lib/data-export/sweep";
 
@@ -26,6 +26,7 @@ beforeEach(async () => {
   flags.failAuditInsert = false;
   await emptyBucket();
 });
+afterEach(releaseCreated, 60_000);
 afterAll(async () => {
   try {
     await cleanupAll();
