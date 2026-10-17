@@ -74,6 +74,9 @@ export type AdminPermission =
   // trust decision over a new public-facing surface, not a plain content
   // area — starts granted to nobody, exactly like the three above it.
   | "mentor_review"
+  // 0262. Producing a copy of ONE person's data on a support request is the most sensitive read this dashboard has, so it is its own grant and starts
+  // granted to nobody, exactly like `people_list` and `employer_verification`. See docs/admin-data-export.md.
+  | "data_export"
   | "operators";
 
 export interface AdminIdentity {

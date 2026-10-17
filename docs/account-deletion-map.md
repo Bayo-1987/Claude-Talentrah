@@ -106,6 +106,8 @@ The guard in `getResendClient()` drops every email to an account scheduled for d
 | `deletion_confirm` | the person asks to delete their account: the one-hour, single-use confirm link | the link is the request; a dropped confirm email would make the feature silently do nothing |
 | `deletion_scheduled` | the person confirms: the date it will happen, what was stopped, the postings closed and the ad balance, and how to restore | the proof that it worked, and the only way to learn the date |
 | `deletion_restored` | the person restores the account: what is back and what is not (Auto-Apply off, Pass renewal cancelled until they resubscribe, closed postings stay closed) | the proof that it was undone, and the honest list of what restore does not bring back |
+| `data_export_generated` | support starts an admin-produced data export for the person: that a copy is being prepared, and what to do if they did not ask for it; no link, names no data | the owner's rule: the account owner is told BEFORE anything is read, a person inside their 30 days included; it is also how an export they did not ask for is noticed |
+| `data_export_link` | the copy is ready: the link, that it works once and only while signed in as this account, and until when; names no data | the only way the person learns where to get their copy; a person in their 30 days must still be able to take their data out |
 
 A final reminder before the hard delete (a later PR) would be added here too, with its own row, when it is built.
 

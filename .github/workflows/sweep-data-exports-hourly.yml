@@ -1,0 +1,65 @@
+name: Sweep data exports (hourly)
+
+# The private data-exports bucket holds, for at most 72 hours, a copy of one person's data that an admin produced on a support request (docs/admin-data-export.md). Access ends at exactly 72 hours
+# whatever this does (the claim function checks the end date); this workflow decides when the BYTES are deleted, and it is the only thing that removes an orphan: a file whose account was
+# deleted inside the 72 hours, whose row went with it.
+#
+# Modelled on ingest-jobs-3hourly.yml, and it calls the production route (src/app/api/admin/sweep-data-exports/route.ts) with the same existing secret: CRON_SECRET. NO new secret is introduced
+# here; nothing in this file sets, rotates or creates one.
+#
+# NOT IN vercel.json, on purpose: nothing about the sweep depends on the Vercel plan's cron limits. STATED RISK, not a reopened decision: unlike the ingest workflow there is no daily Vercel cron
+# behind it, and a scheduled GitHub workflow is best-effort, can be delayed, and is disabled by GitHub when a repository has no pushes for 60 days. That is why expired files are also deleted
+# opportunistically (when an expired link is opened and when a new export starts).
+#
+# ── THE SECRET NEVER REACHES A LOG LINE ─────────────────────────────────────
+# This repository is PUBLIC, so an Actions log is public too. The secret is read into an ENVIRONMENT VARIABLE on the step, never interpolated into the script text; there is no `set -x`; curl runs
+# silent with its body written to a FILE, and that file (counts only: no id, no name, no path) is what gets echoed. There is NO retry: a timeout must never start a second sweep.
+on:
+  schedule:
+    # Off the top of the hour, away from the busiest minute.
+    - cron: "17 * * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  # A group of its own. `cancel-in-progress: false` queues rather than aborts: a hung run should not be killed mid-delete.
+  group: sweep-data-exports-hourly
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Call the production sweep-data-exports endpoint
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+
+          # --max-time sits above the route's maxDuration (300 s, src/app/api/admin/sweep-data-exports/route.ts) with margin; the sweep itself is bounded per run and takes seconds. NO retry of any
+          # kind. -sS keeps the body quiet but still prints a curl error.
+          rc=0
+          status="$(curl -sS --max-time 330 -o /tmp/sweep-response.json -w "%{http_code}" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "https://www.talentrah.com/api/admin/sweep-data-exports")" || rc=$?
+
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::sweep-data-exports request failed or timed out (curl exit $rc); the next run picks up whatever is left."
+            exit 1
+          fi
+
+          echo "HTTP status: $status"
+          cat /tmp/sweep-response.json
+          echo
+
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            echo "::error::sweep-data-exports answered HTTP $status; see the response body above."
+            exit 1
+          fi
+
+          # A delete that failed (or a listing that failed) is retried by the next run, and is reported here so a person sees it.
+          alerts="$(jq -r '.summary.alerts // 0' /tmp/sweep-response.json)"
+          if [ "$alerts" != "0" ]; then
+            echo "::error::the sweep reported $alerts alert(s): at least one object could not be deleted or listed. It is retried next hour."
+            exit 1
+          fi

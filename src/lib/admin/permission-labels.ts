@@ -21,6 +21,7 @@ export const PERMISSION_AREA_LABELS: Record<AdminPermission, string> = {
   employer_verification: "Employer verification",
   job_review: "Job review",
   mentor_review: "Mentor review",
+  data_export: "Data export",
   operators: "Operators",
 };
 

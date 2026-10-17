@@ -20,8 +20,9 @@ import { carryCookies } from "@/lib/supabase/carry-cookies";
  * scratch would drop them, and the person would be signed out at random on their next request. So the answer goes through `carryCookies`
  * (src/lib/supabase/carry-cookies.ts), the one definition of how every Set-Cookie of that response is copied onto it verbatim, attributes included.
  *
- * EXEMPT, so there is never a loop and the person can always restore, leave or sign in: the prompt itself (and anything under it), the confirm link's
- * page, /login, the auth routes (callback, sign-out), the auth API, the admin surfaces (a separate identity that never reads the seeker session), and
+ * EXEMPT, so there is never a loop and the person can always restore, leave, take their data out or sign in: the prompt itself (and anything under it), the confirm link's
+ * page, the data export download link `/data-export/<id>` (an admin-produced copy of their data: asking to leave does not end the right to a copy; the route itself requires the
+ * owner's session and a claim), /login, the auth routes (callback, sign-out), the auth API, the admin surfaces (a separate identity that never reads the seeker session), and
  * static assets (`/_next/`, and anything with a file extension: fonts, images, robots.txt, sitemap.xml, the favicon). Signed-out requests, cron and
  * webhooks carry no session and are untouched.
  *
@@ -29,7 +30,7 @@ import { carryCookies } from "@/lib/supabase/carry-cookies";
  * account's OWN session doing anything, and `requireUser()` stops its pages rendering (and records a FAIL_OPEN if the database says pending while the
  * session carried no flag, so a gate that is missing requests is visible).
  */
-const EXEMPT = [PENDING_DELETION_PATH, "/settings/delete-account/confirm", "/login", "/auth", "/api/auth", "/admin", "/api/admin", "/_next"];
+const EXEMPT = [PENDING_DELETION_PATH, "/settings/delete-account/confirm", "/data-export", "/login", "/auth", "/api/auth", "/admin", "/api/admin", "/_next"];
 const HAS_FILE_EXTENSION = /\.[a-z0-9]{2,8}$/i;
 
 export function isExemptFromPendingDeletionGate(pathname: string): boolean {

@@ -7,6 +7,7 @@ import { Button, TextField, BorderedCard, EyebrowLabel } from "@/components/ui";
 import { formatDate } from "@/lib/format/datetime";
 import { inputValue } from "@/lib/forms/keep-input";
 import { formatWholeAmount } from "@/lib/admin/finance/money";
+import { DataExportPanel } from "@/components/admin/data-export-panel";
 
 const naira = formatWholeAmount;
 
@@ -17,7 +18,7 @@ const naira = formatWholeAmount;
  * view behind this, no "recent lookups", and no pagination, because none of
  * those can exist without a way to enumerate. The absence is the feature.
  */
-export function PersonLookup() {
+export function PersonLookup({ canExport = false }: { canExport?: boolean } = {}) {
   const [state, formAction, pending] = useActionState(
     lookUpPersonAction,
     initialPersonLookupState,
@@ -76,6 +77,8 @@ export function PersonLookup() {
             </p>
             <p className="font-mono text-[12px] text-ink-soft">{person.id}</p>
           </BorderedCard>
+
+          {canExport && <DataExportPanel personId={person.id} />}
 
           <section className="flex flex-col gap-2">
             <EyebrowLabel>Payments</EyebrowLabel>
