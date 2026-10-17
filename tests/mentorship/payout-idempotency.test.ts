@@ -1021,3 +1021,137 @@ describe("attemptPayout: a status initiateTransfer returns that is not success, 
     expect(row.failure_reason).toContain(status);
   });
 });
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * PR-A HARDENING (fix 3), from the owner's Paystack TEST-mode check (reports/CTO/2026-10-17-paystack-test-mode-answers.md): POSTing /transfer again with a reference that
+ * already exists answers HTTP 400, code `duplicate_transfer_reference`. That answer PROVES the transfer exists, so it must never be read as a failure and never depend on
+ * a second verify call (which can still say "not found" for a moment after creation).
+ * ─────────────────────────────────────────────────────────────────────────── */
+async function declineWithCode(message: string, status: number, code?: string) {
+  const { PaystackDeclineError } = await import("@/lib/paystack/client");
+  return new PaystackDeclineError(message, status, code ? { code, type: "validation_error", bodyStatus: false } : {});
+}
+
+describe("attemptPayout: duplicate_transfer_reference proves the transfer exists", () => {
+  it("a REUSED reference is refused as a duplicate and verify still says 404 both times: indeterminate, pending, the reference STILL on the row, no second initiate", async () => {
+    const session = await makeCompletedSession(15_000);
+    const stored = newReference();
+    const payoutId = await makeLeftBehindPayout(session.id, session.mentor_payout_ngn, { status: "pending", reference: stored, minutesAgo: 30 });
+    verifyTransfer.mockRejectedValue(await declineWithCode("Transfer not found", 404, "not_found"));
+    initiateTransfer.mockRejectedValue(await declineWithCode("Please provide a unique reference. Reference already exists on a transfer", 400, "duplicate_transfer_reference"));
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { attemptPayout } = await import("@/lib/mentorship/payouts");
+    const outcome = await attemptPayout(payoutId);
+    log.mockRestore();
+
+    expect(outcome.outcome, "MONEY BUG: a transfer Paystack says exists was recorded as a failure").toBe("indeterminate");
+    expect(initiateTransfer).toHaveBeenCalledTimes(1);
+    const row = await payoutRow(payoutId);
+    expect(row.status).toBe("pending");
+    expect(row.pending_transfer_reference, "MONEY BUG: the reference of a transfer that exists was cleared").toBe(stored);
+  });
+
+  it("control: the same duplicate decline with a verify that answers 'otp' is indeterminate, reference kept (already true before this change)", async () => {
+    const session = await makeCompletedSession(15_000);
+    const stored = newReference();
+    const payoutId = await makeLeftBehindPayout(session.id, session.mentor_payout_ngn, { status: "pending", reference: stored, minutesAgo: 30 });
+    verifyTransfer.mockRejectedValueOnce(await declineWithCode("Transfer not found", 404, "not_found"));
+    verifyTransfer.mockResolvedValueOnce(transferResult(session.mentor_payout_ngn, stored, "otp", "TRF_otp"));
+    initiateTransfer.mockRejectedValue(await declineWithCode("Reference already exists on a transfer", 400, "duplicate_transfer_reference"));
+
+    const { attemptPayout } = await import("@/lib/mentorship/payouts");
+    const outcome = await attemptPayout(payoutId);
+
+    expect(outcome.outcome).toBe("indeterminate");
+    expect((await payoutRow(payoutId)).pending_transfer_reference).toBe(stored);
+  });
+
+  it.each([400, 409])("the duplicate decline with HTTP %i and a FRESH reference: indeterminate, the reference is kept", async (httpStatus) => {
+    const session = await makeCompletedSession(15_000);
+    const payoutId = await makeEligiblePayout(session.id, session.mentor_payout_ngn);
+    initiateTransfer.mockRejectedValue(await declineWithCode("Reference already exists on a transfer", httpStatus, "duplicate_transfer_reference"));
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { attemptPayout } = await import("@/lib/mentorship/payouts");
+    const outcome = await attemptPayout(payoutId);
+    log.mockRestore();
+
+    expect(outcome.outcome, "MONEY BUG: a duplicate-reference answer was recorded as a failure").toBe("indeterminate");
+    const sent = initiateTransfer.mock.calls[0][0].reference as string;
+    const row = await payoutRow(payoutId);
+    expect(row.status).toBe("pending");
+    expect(row.pending_transfer_reference).toBe(sent);
+    expect(verifyTransfer, "the duplicate answer is not routed through a second verify").not.toHaveBeenCalled();
+  });
+
+  it("the duplicate decline writes an ERROR-level line naming the payout id and the reference", async () => {
+    const session = await makeCompletedSession(15_000);
+    const stored = newReference();
+    const payoutId = await makeLeftBehindPayout(session.id, session.mentor_payout_ngn, { status: "pending", reference: stored, minutesAgo: 30 });
+    verifyTransfer.mockRejectedValue(await declineWithCode("Transfer not found", 404, "not_found"));
+    initiateTransfer.mockRejectedValue(await declineWithCode("Reference already exists on a transfer", 400, "duplicate_transfer_reference"));
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { attemptPayout } = await import("@/lib/mentorship/payouts");
+    await attemptPayout(payoutId);
+    const lines = log.mock.calls.map((c) => c.join(" "));
+    log.mockRestore();
+
+    const line = lines.find((l) => l.includes(payoutId) && l.includes(stored));
+    expect(line, "an error-level line with the payout id and the reference").toBeDefined();
+    expect(line).toMatch(/duplicate_transfer_reference/);
+  });
+
+  it("a decline with a DIFFERENT code (invalid_transfer_recipient, HTTP 400) for a fresh reference is still a failure: failed, reference cleared", async () => {
+    const session = await makeCompletedSession(15_000);
+    const payoutId = await makeEligiblePayout(session.id, session.mentor_payout_ngn);
+    initiateTransfer.mockRejectedValue(await declineWithCode("Recipient specified is invalid", 400, "invalid_transfer_recipient"));
+
+    const { attemptPayout } = await import("@/lib/mentorship/payouts");
+    const outcome = await attemptPayout(payoutId);
+
+    expect(outcome.outcome).toBe("failed");
+    const row = await payoutRow(payoutId);
+    expect(row.status).toBe("failed");
+    expect(row.pending_transfer_reference).toBeNull();
+  });
+
+  it("a decline with HTTP 400 and NO code is unchanged: failed, reference cleared", async () => {
+    const session = await makeCompletedSession(15_000);
+    const payoutId = await makeEligiblePayout(session.id, session.mentor_payout_ngn);
+    initiateTransfer.mockRejectedValue(await declineWithCode("Something was refused", 400));
+
+    const { attemptPayout } = await import("@/lib/mentorship/payouts");
+    const outcome = await attemptPayout(payoutId);
+
+    expect(outcome.outcome).toBe("failed");
+    const row = await payoutRow(payoutId);
+    expect(row.status).toBe("failed");
+    expect(row.pending_transfer_reference).toBeNull();
+  });
+
+  it("what happens next: attempt after attempt the row stays pending with its reference, and at the three-attempt ceiling it becomes failed 'NEEDS RECONCILIATION' with the reference KEPT", async () => {
+    const session = await makeCompletedSession(15_000);
+    const stored = newReference();
+    const payoutId = await makeLeftBehindPayout(session.id, session.mentor_payout_ngn, { status: "pending", reference: stored, minutesAgo: 30 });
+    await admin.from("mentor_payouts").update({ attempt_count: 0 }).eq("id", payoutId);
+    verifyTransfer.mockRejectedValue(await declineWithCode("Transfer not found", 404, "not_found"));
+    initiateTransfer.mockRejectedValue(await declineWithCode("Reference already exists on a transfer", 400, "duplicate_transfer_reference"));
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { attemptPayout, MAX_INDETERMINATE_PAYOUT_ATTEMPTS } = await import("@/lib/mentorship/payouts");
+    const outcomes: string[] = [];
+    for (let i = 0; i < MAX_INDETERMINATE_PAYOUT_ATTEMPTS; i++) {
+      outcomes.push((await attemptPayout(payoutId)).outcome);
+      if (i < MAX_INDETERMINATE_PAYOUT_ATTEMPTS - 1) expect((await payoutRow(payoutId)).status).toBe("pending");
+    }
+    log.mockRestore();
+
+    expect(outcomes).toEqual(["indeterminate", "indeterminate", "failed"]);
+    const row = await payoutRow(payoutId);
+    expect(row.status).toBe("failed");
+    expect(row.failure_reason).toMatch(/NEEDS RECONCILIATION/);
+    expect(row.pending_transfer_reference, "the only thread back to a transfer that exists").toBe(stored);
+  });
+});

@@ -214,6 +214,9 @@ interface Claim {
  */
 const STUCK_WITHOUT_REFERENCE_MS = 10 * 60_000;
 
+/** The code in the body of Paystack's answer to POST /transfer for a reference that already exists on a transfer (owner's TEST-mode check, 17 Oct 2026: HTTP 400). */
+const DUPLICATE_TRANSFER_REFERENCE = "duplicate_transfer_reference";
+
 const newTransferReference = () => `mentor_payout_${randomUUID()}`;
 
 /**
@@ -416,6 +419,15 @@ async function resolveOrInitiate(supabase: Db, claim: Claim, recipientCode: stri
     if (!isDecline(err)) {
       // Paystack never answered — genuinely unknown whether the transfer
       // was created. The reference is already on the row, so the next run resolves it first.
+      return recordIndeterminate(supabase, claim, reference);
+    }
+    if (err.code === DUPLICATE_TRANSFER_REFERENCE) {
+      // Paystack says a transfer with this reference already exists (HTTP 400 in test mode; checked on the code, not the status). That PROVES the transfer is there, so this is never a
+      // failure and never waits on another verify, which can still say "not found" for a moment after creation. Keep the reference and settle it on the next attempt.
+      console.error(
+        `[mentor-payouts] DUPLICATE TRANSFER REFERENCE payout=${claim.id} reference=${reference} attempt=${claim.attempt_count} code=${DUPLICATE_TRANSFER_REFERENCE} status=${err.status ?? "none"}: ` +
+          `Paystack says this transfer already exists. Reference kept; not recorded as a failure.`,
+      );
       return recordIndeterminate(supabase, claim, reference);
     }
     if (reference === stored) {
