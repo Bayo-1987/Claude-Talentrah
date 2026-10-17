@@ -11,6 +11,9 @@ type Shown = Extract<AssessmentResponseResult, { status: "ok" }>;
  *
  * THE RESPONSE LINK is clickable only when it starts with http:// or https:// and parses as a web address. Anything else (javascript:, data:, a bare word) is shown as plain text, never as a link; an empty value shows nothing.
  * Every link that leaves the page opens in a new tab with rel="noopener noreferrer".
+ *
+ * WHERE THE LINK GOES is shown beside the control (ASSESSMENT-LINK-HOST-1), so an employer can see the destination before clicking: the address's HOSTNAME and nothing else. Never the
+ * full address: its query can carry a token, its userinfo a password, and its path is the candidate's business. See `responseLinkHost`.
  */
 const REL = "noopener noreferrer";
 
@@ -26,9 +29,33 @@ export function clickableResponseLink(raw: string | null | undefined): string | 
   }
 }
 
+/** Shown in place of the host when the address cannot be read. */
+export const LINK_HOST_FALLBACK = "link address could not be read";
+
+/**
+ * The hostname of a response link, or null. ONLY for an address the page would make clickable (`clickableResponseLink`: http or https), so a javascript:, data: or ftp: address never
+ * produces a host, even though the URL parser reports a hostname for `javascript://example.test/...`. The URL parser lower-cases the host and gives an internationalised one as punycode
+ * (`xn--...`), which is shown as it is so a look-alike domain reads as the different name it is. Hostname only: no port, no user:password, no path, no query, no fragment.
+ */
+export function responseLinkHost(raw: string | null | undefined): string | null {
+  const safe = clickableResponseLink(raw);
+  if (!safe) return null;
+  try {
+    return new URL(safe).hostname.toLowerCase() || null;
+  } catch {
+    return null;
+  }
+}
+
+/** The host, or the plain fallback sentence when it cannot be read. */
+export function linkHostLabel(raw: string | null | undefined): string {
+  return responseLinkHost(raw) ?? LINK_HOST_FALLBACK;
+}
+
 export function AssessmentResponseView({ applicantName, jobTitle, submission }: { applicantName: string; jobTitle: string; submission: Shown["submission"] }) {
   const { responseText, responseLink, responseFiles, submittedAt } = submission;
   const safeLink = clickableResponseLink(responseLink);
+  const linkHost = responseLinkHost(safeLink);
   const plainLink = !safeLink && responseLink && responseLink.trim() ? responseLink.trim() : null;
   const empty = !responseText && responseFiles.length === 0 && !safeLink && !plainLink;
 
@@ -64,9 +91,14 @@ export function AssessmentResponseView({ applicantName, jobTitle, submission }: 
           </div>
         )}
         {safeLink && (
-          <a href={safeLink} target="_blank" rel={REL} className="w-fit max-w-full font-body text-[13px] font-semibold break-words text-ink underline underline-offset-2 hover:text-rust">
-            Open response link
-          </a>
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <a href={safeLink} target="_blank" rel={REL} className="w-fit max-w-full font-body text-[13px] font-semibold break-words text-ink underline underline-offset-2 hover:text-rust">
+              Open response link
+            </a>
+            <span data-testid="assessment-link-host" translate="no" className="min-w-0 font-body text-[12.5px] break-all text-ink-soft">
+              {linkHost ? `Goes to ${linkHost}` : `${LINK_HOST_FALLBACK.charAt(0).toUpperCase()}${LINK_HOST_FALLBACK.slice(1)}`}
+            </span>
+          </div>
         )}
         {plainLink && (
           <p data-testid="assessment-plain-link" className="min-w-0 font-body text-[13px] break-words text-ink-soft">
