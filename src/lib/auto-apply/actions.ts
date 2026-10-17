@@ -23,6 +23,9 @@ export type AutoApplyResult =
   | { ok: true; outcome: "submitted" | "handed_off" | "dismissed"; externalUrl?: string | null }
   | { ok: false; error: string };
 
+/** What an action tells the person when a database call fails: what failed and what to do. The database's own text goes to the server log with the action name and the user id, never to the person. */
+const TRY_AGAIN = "Please try again, or contact support if it keeps happening.";
+
 async function requireUserId(): Promise<string> {
   const supabase = await createClient();
   const {
@@ -54,7 +57,10 @@ export async function setAutoApplyEnabledAction(enabled: boolean): Promise<AutoA
     },
     { onConflict: "user_id" },
   );
-  if (error) return { ok: false, error: `Couldn't update Auto-Apply: ${error.message}` };
+  if (error) {
+    console.error(`[setAutoApplyEnabledAction] settings update failed for user ${userId}:`, error.message);
+    return { ok: false, error: `Couldn't update Auto-Apply. ${TRY_AGAIN}` };
+  }
 
   // Both directions are a real signal, not just noise when turned on.
   captureEvent(userId, "auto_apply_toggled", { enabled });
@@ -303,7 +309,10 @@ export async function dismissAutoApplyAction(queueId: string): Promise<AutoApply
     .eq("id", queueId)
     .eq("user_id", userId)
     .eq("status", "pending");
-  if (error) return { ok: false, error: `Couldn't dismiss: ${error.message}` };
+  if (error) {
+    console.error(`[dismissAutoApplyAction] dismiss failed for user ${userId}, queue ${queueId}:`, error.message);
+    return { ok: false, error: `Couldn't dismiss. ${TRY_AGAIN}` };
+  }
 
   revalidatePath("/auto-apply");
   return { ok: true, outcome: "dismissed" };

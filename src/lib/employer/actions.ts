@@ -51,6 +51,9 @@ const SCREENABLE_SKILL_SET = new Set(SKILL_VOCABULARY);
  */
 export type EmployerActionState = { error: string; values?: SubmittedValues } | { ok: true } | null;
 
+/** What an action tells the person when a database call fails: what failed, in their words, and what to do. The database's own text goes to the server log with the action name and the user id, never to the person. */
+const TRY_AGAIN = "Please try again, or contact support if it keeps happening.";
+
 async function getAuthedUser() {
   const supabase = await createClient();
   const {
@@ -249,8 +252,9 @@ export async function createOrganizationAction(
       // safe direction. Surfacing it beats a silent downgrade the employer
       // cannot explain. NO `values` here, on purpose: the company exists, and a
       // form primed with the same entry would invite creating it a second time.
+      console.error(`[createOrganizationAction] verification update failed for org ${org.id}, user ${user.id}:`, verifyError.message);
       return {
-        error: `Organisation created, but verification didn't complete: ${verifyError.message}. Your jobs stay private until it does.`,
+        error: "Organisation created, but verification didn't complete. Your jobs stay private until it does. Please try again from Company Profile, or contact support.",
       };
     }
   }
@@ -316,7 +320,10 @@ export async function joinOrganizationAction(
     .eq("id", organizationId)
     .maybeSingle();
 
-  if (orgError) return { error: `Couldn't look up that company: ${orgError.message}` };
+  if (orgError) {
+    console.error(`[joinOrganizationAction] company lookup failed for user ${user.id}:`, orgError.message);
+    return { error: `Couldn't look up that company. ${TRY_AGAIN}` };
+  }
   // Same not-found answer for "no such org" and "not your domain", so this
   // can't be used to probe which organisations exist.
   if (!org || !org.verified || org.domain !== userDomain) {
@@ -327,7 +334,10 @@ export async function joinOrganizationAction(
     .from("organization_members")
     .insert({ organization_id: org.id, user_id: user.id, role: "admin" });
 
-  if (joinError) return { error: `Couldn't add you to that company: ${joinError.message}` };
+  if (joinError) {
+    console.error(`[joinOrganizationAction] could not add user ${user.id} to org ${org.id}:`, joinError.message);
+    return { error: `Couldn't add you to that company. ${TRY_AGAIN}` };
+  }
 
   revalidatePath("/employer", "layout");
   redirect("/employer/jobs");
@@ -364,7 +374,10 @@ export async function updateCompanyProfileAction(
     })
     .eq("id", organization.id);
 
-  if (error) return { error: `Couldn't save your profile: ${error.message}`, values: typed };
+  if (error) {
+    console.error(`[updateCompanyProfileAction] profile save failed for org ${organization.id}, user ${user.id}:`, error.message);
+    return { error: `Couldn't save your profile. ${TRY_AGAIN}`, values: typed };
+  }
 
   // Changing the domain re-runs verification in BOTH directions. Only lowering
   // it would let an employer verify with their real domain and then rename to
@@ -424,7 +437,7 @@ export async function submitCacVerificationAction(
   _prev: EmployerActionState,
   form: FormData,
 ): Promise<EmployerActionState> {
-  const { supabase } = await getAuthedUser();
+  const { supabase, user } = await getAuthedUser();
   const { organization } = await requireEmployer();
 
   const typed = submittedValues(form, ["cacNumber", "cacBusinessName"]);
@@ -439,7 +452,10 @@ export async function submitCacVerificationAction(
     .update({ cac_number: cacNumber, cac_business_name: cacBusinessName })
     .eq("id", organization.id);
 
-  if (error) return { error: `Couldn't submit for verification: ${error.message}`, values: typed };
+  if (error) {
+    console.error(`[submitCacVerificationAction] CAC submit failed for org ${organization.id}, user ${user.id}:`, error.message);
+    return { error: `Couldn't submit for verification. ${TRY_AGAIN}`, values: typed };
+  }
 
   revalidatePath("/employer/profile");
   return { ok: true };
@@ -608,8 +624,9 @@ export async function postJobAction(
     if (error.code === "23505") {
       return { error: "You've already posted this role in this location." };
     }
+    console.error(`[postJobAction] ${intent} insert failed for org ${organization.id}, user ${user.id}:`, error.message);
     return {
-      error: `Couldn't ${intent === "draft" ? "save the draft" : "publish the job"}: ${error.message}`,
+      error: `Couldn't ${intent === "draft" ? "save the draft" : "publish the job"}. ${TRY_AGAIN}`,
     };
   }
 
@@ -757,7 +774,8 @@ export async function updateJobAction(
     if (error.code === "23505") {
       return { error: "Another of your postings already uses this title and location." };
     }
-    return { error: `Couldn't save the job: ${error.message}` };
+    console.error(`[updateJobAction] job ${jobId} save failed for org ${organization.id}, user ${user.id}:`, error.message);
+    return { error: `Couldn't save the job. ${TRY_AGAIN}` };
   }
 
   /*
@@ -1185,7 +1203,7 @@ export async function setApplicantStatusAction(
   applicationId: string,
   status: Enums<"applicant_review_status">,
 ): Promise<{ error: string } | { ok: true }> {
-  const { supabase } = await getAuthedUser();
+  const { supabase, user } = await getAuthedUser();
   // Not strictly required for the write itself — RLS is the real gate — but
   // matches every other action in this file: a caller with no organisation
   // at all gets sent to onboarding rather than a raw policy-violation error.
@@ -1195,7 +1213,10 @@ export async function setApplicantStatusAction(
     .from("employer_applicant_status")
     .upsert({ application_id: applicationId, status }, { onConflict: "application_id" });
 
-  if (error) return { error: `Couldn't update status: ${error.message}` };
+  if (error) {
+    console.error(`[setApplicantStatusAction] status update failed for application ${applicationId}, user ${user.id}:`, error.message);
+    return { error: `Couldn't update status. ${TRY_AGAIN}` };
+  }
   return { ok: true };
 }
 
@@ -1231,13 +1252,16 @@ export interface ScreeningAnswerDetail {
 export async function getApplicationScreeningAnswersAction(
   applicationId: string,
 ): Promise<{ error: string } | { ok: true; answers: ScreeningAnswerDetail[] }> {
-  const { supabase } = await getAuthedUser();
+  const { supabase, user } = await getAuthedUser();
   await requireEmployer();
 
   const { data, error } = await supabase.rpc("employer_application_screening_answers", {
     p_application_id: applicationId,
   });
-  if (error) return { error: `Couldn't load screening answers: ${error.message}` };
+  if (error) {
+    console.error(`[getApplicationScreeningAnswersAction] load failed for application ${applicationId}, user ${user.id}:`, error.message);
+    return { error: `Couldn't load screening answers. ${TRY_AGAIN}` };
+  }
 
   return {
     ok: true,
@@ -1295,7 +1319,7 @@ export async function claimJobPostingAction(
   _prev: EmployerActionState,
   form: FormData,
 ): Promise<EmployerActionState> {
-  const { organization } = await requireEmployer();
+  const { organization, userId } = await requireEmployer();
 
   const externalJobPostingId = str(form, "externalJobPostingId");
   const title = str(form, "title");
@@ -1321,7 +1345,8 @@ export async function claimJobPostingAction(
   });
 
   if (error) {
-    return { error: `Couldn't claim this listing: ${error.message}` };
+    console.error(`[claimJobPostingAction] claim failed for org ${organization.id}, user ${userId}:`, error.message);
+    return { error: `Couldn't claim this listing. ${TRY_AGAIN}` };
   }
   const row = data?.[0];
   if (!row?.ok || !row.job_posting_id) {
