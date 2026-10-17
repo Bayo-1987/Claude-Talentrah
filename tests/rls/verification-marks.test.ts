@@ -50,7 +50,8 @@ const userIds: string[] = [];
 const orgIds: string[] = [];
 let cand: Authed; // an ordinary verified, opted-in candidate with a base resume
 let candOptOut: Authed; // verified, NOT opted in (applicant only)
-let candQa: Authed; // a QA account, verified, opted in
+let candQa: Authed; // a QA account (by name), verified, opted in
+let candQaPlus: Authed; // a QA account by the 0251 rule: the owner's stonebridgehibr1+<tag>@gmail.com address on the profile; verified, opted in
 let employer: Authed; // member of the subscribed organisation (owner of the job)
 let employerNoSub: Authed; // member of an organisation without a subscription
 let jobId: string;
@@ -83,15 +84,18 @@ async function applicants(client: Authed): Promise<{ rows: AppMarkRow[]; error: 
 const appIdsOf = (...users: Authed[]) => users.map((u) => appOf[u.id]).sort();
 
 beforeAll(async () => {
-  [cand, candOptOut, candQa, employer, employerNoSub] = await Promise.all([
+  [cand, candOptOut, candQa, candQaPlus, employer, employerNoSub] = await Promise.all([
     createUnpooledAuthedUser(`marks-cand-${tag}`),
     createUnpooledAuthedUser(`marks-optout-${tag}`),
     createUnpooledAuthedUser(`marks-qa-${tag}`),
+    createUnpooledAuthedUser(`marks-qaplus-${tag}`),
     createUnpooledAuthedUser(`marks-emp-${tag}`),
     createUnpooledAuthedUser(`marks-nosub-${tag}`),
   ]);
-  userIds.push(cand.id, candOptOut.id, candQa.id, employer.id, employerNoSub.id);
-  await admin.from("profiles").update({ talent_directory_opt_in: true }).in("id", [cand.id, candQa.id]);
+  userIds.push(cand.id, candOptOut.id, candQa.id, candQaPlus.id, employer.id, employerNoSub.id);
+  await admin.from("profiles").update({ talent_directory_opt_in: true }).in("id", [cand.id, candQa.id, candQaPlus.id]);
+  // The AUTH email stays on @talentrah.test (the global sweep keys on it); the PROFILE email is what is_qa_account reads. The names are ordinary, so only the plus-address clause can make this account a QA one.
+  await admin.from("profiles").update({ email: `stonebridgehibr1+marks-${tag}@gmail.com`, first_name: "Plus", last_name: "Tester" }).eq("id", candQaPlus.id);
   await admin.from("profiles").update({ first_name: "QA", last_name: "Tester" }).eq("id", candQa.id);
   const { data: r } = await admin.from("resumes").insert({ user_id: cand.id, is_base: true, title: "Base", structured_content: { summary: "one", skills: ["a", "b"] } }).select("id").single();
   resumeId = r!.id;
@@ -104,11 +108,11 @@ beforeAll(async () => {
   await admin.from("talent_directory_subscriptions").insert({ organization_id: o1!.id, plan_id: plan!.id, status: "active", expires_at: new Date(Date.now() + 30 * 24 * 3600_000).toISOString() });
   const { data: job } = await admin.from("job_postings").insert({ organization_id: o1!.id, source_type: "internal", status: "open", title: `Marks job ${tag}`, company_name: "Marks Co", description: "d", dedup_fingerprint: `marks-${tag}` }).select("id").single();
   jobId = job!.id;
-  const { data: apps } = await admin.from("applications").insert([cand, candOptOut, candQa].map((c) => ({ user_id: c.id, job_posting_id: jobId, applied_at: new Date().toISOString() }))).select("id, user_id");
+  const { data: apps } = await admin.from("applications").insert([cand, candOptOut, candQa, candQaPlus].map((c) => ({ user_id: c.id, job_posting_id: jobId, applied_at: new Date().toISOString() }))).select("id, user_id");
   for (const a of apps ?? []) appOf[a.user_id as string] = a.id as string;
 
-  // review the three candidates through the real function
-  for (const c of [cand, candOptOut, candQa]) {
+  // review the candidates through the real function
+  for (const c of [cand, candOptOut, candQa, candQaPlus]) {
     expect(await resolve(await pending(c.id), c.id, true)).toBe(true);
   }
 }, 180_000);
@@ -228,6 +232,32 @@ describe("the applicants read (applicant_visible_marks)", () => {
     await admin.from("profiles").update({ deletion_requested_at: new Date().toISOString() }).eq("id", candOptOut.id);
     expect((await applicants(employer)).rows.map((x) => x.application_id)).toEqual(appIdsOf(cand));
     await admin.from("profiles").update({ deletion_requested_at: null }).eq("id", candOptOut.id);
+  });
+});
+
+describe("QA by the owner's plus-address (0251): excluded from both reads, with a normal candidate as the positive control", () => {
+  it("the fixture is sound: the plus-address candidate is verified, opted in, has an application and holds a live mark, and is_qa_account is the only thing that can hide it", async () => {
+    const { data: p } = await admin.from("profiles").select("email, first_name, last_name, talent_verification_status, talent_directory_opt_in").eq("id", candQaPlus.id).single();
+    expect(p!.email).toBe(`stonebridgehibr1+marks-${tag}@gmail.com`);
+    expect(`${p!.first_name} ${p!.last_name}`).toBe("Plus Tester");
+    expect(p!.talent_verification_status).toBe("verified");
+    expect(p!.talent_directory_opt_in).toBe(true);
+    expect(await marksOf(candQaPlus.id)).toHaveLength(1);
+    expect(appOf[candQaPlus.id]).toBeTruthy();
+    const { data: isQa } = await admin.rpc("is_qa_account", { p_email: p!.email, p_first: p!.first_name, p_last: p!.last_name, p_display: null });
+    expect(isQa).toBe(true);
+  });
+  it("employer_visible_marks returns the normal candidate's mark and nothing for the plus-address account", async () => {
+    const r = await directory(employer, [cand.id, candQaPlus.id]);
+    expect(r.error).toBeNull();
+    expect(r.rows.map((x) => x.candidate_id), "the positive control is missing, or the QA account leaked").toEqual([cand.id]);
+  });
+  it("applicant_visible_marks returns the normal applicant's mark and nothing for the plus-address account", async () => {
+    const r = await applicants(employer);
+    expect(r.error).toBeNull();
+    const ids = r.rows.map((x) => x.application_id);
+    expect(ids, "the positive control is missing").toContain(appOf[cand.id]);
+    expect(ids, "the plus-address QA account leaked into the applicants read").not.toContain(appOf[candQaPlus.id]);
   });
 });
 
