@@ -325,6 +325,141 @@ describe("attemptPayout: the withheld-standing gate", () => {
       await admin.from("mentor_profiles").update({ status: "approved" }).eq("user_id", mentorId);
     }
   });
+
+  /*
+   * PR-A FIX 2: the two early exits (mentor not approved, no payout recipient code) run BEFORE any Paystack check. A row that already carries a stored reference got it from an
+   * earlier attempt that never got an answer, so that transfer may still complete. Withholding the payout must not throw the reference away: the row becomes failed with the
+   * reference left on it, and the next real attempt verifies it first.
+   */
+  const withholdCases = [
+    {
+      label: "the mentor is suspended",
+      reason: /not currently approved/i,
+      withhold: () => admin.from("mentor_profiles").update({ status: "suspended" }).eq("user_id", mentorId),
+      restore: () => admin.from("mentor_profiles").update({ status: "approved" }).eq("user_id", mentorId),
+    },
+    {
+      label: "the mentor has no payout recipient code",
+      reason: /No verified payout bank details/i,
+      withhold: () => admin.from("mentor_profiles").update({ payout_recipient_code: null }).eq("user_id", mentorId),
+      restore: () => admin.from("mentor_profiles").update({ payout_recipient_code: "RCP_test_fixture" }).eq("user_id", mentorId),
+    },
+  ] as const;
+
+  it.each(withholdCases)("a row with a STORED reference and $label: failed, the reference is STILL on the row, and Paystack is not asked anything", async (c) => {
+    const session = await makeCompletedSession(15_000);
+    const stored = newReference();
+    const payoutId = await makeLeftBehindPayout(session.id, session.mentor_payout_ngn, { status: "pending", reference: stored, minutesAgo: 30 });
+    await c.withhold();
+    try {
+      const { attemptPayout } = await import("@/lib/mentorship/payouts");
+      const outcome = await attemptPayout(payoutId);
+
+      expect(outcome.outcome).toBe("failed");
+      const row = await payoutRow(payoutId);
+      expect(row.status).toBe("failed");
+      expect(row.failure_reason).toMatch(c.reason);
+      expect(row.pending_transfer_reference, "MONEY BUG: withholding a payout threw away the reference of an earlier transfer that may still complete").toBe(stored);
+      expect(initiateTransfer).not.toHaveBeenCalled();
+      expect(verifyTransfer, "the mentor is withheld: nothing is asked of Paystack here, the next real attempt verifies").not.toHaveBeenCalled();
+    } finally {
+      await c.restore();
+    }
+  });
+
+  it("after the mentor is reinstated, the retry VERIFIES the stored reference; if Paystack says success the row is paid and initiateTransfer is never called", async () => {
+    const session = await makeCompletedSession(15_000);
+    const stored = newReference();
+    const payoutId = await makeLeftBehindPayout(session.id, session.mentor_payout_ngn, { status: "pending", reference: stored, minutesAgo: 30 });
+    const { attemptPayout } = await import("@/lib/mentorship/payouts");
+
+    await admin.from("mentor_profiles").update({ status: "suspended" }).eq("user_id", mentorId);
+    try {
+      expect((await attemptPayout(payoutId)).outcome).toBe("failed");
+    } finally {
+      await admin.from("mentor_profiles").update({ status: "approved" }).eq("user_id", mentorId);
+    }
+
+    verifyTransfer.mockResolvedValueOnce(transferResult(session.mentor_payout_ngn, stored, "success", "TRF_while_withheld"));
+    const retry = await attemptPayout(payoutId);
+
+    expect(retry.outcome).toBe("paid");
+    expect(verifyTransfer).toHaveBeenCalledWith(stored);
+    expect(initiateTransfer, "MONEY BUG: the transfer that completed while the payout was withheld was sent a second time").not.toHaveBeenCalled();
+    const row = await payoutRow(payoutId);
+    expect(row.status).toBe("paid");
+    expect(row.paystack_transfer_code).toBe("TRF_while_withheld");
+  });
+
+  it("after the mentor is reinstated, if verify answers 404 the SAME stored reference is used for the new request", async () => {
+    const session = await makeCompletedSession(15_000);
+    const stored = newReference();
+    const payoutId = await makeLeftBehindPayout(session.id, session.mentor_payout_ngn, { status: "pending", reference: stored, minutesAgo: 30 });
+    const { attemptPayout } = await import("@/lib/mentorship/payouts");
+
+    await admin.from("mentor_profiles").update({ payout_recipient_code: null }).eq("user_id", mentorId);
+    try {
+      expect((await attemptPayout(payoutId)).outcome).toBe("failed");
+    } finally {
+      await admin.from("mentor_profiles").update({ payout_recipient_code: "RCP_test_fixture" }).eq("user_id", mentorId);
+    }
+
+    verifyTransfer.mockRejectedValueOnce(await declineError("Transfer not found", 404));
+    initiateTransfer.mockImplementation(async (p: { reference: string }) => transferResult(session.mentor_payout_ngn, p.reference, "success", "TRF_after_404"));
+    const retry = await attemptPayout(payoutId);
+
+    expect(retry.outcome).toBe("paid");
+    expect(verifyTransfer).toHaveBeenCalledWith(stored);
+    expect(initiateTransfer).toHaveBeenCalledTimes(1);
+    expect(initiateTransfer.mock.calls[0][0].reference, "a reference Paystack never created must be reused, not replaced").toBe(stored);
+  });
+
+  it("a row with NO stored reference and a suspended mentor behaves exactly as before: failed, reference null", async () => {
+    const session = await makeCompletedSession(15_000);
+    const payoutId = await makeEligiblePayout(session.id, session.mentor_payout_ngn);
+    await admin.from("mentor_profiles").update({ status: "suspended" }).eq("user_id", mentorId);
+    try {
+      const { attemptPayout } = await import("@/lib/mentorship/payouts");
+      const outcome = await attemptPayout(payoutId);
+
+      expect(outcome.outcome).toBe("failed");
+      const row = await payoutRow(payoutId);
+      expect(row.status).toBe("failed");
+      expect(row.pending_transfer_reference).toBeNull();
+      expect(initiateTransfer).not.toHaveBeenCalled();
+      expect(verifyTransfer).not.toHaveBeenCalled();
+    } finally {
+      await admin.from("mentor_profiles").update({ status: "approved" }).eq("user_id", mentorId);
+    }
+  });
+
+  it.each(["error", "zero"] as const)(
+    "the write that keeps the reference fails (%s): failure_unrecorded, the row's reference is untouched, and it is logged",
+    async (mode) => {
+      const session = await makeCompletedSession(15_000);
+      const stored = newReference();
+      const payoutId = await makeLeftBehindPayout(session.id, session.mentor_payout_ngn, { status: "pending", reference: stored, minutesAgo: 30 });
+      faulty.fail({ table: "mentor_payouts", op: "update", mode, times: Infinity, match: (v) => v.status === "failed" });
+      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      await admin.from("mentor_profiles").update({ status: "suspended" }).eq("user_id", mentorId);
+      try {
+        const { attemptPayout } = await import("@/lib/mentorship/payouts");
+        const outcome = await attemptPayout(payoutId);
+        const logged = log.mock.calls.map((c) => c.join(" ")).join("\n");
+
+        expect(outcome.outcome).toBe("failure_unrecorded");
+        expect(logged).toContain(payoutId);
+        expect(logged).toContain(stored);
+        const row = await payoutRow(payoutId);
+        expect(row.pending_transfer_reference, "a failed write must leave the stored reference exactly as it was").toBe(stored);
+        expect(row.status).toBe("processing");
+        expect(initiateTransfer).not.toHaveBeenCalled();
+      } finally {
+        log.mockRestore();
+        await admin.from("mentor_profiles").update({ status: "approved" }).eq("user_id", mentorId);
+      }
+    },
+  );
 });
 
 /* ───────────────────────────────────────────────────────────────────────────

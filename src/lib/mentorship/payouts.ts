@@ -267,14 +267,10 @@ export async function attemptPayout(payoutId: string): Promise<PayoutAttemptOutc
     .maybeSingle();
 
   if (!mentor || mentor.status !== "approved") {
-    return recordFailure(supabase, claim, "Mentor is not currently approved — payout withheld pending review.");
+    return recordWithheld(supabase, claim, "Mentor is not currently approved — payout withheld pending review.");
   }
   if (!mentor.payout_recipient_code) {
-    return recordFailure(
-      supabase,
-      claim,
-      "No verified payout bank details on file for this mentor yet. Retry once they add them.",
-    );
+    return recordWithheld(supabase, claim, "No verified payout bank details on file for this mentor yet. Retry once they add them.");
   }
 
   return resolveOrInitiate(supabase, claim, mentor.payout_recipient_code);
@@ -463,11 +459,21 @@ async function markPaid(supabase: Db, claim: Claim, reference: string, transferC
   return { outcome: "paid_unrecorded", reference, transferCode };
 }
 
-async function recordFailure(supabase: Db, claim: Claim, reason: string, reference?: string): Promise<PayoutAttemptOutcome> {
+/**
+ * The two early exits (mentor not approved, no payout recipient code) run BEFORE Paystack is asked anything. If the claimed row already carries a reference, an earlier attempt left it
+ * because it got no answer, and that transfer may still complete: the payout is marked failed (withheld) but the reference stays on the row, so a later retry takes the verify-first
+ * path and never mints a second reference. Nothing is asked of Paystack here: the mentor is withheld, and the next real attempt verifies. A row with no reference is recorded as before.
+ */
+async function recordWithheld(supabase: Db, claim: Claim, reason: string): Promise<PayoutAttemptOutcome> {
+  return recordFailure(supabase, claim, reason, claim.pending_transfer_reference ?? undefined, claim.pending_transfer_reference !== null);
+}
+
+async function recordFailure(supabase: Db, claim: Claim, reason: string, reference?: string, keepReference = false): Promise<PayoutAttemptOutcome> {
   const result = await fencedUpdate(supabase, claim, {
     status: "failed",
     failure_reason: reason,
-    pending_transfer_reference: null,
+    // The reference is spent (Paystack affirmed the transfer failed, or refused the request) and is cleared, unless a caller says it must be kept (see recordWithheld).
+    ...(keepReference ? {} : { pending_transfer_reference: null }),
   });
   if (result.kind === "written") return { outcome: "failed", reason };
   if (result.kind === "no_row") {
