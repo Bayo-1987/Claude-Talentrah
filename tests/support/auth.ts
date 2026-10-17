@@ -520,6 +520,27 @@ export async function createAuthedTestUser(
  * `admin.auth.admin.deleteUser`. Both are logged the same way, so a leaked
  * id is traceable regardless of which path handled it.
  */
+/**
+ * Cleanup talks to the auth service with at most this many requests in flight: the same limit the creation side of the big fixtures uses (tests/admin/people-signups-qa-filter.test.ts). Starting every
+ * delete at once (68 ids in that file) made the CI job's local auth service answer "Database error loading user" for a few of them.
+ */
+const CLEANUP_CONCURRENCY = 5;
+
+/** Runs `fn` over `items` with at most `limit` in flight; results keep the order of `items`. `fn` must not reject (the callers below turn every failure into a string). */
+async function mapLimit<T, R>(items: readonly T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const worker = async (): Promise<void> => {
+    for (;;) {
+      const i = next++;
+      if (i >= items.length) return;
+      results[i] = await fn(items[i]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
 export async function deleteTestUsers(ids: string[]): Promise<void> {
   if (!ids.length) return;
 
@@ -541,25 +562,21 @@ export async function deleteTestUsers(ids: string[]): Promise<void> {
   for (const id of toRelease) {
     process.stdout.write(`[test-cleanup] run=${RUN_TAG} releasing pooled user=${id} at=${releasedAt}\n`);
   }
-  const releaseResults = await Promise.all(
-    toRelease.map((id) =>
-      Promise.resolve(admin.rpc("release_test_pool_user", { p_user_id: id, p_lease_id: RUN_TAG }))
-        .then((r) => (r.error ? `${id}: ${r.error.message}` : null))
-        .catch((e) => `${id}: ${e instanceof Error ? e.message : String(e)}`),
-    ),
+  const releaseResults = await mapLimit(toRelease, CLEANUP_CONCURRENCY, (id) =>
+    Promise.resolve(admin.rpc("release_test_pool_user", { p_user_id: id, p_lease_id: RUN_TAG }))
+      .then((r) => (r.error ? `${id}: ${r.error.message}` : null))
+      .catch((e) => `${id}: ${e instanceof Error ? e.message : String(e)}`),
   );
 
   const deletedAt = new Date().toISOString();
   for (const id of toDelete) {
     process.stdout.write(`[test-cleanup] run=${RUN_TAG} deleting user=${id} at=${deletedAt}\n`);
   }
-  const deleteResults = await Promise.all(
-    toDelete.map((id) =>
-      admin.auth.admin
-        .deleteUser(id)
-        .then((r) => (r.error ? `${id}: ${r.error.message}` : null))
-        .catch((e) => `${id}: ${e instanceof Error ? e.message : String(e)}`),
-    ),
+  const deleteResults = await mapLimit(toDelete, CLEANUP_CONCURRENCY, (id) =>
+    admin.auth.admin
+      .deleteUser(id)
+      .then((r) => (r.error ? `${id}: ${r.error.message}` : null))
+      .catch((e) => `${id}: ${e instanceof Error ? e.message : String(e)}`),
   );
 
   const failed = [...releaseResults, ...deleteResults].filter((r): r is string => r !== null);
