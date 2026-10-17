@@ -134,7 +134,7 @@ describe("company profile form (employer)", () => {
   it("both error returns (name required, save failed) hand the typed values back; the saved state hands none", () => {
     expect(actions).toContain('const typed = submittedValues(form, ["name", "domain", "description", "logoUrl"]);');
     expect(actions).toContain('{ error: "Company name is required.", values: typed }');
-    expect(actions).toContain("{ error: `Couldn't save your profile: ${error.message}`, values: typed }");
+    expect(actions).toContain("{ error: `Couldn't save your profile. ${TRY_AGAIN}`, values: typed }");
     expect(actions).toContain("{ error: string; values?: SubmittedValues }");
   });
   it("the four fields default to the returned values, falling back to the saved profile", () => {

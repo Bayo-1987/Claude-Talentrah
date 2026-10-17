@@ -34,7 +34,7 @@ describe("CAC verification form", () => {
   it("the action hands the typed RC number and business name back with both errors", () => {
     expect(actions).toContain('const typed = submittedValues(form, ["cacNumber", "cacBusinessName"]);');
     expect(actions).toContain('{ error: "Both the RC number and the registered business name are required.", values: typed }');
-    expect(actions).toContain("{ error: `Couldn't submit for verification: ${error.message}`, values: typed }");
+    expect(actions).toContain("{ error: `Couldn't submit for verification. ${TRY_AGAIN}`, values: typed }");
   });
   it("both fields default to the returned values, falling back to the saved submission", () => {
     expect(form).toContain('defaultValue={inputValue(values, "cacBusinessName", initial.cacBusinessName)}');
