@@ -1,5 +1,6 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { excludeQaAccounts } from "./exclude-qa";
 import {
   SIGNUP_COLUMNS,
   fromInclusiveBound,
@@ -19,7 +20,7 @@ export interface SignupPage {
 }
 
 /**
- * One page of job-seeker signups, newest first.
+ * One page of job-seeker signups, newest first. QA and owner test accounts are not listed or counted.
  *
  * SERVICE ROLE, like every other admin read. `profiles` is not readable by an
  * operator's session — there is no operator Supabase session at all (see
@@ -35,11 +36,14 @@ export async function listSignups(spec: SignupListSpec): Promise<SignupPage> {
   const supabase = createServiceRoleClient();
   const { from, to } = pageRange(spec.page);
 
-  let query = supabase
-    .from("profiles")
-    .select(SIGNUP_COLUMNS, { count: "exact" })
-    .order("created_at", { ascending: false })
-    .range(from, to);
+  // QA and owner test accounts are left out IN THE QUERY, before the range and the count, so the total, the page count and every page are of real accounts only (see exclude-qa.ts).
+  let query = excludeQaAccounts(
+    supabase
+      .from("profiles")
+      .select(SIGNUP_COLUMNS, { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(from, to),
+  );
 
   if (spec.email) query = query.ilike("email", `%${spec.email}%`);
   if (spec.from) query = query.gte("created_at", fromInclusiveBound(spec.from));
@@ -100,10 +104,13 @@ async function resolveReferrerEmails(
  */
 export async function countSignupsSince(sinceIso: string): Promise<number> {
   const supabase = createServiceRoleClient();
-  const { count, error } = await supabase
-    .from("profiles")
-    .select("id", { count: "exact", head: true })
-    .gt("created_at", sinceIso);
+  // The same exclusion as the list: the badge says "N new", and N must not include the owner's own test accounts.
+  const { count, error } = await excludeQaAccounts(
+    supabase
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .gt("created_at", sinceIso),
+  );
 
   if (error) throw error;
   return count ?? 0;

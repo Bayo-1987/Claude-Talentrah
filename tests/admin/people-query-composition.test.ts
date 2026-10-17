@@ -49,7 +49,7 @@ vi.mock("@/lib/supabase/service-role", () => ({
           ).then(resolve);
         },
       };
-      for (const method of ["order", "range", "ilike", "gte", "lt", "lte", "gt", "eq", "in"]) {
+      for (const method of ["order", "range", "ilike", "gte", "lt", "lte", "gt", "eq", "in", "or"]) {
         chain[method] = (...args: unknown[]) => {
           entry.calls.push([method, args]);
           return chain;
@@ -62,6 +62,7 @@ vi.mock("@/lib/supabase/service-role", () => ({
 
 const { listSignups, countSignupsSince } = await import("@/lib/admin/people/queries");
 const { PAGE_SIZE } = await import("@/lib/admin/people/signups");
+const { QA_EXCLUSION_GROUPS } = await import("@/lib/admin/people/exclude-qa");
 
 const main = () => recorded[0];
 const callArgs = (entry: Recorded, method: string) =>
@@ -92,6 +93,14 @@ describe("the list query", () => {
     expect(callArgs(main(), "ilike")).toHaveLength(0);
     expect(callArgs(main(), "gte")).toHaveLength(0);
     expect(callArgs(main(), "lt")).toHaveLength(0);
+  });
+
+  it("leaves QA and owner test accounts out IN THE QUERY: every exclusion group is on the one query that is counted and paged", async () => {
+    await listSignups({ page: 1 });
+    expect(callArgs(main(), "or")).toEqual(QA_EXCLUSION_GROUPS.map((g) => [g]));
+    // The same builder as the range and the exact count, so the total and the pages are of real accounts only (a post-fetch filter could not do that).
+    expect(main().select?.[1]).toEqual({ count: "exact" });
+    expect(callArgs(main(), "range")).toHaveLength(1);
   });
 
   it("composes email, both date bounds and paging together", async () => {
@@ -158,5 +167,28 @@ describe("the new-signups counter", () => {
     // personal data, which is why it is exempt from the audit entry.
     expect(main().select?.[1]).toEqual({ count: "exact", head: true });
     expect(callArgs(main(), "gt")[0]).toEqual(["created_at", "2026-09-07T12:00:00.000Z"]);
+  });
+
+  it("leaves QA and owner test accounts out of the count too, with the same groups as the list", async () => {
+    await countSignupsSince("2026-09-07T12:00:00.000Z");
+    expect(callArgs(main(), "or")).toEqual(QA_EXCLUSION_GROUPS.map((g) => [g]));
+  });
+});
+
+describe("the exclusion groups", () => {
+  it("each one lets a row through when its column is NULL (NOT NULL is NULL in SQL: without this a real account with no name would vanish)", () => {
+    const columns = ["email", "first_name", "referral_leaderboard_display_name"];
+    for (const col of columns) {
+      const groups = QA_EXCLUSION_GROUPS.filter((g) => g.startsWith(`${col}.is.null,`));
+      expect(groups.length, `no null-guarded group for ${col}`).toBeGreaterThan(0);
+    }
+    // The full-name clause has no leading is.null for first_name (it is "first is not blank" OR last is null OR last is not a QA name) but still guards last_name.
+    const fullName = QA_EXCLUSION_GROUPS.find((g) => g.startsWith("and(first_name.not.is.null"));
+    expect(fullName).toContain("last_name.is.null");
+  });
+
+  it("there is one group per clause of the rule, and none selects QA accounts instead of excluding them", () => {
+    expect(QA_EXCLUSION_GROUPS).toHaveLength(5);
+    for (const g of QA_EXCLUSION_GROUPS) expect(g).toMatch(/\.not\.(ilike|imatch|match)\./);
   });
 });
