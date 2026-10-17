@@ -176,6 +176,11 @@ export async function commitTailoringAllowance(
   userId: string,
   kind: TailoringActionKind,
   allowance: AllowanceResult,
+  /**
+   * `deferPassEvent`: do not write the covered_by_pass event here. /api/tailoring passes it and writes the event itself AFTER the result is saved (src/lib/tailoring/commit-ledger.ts), so a failed save does not use up
+   * a Pass fair-use slot. Every other caller keeps the default: the event is written here, as before.
+   */
+  options?: { deferPassEvent?: boolean },
 ): Promise<TailoringCommitResult> {
   // Fired unconditionally, regardless of which branch below actually runs —
   // this function's own contract ("call only after the LLM call succeeds")
@@ -192,6 +197,7 @@ export async function commitTailoringAllowance(
   // already succeeded, so a failed run never reaches this line and never
   // consumes a fair-use cap slot for work that produced nothing.
   if (allowance.isPassCovered) {
+    if (options?.deferPassEvent) return { balanceAfter: null };
     const reason: CreditReason = kind === "tailoring" ? "tailoring_run" : "cover_letter_run";
     await logCreditGateEvent({
       userId,
