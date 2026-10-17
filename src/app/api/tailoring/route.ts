@@ -8,6 +8,14 @@ import {
   commitTailoringAllowance,
   InsufficientCreditsError,
 } from "@/lib/tailoring/gate";
+import {
+  TailoringCommitLedger,
+  describeRefund,
+  legFromAllowance,
+  refundTailoringCommits,
+  writePassCoverageEvent,
+  type RefundOutcome,
+} from "@/lib/tailoring/commit-ledger";
 import { consumeRateLimit, rateLimited } from "@/lib/api/rate-limit";
 import { recommendCoursesForGapAnalysis } from "@/lib/courses/recommend";
 
@@ -159,9 +167,12 @@ export async function POST(request: Request) {
   // others' spends fail with InsufficientCreditsError. That used to escape as an empty 500 with the work already done. Now: the tailoring leg's shortfall is a 402 with the normal message (nothing was
   // charged, nothing is delivered, a free cover-letter trial claimed at the check is given back); the cover-letter leg's shortfall delivers the tailored resume without the letter, as the check-time
   // shortfall already does.
+  // TAILORING-SAVE-REFUND-1: every commit below is recorded here. If the result is not saved, what a leg took is given back (credits granted back, a free trial released); a Pass leg's covered_by_pass event is written
+  // only after the save, so a failed save never uses up a fair-use slot. See src/lib/tailoring/commit-ledger.ts.
+  const ledger = new TailoringCommitLedger();
   let tailoringCommit;
   try {
-    tailoringCommit = await commitTailoringAllowance(user.id, "tailoring", tailoringAllowance);
+    tailoringCommit = await commitTailoringAllowance(user.id, "tailoring", tailoringAllowance, { deferPassEvent: true });
   } catch (err) {
     if (!(err instanceof InsufficientCreditsError)) throw err;
     await coverLetterAllowance?.release?.();
@@ -170,105 +181,142 @@ export async function POST(request: Request) {
       { status: 402 },
     );
   }
-  let coverLetterCommit;
-  if (coverLetterAllowance) {
-    try {
-      coverLetterCommit = await commitTailoringAllowance(user.id, "cover_letter", coverLetterAllowance);
-    } catch (err) {
-      if (!(err instanceof InsufficientCreditsError)) throw err;
-      await coverLetterAllowance.release?.();
-      coverLetterAllowance = null;
+  ledger.record(legFromAllowance("tailoring", tailoringAllowance));
+
+  // Gives every recorded leg back (once) and answers with a plain 500 that says only what is true: "returned" only if every grant went through.
+  const failAndRefund = async (headline: string) => {
+    const outcome = await refundTailoringCommits(user.id, ledger);
+    return NextResponse.json({ error: describeRefund(outcome, headline) }, { status: 500 });
+  };
+
+  let saved = false;
+  try {
+    let coverLetterCommit;
+    if (coverLetterAllowance) {
+      try {
+        coverLetterCommit = await commitTailoringAllowance(user.id, "cover_letter", coverLetterAllowance, { deferPassEvent: true });
+        ledger.record(legFromAllowance("cover_letter", coverLetterAllowance));
+      } catch (err) {
+        if (!(err instanceof InsufficientCreditsError)) throw err;
+        await coverLetterAllowance.release?.();
+        coverLetterAllowance = null;
+      }
     }
-  }
-  // The balance the LAST spend left (the two commits run in sequence, so that is the final ledger state);
-  // a free-trial or Pass leg contributes null and falls back to the earlier leg. null when nothing was
-  // spent at all (issue #605: the masthead updates from this without a reload).
-  const creditsBalance = coverLetterCommit?.balanceAfter ?? tailoringCommit?.balanceAfter ?? null;
+    // The balance the LAST spend left (the two commits run in sequence, so that is the final ledger state);
+    // a free-trial or Pass leg contributes null and falls back to the earlier leg. null when nothing was
+    // spent at all (issue #605: the masthead updates from this without a reload).
+    let creditsBalance = coverLetterCommit?.balanceAfter ?? tailoringCommit?.balanceAfter ?? null;
 
-  const { data: tailoredResumeRow, error: resumeError } = await supabase
-    .from("resumes")
-    .insert({
-      user_id: user.id,
-      is_base: false,
-      title: result.structuredJd.title ? `Tailored — ${result.structuredJd.title}` : "Tailored resume",
-      source: "tailored",
-      tailored_for_job_id: jobPostingId,
-      structured_content: JSON.parse(JSON.stringify(result.tailoredResume)),
-    })
-    .select("id")
-    .single();
-
-  if (resumeError || !tailoredResumeRow) {
-    return NextResponse.json({ error: "Couldn't save the tailored resume." }, { status: 500 });
-  }
-
-  let coverLetterResumeId: string | null = null;
-  if (result.coverLetter && coverLetterAllowance) {
-    const { data: letterRow } = await supabase
+    const { data: tailoredResumeRow, error: resumeError } = await supabase
       .from("resumes")
       .insert({
         user_id: user.id,
         is_base: false,
-        title: result.structuredJd.title ? `Cover letter — ${result.structuredJd.title}` : "Cover letter",
+        title: result.structuredJd.title ? `Tailored — ${result.structuredJd.title}` : "Tailored resume",
         source: "tailored",
         tailored_for_job_id: jobPostingId,
-        structured_content: JSON.parse(
-          JSON.stringify({ ...EMPTY_RESUME, summary: result.coverLetter }),
-        ),
+        structured_content: JSON.parse(JSON.stringify(result.tailoredResume)),
       })
       .select("id")
       .single();
-    coverLetterResumeId = letterRow?.id ?? null;
+
+    if (resumeError || !tailoredResumeRow) {
+      return await failAndRefund("Couldn't save the tailored resume.");
+    }
+    // The tailored resume is saved: that leg is delivered and is no longer refundable. A Pass leg's event is written now, not at the commit.
+    saved = true;
+    const tailoringLeg = ledger.settle("tailoring");
+    if (tailoringLeg) await writePassCoverageEvent(user.id, tailoringLeg);
+
+    let coverLetterResumeId: string | null = null;
+    let letterRefund: RefundOutcome | null = null;
+    if (result.coverLetter && coverLetterAllowance) {
+      const { data: letterRow } = await supabase
+        .from("resumes")
+        .insert({
+          user_id: user.id,
+          is_base: false,
+          title: result.structuredJd.title ? `Cover letter — ${result.structuredJd.title}` : "Cover letter",
+          source: "tailored",
+          tailored_for_job_id: jobPostingId,
+          structured_content: JSON.parse(
+            JSON.stringify({ ...EMPTY_RESUME, summary: result.coverLetter }),
+          ),
+        })
+        .select("id")
+        .single();
+      coverLetterResumeId = letterRow?.id ?? null;
+      // The letter was charged for but not saved: give just that leg back (the tailored resume is delivered).
+      if (!letterRow) {
+        letterRefund = await refundTailoringCommits(user.id, ledger);
+        if (letterRefund.lastBalance !== null) creditsBalance = letterRefund.lastBalance;
+      }
+    }
+    // Any leg still recorded was delivered (or is the letter leg committed with no letter text, as before): settle it, and write its Pass event now.
+    for (const leg of ledger.drain()) await writePassCoverageEvent(user.id, leg);
+
+    // A letter that was not saved is not part of what this run spent or was covered by; a paid letter whose grant FAILED is still charged, so it stays in creditsSpent.
+    const refund: RefundOutcome | null = letterRefund;
+    const letterAllowance = coverLetterAllowance;
+    const letterDropped = refund !== null;
+    const letterStillCharged = refund !== null && refund.failedGrants.length > 0;
+    const totalCreditsSpent = tailoringAllowance.creditsSpent + (letterAllowance && (!letterDropped || letterStillCharged) ? letterAllowance.creditsSpent : 0);
+    const isFreeTrial = tailoringAllowance.isFreeTrial || (!!letterAllowance && !letterDropped && letterAllowance.isFreeTrial);
+    // Both legs are covered by the SAME pass-and-cap check within one request,
+    // so they can only ever agree — but this reads as "was this run free
+    // because of the Pass" rather than assuming that from creditsSpent === 0,
+    // which is also true (and means something different) for the free trial.
+    const isPassCovered = tailoringAllowance.isPassCovered || (!!letterAllowance && !letterDropped && letterAllowance.isPassCovered);
+    const notice = refund ? describeRefund(refund, "Your tailored resume saved, but the cover letter didn't.") : undefined;
+
+    // Service role (migration 0031): this row is the server's record of what it
+    // just did and charged for. `authenticated` no longer holds INSERT on the
+    // table, so a user cannot fabricate their own tailoring history.
+    await createServiceRoleClient().from("job_tailoring_requests").insert({
+      user_id: user.id,
+      source_job_posting_id: jobPostingId,
+      source_jd_text: jdText,
+      gap_analysis: JSON.parse(JSON.stringify(result.gapAnalysis)),
+      tailored_resume_id: tailoredResumeRow.id,
+      tailored_cover_letter_id: coverLetterResumeId,
+      is_free_trial: isFreeTrial,
+      credits_spent: totalCreditsSpent,
+    });
+
+    /*
+     * Course recommendations for the gaps Farah just found.
+     *
+     * Computed here rather than in the browser for two reasons. The catalog is
+     * server data the page has no other reason to hold, so shipping all of it to
+     * every client to pick two rows would be paying bandwidth for something the
+     * target market pays for by the megabyte. And the affiliate URLs stay out of
+     * the page entirely until there is a result that actually cites them.
+     *
+     * Awaited AFTER the charge and after the tailoring row is written, so its
+     * failure cannot cost a paid run — `recommendCoursesForGapAnalysis` does not
+     * throw, and an empty list is a normal answer rather than an error state.
+     */
+    const courseRecommendations = await recommendCoursesForGapAnalysis(
+      supabase,
+      result.gapAnalysis,
+    );
+
+    return NextResponse.json({
+      resumeId: tailoredResumeRow.id,
+      coverLetterResumeId,
+      result,
+      isFreeTrial,
+      isPassCovered,
+      creditsSpent: totalCreditsSpent,
+      creditsBalance,
+      courseRecommendations,
+      ...(notice ? { notice } : {}),
+    });
+  } catch (err) {
+    // Anything unexpected before the result was saved: give the legs back (a second refund after one that already ran finds nothing to grant). After the save, the error is the same as before.
+    if (saved) throw err;
+    console.error("Tailoring: failed after the allowance was committed", err);
+    await coverLetterAllowance?.release?.();
+    return await failAndRefund("Something went wrong finishing this run.");
   }
-
-  const totalCreditsSpent = tailoringAllowance.creditsSpent + (coverLetterAllowance?.creditsSpent ?? 0);
-  const isFreeTrial = tailoringAllowance.isFreeTrial || (coverLetterAllowance?.isFreeTrial ?? false);
-  // Both legs are covered by the SAME pass-and-cap check within one request,
-  // so they can only ever agree — but this reads as "was this run free
-  // because of the Pass" rather than assuming that from creditsSpent === 0,
-  // which is also true (and means something different) for the free trial.
-  const isPassCovered = tailoringAllowance.isPassCovered || (coverLetterAllowance?.isPassCovered ?? false);
-
-  // Service role (migration 0031): this row is the server's record of what it
-  // just did and charged for. `authenticated` no longer holds INSERT on the
-  // table, so a user cannot fabricate their own tailoring history.
-  await createServiceRoleClient().from("job_tailoring_requests").insert({
-    user_id: user.id,
-    source_job_posting_id: jobPostingId,
-    source_jd_text: jdText,
-    gap_analysis: JSON.parse(JSON.stringify(result.gapAnalysis)),
-    tailored_resume_id: tailoredResumeRow.id,
-    tailored_cover_letter_id: coverLetterResumeId,
-    is_free_trial: isFreeTrial,
-    credits_spent: totalCreditsSpent,
-  });
-
-  /*
-   * Course recommendations for the gaps Farah just found.
-   *
-   * Computed here rather than in the browser for two reasons. The catalog is
-   * server data the page has no other reason to hold, so shipping all of it to
-   * every client to pick two rows would be paying bandwidth for something the
-   * target market pays for by the megabyte. And the affiliate URLs stay out of
-   * the page entirely until there is a result that actually cites them.
-   *
-   * Awaited AFTER the charge and after the tailoring row is written, so its
-   * failure cannot cost a paid run — `recommendCoursesForGapAnalysis` does not
-   * throw, and an empty list is a normal answer rather than an error state.
-   */
-  const courseRecommendations = await recommendCoursesForGapAnalysis(
-    supabase,
-    result.gapAnalysis,
-  );
-
-  return NextResponse.json({
-    resumeId: tailoredResumeRow.id,
-    coverLetterResumeId,
-    result,
-    isFreeTrial,
-    isPassCovered,
-    creditsSpent: totalCreditsSpent,
-    creditsBalance,
-    courseRecommendations,
-  });
 }
