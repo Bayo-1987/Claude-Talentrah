@@ -824,3 +824,65 @@ describe("attemptPayout: a row stuck at processing with NO reference is never cl
     expect(initiateTransfer).not.toHaveBeenCalled();
   });
 });
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * PR-A follow-up: what initiateTransfer ANSWERS is read the way verifyTransfer's answer is. Only 'failed' and 'reversed' are an affirmed failure; 'success' is paid;
+ * 'pending', 'otp' and every other status (a queued 'received', one nobody has seen) is an accepted request that may still complete, so its reference stays on the row.
+ * ─────────────────────────────────────────────────────────────────────────── */
+describe("attemptPayout: a status initiateTransfer returns that is not success, failed or reversed keeps the reference", () => {
+  it.each(["received", "queued-by-the-bank-7"])(
+    "initiate answers status '%s': indeterminate, the reference and transfer code stay on the row, and the next attempt VERIFIES it and never transfers again",
+    async (status) => {
+      const session = await makeCompletedSession(15_000);
+      const payoutId = await makeEligiblePayout(session.id, session.mentor_payout_ngn);
+      initiateTransfer.mockImplementation(async (p: { reference: string }) => transferResult(session.mentor_payout_ngn, p.reference, status, "TRF_queued"));
+
+      const { attemptPayout } = await import("@/lib/mentorship/payouts");
+      const first = await attemptPayout(payoutId);
+
+      expect(first.outcome, `MONEY BUG: a transfer Paystack accepted with status '${status}' was recorded as a failure`).toBe("indeterminate");
+      const sent = initiateTransfer.mock.calls[0][0].reference as string;
+      const after = await payoutRow(payoutId);
+      expect(after.status).toBe("pending");
+      expect(after.pending_transfer_reference, "MONEY BUG: the reference of a transfer that may still complete was cleared").toBe(sent);
+      expect(after.paystack_transfer_code).toBe("TRF_queued");
+
+      verifyTransfer.mockResolvedValueOnce(transferResult(session.mentor_payout_ngn, sent, "success", "TRF_queued"));
+      const second = await attemptPayout(payoutId);
+
+      expect(second.outcome).toBe("paid");
+      expect(verifyTransfer).toHaveBeenCalledWith(sent);
+      expect(initiateTransfer, "MONEY BUG: a second transfer was started for a payout whose first transfer Paystack had accepted").toHaveBeenCalledTimes(1);
+      expect((await payoutRow(payoutId)).status).toBe("paid");
+    },
+  );
+
+  it("initiate answers 'received' and a later verify still says 'received': still indeterminate, still no second transfer", async () => {
+    const session = await makeCompletedSession(15_000);
+    const payoutId = await makeEligiblePayout(session.id, session.mentor_payout_ngn);
+    initiateTransfer.mockImplementation(async (p: { reference: string }) => transferResult(session.mentor_payout_ngn, p.reference, "received", "TRF_queued"));
+    verifyTransfer.mockImplementation(async (reference: string) => transferResult(session.mentor_payout_ngn, reference, "received", "TRF_queued"));
+
+    const { attemptPayout } = await import("@/lib/mentorship/payouts");
+    expect((await attemptPayout(payoutId)).outcome).toBe("indeterminate");
+    expect((await attemptPayout(payoutId)).outcome).toBe("indeterminate");
+
+    expect(initiateTransfer).toHaveBeenCalledTimes(1);
+    expect((await payoutRow(payoutId)).pending_transfer_reference).toBe(initiateTransfer.mock.calls[0][0].reference);
+  });
+
+  it.each(["failed", "reversed"])("initiate answers status '%s': recorded as a failure and the reference is cleared, so a retry mints a fresh one", async (status) => {
+    const session = await makeCompletedSession(15_000);
+    const payoutId = await makeEligiblePayout(session.id, session.mentor_payout_ngn);
+    initiateTransfer.mockImplementation(async (p: { reference: string }) => transferResult(session.mentor_payout_ngn, p.reference, status, "TRF_dead"));
+
+    const { attemptPayout } = await import("@/lib/mentorship/payouts");
+    const outcome = await attemptPayout(payoutId);
+
+    expect(outcome.outcome).toBe("failed");
+    const row = await payoutRow(payoutId);
+    expect(row.status).toBe("failed");
+    expect(row.pending_transfer_reference).toBeNull();
+    expect(row.failure_reason).toContain(status);
+  });
+});

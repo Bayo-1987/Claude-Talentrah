@@ -434,15 +434,15 @@ async function resolveOrInitiate(supabase: Db, claim: Claim, recipientCode: stri
   if (result.status === "success") {
     return markPaid(supabase, claim, reference, result.transfer_code);
   }
-  if (result.status === "pending" || result.status === "otp") {
-    // Accepted but not resolved — commonly an OTP-approval step this cron
-    // cannot complete non-interactively. Recorded plainly so an admin knows
-    // to check Paystack's own dashboard (or request "Disable OTP" from
-    // Paystack support for balance transfers) rather than assume a bug.
-    return recordIndeterminate(supabase, claim, reference, result.transfer_code);
+  if (result.status === "failed" || result.status === "reversed") {
+    // The only two answers that say the money is not going out. The reference is cleared, so a retry mints a fresh one.
+    return recordFailure(supabase, claim, `Paystack transfer ended in status "${result.status}".`, reference);
   }
-
-  return recordFailure(supabase, claim, `Paystack transfer ended in status "${result.status}".`, reference);
+  // 'pending', 'otp' and EVERY other status (a queued 'received', one nobody has seen): Paystack accepted the request, so the transfer may still complete. The reference stays on the
+  // row and the next attempt verifies it; calling this a failure would clear the reference and let a later retry send a second transfer. Same reading as checkStoredReference.
+  // 'otp' is commonly an approval step this cron cannot complete non-interactively; recorded plainly so an admin checks Paystack's own dashboard (or asks Paystack to disable OTP
+  // for balance transfers) rather than assuming a bug.
+  return recordIndeterminate(supabase, claim, reference, result.transfer_code || undefined);
 }
 
 async function markPaid(supabase: Db, claim: Claim, reference: string, transferCode: string): Promise<PayoutAttemptOutcome> {
