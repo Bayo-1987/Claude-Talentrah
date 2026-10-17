@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { InsufficientCreditsError, spendCredits } from "@/lib/credits/spend";
+import { InsufficientCreditsError, grantCredits, spendCredits } from "@/lib/credits/spend";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { logCreditGateEvent } from "@/lib/credits/gate-events";
 import { checkPassCoverage, DAILY_CAP_MESSAGE } from "@/lib/passes/entitlement";
@@ -188,9 +188,12 @@ export async function confirmAutoApplyAction(queueId: string): Promise<AutoApply
   }
 
   // ---- Internal: a real submission on the user's behalf. ----------------
+  // Set only once a real charge has been taken, so the catch below gives back exactly what was spent and nothing when the spend itself failed or nothing was charged.
+  let chargeTaken = false;
   try {
     if (verdict.charge > 0) {
       await spendCredits(userId, verdict.charge, "auto_apply_run", queueId);
+      chargeTaken = true;
     }
 
     const { data: baseResume } = await admin
@@ -258,6 +261,19 @@ export async function confirmAutoApplyAction(queueId: string): Promise<AutoApply
       .from("auto_apply_queue")
       .update({ status: "pending", decided_at: null, credits_spent: 0 })
       .eq("id", queueId);
+
+    // The spend above has no idempotency key and wrote its ledger row, so a submission that fails after it must give the charge back, or a retry would charge again. Same reason as the spend with a positive
+    // delta, the way Farah's paid-hold refund works. A failed refund is logged and never changes what the person is told.
+    if (chargeTaken) {
+      try {
+        await grantCredits(userId, verdict.charge, "auto_apply_run", queueId);
+      } catch (refundErr) {
+        console.error(
+          `[confirmAutoApplyAction] REFUND FAILED for user ${userId}, queue ${queueId}, charge=${verdict.charge}: the credit taken for a submission that did not complete was not given back:`,
+          refundErr instanceof Error ? refundErr.message : refundErr,
+        );
+      }
+    }
     // Only errors written for the person reach them (matched by type, not by text: spendCredits' own "Couldn't spend credits: ..." messages carry ledger text). Anything else goes to the server log with the ids.
     if (err instanceof InsufficientCreditsError || err instanceof UserFacingSubmitError) {
       return { ok: false, error: `Couldn't submit: ${err.message}` };
