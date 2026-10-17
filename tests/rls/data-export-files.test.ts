@@ -11,7 +11,7 @@
  *   - DELETION: removing the person removes the row (the FK is ON DELETE CASCADE).
  */
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createClient } from "@supabase/supabase-js";
 import { createAuthedTestUser, createTestUser, deleteTestUsers, admin, type TestUser } from "../support/auth";
 import { ageAttempt, deleteRowsFor, finish, getRow, insertGenerating, pathFor, setRow, svc } from "../support/data-export-db";
@@ -24,9 +24,11 @@ const anon = createClient(URL, ANON, { auth: { autoRefreshToken: false, persistS
 let owner: TestUser & { client: SupabaseClient };
 let other: TestUser & { client: SupabaseClient };
 const made: string[] = [];
+/** Accounts made by the current test only: released after it, so the file never holds more than a few of the pool's 40 (see tests/support/data-export-fixtures.ts releaseCreated). */
+const perTest: string[] = [];
 const fresh = async (prefix: string) => {
   const u = await createTestUser(prefix);
-  made.push(u.id);
+  perTest.push(u.id);
   return u;
 };
 
@@ -51,6 +53,12 @@ beforeAll(async () => {
   other = (await createAuthedTestUser("dx-other")) as typeof other;
   made.push(owner.id, other.id);
 }, 120_000);
+
+afterEach(async () => {
+  const ids = perTest.splice(0);
+  await deleteRowsFor(ids);
+  await deleteTestUsers(ids);
+}, 60_000);
 
 afterAll(async () => {
   await deleteRowsFor(made);
