@@ -471,6 +471,29 @@ export async function createAuthedTestUser(
 }
 
 /**
+ * Cleanup talks to the auth service with at most this many requests in flight: the same limit the creation side of the big fixtures uses (tests/admin/people-signups-qa-filter.test.ts). Starting every
+ * delete at once (68 ids in that file) is the LIKELY cause of the cleanup failures seen in CI, not a demonstrated one: the logs show the auth service answering some of those deletes with errors, and the
+ * message texts differ ("Unexpected failure, please check server logs for more information" in most runs, "Database error loading user" in one; S2, reports/S2/ci-flake-count.md, 17 Oct addition 8). The
+ * suspicion is 68 simultaneous deletes overlapping in time with other files creating users; the proof is the cleanup-failure count in later CI logs.
+ */
+const CLEANUP_CONCURRENCY = 5;
+
+/** Runs `fn` over `items` with at most `limit` in flight; results keep the order of `items`. `fn` must not reject (the callers below turn every failure into a string). */
+async function mapLimit<T, R>(items: readonly T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const worker = async (): Promise<void> => {
+    for (;;) {
+      const i = next++;
+      if (i >= items.length) return;
+      results[i] = await fn(items[i]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
+/**
  * Best-effort cleanup of accounts a suite created.
  *
  * Reports rather than throws: a cleanup failure should not turn a passing run
@@ -520,27 +543,6 @@ export async function createAuthedTestUser(
  * `admin.auth.admin.deleteUser`. Both are logged the same way, so a leaked
  * id is traceable regardless of which path handled it.
  */
-/**
- * Cleanup talks to the auth service with at most this many requests in flight: the same limit the creation side of the big fixtures uses (tests/admin/people-signups-qa-filter.test.ts). Starting every
- * delete at once (68 ids in that file) made the CI job's local auth service answer "Database error loading user" for a few of them.
- */
-const CLEANUP_CONCURRENCY = 5;
-
-/** Runs `fn` over `items` with at most `limit` in flight; results keep the order of `items`. `fn` must not reject (the callers below turn every failure into a string). */
-async function mapLimit<T, R>(items: readonly T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
-  const results = new Array<R>(items.length);
-  let next = 0;
-  const worker = async (): Promise<void> => {
-    for (;;) {
-      const i = next++;
-      if (i >= items.length) return;
-      results[i] = await fn(items[i]);
-    }
-  };
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
-  return results;
-}
-
 export async function deleteTestUsers(ids: string[]): Promise<void> {
   if (!ids.length) return;
 
