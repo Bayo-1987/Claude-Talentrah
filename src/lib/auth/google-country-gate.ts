@@ -6,8 +6,8 @@ import { isEmployerPath, safeRedirectTo } from "@/lib/auth/redirect-to";
 import { isProtectedSeekerPath } from "@/lib/auth/seeker-gate-paths";
 
 /**
- * The Google country step: one required "Where are you based?" screen after a FIRST Google sign-in (button or One Tap), because Google gives us a name and
- * an email and no country, so those accounts showed "—" in /admin/people/signups and had no country for jobs, salaries and scholarships to fit.
+ * The country step: one required "Where are you based?" screen after a FIRST Google or LinkedIn sign-in (button or One Tap), because neither gives us a country (just a name and
+ * an email), so those accounts showed "—" in /admin/people/signups and had no country for jobs, salaries and scholarships to fit. (Named for Google, where it started.)
  *
  * DATA-QUALITY GATE, NOT A SECURITY GATE. The flag it reads is `user_metadata.country`, and a person can write their own user_metadata (that is how the
  * email sign-up form carries the country it collects). Someone who sets it by hand only skips a form that exists to ask them a question; nothing is protected
@@ -16,10 +16,10 @@ import { isProtectedSeekerPath } from "@/lib/auth/seeker-gate-paths";
  * NO DATABASE READ HERE. The proxy already holds the user from `auth.getUser()` (a live call to the auth server on every request, so a value saved a moment ago
  * is seen at once, with no wait for the access token to be reissued). Same cost model as the pending-deletion gate.
  *
- * WHO IS GATED: a signed-in user whose account was CREATED with Google (`app_metadata.provider === "google"`) and who has no country in `user_metadata`. NOT
+ * WHO IS GATED: a signed-in user whose account was CREATED with Google or LinkedIn (`app_metadata.provider` is "google" or "linkedin_oidc", an explicit list) and who has no country in `user_metadata`. NOT
  * "country is empty" alone: the pooled test users and minted e2e sessions are email users with a null country, and must reach the dashboard (tests pin it).
- * Email sign-ups collect a country in the form, so they never qualify, and an email user who later links Google keeps `provider: "email"` and is not asked.
- * An existing Google user whose profile already has a country but whose metadata does not is passed through by the step page itself (it copies the saved
+ * Email sign-ups collect a country in the form, so they never qualify, and an email user who later links Google or LinkedIn keeps `provider: "email"` and is not asked.
+ * An existing Google or LinkedIn user whose profile already has a country but whose metadata does not is passed through by the step page itself (it copies the saved
  * country into the metadata and moves on): they never see the form.
  *
  * WHERE: the seeker app's protected paths (the same list the signed-out gate uses) AND the signed-in seeker pages that are public for a signed-out visitor: /jobs (the
@@ -42,9 +42,16 @@ export function isCountryGatedPath(pathname: string): boolean {
   return isProtectedSeekerPath(pathname) || SIGNED_IN_SEEKER_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
-/** True for a user who signed up with Google and has no country recorded in their metadata. */
+/**
+ * The sign-in providers that send us a name and an email and no country, so their first sign-up is asked for one. An EXPLICIT list, never "every provider that is not email": an unknown, anonymous or absent
+ * provider stays ungated. (The function and file keep their Google names so nothing that imports them changes.)
+ */
+const COUNTRY_STEP_PROVIDERS: readonly string[] = ["google", "linkedin_oidc"];
+
+/** True for a user who signed up with Google or LinkedIn and has no country recorded in their metadata. */
 export function needsGoogleCountryStep(user: Pick<User, "app_metadata" | "user_metadata">): boolean {
-  if (user.app_metadata?.provider !== "google") return false;
+  const provider = user.app_metadata?.provider;
+  if (typeof provider !== "string" || !COUNTRY_STEP_PROVIDERS.includes(provider)) return false;
   const country = user.user_metadata?.country;
   return !(typeof country === "string" && country.trim() !== "");
 }

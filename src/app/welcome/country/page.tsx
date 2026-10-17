@@ -13,11 +13,11 @@ import { CountryStepForm } from "@/components/auth/country-step-form";
 export const metadata: Metadata = { title: "One last step — Talentrah", robots: { index: false, follow: false } };
 
 /**
- * The Google country step (owner, 9 Oct): "Where are you based?", once, for a person who signed up with Google and has no country. The proxy sends them here from
+ * The country step (owner, 9 Oct): "Where are you based?", once, for a person who signed up with Google or LinkedIn and has no country. The proxy sends them here from
  * any seeker-app page (src/lib/auth/google-country-gate.ts); this page decides what to show:
  *  - signed out: to /login;
  *  - nobody who needs it (email sign-up, or a country is already on record): straight on to where they were going;
- *  - a Google account whose PROFILE already has a country (set in Settings, or before this step existed): the sync route copies it to the account and carries on, so they never see the form;
+ *  - a Google or LinkedIn account whose PROFILE already has a country (set in Settings, or before this step existed): the sync route copies it to the account and carries on, so they never see the form;
  *  - otherwise the form, with the country of the request's IP (else the browser's locale) pre-selected, if it maps to a listed one.
  */
 export default async function CountryStepPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
