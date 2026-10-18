@@ -85,13 +85,13 @@ describe.skipIf(!haveLocalDb())("0262: the permission value, the 55P04 rule, and
   describe("T-Z3c: 0262 and 0263 in ONE transaction", () => {
     it("RECORDED RESULT: it applies without error today (0263 never names the value as the enum type); rolled back", () => {
       fresh();
-      const r = runSql(`begin;\n${onProbe(SHIPPED)}\n${F0263}\nrollback;`);
+      const r = runSql(`begin;\n${onProbe(SHIPPED)}\n${onProbe(F0263)}\nrollback;`);
       expect(r.ok, r.stderr).toBe(true);
     });
 
     it("RED: the same transaction with a cast of the value added to 0263 fails with 55P04 (the hazard this test exists to catch before a hosted run)", () => {
       fresh();
-      const r = runSql(`begin;\n${onProbe(SHIPPED)}\n${F0263}\nselect 'data_export'::${PROBE};\nrollback;`);
+      const r = runSql(`begin;\n${onProbe(SHIPPED)}\n${onProbe(F0263)}\nselect 'data_export'::${PROBE};\nrollback;`);
       expect(r.ok).toBe(false);
       expect(r.stderr).toMatch(/55P04/);
     });
