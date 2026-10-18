@@ -1,4 +1,6 @@
 import { INSTALL_PROMPT_KEY } from "@/lib/pwa/bootstrap";
+import { FARAH_FIRST_VISIT_HINT_TEST_ID } from "@/lib/farah/first-visit-hint-id";
+import { COOKIE_BANNER_TEST_ID } from "@/lib/pwa/watch-relevant-changes";
 
 /**
  * What the install strip decides, as plain functions over a window-like object, so tests/pwa/install-state.test.ts can run them with no
@@ -76,13 +78,13 @@ export function writeDismissed(env: InstallEnv, now: number): void {
 
 /** Open while the cookie banner's element is in the page and the returning-visitor marker has not hidden it (see cookie-consent-banner.tsx). */
 export function isCookieBannerOpen(doc: InstallEnv["document"]): boolean {
-  const present = doc.querySelector('[data-testid="cookie-consent-banner"]') != null;
+  const present = doc.querySelector(`[data-testid="${COOKIE_BANNER_TEST_ID}"]`) != null;
   return present && doc.documentElement.getAttribute("data-cookie-consent") !== "decided";
 }
 
 /** Farah's first-visit hint (src/components/app-shell/farah-first-visit-hint.tsx) is in the page. */
 export function isFarahHintOpen(doc: InstallEnv["document"]): boolean {
-  return doc.querySelector('[data-testid="farah-first-visit-hint"]') != null;
+  return doc.querySelector(`[data-testid="${FARAH_FIRST_VISIT_HINT_TEST_ID}"]`) != null;
 }
 
 /** Under 760px, the width below which the hint stands just above the Farah tab (the same breakpoint the hint and the tab use). */

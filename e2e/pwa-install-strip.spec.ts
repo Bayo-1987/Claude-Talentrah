@@ -1,6 +1,7 @@
 import { test, expect, admin } from "./fixtures/authed";
 import type { Page } from "@playwright/test";
 import { waitForWorkerControl } from "./support/pwa";
+import { FARAH_FIRST_VISIT_HINT_TEST_ID } from "../src/lib/farah/first-visit-hint-id";
 
 /**
  * The install strip in a real browser (design note test 12). Chromium never offers an install prompt in automation, so the specs dispatch a
@@ -322,6 +323,45 @@ test.describe("the strip against fixed controls and the end of the page", () => 
     await expect(page.getByTestId("farah-first-visit-hint")).toHaveCount(0);
     await expect(strip(page)).toBeVisible();
   });
+});
+
+test("live, on a phone: the strip is showing, the hint appears (nested) so it hides, the hint goes so it comes back; unrelated DOM churn changes nothing", async ({ authedPage: page, testUser }) => {
+  await admin.from("profiles").update({ farah_hint_dismissed_at: new Date().toISOString() }).eq("id", testUser.id); // no real hint: the test adds and removes one
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.addInitScript(CONSENTED);
+  await page.goto("/jobs");
+  await waitForWorkerControl(page);
+  await firePrompt(page);
+  await expect(strip(page)).toBeVisible();
+
+  // A burst of unrelated DOM changes: the strip stays, untouched.
+  await page.evaluate(() => {
+    for (let i = 0; i < 200; i++) {
+      const d = document.createElement("div");
+      d.textContent = `churn ${i}`;
+      document.body.appendChild(d);
+      d.remove();
+    }
+  });
+  await page.waitForTimeout(300);
+  await expect(strip(page)).toBeVisible();
+
+  // A hint added INSIDE a nested element (not a direct child of body): the strip hides.
+  await page.evaluate((id) => {
+    const outer = document.createElement("section");
+    outer.id = "s4-outer";
+    const inner = document.createElement("div");
+    const hint = document.createElement("div");
+    hint.setAttribute("data-testid", id);
+    inner.appendChild(hint);
+    outer.appendChild(inner);
+    document.body.appendChild(outer);
+  }, FARAH_FIRST_VISIT_HINT_TEST_ID);
+  await expect(strip(page)).toHaveCount(0);
+
+  // Removing the whole wrapper (the hint goes with its subtree): the strip comes back.
+  await page.evaluate(() => document.getElementById("s4-outer")!.remove());
+  await expect(strip(page)).toBeVisible();
 });
 
 test("from 760px up the hint sits beside the panel, so the strip does not wait for it and the two do not overlap", async ({ authedPage: page }) => {

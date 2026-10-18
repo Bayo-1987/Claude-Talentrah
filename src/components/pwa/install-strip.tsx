@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { INSTALL_PROMPT_EVENT } from "@/lib/pwa/bootstrap";
 import { computeOffer, runInstall, writeDismissed, type InstallEnv, type InstallOffer } from "@/lib/pwa/install-state";
 import { InstallStripView } from "@/components/pwa/install-strip-view";
+import { watchRelevantChanges } from "@/lib/pwa/watch-relevant-changes";
 
 /**
  * The install strip: decides on mount, from what the early bootstrap already captured (src/lib/pwa/bootstrap.ts), so a `beforeinstallprompt`
@@ -22,7 +23,7 @@ export default function InstallStrip() {
   const decide = useCallback(() => {
     if (dismissed.current) return;
     const next = computeOffer(window as unknown as InstallEnv, Date.now());
-    // Keep the same state object when nothing changed: this runs on every DOM change under <body>, and a new object each time would re-render for nothing.
+    // Keep the same state object when nothing changed, so a re-decision that finds the same answer re-renders nothing.
     setOffer((prev) => (prev.kind === next.kind && (prev.kind !== "prompt" || (next.kind === "prompt" && prev.event === next.event)) ? prev : next));
   }, []);
 
@@ -30,13 +31,12 @@ export default function InstallStrip() {
     // Deferred out of the effect body, like the cookie banner's own read, so it is not a synchronous setState in an effect.
     Promise.resolve().then(decide);
     window.addEventListener(INSTALL_PROMPT_EVENT, decide);
-    // The cookie banner removes itself, the Farah hint goes (both nested, hence the subtree), the returning-visitor marker lands on <html>: look again.
-    const observer = new MutationObserver(decide);
-    observer.observe(document.body, { childList: true, subtree: true });
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-cookie-consent"] });
+    // Only the things that can change the answer: the hint or the cookie banner added or removed (at any depth), and the returning-visitor marker on <html>.
+    // Not every DOM change under <body>, and no frame callback (frames do not run in a background tab).
+    const stop = watchRelevantChanges(MutationObserver, document.body, document.documentElement, decide);
     return () => {
       window.removeEventListener(INSTALL_PROMPT_EVENT, decide);
-      observer.disconnect();
+      stop();
     };
   }, [decide]);
 
