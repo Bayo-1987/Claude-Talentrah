@@ -44,6 +44,6 @@ describe("InstallStripLazy source", () => {
   it("does not use next/dynamic", () => {
     const src = readFileSync(path.resolve(__dirname, "../../src/components/pwa/install-strip-lazy.tsx"), "utf8");
     expect(src).not.toMatch(/from\s+["']next\/dynamic["']/);
-    expect(src).not.toMatch(/ssr:\s*false/);
+    expect(src).not.toMatch(/\bdynamic\s*\(/);
   });
 });
