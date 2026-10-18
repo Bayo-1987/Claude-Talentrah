@@ -42,7 +42,8 @@ describe("InstallStripLazy source", () => {
   // The render test above cannot see the bail-out (Vitest loads next/dynamic's pages-router build, which renders null; the app router's build throws on the
   // server), so the cause is guarded in the source too, and the real behaviour in e2e/pwa-install-strip.spec.ts against a production build.
   it("does not use next/dynamic", () => {
-    const src = readFileSync(path.resolve(__dirname, "../../src/components/pwa/install-strip-lazy.tsx"), "utf8");
+    // Comments removed first: the file explains the very thing it must not do.
+    const src = readFileSync(path.resolve(__dirname, "../../src/components/pwa/install-strip-lazy.tsx"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
     expect(src).not.toMatch(/from\s+["']next\/dynamic["']/);
     expect(src).not.toMatch(/\bdynamic\s*\(/);
   });
