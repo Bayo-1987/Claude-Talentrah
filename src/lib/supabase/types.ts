@@ -1365,6 +1365,63 @@ export type Database = {
         }
         Relationships: []
       }
+      data_export_files: {
+        Row: {
+          attempt_id: string
+          attempt_started_at: string
+          claimed_at: string | null
+          created_at: string
+          created_by_admin: string | null
+          deleted_at: string | null
+          expires_at: string | null
+          id: string
+          object_path: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          attempt_id: string
+          attempt_started_at?: string
+          claimed_at?: string | null
+          created_at?: string
+          created_by_admin?: string | null
+          deleted_at?: string | null
+          expires_at?: string | null
+          id?: string
+          object_path?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          attempt_id?: string
+          attempt_started_at?: string
+          claimed_at?: string | null
+          created_at?: string
+          created_by_admin?: string | null
+          deleted_at?: string | null
+          expires_at?: string | null
+          id?: string
+          object_path?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_export_files_created_by_admin_fkey"
+            columns: ["created_by_admin"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_export_files_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_preferences: {
         Row: {
           auto_apply_digest_last_sent_at: string | null
@@ -4255,6 +4312,45 @@ export type Database = {
           public_exec: boolean
         }[]
       }
+      cancel_stale_data_exports: {
+        Args: never
+        Returns: {
+          attempt_id: string
+          export_id: string
+          user_id: string
+        }[]
+      }
+      cancel_unused_data_export: {
+        Args: { p_export_id: string; p_user_id: string }
+        Returns: string
+      }
+      claim_data_export_download: {
+        Args: { p_export_id: string; p_user_id: string }
+        Returns: string
+      }
+      finish_data_export_attempt: {
+        Args: {
+          p_attempt_id: string
+          p_export_id: string
+          p_object_path: string
+        }
+        Returns: string
+      }
+      mark_data_export_object_deleted: {
+        Args: { p_attempt_id: string; p_export_id: string; p_status?: string }
+        Returns: string
+      }
+      swap_stale_data_export_attempt: {
+        Args: {
+          p_export_id: string
+          p_new_attempt: string
+          p_old_attempt: string
+        }
+        Returns: {
+          export_id: string
+          new_attempt_id: string
+        }[]
+      }
       account_deletion_fk_catalog: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -5329,6 +5425,7 @@ export type Database = {
         | "employer_verification"
         | "job_review"
         | "mentor_review"
+        | "data_export"
       applicant_review_status:
         | "new"
         | "reviewing"
@@ -5574,6 +5671,7 @@ export const Constants = {
         "employer_verification",
         "job_review",
         "mentor_review",
+        "data_export",
       ],
       applicant_review_status: [
         "new",

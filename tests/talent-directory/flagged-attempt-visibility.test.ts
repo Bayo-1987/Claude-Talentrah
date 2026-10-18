@@ -69,6 +69,7 @@ describe("nothing else reads a person's verification score or status, and nothin
   const ALLOWED_READERS = new Set([
     "src/app/(app)/talent-directory/verify/page.tsx", // the person's OWN page
     "src/app/employer/jobs/[id]/applicants/page.tsx", // the applicant list: see employer-applicant-verification.test.ts
+    "src/lib/account-export/manifest.ts", // names the columns so the admin-produced data export hands the person their OWN verification record back (docs/admin-data-export.md)
     "src/lib/talent-directory/queries.ts",
     "src/lib/talent-directory/reviewer-runner.ts",
     "src/lib/talent-directory/verification-runner.ts",

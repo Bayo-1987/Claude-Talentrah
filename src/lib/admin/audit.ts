@@ -30,6 +30,13 @@ import type { Json } from "@/lib/supabase/types";
 export const SYSTEM_TOOLING_ACTOR = "system-tooling@talentrah.internal";
 
 /**
+ * The actor for audit rows the DATA EXPORT writes by itself, with no admin session in the request: the download (a person opening their link), the deletion of an object, the sweep.
+ * Its own sentinel, beside SYSTEM_TOOLING_ACTOR and NEVER in place of it: that one means "a change made outside the app, by tooling, on instruction" and keeps its own meaning
+ * and tests. Same `.internal` reasoning as above: it cannot be a real mailbox, so it can never collide with an operator's address.
+ */
+export const SYSTEM_DATA_EXPORT_ACTOR = "system-data-export@talentrah.internal";
+
+/**
  * Writes what an operator did, and as whom.
  *
  * This is the thing the three existing moderation routes could not do. Each of
@@ -79,6 +86,55 @@ export async function recordAdminAction(input: {
   } catch (err) {
     console.error("[admin-audit] write threw", input.action, err);
   }
+}
+
+/**
+ * Thrown when an audit row that MUST exist could not be written. See recordAdminActionStrict.
+ */
+export class AdminAuditUnavailableError extends Error {
+  constructor(action: string) {
+    super(`the audit row ${action} could not be written`);
+    this.name = "AdminAuditUnavailableError";
+  }
+}
+
+/**
+ * The STRICT sibling of recordAdminAction: returns the new row's id and THROWS when the row cannot be written.
+ *
+ * recordAdminAction swallows a failed write on purpose (an admin locked out because the log is down is worse than a gap in the log). That is the wrong rule for an action whose whole
+ * defence is the log: producing a copy of one person's data. There, an action that cannot be recorded must not happen, so the caller writes its first row with this function and reads
+ * nothing if it throws. The message of the underlying error goes to the server console only; the thrown error carries the action name and nothing else.
+ */
+export async function recordAdminActionStrict(input: {
+  identity: { adminId: string | null; email: string; sessionId?: string | null };
+  action: string;
+  targetTable?: string | null;
+  targetId?: string | null;
+  detail?: { [key: string]: Json } | null;
+}): Promise<string> {
+  let id: string | null = null;
+  try {
+    const supabase = createServiceRoleClient();
+    const { data, error } = await supabase
+      .from("admin_audit_log")
+      .insert({
+        admin_user_id: input.identity.adminId,
+        admin_email: input.identity.email,
+        admin_session_id: input.identity.sessionId ?? null,
+        action: input.action,
+        target_table: input.targetTable ?? null,
+        target_id: input.targetId ?? null,
+        detail: input.detail ?? null,
+      })
+      .select("id")
+      .single();
+    if (error) console.error("[admin-audit] strict write failed", input.action, error.code ?? "");
+    id = data?.id ?? null;
+  } catch (err) {
+    console.error("[admin-audit] strict write threw", input.action, err instanceof Error ? err.name : "error");
+  }
+  if (!id) throw new AdminAuditUnavailableError(input.action);
+  return id;
 }
 
 /**

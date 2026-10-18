@@ -8,6 +8,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createClient } from "@supabase/supabase-js";
 import { admin, createAuthedTestUser, deleteTestUsers, type TestUser } from "../support/auth";
+import { acquireBucketLock, releaseBucketLock } from "../support/bucket-lock";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -21,6 +22,8 @@ const objectPath = `${exportId}/${randomUUID()}.json`;
 const body = JSON.stringify({ planted: "this stands in for a person's data" });
 
 beforeAll(async () => {
+  // The planted object has no row, so a sweep running in another test file would (rightly) delete it as an orphan: take the bucket to ourselves.
+  await acquireBucketLock();
   owner = (await createAuthedTestUser("dx-bucket")) as typeof owner;
   const up = await admin.storage.from(BUCKET).upload(objectPath, new Blob([body], { type: "application/json" }), { contentType: "application/json" });
   expect(up.error, `service upload: ${up.error?.message}`).toBeNull();
@@ -30,6 +33,7 @@ afterAll(async () => {
   const rm = await admin.storage.from(BUCKET).remove([objectPath]);
   expect(rm.error, "cleanup of the planted object").toBeNull();
   await deleteTestUsers([owner.id]);
+  releaseBucketLock();
 });
 
 describe("the bucket", () => {

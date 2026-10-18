@@ -44,7 +44,7 @@ export default async function PersonLookupPage() {
         </p>
       </BorderedCard>
 
-      <PersonLookup />
+      <PersonLookup canExport={admin.permissions.includes("data_export")} />
 
       <p className="text-[14px] text-ink-soft">
         Looking for totals rather than a person?{" "}

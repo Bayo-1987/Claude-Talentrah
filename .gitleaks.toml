@@ -212,6 +212,17 @@ regexes = [
   # The repo's real supabase/config.toml has no Google provider and must not gain one for a test. ANCHORED to exactly that value: no wildcard, and it does NOT relax
   # the rule for anything else.
   '''^local-test-only-not-a-real-secret$''',
+
+  # src/lib/account-export/manifest.ts (SECRET and TOKEN) and src/lib/account-export/readme.ts (SECRETS_LINE), the admin data export (commit 2ffc295, PR "Data export: an admin
+  # produces a person's data export") — three exact sentences. Descriptive text for the export manifest and the README, not a credential: they are the reasons the export gives for leaving
+  # card-authorisation and token columns out of a person's file, and the README line that tells the person such things are never included. Nothing to rotate; they protect nothing. They
+  # matched this rule only because the constant names contain secret / token. The first commit that carried them is already in the PR's history and this scan reads commits, so renaming
+  # the constants now would not remove them; the values are allowlisted instead. Each entry is ANCHORED with ^ and $ to the exact value (regex characters escaped; the README sentence ends
+  # in a full stop, written \.): no wildcard, and it does NOT relax the rule for anything else. tests/ci/gitleaks-export-allowlist.test.ts holds this: every hit on those two files is
+  # allowlisted by an anchored entry, and look-alikes (the same names with a credential-shaped value, each sentence with one word changed) are still reported.
+  '''^a card authorisation or renewal reference: it could be used to charge or identify the card$''',
+  '''^a single-use or unsubscribe token: possessing it grants an action$''',
+  '''^Card authorisations, renewal references, payment-provider references, confirmation and unsubscribe tokens are never included\.$''',
 ]
 
 paths = [

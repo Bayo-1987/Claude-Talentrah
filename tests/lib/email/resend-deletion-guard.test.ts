@@ -150,8 +150,8 @@ describe("each drop is logged with its reason, so it can be counted", () => {
 });
 
 describe("the deletion's OWN emails still arrive: the lifecycle allowlist", () => {
-  it("the allowlist is exactly the confirm link, 'scheduled' and 'restored'", () => {
-    expect([...DELETION_LIFECYCLE_TEMPLATES].sort()).toEqual(["deletion_confirm", "deletion_restored", "deletion_scheduled"]);
+  it("the allowlist is exactly the confirm link, 'scheduled', 'restored' and the two admin data export emails (the start notice and the link)", () => {
+    expect([...DELETION_LIFECYCLE_TEMPLATES].sort()).toEqual(["data_export_generated", "data_export_link", "deletion_confirm", "deletion_restored", "deletion_scheduled"]);
   });
 
   it.each([...DELETION_LIFECYCLE_TEMPLATES])("%s reaches a recipient whose account is scheduled for deletion", async (template) => {
