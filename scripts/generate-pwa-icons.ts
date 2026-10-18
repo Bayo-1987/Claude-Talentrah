@@ -35,10 +35,6 @@ const RADIUS = Math.hypot(33, 39); // ~51.1 viewBox units, the farthest corner f
 // The farthest corner may sit at most 36% of the side from the centre: inside the 40% safe-zone circle with a margin for rounding.
 const SAFE_FRACTION = 0.36;
 
-function anySvg(size: number): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${size}" height="${size}">${BODY}</svg>`;
-}
-
 function maskableSvg(size: number): string {
   const scale = (size * SAFE_FRACTION) / RADIUS;
   const tx = size / 2 - CX * scale;
