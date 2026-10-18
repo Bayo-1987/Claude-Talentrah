@@ -1,46 +1,46 @@
 {
-  "_about": "Own-origin gzip KB per request body (level 9), cache off, mobile viewport, 3.5 s settle, measured 7 Oct 2026 against a production build + seeded local stack (run twice, within 1 KB). Budget = measured +5 % rounded up (requests +3). See e2e/route-payload-budget.spec.ts; change a budget on purpose in the same PR.",
+  "_about": "Own-origin gzip KB per request body (level 9), cache off, mobile viewport, 3.5 s settle, measured 7 Oct 2026 against a production build + seeded local stack (run twice, within 1 KB). Budget = measured +5 % rounded up (requests +3). See e2e/route-payload-budget.spec.ts; change a budget on purpose in the same PR. PWA (PR #960, 18 Oct 2026): every route's request budget is +2, for exactly two named requests the installable-app work adds to every page and nothing else: GET /sw.js (the service worker script, fetched when the page registers it after load and idle) and GET /offline (the worker's install-time fetch of its offline page). Measured per route, names only, clean main vs the branch on the same stack: each route had exactly these two added and no other difference (chunk hashes aside). Bytes did not change enough to move any KB budget.",
   "routes": {
     "/": {
       "totalKB": 467,
       "jsKB": 265,
       "fontKB": 167,
-      "requests": 38,
+      "requests": 40,
       "thirdParty": []
     },
     "/jobs": {
       "totalKB": 544,
       "jsKB": 344,
       "fontKB": 167,
-      "requests": 42,
+      "requests": 44,
       "thirdParty": []
     },
     "job-detail": {
       "totalKB": 661,
       "jsKB": 464,
       "fontKB": 167,
-      "requests": 39,
+      "requests": 41,
       "thirdParty": []
     },
     "/scholarships": {
       "totalKB": 448,
       "jsKB": 248,
       "fontKB": 167,
-      "requests": 41,
+      "requests": 43,
       "thirdParty": []
     },
     "/blog": {
       "totalKB": 368,
       "jsKB": 160,
       "fontKB": 167,
-      "requests": 36,
+      "requests": 38,
       "thirdParty": []
     },
     "/mentorship": {
       "totalKB": 441,
       "jsKB": 244,
       "fontKB": 167,
-      "requests": 32,
+      "requests": 34,
       "thirdParty": []
     }
   }
