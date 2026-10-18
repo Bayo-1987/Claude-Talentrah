@@ -111,6 +111,17 @@ test.describe("Android / Chromium", () => {
   });
 });
 
+test.describe("the strip must not cost the page its server HTML", () => {
+  test("a signed-in page's server HTML is not discarded for client rendering by the lazy strip", async ({ authedPage: page }) => {
+    // next/dynamic(ssr:false) bails out to client rendering at the nearest Suspense boundary: the whole signed-in page's server HTML is thrown away and rebuilt
+    // in the browser, so it hydrates late (e2e/credit-prices.spec.ts then clicked before the page was alive). The marker is in the HTML the server sends.
+    for (const path of ["/jobs", "/tracker", "/settings"]) {
+      const html = await (await page.request.get(path)).text();
+      expect(html, `${path} must be server-rendered`).not.toContain("BAILOUT_TO_CLIENT_SIDE_RENDERING");
+    }
+  });
+});
+
 test.describe("where it must not show", () => {
   test("never under the cookie banner: hidden while it is open, offered once a choice is made", async ({ authedPage: page }) => {
     await page.goto("/jobs");
