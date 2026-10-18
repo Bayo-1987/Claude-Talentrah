@@ -87,7 +87,16 @@ A flag with no redeploy would need a feature-flag row (one additive migration); 
   PWA_KILL_PHASE=killed  PWA_PROFILE_DIR=/tmp/pwa-profile npx playwright test e2e/pwa-kill-switch.spec.ts
   PWA_KILL_PHASE=fresh   npx playwright test e2e/pwa-kill-switch.spec.ts
   ```
-- Auth-link and Google specs need a local Supabase stack with email confirmations on and a (fake) Google provider enabled; they refuse any non-local host.
+- Auth-link specs need a local Supabase stack with email confirmations on; they find the mail catcher at the API port plus 3 (`MAILPIT_URL` overrides) and refuse any non-local host.
+- The Google sign-in spec (`e2e/pwa-worker-active.spec.ts`, "(b)") needs a stack whose GoTrue has a Google provider. The repo's `supabase/config.toml` has none, **and must not gain one for a test**, so the spec **skips itself with a stated reason when `/auth/v1/settings` reports `external.google: false`, which is what CI sees; that skip is expected.** To run it, add this to a **scratch copy** of `supabase/config.toml` (not the repo's), under `[auth.external.apple]`'s neighbours, and restart the stack; the values are fake and Google is never contacted (the spec aborts the request to `accounts.google.com`):
+
+  ```toml
+  [auth.external.google]
+  enabled = true
+  client_id = "local-test-client-id.apps.googleusercontent.invalid"
+  secret = "local-test-only-not-a-real-secret"
+  skip_nonce_check = true
+  ```
 - Installability: Lighthouse 12.6.1 (the one inside `@lhci/cli@0.15.1`) has no installability audit (its PWA category was removed in 12), so `e2e/pwa-static-paths.spec.ts` asks Chromium directly (`Page.getInstallabilityErrors`, expecting none).
 - Latency: `scripts/measure-pwa-latency.ts` (interleaved variants; see its header). A throttled run slows the page but not the worker's own thread.
 
