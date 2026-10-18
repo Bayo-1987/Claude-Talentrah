@@ -11,6 +11,9 @@ import { admin as realService } from "../support/auth";
 import { flags } from "../support/data-export-fixtures";
 import { AdminAuditUnavailableError, SYSTEM_DATA_EXPORT_ACTOR, SYSTEM_TOOLING_ACTOR, recordAdminAction, recordAdminActionStrict } from "@/lib/admin/audit";
 import { EXPORT_AUDIT_ACTIONS, FINISH_OUTCOMES, REFUSAL_CODES, TICKET_PATTERN } from "@/lib/data-export/constants";
+import { auditCancelled, auditDeleted, auditFinished, auditGenerated, auditNoticeSent, auditRequested } from "@/lib/data-export/audit";
+import { makeAdmin, releaseCreated } from "../support/data-export-fixtures";
+import { afterEach } from "vitest";
 
 vi.mock("@/lib/supabase/service-role", async () => {
   const { countedService } = await import("../support/data-export-fixtures");
@@ -113,5 +116,31 @@ describe("the strict writer", () => {
     await expect(recordAdminAction(input)).resolves.toBeUndefined();
     // and the thrown error names the action, not the database's message
     await expect(recordAdminActionStrict(input)).rejects.toThrow(/^the audit row people\.export_requested could not be written$/);
+  });
+});
+
+describe("no helper copies a target that is not a uuid into a row (belt and braces: the start flow also nulls it first)", () => {
+  afterEach(releaseCreated, 60_000);
+
+  it("every helper that takes a target writes null for an email address, and the typed text is in no row", async () => {
+    const a = await makeAdmin();
+    const typed = "someone.private@example.com";
+    const ids = [
+      await auditRequested(a, { operation: "start", targetId: typed, ticket: "SUP-9001", reason: "access_request", requesterCheck: "contact_form" }),
+      await auditFinished(a, { requestedId: "r", targetId: typed, outcome: "refused", refusalCode: "not_a_uuid" }),
+      await auditNoticeSent(a, { requestedId: "r", targetId: typed, exportId: "e" }).then(() => null),
+      await auditGenerated(a, { requestedId: "r", targetId: typed, exportId: "e", tables: 1, rows: 1, bytes: 1 }),
+      await auditCancelled(a, { requestedId: "r", targetId: typed, exportId: "e" }),
+      await auditDeleted({ exportId: typed, reason: "orphan", userId: typed }).then(() => null),
+    ];
+    const { data, error } = await realService.from("admin_audit_log").select("id, action, target_id, detail").like("action", "people.export_%").eq("admin_email", a.email);
+    expect(error).toBeNull();
+    const system = await realService.from("admin_audit_log").select("id, action, target_id, detail").eq("action", "people.export_deleted").order("created_at", { ascending: false }).limit(1);
+    const rows = [...(data ?? []), ...(system.data ?? [])];
+    expect(rows.length).toBeGreaterThanOrEqual(5);
+    expect(JSON.stringify(rows)).not.toContain("someone.private");
+    for (const r of rows) expect(r.target_id).toBeNull();
+    const toDelete = [...ids.filter((x): x is string => !!x), ...(system.data ?? []).map((r) => r.id)];
+    await realService.from("admin_audit_log").delete().in("id", toDelete);
   });
 });
