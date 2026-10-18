@@ -262,6 +262,14 @@ describe("the claim is the single use", () => {
     expect(await claim(a.id, u.id)).toBeNull();
   });
 
+  it("a row that already carries a claim time is not claimable even if its status still says generated (the claim time is checked on its own, not only the status)", async () => {
+    const u = await fresh("dx-claimedat");
+    const a = await insertGenerating(u.id);
+    await finish(a.id, a.attempt);
+    await setRow(a.id, { claimed_at: new Date().toISOString() });
+    expect(await claim(a.id, u.id)).toBeNull();
+  });
+
   it("six parallel claims produce exactly one winner", async () => {
     const u = await fresh("dx-claimpar");
     const a = await insertGenerating(u.id);
@@ -282,6 +290,14 @@ describe("cancel an unused export", () => {
     expect(await getRow(a.id)).toMatchObject({ status: "cancelled" });
     expect((await getRow(a.id))!.deleted_at).toBeTruthy();
     await expect(insertGenerating(u.id), "cancelling frees the slot").resolves.toBeTruthy();
+  });
+
+  it("T-B1b: a generated row that carries a claim time is not cancellable (the claim time is checked on its own)", async () => {
+    const u = await fresh("dx-cancelclaimed");
+    const a = await insertGenerating(u.id);
+    await finish(a.id, a.attempt);
+    await setRow(a.id, { claimed_at: new Date().toISOString() });
+    expect(await cancelUnused(a.id, u.id)).toBeNull();
   });
 
   it("T-B1b: claimed, expired, deleted, already cancelled and still-generating rows are not cancellable", async () => {
