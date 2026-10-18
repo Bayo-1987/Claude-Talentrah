@@ -42,7 +42,7 @@ describe("the admin's response never contains the export's contents", () => {
 
   /** The keys of every `NextResponse.json({ ... })` first argument. */
   const keysOf = (src: string): string[][] =>
-    [...src.matchAll(/NextResponse\.json\(\{(.*?)\}\s*(?:,\s*\{|\))/gs)].map((m) => [...m[1].matchAll(/(?:^|,)\s*(\w+)\s*:/g)].map((k) => k[1]));
+    [...src.matchAll(/NextResponse\.json\(\{([\s\S]*?)\}\s*(?:,\s*\{|\))/g)].map((m) => [...m[1].matchAll(/(?:^|,)\s*(\w+)\s*:/g)].map((k) => k[1]));
 
   it("has answers to check (the check is not empty)", () => {
     expect(keysOf(route).length).toBeGreaterThanOrEqual(10);
