@@ -118,6 +118,19 @@ describe("pass 2: the bucket", () => {
     expect((await getRow(stuck.id))!.status).toBe("failed");
   });
 
+  it("an object of a CANCELLED attempt (same export id, an attempt id the row no longer owns) is deleted; the live attempt's object is not", async () => {
+    const p = await makePerson();
+    const g = await insertGenerating(p.id);
+    await putObject(pathFor(g.id, g.attempt));
+    await finish(g.id, g.attempt);
+    const stale = pathFor(g.id, randomUUID());
+    await putObject(stale);
+    const summary = await run();
+    expect(summary.orphansDeleted).toBe(1);
+    expect(await bucketPaths()).toEqual([pathFor(g.id, g.attempt)]);
+    expect((await getRow(g.id))!.status).toBe("generated");
+  });
+
   it("an object a download is still reading (claimed in the last ten minutes) is not deleted", async () => {
     const p = await makePerson();
     const g = await insertGenerating(p.id);
