@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { FarahMark } from "@/components/ui/farah-mark";
 import { dismissFarahHintAction } from "@/lib/profile/settings-actions";
 import { scrollToFarahPanel } from "@/lib/farah/scroll-to-panel";
+import { FARAH_FIRST_VISIT_HINT_TEST_ID } from "@/lib/farah/first-visit-hint-id";
 
 /**
  * A one-time nudge toward Farah, pointing at whichever affordance is actually
@@ -102,7 +103,7 @@ export function FarahFirstVisitHint() {
   return (
     <div
       ref={cardRef}
-      data-testid="farah-first-visit-hint"
+      data-testid={FARAH_FIRST_VISIT_HINT_TEST_ID}
       /*
        * role="status" rather than a dialog. It is not modal, it traps nothing,
        * and it does not need to be acknowledged before the app is usable — a

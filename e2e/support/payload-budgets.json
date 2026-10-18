@@ -1,47 +1,71 @@
 {
-  "_about": "Own-origin gzip KB per request body (level 9), cache off, mobile viewport, 3.5 s settle, measured 7 Oct 2026 against a production build + seeded local stack (run twice, within 1 KB). Budget = measured +5 % rounded up (requests +3). See e2e/route-payload-budget.spec.ts; change a budget on purpose in the same PR.",
+  "_about": "Own-origin gzip KB per request body (level 9), cache off, mobile viewport, 3.5 s settle, measured 7 Oct 2026 against a production build + seeded local stack (run twice, within 1 KB). Budget = measured +5 % rounded up (requests +3). See e2e/route-payload-budget.spec.ts; change a budget on purpose in the same PR. PWA (PR #960, 18 Oct 2026): a page that registers the service worker makes two more own-origin requests, GET /sw.js (the worker script) and GET /offline (the worker's install-time fetch of its offline page). They are NAMED per route in `workerRequests` instead of added to `requests`: headroom is granted only for a named request that actually appears, so one unrelated new request still fails, and a route with no `workerRequests` keeps exactly its old number. All six routes here register the worker (the bootstrap is in the root layout); the embed page does not and has no entry. Measured per route, names only, clean main vs the branch on the same stack: each route gained exactly those two and nothing else. Bytes did not move any KB budget.",
   "routes": {
     "/": {
       "totalKB": 467,
       "jsKB": 265,
       "fontKB": 167,
       "requests": 38,
-      "thirdParty": []
+      "thirdParty": [],
+      "workerRequests": [
+        "/sw.js",
+        "/offline"
+      ]
     },
     "/jobs": {
       "totalKB": 544,
       "jsKB": 344,
       "fontKB": 167,
       "requests": 42,
-      "thirdParty": []
+      "thirdParty": [],
+      "workerRequests": [
+        "/sw.js",
+        "/offline"
+      ]
     },
     "job-detail": {
       "totalKB": 661,
       "jsKB": 464,
       "fontKB": 167,
       "requests": 39,
-      "thirdParty": []
+      "thirdParty": [],
+      "workerRequests": [
+        "/sw.js",
+        "/offline"
+      ]
     },
     "/scholarships": {
       "totalKB": 448,
       "jsKB": 248,
       "fontKB": 167,
       "requests": 41,
-      "thirdParty": []
+      "thirdParty": [],
+      "workerRequests": [
+        "/sw.js",
+        "/offline"
+      ]
     },
     "/blog": {
       "totalKB": 368,
       "jsKB": 160,
       "fontKB": 167,
       "requests": 36,
-      "thirdParty": []
+      "thirdParty": [],
+      "workerRequests": [
+        "/sw.js",
+        "/offline"
+      ]
     },
     "/mentorship": {
       "totalKB": 441,
       "jsKB": 244,
       "fontKB": 167,
       "requests": 32,
-      "thirdParty": []
+      "thirdParty": [],
+      "workerRequests": [
+        "/sw.js",
+        "/offline"
+      ]
     }
   }
 }

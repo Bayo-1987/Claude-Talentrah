@@ -30,6 +30,10 @@ export const SITE_ORIGIN: string = (
   process.env.NEXT_PUBLIC_SITE_URL?.trim() || FALLBACK_ORIGIN
 ).replace(/\/+$/, "");
 
+/** The site's name and one-line description: the root layout's metadata and the installable-app manifest read the same two strings. */
+export const SITE_NAME = "Talentrah";
+export const SITE_DESCRIPTION = "AI-powered career platform for job seekers in Nigeria and across Africa.";
+
 /** Absolute URL for a site-relative path. */
 export function absoluteUrl(path: string): string {
   return `${SITE_ORIGIN}${path.startsWith("/") ? path : `/${path}`}`;

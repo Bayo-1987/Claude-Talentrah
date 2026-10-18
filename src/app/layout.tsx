@@ -1,9 +1,11 @@
-import type { Metadata } from "next";
-import { SITE_ORIGIN, SHARE_IMAGE, SHARE_IMAGE_META } from "@/lib/seo/site";
+import type { Metadata, Viewport } from "next";
+import { SITE_ORIGIN, SITE_NAME, SITE_DESCRIPTION, SHARE_IMAGE, SHARE_IMAGE_META } from "@/lib/seo/site";
+import { PAPER_HEX } from "@/lib/pwa/colors";
 import { preload } from "react-dom";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { CookieConsentBanner } from "@/components/legal/cookie-consent-banner";
+import { PwaBootstrap } from "@/components/pwa/pwa-bootstrap";
 import { COOKIE_CONSENT_PREPAINT_SCRIPT } from "@/components/legal/cookie-consent-script";
 import "./globals.css";
 import "@/fonts/newsreader/newsreader.css";
@@ -18,10 +20,13 @@ import { PRELOADED_FONT_URLS } from "@/fonts/preload";
 const newsreader = selfHostedFont({ slug: "newsreader", family: "Newsreader", singleStyle: false });
 const ibmPlexSans = selfHostedFont({ slug: "ibm-plex-sans", family: "IBM Plex Sans", singleStyle: true });
 
-const SITE_NAME = "Talentrah";
-const SITE_DESCRIPTION =
-  "AI-powered career platform for job seekers in Nigeria and across Africa.";
-
+/*
+ * The browser chrome colour for the installed app and the address bar on Android: the paper token, as hex (a theme-color cannot hold oklch;
+ * see src/lib/pwa/colors.ts). A static export, so it reads no request-time API and the homepage stays statically rendered.
+ */
+export const viewport: Viewport = {
+  themeColor: PAPER_HEX,
+};
 
 export const metadata: Metadata = {
   /*
@@ -91,8 +96,14 @@ export const metadata: Metadata = {
       { url: "/icons/talentrah-mark-48.png", sizes: "48x48", type: "image/png" },
       { url: "/icons/talentrah-mark-512.png", sizes: "512x512", type: "image/png" },
     ],
-    apple: [{ url: "/icons/talentrah-mark-180.png", sizes: "180x180", type: "image/png" }],
+    // Opaque (paper behind the mark): iOS draws black behind a transparent Home Screen icon. The old transparent -180 file is left on disk, unused.
+    apple: [{ url: "/icons/talentrah-mark-apple-180.png", sizes: "180x180", type: "image/png" }],
   },
+  /*
+   * The installable-app tags for iOS (Android reads the manifest, which Next links from src/app/manifest.ts). `capable` makes a Home Screen
+   * launch standalone; `title` is the label under the icon. Both are static, so they add no request-time API.
+   */
+  appleWebApp: { capable: true, title: SITE_NAME },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -136,6 +147,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: COOKIE_CONSENT_PREPAINT_SCRIPT }} />
         <CookieConsentBanner />
         {children}
+        {/*
+          The installable-app bootstrap: registers /sw.js and captures the install prompt, or, with PWA_KILL=1, only unregisters. A plain
+          process.env read, not a request-time API, so the homepage stays static; changing the variable needs a redeploy (docs/pwa.md).
+        */}
+        <PwaBootstrap enabled={process.env.PWA_KILL !== "1"} />
         <Analytics />
         <SpeedInsights />
       </body>

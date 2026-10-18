@@ -257,8 +257,18 @@ export async function proxy(request: NextRequest, event: NextFetchEvent) {
   return finalResponse;
 }
 
+/*
+ * The three installable-app paths skip the proxy: /manifest.webmanifest, /sw.js and /offline are static, identical for every visitor, and
+ * must be answered the same for a signed-in person inside their deletion window as for anyone else. Through the proxy each would cost an
+ * `auth.getUser()` call and a `last_active_at` write, and `pendingDeletionGate` would 307 the manifest and /offline (its exemption regex
+ * allows 2-8 letter extensions, and ".webmanifest" is 11; "/offline" has none). A manifest that redirects fails installability; a service
+ * worker that fetches a redirected /offline caches the wrong page.
+ *
+ * ANCHORED with `$` so only the exact path is excluded: "/offline-x", "/offline/x", "/sw.json", "/sw.js.map" and "/manifest.webmanifestx" still
+ * run the proxy. `isExemptFromPendingDeletionGate` is left alone. tests/proxy/pwa-matcher.test.ts evaluates this matcher the way Next does.
+ */
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|manifest\\.webmanifest$|sw\\.js$|offline$|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
