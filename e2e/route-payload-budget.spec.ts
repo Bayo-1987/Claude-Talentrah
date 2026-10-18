@@ -17,12 +17,15 @@ import { test, expect, type Browser } from "@playwright/test";
 import { gzipSync } from "node:zlib";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { requestProblems } from "./support/request-budget";
 
 interface RouteBudget {
   totalKB: number;
   jsKB: number;
   fontKB: number;
   requests: number;
+  /** Own-origin paths the worker adds on this route (see support/request-budget.ts). */
+  workerRequests?: string[];
   /** The exact set of other origins the page asks for (they are never fetched here). */
   thirdParty: string[];
 }
@@ -31,8 +34,10 @@ const BUDGETS: { routes: Record<string, RouteBudget> } = JSON.parse(readFileSync
 const MEASURE_ONLY = process.env.PAYLOAD_MEASURE === "1";
 const SETTLE_MS = 3500; // the router's prefetches and the chunks they trigger start after hydration; "nothing more loads" has no event to wait for
 
-interface Measured extends Omit<RouteBudget, "thirdParty"> {
+interface Measured extends Omit<RouteBudget, "thirdParty" | "workerRequests"> {
   thirdParty: string[];
+  /** Pathnames of every own-origin request, in arrival order. */
+  paths: string[];
 }
 
 async function measure(browser: Browser, baseURL: string, path: string): Promise<Measured> {
@@ -49,10 +54,12 @@ async function measure(browser: Browser, baseURL: string, path: string): Promise
   let js = 0;
   let font = 0;
   let requests = 0;
+  const paths: string[] = [];
   const pending: Array<Promise<void>> = [];
   ctx.on("response", (res) => {
     if (new URL(res.url()).origin !== own) return;
     requests++;
+    paths.push(new URL(res.url()).pathname);
     pending.push(
       res
         .body()
@@ -72,7 +79,7 @@ async function measure(browser: Browser, baseURL: string, path: string): Promise
   await Promise.all(pending);
   await ctx.close();
   const kb = (n: number) => Math.round((n / 1024) * 10) / 10;
-  return { totalKB: kb(total), jsKB: kb(js), fontKB: kb(font), requests, thirdParty: [...other].sort() };
+  return { totalKB: kb(total), jsKB: kb(js), fontKB: kb(font), requests, thirdParty: [...other].sort(), paths };
 }
 
 for (const [route, budget] of Object.entries(BUDGETS.routes)) {
@@ -96,7 +103,7 @@ for (const [route, budget] of Object.entries(BUDGETS.routes)) {
     over("total KB (gzip, own origin)", m.totalKB, budget.totalKB);
     over("JS KB", m.jsKB, budget.jsKB);
     over("font KB", m.fontKB, budget.fontKB);
-    over("requests", m.requests, budget.requests);
+    problems.push(...requestProblems(budget, m.paths));
     if (JSON.stringify(m.thirdParty) !== JSON.stringify([...budget.thirdParty].sort())) {
       problems.push(`other origins asked for: [${m.thirdParty.join(", ")}] (budget: [${budget.thirdParty.join(", ")}])`);
     }
