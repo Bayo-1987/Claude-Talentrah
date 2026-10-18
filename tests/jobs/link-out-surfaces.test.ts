@@ -20,6 +20,7 @@ const ALLOWLIST: Record<string, string> = {
   "src/app/employer/jobs/page.tsx": "lists the organisation's own postings, imported ones included; the 'Imported from your careers page' label and filter arrive with the employer UI (PR 4)",
   "src/lib/admin/moderation/queues.ts": "an operator tool that shows the storage type as data (reports and removed postings)",
   "src/lib/admin/moderation/search.ts": "an operator tool that shows the storage type as data",
+  "src/lib/account-export/manifest.ts": "names the auto_apply_queue column so the admin-produced data export hands the person their own queue rows back as data (docs/admin-data-export.md)",
   "src/lib/employer-verification-reminders/send.ts": "reminds an unverified organisation about its own waiting postings (imported ones included, which is correct: they are hidden until it verifies)",
   "src/lib/employer/actions.ts": "writes the employer's own postings and guards draft publishing; an imported posting is never a draft and is read-only in every employer action (PR 4 adds the Close/Hide actions)",
   "src/lib/jobs/expiry-reminders/extend.ts": "refuses a row without expires_at, and an imported posting carries none (it closes through its feed)",
