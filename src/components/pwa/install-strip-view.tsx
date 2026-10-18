@@ -1,3 +1,4 @@
+import type { Ref } from "react";
 import { buttonClasses } from "@/lib/button-classes";
 
 /**
@@ -17,13 +18,17 @@ export function InstallStripView({
   kind,
   onInstall,
   onDismiss,
+  barRef,
 }: {
   kind: "prompt" | "ios";
+  /** The bar's element, so the strip can measure it and reserve the same height at the end of the page. */
+  barRef?: Ref<HTMLElement>;
   onInstall: () => void;
   onDismiss: () => void;
 }) {
   return (
     <aside
+      ref={barRef}
       data-testid="install-strip"
       aria-label="Install Talentrah"
       className="fixed inset-x-0 bottom-[calc(58.5px+env(safe-area-inset-bottom))] z-[17] flex flex-wrap items-center justify-between gap-x-6 gap-y-1 border-t border-line bg-paper-alt px-6 py-1 min-[760px]:bottom-0 min-[760px]:px-10 print:hidden"

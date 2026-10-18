@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures/authed";
+import { test, expect, admin } from "./fixtures/authed";
 import type { Page } from "@playwright/test";
 import { waitForWorkerControl } from "./support/pwa";
 
@@ -124,7 +124,9 @@ test.describe("the strip must not cost the page its server HTML", () => {
 
 test.describe("the strip does not move the page", () => {
   for (const [label, viewport] of [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 900 }]] as const) {
-    test(`${label}: the content's top offset is the same before and after the strip mounts, and it does not sit on the Farah tab`, async ({ authedPage: page }) => {
+    test(`${label}: the content's top offset is the same before and after the strip mounts, and it does not sit on the Farah tab`, async ({ authedPage: page, testUser }) => {
+      // The first-visit hint makes the strip wait on a phone (covered below); it is already dismissed here.
+      await admin.from("profiles").update({ farah_hint_dismissed_at: new Date().toISOString() }).eq("id", testUser.id);
       await page.setViewportSize(viewport);
       await page.addInitScript(CONSENTED);
       await page.goto("/jobs");
@@ -211,6 +213,7 @@ test.describe("where it must not show", () => {
 
 test.describe("iOS Safari", () => {
   test("shows how to install, and offers no Install button", async ({ browser, baseURL, testUser, authedPage }) => {
+    await admin.from("profiles").update({ farah_hint_dismissed_at: new Date().toISOString() }).eq("id", testUser.id); // the phone-width hint makes the strip wait
     // Reuse the signed-in cookie in an iPhone-Safari-shaped context.
     const cookies = await authedPage.context().cookies();
     const ctx = await browser.newContext({
@@ -227,5 +230,139 @@ test.describe("iOS Safari", () => {
     await expect(p.getByRole("button", { name: "Install" })).toHaveCount(0);
     void testUser;
     await ctx.close();
+  });
+});
+
+/**
+ * The fixed strip against everything else fixed, and against the end of the page (owner, 18 Oct). Widths 360 (a small phone), 768 (a tablet: the Farah column is beside the content) and 1280 (a desktop).
+ * The only fixed floating controls this app has are the Farah tab below 760 px and Farah's first-visit hint; there is no bottom-right launcher on a desktop (the Farah panel is a column).
+ */
+test.describe("the strip against fixed controls and the end of the page", () => {
+  const WIDTHS = [360, 768, 1280] as const;
+
+  /** Bounding rect of every visible fixed-position element that is not the strip itself. */
+  const fixedControls = (page: Page) =>
+    page.evaluate(() => {
+      const out: { name: string; top: number; bottom: number; left: number; right: number }[] = [];
+      for (const el of document.querySelectorAll<HTMLElement>("body *")) {
+        if (el.closest('[data-testid="install-strip"]')) continue;
+        const cs = getComputedStyle(el);
+        if (cs.position !== "fixed" || cs.display === "none" || cs.visibility === "hidden") continue;
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) continue;
+        out.push({ name: el.getAttribute("data-testid") ?? el.tagName.toLowerCase() + "." + el.className.toString().slice(0, 30), top: r.top, bottom: r.bottom, left: r.left, right: r.right });
+      }
+      return out;
+    });
+
+  for (const width of WIDTHS) {
+    test(`${width}px: the strip's buttons overlap no fixed control, and the last content of a long page ends above the strip`, async ({ authedPage: page, testUser }) => {
+      // The first-visit hint is its own test below; this one has it already dismissed so only the standing controls are measured.
+      await admin.from("profiles").update({ farah_hint_dismissed_at: new Date().toISOString() }).eq("id", testUser.id);
+      await page.setViewportSize({ width, height: 800 });
+      await page.addInitScript(CONSENTED);
+      await page.goto("/jobs");
+      await waitForWorkerControl(page);
+      await firePrompt(page);
+      await expect(strip(page)).toBeVisible();
+      await page.waitForTimeout(300);
+
+      // A long page: the feed's own height, scrolled to the very end.
+      expect(await page.evaluate(() => document.documentElement.scrollHeight), "the page must be long enough to scroll").toBeGreaterThan(1200);
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+      await page.waitForTimeout(200);
+
+      const bar = (await strip(page).boundingBox())!;
+      const buttons = [await page.getByRole("button", { name: "Install" }).boundingBox(), await page.getByRole("button", { name: "Not now" }).boundingBox()].map((b) => b!);
+      const overlaps = (a: { x: number; y: number; width: number; height: number }, b: { left: number; right: number; top: number; bottom: number }) =>
+        a.x < b.right && a.x + a.width > b.left && a.y < b.bottom && a.y + a.height > b.top;
+      const controls = await fixedControls(page);
+      for (const c of controls) for (const b of buttons) expect(overlaps(b, c), `a strip button overlaps the fixed control ${c.name}`).toBe(false);
+      // On a phone the Farah tab is there and the whole bar stands above it.
+      if (width < 760) {
+        expect(controls.some((c) => c.name.includes("farah") || c.bottom >= 800 - 1), "the Farah tab is among the fixed controls on a phone").toBe(true);
+      }
+
+      // The last piece of CONTENT on the page, with the page scrolled to its end, must end above the strip's top edge: nothing is hidden under the bar. "Content" is an element that
+      // carries text of its own or is media or a control; wrappers, spacers and the reserve under the Farah tab are not content (they end at the document's end by design).
+      const lastBottom = await page.evaluate(() => {
+        const MEDIA = new Set(["IMG", "SVG", "CANVAS", "VIDEO", "INPUT", "TEXTAREA", "SELECT", "BUTTON", "HR"]);
+        let max = 0;
+        for (const el of document.querySelectorAll<HTMLElement>("body *")) {
+          const cs = getComputedStyle(el);
+          if (cs.position === "fixed" || cs.display === "none" || cs.visibility === "hidden") continue;
+          if (el.closest('[data-testid="install-strip"], [data-testid="install-strip-spacer"], [aria-hidden="true"], script, style')) continue;
+          if (el.closest("[style*='position: fixed'], .fixed")) continue;
+          const ownText = Array.from(el.childNodes).some((n) => n.nodeType === 3 && (n.textContent ?? "").trim() !== "");
+          if (!ownText && !MEDIA.has(el.tagName.toUpperCase())) continue;
+          const r = el.getBoundingClientRect();
+          if (r.width === 0 || r.height === 0) continue;
+          max = Math.max(max, r.bottom);
+        }
+        return max;
+      });
+      expect(lastBottom, "the lowest content bottom, page scrolled to the end").toBeLessThanOrEqual(bar.y + 0.5);
+    });
+  }
+
+  test("on a phone, while Farah's first-visit hint is on screen the strip waits, so nothing overlaps; it appears when the hint has gone", async ({ authedPage: page, testUser }) => {
+    await page.setViewportSize({ width: 360, height: 800 });
+    await page.addInitScript(CONSENTED);
+    await page.goto("/jobs");
+    await waitForWorkerControl(page);
+    await expect(page.getByTestId("farah-first-visit-hint")).toBeVisible();
+    await firePrompt(page);
+    await page.waitForTimeout(800);
+    await expect(strip(page)).toHaveCount(0);
+
+    await admin.from("profiles").update({ farah_hint_dismissed_at: new Date().toISOString() }).eq("id", testUser.id);
+    await page.reload();
+    await waitForWorkerControl(page);
+    await firePrompt(page);
+    await expect(page.getByTestId("farah-first-visit-hint")).toHaveCount(0);
+    await expect(strip(page)).toBeVisible();
+  });
+});
+
+test("from 760px up the hint sits beside the panel, so the strip does not wait for it and the two do not overlap", async ({ authedPage: page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.addInitScript(CONSENTED);
+  await page.goto("/jobs");
+  await waitForWorkerControl(page);
+  await expect(page.getByTestId("farah-first-visit-hint")).toBeVisible();
+  await firePrompt(page);
+  await expect(strip(page)).toBeVisible();
+  const a = (await strip(page).boundingBox())!;
+  const b = (await page.getByTestId("farah-first-visit-hint").boundingBox())!;
+  expect(a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y, "the strip and the hint overlap").toBe(false);
+});
+
+test.describe("'Not now' persists", () => {
+  test("across pages and reloads in this browser (a 30-day timestamp in localStorage)", async ({ authedPage: page }) => {
+    await page.addInitScript(CONSENTED);
+    await page.goto("/jobs");
+    await waitForWorkerControl(page);
+    await firePrompt(page);
+    await expect(strip(page)).toBeVisible();
+    await page.getByRole("button", { name: "Not now" }).click();
+    const stamp = await page.evaluate(() => localStorage.getItem("talentrah-install-dismissed"));
+    expect(Number(stamp)).toBeGreaterThan(Date.now() - 60_000);
+
+    for (const path of ["/tracker", "/settings", "/jobs"]) {
+      await page.goto(path); // a full load of another signed-in page
+      await firePrompt(page);
+      await page.waitForTimeout(500);
+      await expect(strip(page), `still dismissed on ${path}`).toHaveCount(0);
+    }
+    await page.reload();
+    await firePrompt(page);
+    await page.waitForTimeout(500);
+    await expect(strip(page)).toHaveCount(0);
+
+    // Thirty-one days later it is offered again.
+    await page.evaluate(() => localStorage.setItem("talentrah-install-dismissed", String(Date.now() - 31 * 24 * 60 * 60 * 1000)));
+    await page.reload();
+    await firePrompt(page);
+    await expect(strip(page)).toBeVisible();
   });
 });
