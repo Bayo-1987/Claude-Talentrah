@@ -8,10 +8,12 @@
  */
 import { createServerClient } from "@supabase/ssr";
 import type { BrowserContext } from "@playwright/test";
+import { mailpitUrl } from "./mail-address";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const MAILPIT = process.env.MAILPIT_URL ?? "http://127.0.0.1:55324";
+// Derived from the API URL (its port plus 3), so the default stack, CI and a stack on other ports all work; MAILPIT_URL overrides.
+const mailpit = () => mailpitUrl(SUPABASE_URL, process.env.MAILPIT_URL); // lazily: importing this file must not throw where no stack is configured
 
 export interface Cookie {
   name: string;
@@ -39,6 +41,7 @@ function assertLoopback(url: string) {
 
 /** The newest email to `to` from the local mail catcher, polled until it arrives. Returns its text body. */
 export async function waitForMail(to: string, timeoutMs = 20_000): Promise<string> {
+  const MAILPIT = mailpit();
   assertLoopback(MAILPIT);
   assertLoopback(SUPABASE_URL);
   const deadline = Date.now() + timeoutMs;
