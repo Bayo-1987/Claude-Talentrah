@@ -7,6 +7,7 @@ import {
   DISMISS_DAYS,
   DISMISS_KEY,
   computeOffer,
+  isFarahHintOpen,
   isCookieBannerOpen,
   isIosSafari,
   isStandalone,
@@ -33,6 +34,8 @@ interface EnvOpts {
   storage?: "ok" | "throws-on-read" | "throws-on-write" | "missing";
   bannerElement?: boolean;
   decidedAttr?: boolean;
+  hintElement?: boolean;
+  phone?: boolean;
   keptPrompt?: unknown;
   now?: number;
 }
@@ -55,11 +58,12 @@ function env(o: EnvOpts = {}) {
         };
   const e = {
     navigator: { userAgent: o.ua ?? ANDROID_CHROME, platform: o.platform ?? "Linux armv8l", maxTouchPoints: o.maxTouchPoints ?? 5, standalone: o.navStandalone },
-    matchMedia: (q: string) => ({ matches: q === "(display-mode: standalone)" ? (o.standaloneMedia ?? false) : false }),
+    matchMedia: (q: string) => ({ matches: q === "(display-mode: standalone)" ? (o.standaloneMedia ?? false) : q === "(max-width: 759px)" ? (o.phone ?? false) : false }),
     localStorage,
     document: {
       documentElement: { getAttribute: (n: string) => (n === "data-cookie-consent" && o.decidedAttr ? "decided" : null) },
-      querySelector: (s: string) => (s === '[data-testid="cookie-consent-banner"]' && o.bannerElement ? {} : null),
+      querySelector: (s: string) =>
+        (s === '[data-testid="cookie-consent-banner"]' && o.bannerElement) || (s === '[data-testid="farah-first-visit-hint"]' && o.hintElement) ? {} : null,
     },
     [INSTALL_PROMPT_KEY]: o.keptPrompt,
   } as unknown as InstallEnv;
@@ -193,5 +197,22 @@ describe("never under the cookie banner", () => {
     expect(computeOffer(env({ bannerElement: true, keptPrompt: p.event }).env, 0).kind).toBe("none");
     expect(computeOffer(env({ bannerElement: true, ua: IPHONE_SAFARI, platform: "iPhone" }).env, 0).kind).toBe("none");
     expect(computeOffer(env({ bannerElement: false, keptPrompt: p.event }).env, 0).kind).toBe("prompt");
+  });
+});
+
+describe("never on top of Farah's first-visit hint", () => {
+  // On a phone the hint is a fixed bubble just above the Farah tab, where the strip stands; from 760px up it sits beside the panel and cannot meet the bar.
+  it("is open while its element is in the page", () => {
+    expect(isFarahHintOpen(env({ hintElement: true }).env.document)).toBe(true);
+    expect(isFarahHintOpen(env({ hintElement: false }).env.document)).toBe(false);
+  });
+  it("on a phone, hides every offer while it is open, and offers again after", () => {
+    const p = fakePrompt();
+    expect(computeOffer(env({ phone: true, hintElement: true, keptPrompt: p.event }).env, 0).kind).toBe("none");
+    expect(computeOffer(env({ phone: true, hintElement: true, ua: IPHONE_SAFARI, platform: "iPhone" }).env, 0).kind).toBe("none");
+    expect(computeOffer(env({ phone: true, hintElement: false, keptPrompt: p.event }).env, 0).kind).toBe("prompt");
+  });
+  it("from 760px up the strip does not wait for the hint", () => {
+    expect(computeOffer(env({ phone: false, hintElement: true, keptPrompt: fakePrompt().event }).env, 0).kind).toBe("prompt");
   });
 });

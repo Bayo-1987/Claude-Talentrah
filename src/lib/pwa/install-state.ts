@@ -8,7 +8,9 @@ import { INSTALL_PROMPT_KEY } from "@/lib/pwa/bootstrap";
  *  - the app is already running standalone (matchMedia display-mode, or iOS `navigator.standalone`);
  *  - the person pressed "Not now" within the last DISMISS_DAYS (remembered in localStorage; every read and write is in try/catch, because
  *    storage throws in private windows, and a throw or a garbled value simply means "not dismissed");
- *  - the cookie banner is open, so two banners never stack on a small screen.
+ *  - the cookie banner is open, so two banners never stack on a small screen;
+ *  - Farah's first-visit hint is on screen AND the viewport is a phone (under 760px): there the hint is a fixed bubble just above the Farah tab, exactly where the
+ *    strip stands. From 760px up the hint sits beside the Farah panel, under the masthead, and cannot meet a bar on the bottom edge, so the strip does not wait.
  * Otherwise:
  *  - Android and other Chromium: the offer exists only once `beforeinstallprompt` was captured (src/lib/pwa/bootstrap.ts keeps it on window,
  *    possibly before this ever mounted), and Install calls `prompt()` on that kept event;
@@ -78,10 +80,25 @@ export function isCookieBannerOpen(doc: InstallEnv["document"]): boolean {
   return present && doc.documentElement.getAttribute("data-cookie-consent") !== "decided";
 }
 
+/** Farah's first-visit hint (src/components/app-shell/farah-first-visit-hint.tsx) is in the page. */
+export function isFarahHintOpen(doc: InstallEnv["document"]): boolean {
+  return doc.querySelector('[data-testid="farah-first-visit-hint"]') != null;
+}
+
+/** Under 760px, the width below which the hint stands just above the Farah tab (the same breakpoint the hint and the tab use). */
+export function isPhoneWidth(env: InstallEnv): boolean {
+  try {
+    return env.matchMedia("(max-width: 759px)").matches;
+  } catch {
+    return false;
+  }
+}
+
 export function computeOffer(env: InstallEnv, now: number): InstallOffer {
   if (isStandalone(env)) return { kind: "none" };
   if (readDismissed(env, now)) return { kind: "none" };
   if (isCookieBannerOpen(env.document)) return { kind: "none" };
+  if (isPhoneWidth(env) && isFarahHintOpen(env.document)) return { kind: "none" };
   const kept = (env as unknown as Record<string, unknown>)[INSTALL_PROMPT_KEY] as BeforeInstallPromptEvent | undefined;
   if (kept && typeof kept.prompt === "function") return { kind: "prompt", event: kept };
   if (isIosSafari(env)) return { kind: "ios" };
