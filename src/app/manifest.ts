@@ -13,7 +13,7 @@ import { PAPER_HEX } from "@/lib/pwa/colors";
  *
  * Colours are the --paper token as hex (see src/lib/pwa/colors.ts): a manifest cannot hold oklch.
  *
- * Icons: 192 and 512 for purpose "any", and a SEPARATE 512 (and 192) for "maskable". Never one image for both purposes: a maskable icon is
+ * Icons: 192 and 512 for purpose "any" (opaque, on paper; the share image talentrah-mark-512.png is NOT used here and must not change), and a SEPARATE 512 (and 192) for "maskable". Never one image for both purposes: a maskable icon is
  * cropped by the platform and so carries its own opaque background and safe zone (scripts/generate-pwa-icons.ts).
  *
  * Left out of v1 on purpose: screenshots, shortcuts, share_target, related_applications.
@@ -33,8 +33,8 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: PAPER_HEX,
     background_color: PAPER_HEX,
     icons: [
-      { src: "/icons/talentrah-mark-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: "/icons/talentrah-mark-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: "/icons/talentrah-mark-any-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: "/icons/talentrah-mark-any-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
       { src: "/icons/talentrah-mark-maskable-192.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
       { src: "/icons/talentrah-mark-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],

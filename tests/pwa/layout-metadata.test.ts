@@ -15,7 +15,7 @@ describe("root layout metadata", () => {
     expect(viewport.themeColor).toBe(PAPER_HEX);
   });
 
-  it("keeps the favicon set and the Apple touch icon it already had", () => {
+  it("keeps the favicon set it already had, and points the Apple touch icon at the OPAQUE 180 (changed on purpose: iOS draws black behind a transparent icon; tests/pwa/icons.test.ts checks the pixels)", () => {
     const icons = metadata.icons as { icon: { url: string }[]; apple: { url: string }[] };
     expect(icons.icon.map((i) => i.url)).toEqual([
       "/icons/talentrah-mark-16.png",
@@ -23,6 +23,6 @@ describe("root layout metadata", () => {
       "/icons/talentrah-mark-48.png",
       "/icons/talentrah-mark-512.png",
     ]);
-    expect(icons.apple.map((i) => i.url)).toEqual(["/icons/talentrah-mark-180.png"]);
+    expect(icons.apple.map((i) => i.url)).toEqual(["/icons/talentrah-mark-apple-180.png"]);
   });
 });

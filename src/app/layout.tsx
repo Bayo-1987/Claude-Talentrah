@@ -96,7 +96,8 @@ export const metadata: Metadata = {
       { url: "/icons/talentrah-mark-48.png", sizes: "48x48", type: "image/png" },
       { url: "/icons/talentrah-mark-512.png", sizes: "512x512", type: "image/png" },
     ],
-    apple: [{ url: "/icons/talentrah-mark-180.png", sizes: "180x180", type: "image/png" }],
+    // Opaque (paper behind the mark): iOS draws black behind a transparent Home Screen icon. The old transparent -180 file is left on disk, unused.
+    apple: [{ url: "/icons/talentrah-mark-apple-180.png", sizes: "180x180", type: "image/png" }],
   },
   /*
    * The installable-app tags for iOS (Android reads the manifest, which Next links from src/app/manifest.ts). `capable` makes a Home Screen

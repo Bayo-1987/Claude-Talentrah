@@ -6,10 +6,12 @@
  *
  * `sharp` is already a direct dependency (next/image uses it); this adds nothing.
  *
- * Three files (the existing 512 is reused for purpose "any"):
- *   talentrah-mark-192.png            purpose "any"       the mark on a transparent square, drawn exactly as the existing 512 is
- *   talentrah-mark-maskable-512.png   purpose "maskable"  the mark on an OPAQUE paper square, inside the safe zone
- *   talentrah-mark-maskable-192.png   purpose "maskable"  the same, smaller
+ * Five files, ALL OPAQUE (paper #f9f8f5 behind the mark), none of them the share image:
+ *   talentrah-mark-any-192.png / -any-512.png   manifest purpose "any"  the mark drawn as the favicon/share artwork is, on paper. A transparent "any" icon gets whatever colour
+ *                                               the launcher puts behind it.
+ *   talentrah-mark-apple-180.png                the Apple touch icon (layout.tsx): iOS draws BLACK behind transparent pixels, so it is opaque too. iOS rounds the corners itself.
+ *   talentrah-mark-maskable-512.png / -192.png  manifest purpose "maskable"  the mark inside the safe zone
+ * talentrah-mark-512.png (the share image and a favicon entry) and the 16, 32, 48 and 180 favicon-era files are NOT touched: tests/pwa/icons.test.ts pins their sha256.
  *
  * WHY A SEPARATE MASKABLE FILE. A platform may crop a maskable icon to a circle or a squircle and fills nothing itself, so the image has to
  * carry its own opaque background and keep everything that matters inside the central safe zone (a circle of radius 40% of the side). The
@@ -58,8 +60,14 @@ async function write(file: string, size: number, svg: string, opaque: boolean) {
   console.log(`wrote public/icons/${file} (${buf.length} bytes)`);
 }
 
+function anyOpaqueSvg(size: number): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${size}" height="${size}"><rect width="100" height="100" fill="${PAPER_HEX}"/>${BODY}</svg>`;
+}
+
 async function main() {
-  await write("talentrah-mark-192.png", 192, anySvg(192), false);
+  await write("talentrah-mark-any-192.png", 192, anyOpaqueSvg(192), true);
+  await write("talentrah-mark-any-512.png", 512, anyOpaqueSvg(512), true);
+  await write("talentrah-mark-apple-180.png", 180, anyOpaqueSvg(180), true);
   await write("talentrah-mark-maskable-512.png", 512, maskableSvg(512), true);
   await write("talentrah-mark-maskable-192.png", 192, maskableSvg(192), true);
 }
