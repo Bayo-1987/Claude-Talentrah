@@ -10,7 +10,7 @@
  * If someone adds a HEAD export, or moves the secret check below the client, this fails and the HEAD behaviour is decided again on purpose.
  */
 import { readFileSync } from "node:fs";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => ({ clients: 0 }));
 vi.mock("@/lib/supabase/service-role", () => ({
@@ -24,17 +24,23 @@ import { GET } from "@/app/api/admin/sweep-data-exports/route";
 import * as route from "@/app/api/admin/sweep-data-exports/route";
 
 describe("sweep route HEAD behaviour (fixed as it is now)", () => {
+  beforeEach(() => {
+    h.clients = 0;
+    vi.stubEnv("CRON_SECRET", "x".repeat(32));
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("exports GET and no other method handler, so HEAD runs GET (Next's default) and OPTIONS is automatic", () => {
     const handlers = Object.keys(route).filter((k) => ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"].includes(k));
     expect(handlers).toEqual(["GET"]);
   });
 
   it("a request without the secret (what a HEAD becomes) answers 401 and creates no database client", async () => {
-    vi.stubEnv("CRON_SECRET", "x".repeat(32));
     const res = await GET(new Request("https://www.example.test/api/admin/sweep-data-exports", { method: "HEAD" }));
     expect(res.status).toBe(401);
     expect(h.clients).toBe(0);
-    vi.unstubAllEnvs();
   });
 
   it("the secret check comes first in the handler: before the client, and a denial returns immediately", () => {
