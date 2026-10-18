@@ -62,15 +62,19 @@ test.describe("(a) email sign-in and sign-out", () => {
   });
 });
 
-/** True when the stack under test has the Google provider switched on, from GoTrue's own public settings endpoint. */
+/**
+ * Whether the stack under test has the Google provider switched on, from GoTrue's own public settings endpoint.
+ *
+ * ONLY an explicit `external.google: false` means "off" and skips the spec. Anything else that is not an explicit answer (the request fails, a non-2xx, a body without
+ * `external.google` as a boolean) THROWS, so a broken stack or a misread endpoint fails the test loudly instead of quietly skipping the check forever.
+ */
 async function googleProviderEnabled(): Promise<boolean> {
-  try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/settings`, { headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "" } });
-    if (!res.ok) return false;
-    return ((await res.json()) as { external?: { google?: boolean } }).external?.google === true;
-  } catch {
-    return false;
-  }
+  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/settings`;
+  const res = await fetch(url, { headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "" } });
+  if (!res.ok) throw new Error(`GET ${url} answered ${res.status}: cannot tell whether the Google provider is enabled`);
+  const google = ((await res.json()) as { external?: { google?: unknown } }).external?.google;
+  if (typeof google !== "boolean") throw new Error(`GET ${url} did not report external.google as a boolean (got ${JSON.stringify(google)}): cannot tell whether the Google provider is enabled`);
+  return google;
 }
 
 test.describe("(b) Google sign-in start", () => {
