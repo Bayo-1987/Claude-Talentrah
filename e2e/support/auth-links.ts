@@ -75,7 +75,17 @@ export async function callbackUrlFor(link: string): Promise<string> {
   assertLoopback(link);
   const res = await fetch(link, { redirect: "manual" });
   const location = res.headers.get("location");
-  if (!location || !new URL(location).searchParams.get("code")) throw new Error(`verify link did not redirect with a code (status ${res.status}, location ${location})`);
+  if (!location) throw new Error(`verify link did not redirect (status ${res.status})`);
+  const target = new URL(location);
+  // GoTrue falls back to the project's site_url when the redirect_to it was given is not in additional_redirect_urls, and then the link lands on "/?code=..." instead of the app's
+  // /auth/callback: the specs then fail much later with an unrelated-looking timeout. Say it here, naming the fix. (Origin and path only: the query holds a live code.)
+  if (!target.pathname.startsWith("/auth/callback")) {
+    throw new Error(
+      `the verify link redirected to ${target.origin}${target.pathname}, not to /auth/callback. GoTrue falls back to site_url when the redirect target is not allow-listed: ` +
+        `add "<the app's origin>/**" (for example "${new URL(process.env.E2E_BASE_URL ?? "http://localhost:3000").origin}/**") to additional_redirect_urls in supabase/config.toml.`,
+    );
+  }
+  if (!target.searchParams.get("code")) throw new Error(`verify link redirected to /auth/callback without a code (status ${res.status})`);
   return location;
 }
 
