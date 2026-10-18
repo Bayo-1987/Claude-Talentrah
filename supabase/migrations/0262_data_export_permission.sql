@@ -1,0 +1,21 @@
+-- 0262: `data_export` — producing a person's data export is its own grant.
+--
+-- WHAT THIS IS FOR. An admin, on a support request, produces a copy of one person's data (docs/admin-data-export.md). The power to read everything the account holds, for one person, is
+-- not a plain content area like `blog`: it is the most sensitive read this dashboard will have. Exactly 0103's (`people_list`), 0116's (`employer_verification`) and 0118's precedent, and
+-- for the same reason, it STARTS GRANTED TO NOBODY and is a deliberate per-operator decision made in /admin/operators.
+--
+-- THIS FILE IS ONE STATEMENT AND NOTHING ELSE: no `do` block, no check, no second statement. The house pattern for enum-add migrations is one statement, the hosted wrappers gate on this
+-- file's text hash, and Postgres forbids using a new enum value in the transaction that adds it (55P04 "unsafe use of new value"; see 0077/0078). A cast, a comparison or a function call
+-- naming the new value as the enum type, anywhere in a file applied in the same transaction, would abort the whole apply. So 0263 (the table, the bucket and the functions) is a SEPARATE
+-- file and never names the value.
+--
+-- THE CHECKS ARE NOT IN THIS FILE. They are catalog-text reads, which never cast or compare the new value to the enum type, and they live in two places: the local database test
+-- tests/supabase/data-export-permission-enum.test.ts (run after the migrations are applied) and the hosted post-check S3-21 builds from the same SQL. They check that `data_export` is among
+-- the labels of public.admin_permission (read from pg_catalog.pg_enum as text) and that no public.admin_role_permissions row holds it (granted to nobody).
+--
+-- `admin_permission_catalog()` (0079) is `unnest(enum_range(...))`, so the value appears in the role editor with no change there.
+--
+-- ROLLBACK (supabase/rollbacks/0262_data_export_permission.rollback.sql): a Postgres enum value cannot be dropped. The rollback only removes any role grants of it, compared as text, and
+-- the value is left in place; an unused label is harmless.
+
+alter type public.admin_permission add value if not exists 'data_export';
