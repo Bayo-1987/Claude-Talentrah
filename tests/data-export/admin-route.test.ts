@@ -92,6 +92,17 @@ describe("the guard", () => {
     expect(h.sent.map((m) => m.template)).toEqual(["data_export_generated", "data_export_link"]);
   });
 
+  it("the answer to a real start holds NOTHING of the export: exactly the keys ok and message, no table name, no readme, no file text", async () => {
+    const a = await makeAdmin();
+    const p = await makePerson();
+    h.identity = identityFor(a, ["data_export"]);
+    const res = await post({ ...START, target: p.id });
+    expect(res.status).toBe(200);
+    const text = await res.text();
+    expect(Object.keys(JSON.parse(text)).sort()).toEqual(["message", "ok"]);
+    for (const s of ["_readme", "\"tables\"", "generated_at", "profiles", "credit_ledger", "farah_messages"]) expect(text, s).not.toContain(s);
+  });
+
   it("a request from another origin is refused before anything else", async () => {
     const a = await makeAdmin();
     h.identity = identityFor(a, ["data_export"]);

@@ -70,6 +70,7 @@ describe("a start that succeeds", () => {
 
     expect(mail.sent.map((m) => m.template)).toEqual(["data_export_generated", "data_export_link"]);
     expect(mail.sent.every((m) => m.to === p.email)).toBe(true);
+    expect(mail.sent.some((m) => m.to === a.email), "the admin is never mailed the notice or the link").toBe(false);
     expect(mail.sent[0].text).not.toContain("/data-export/");
     expect(mail.sent[1].text).toContain(`https://www.example.test/data-export/${r.exportId}`);
 
