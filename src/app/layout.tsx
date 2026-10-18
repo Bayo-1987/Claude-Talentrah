@@ -5,6 +5,7 @@ import { preload } from "react-dom";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { CookieConsentBanner } from "@/components/legal/cookie-consent-banner";
+import { PwaBootstrap } from "@/components/pwa/pwa-bootstrap";
 import { COOKIE_CONSENT_PREPAINT_SCRIPT } from "@/components/legal/cookie-consent-script";
 import "./globals.css";
 import "@/fonts/newsreader/newsreader.css";
@@ -145,6 +146,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: COOKIE_CONSENT_PREPAINT_SCRIPT }} />
         <CookieConsentBanner />
         {children}
+        {/*
+          The installable-app bootstrap: registers /sw.js and captures the install prompt, or, with PWA_KILL=1, only unregisters. A plain
+          process.env read, not a request-time API, so the homepage stays static; changing the variable needs a redeploy (docs/pwa.md).
+        */}
+        <PwaBootstrap enabled={process.env.PWA_KILL !== "1"} />
         <Analytics />
         <SpeedInsights />
       </body>
