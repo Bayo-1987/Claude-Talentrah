@@ -1,5 +1,6 @@
-import type { Metadata } from "next";
-import { SITE_ORIGIN, SHARE_IMAGE, SHARE_IMAGE_META } from "@/lib/seo/site";
+import type { Metadata, Viewport } from "next";
+import { SITE_ORIGIN, SITE_NAME, SITE_DESCRIPTION, SHARE_IMAGE, SHARE_IMAGE_META } from "@/lib/seo/site";
+import { PAPER_HEX } from "@/lib/pwa/colors";
 import { preload } from "react-dom";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -18,10 +19,13 @@ import { PRELOADED_FONT_URLS } from "@/fonts/preload";
 const newsreader = selfHostedFont({ slug: "newsreader", family: "Newsreader", singleStyle: false });
 const ibmPlexSans = selfHostedFont({ slug: "ibm-plex-sans", family: "IBM Plex Sans", singleStyle: true });
 
-const SITE_NAME = "Talentrah";
-const SITE_DESCRIPTION =
-  "AI-powered career platform for job seekers in Nigeria and across Africa.";
-
+/*
+ * The browser chrome colour for the installed app and the address bar on Android: the paper token, as hex (a theme-color cannot hold oklch;
+ * see src/lib/pwa/colors.ts). A static export, so it reads no request-time API and the homepage stays statically rendered.
+ */
+export const viewport: Viewport = {
+  themeColor: PAPER_HEX,
+};
 
 export const metadata: Metadata = {
   /*
@@ -93,6 +97,11 @@ export const metadata: Metadata = {
     ],
     apple: [{ url: "/icons/talentrah-mark-180.png", sizes: "180x180", type: "image/png" }],
   },
+  /*
+   * The installable-app tags for iOS (Android reads the manifest, which Next links from src/app/manifest.ts). `capable` makes a Home Screen
+   * launch standalone; `title` is the label under the icon. Both are static, so they add no request-time API.
+   */
+  appleWebApp: { capable: true, title: SITE_NAME },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
