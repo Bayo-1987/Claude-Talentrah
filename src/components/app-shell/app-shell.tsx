@@ -187,12 +187,6 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         />
       </div>
       {/*
-        The install-to-home-screen strip: signed-in shell only (this branch), never the signed-out branch above or any marketing page. It
-        renders nothing until the browser has an install offer (or this is iOS Safari), and it sits in flow right under the masthead, after
-        it in DOM order, so the skip link stays the first Tab stop. Lazy and client-only; see src/components/pwa/install-strip.tsx.
-      */}
-      <InstallStripLazy />
-      {/*
         Column-stacked below 760px, side-by-side above it.
 
         The panel is 280px and never shrank, so on a phone it took 280 of the
@@ -248,6 +242,12 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           <FarahPanel firstName={visibleName(profile.first_name) || "there"} />
         </div>
       </main>
+      {/*
+        The install-to-home-screen strip: signed-in shell only (this branch), never the signed-out branch above or any marketing page. It
+        renders nothing until the browser has an install offer (or this is iOS Safari), and it is a fixed bar on the bottom edge (never in flow, so it moves
+        nothing when it mounts after hydration) and sits last in DOM order, so the skip link stays the first Tab stop. Lazy and client-only; see src/components/pwa/install-strip.tsx.
+      */}
+      <InstallStripLazy />
       {/*
         Rendered from the AUTHENTICATED shell only. The marketing pages under
         (marketing) have their own layout and no Farah panel, so a global tab

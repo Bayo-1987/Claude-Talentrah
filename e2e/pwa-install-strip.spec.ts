@@ -122,6 +122,43 @@ test.describe("the strip must not cost the page its server HTML", () => {
   });
 });
 
+test.describe("the strip does not move the page", () => {
+  for (const [label, viewport] of [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 900 }]] as const) {
+    test(`${label}: the content's top offset is the same before and after the strip mounts, and it does not sit on the Farah tab`, async ({ authedPage: page }) => {
+      await page.setViewportSize(viewport);
+      await page.addInitScript(CONSENTED);
+      await page.goto("/jobs");
+      await waitForWorkerControl(page);
+      await expect(strip(page)).toHaveCount(0);
+
+      const column = page.getByTestId("content-column");
+      const top = async () => (await column.evaluate((el) => el.getBoundingClientRect().top + window.scrollY));
+      const mastheadBottom = async () => page.getByTestId("masthead-band").evaluate((el) => el.getBoundingClientRect().bottom + window.scrollY);
+      const before = { top: await top(), masthead: await mastheadBottom() };
+
+      await firePrompt(page);
+      await expect(strip(page)).toBeVisible();
+      await page.waitForTimeout(300); // let any layout settle: a shift would show by now
+
+      expect(await top(), "content column top after the strip mounted").toBe(before.top);
+      expect(await mastheadBottom(), "masthead bottom after the strip mounted").toBe(before.masthead);
+
+      // The strip is a bar on the bottom edge of the viewport; on a phone it stands above the Farah tab instead of on it.
+      const box = (await strip(page).boundingBox())!;
+      expect(Math.round(box.y + box.height), "strip bottom edge, below the content").toBeLessThanOrEqual(viewport.height);
+      if (viewport.width < 760) {
+        const tab = (await page.getByRole("button", { name: /Ask Farah/ }).last().boundingBox())!;
+        expect(box.y + box.height, "strip bottom must not overlap the Farah tab").toBeLessThanOrEqual(tab.y + 1);
+      }
+
+      // And it leaves again without moving anything.
+      await page.getByRole("button", { name: "Not now" }).click();
+      await expect(strip(page)).toHaveCount(0);
+      expect(await top()).toBe(before.top);
+    });
+  }
+});
+
 test.describe("where it must not show", () => {
   test("never under the cookie banner: hidden while it is open, offered once a choice is made", async ({ authedPage: page }) => {
     await page.goto("/jobs");
