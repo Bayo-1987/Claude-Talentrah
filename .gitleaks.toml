@@ -205,6 +205,13 @@ regexes = [
   # account, and protects nothing. The test now assembles it at run time, but the first commit that carried the literal is already in the PR's history
   # and this scan reads commits, so the value is allowlisted. ANCHORED to exactly that value: no wildcard, and it does NOT relax any rule for anything else.
   '''^sk_test_leakleakleak$''',
+
+  # docs/pwa.md, PR #960 (commit e4c9fb3) — the `secret = "..."` line in the example of a SCRATCH supabase/config.toml that enables a FAKE Google provider so
+  # e2e/pwa-worker-active.spec.ts can run locally. The value was invented for that example (a human-readable placeholder whose own text says it is not real); no
+  # Google OAuth client was ever created for it and it protects nothing: the local stack never contacts Google (the spec aborts the request to accounts.google.com).
+  # The repo's real supabase/config.toml has no Google provider and must not gain one for a test. ANCHORED to exactly that value: no wildcard, and it does NOT relax
+  # the rule for anything else.
+  '''^local-test-only-not-a-real-secret$''',
 ]
 
 paths = [
