@@ -9,7 +9,7 @@ pages, app-store listings.
 | piece | where | what it is |
 |---|---|---|
 | Manifest | `src/app/manifest.ts` → `/manifest.webmanifest` | `start_url: "/dashboard"` (sends an organisation member to `/employer`, everyone else to `/jobs`, a signed-out visitor to `/login`), `display: standalone`, `id` and `scope` `"/"`, paper colour as hex |
-| Icons | `public/icons/talentrah-mark-192.png`, `-maskable-192.png`, `-maskable-512.png` (+ the existing `-512.png`) | generated once by `scripts/generate-pwa-icons.ts` (uses `sharp`, already a dependency; not part of the build). Maskable icons are a **separate** opaque file with the mark inside the safe zone; one image never serves both purposes |
+| Icons | `public/icons/talentrah-mark-any-192.png`, `-any-512.png` (manifest `any`), `-apple-180.png` (Apple touch icon), `-maskable-192.png`, `-maskable-512.png` (manifest `maskable`) | all **opaque** (paper behind the mark: iOS draws black behind a transparent Home Screen icon, a launcher draws its own colour behind a transparent `any` icon). Generated once by `scripts/generate-pwa-icons.ts` (`sharp`, already a dependency; not part of the build). The share image `talentrah-mark-512.png` and the 16/32/48 favicons are untouched and pinned by sha256 in `tests/pwa/icons.test.ts`. A maskable icon is a **separate** file with the mark inside the safe zone; one image never serves both purposes |
 | Colours | `src/lib/pwa/colors.ts` | `--paper` `oklch(98% 0.004 90)` = `#f9f8f5`. A manifest cannot hold oklch; `tests/pwa/manifest.test.ts` re-derives the hex from `globals.css` and fails if either moves |
 | Service worker | `src/lib/pwa/service-worker-source.ts` served by `src/app/sw.js/route.ts` | plain JavaScript text, no dependency, no build step |
 | Offline page | `src/lib/pwa/offline-page.ts` served by `src/app/offline/route.ts` | one self-contained HTML string (see below) |
@@ -47,7 +47,7 @@ Cost of precaching one brand font (not done in v1): the preloaded Latin faces ar
 
 - Android and other Chromium: shown only once `beforeinstallprompt` has been captured; **Install** calls `prompt()` on that event. iOS Safari (iPhone and iPadOS): "To install: tap Share, then Add to Home Screen." Other iOS browsers get nothing.
 - Hidden when already standalone, for 30 days after **Not now** (`localStorage` key `talentrah-install-dismissed`, every read and write in `try/catch`; also remembered for the life of the page when storage throws), and while the cookie banner is open.
-- Mounted only in the **signed-in** branch of `AppShell`. Never on a marketing page or for a signed-out visitor.
+- Mounted only in the **signed-in** branch of `AppShell`. Never on a marketing page or for a signed-out visitor. It is a **fixed bar on the bottom edge** (above the Farah tab below 760px), never in flow, because it appears after hydration and an in-flow strip pushed the whole page down when it mounted (e2e checks the content column's offset is identical before and after).
 - **Deliberate side effect:** the early bootstrap calls `preventDefault()` on `beforeinstallprompt` on **every** page, so Chrome's own mini-infobar never appears. The browser-menu "Install" still works. Our strip is the only prompt.
 - The event is captured by the early bootstrap (not the lazy strip) and kept on `window.__talentrahInstallPrompt`, because the browser can fire it before the lazy component has mounted.
 

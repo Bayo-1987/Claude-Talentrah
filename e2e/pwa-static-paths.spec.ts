@@ -45,7 +45,7 @@ test.describe("a signed-in person", () => {
     const html = await page.content();
     const chunk = html.match(/\/_next\/static\/[^"')\s]+\.js/)?.[0];
     expect(chunk, "a /_next/static chunk on the page").toBeTruthy();
-    for (const path of [...PATHS, chunk!, "/icons/talentrah-mark-192.png", "/icons/talentrah-mark-maskable-512.png"]) {
+    for (const path of [...PATHS, chunk!, "/icons/talentrah-mark-any-192.png", "/icons/talentrah-mark-maskable-512.png"]) {
       const res = await page.request.get(path, { maxRedirects: 0 });
       expect(res.status(), path).toBe(200);
       expect(res.headers()["set-cookie"], `${path} must not set a cookie`).toBeUndefined();
