@@ -34,7 +34,7 @@ describe("the owner's POST", () => {
     expect(res.headers.get("content-length")).toBe(String(new Blob([body]).size));
     expect(res.headers.get("cache-control")).toBe("no-store");
     expect(res.headers.get("x-robots-tag")).toBe("noindex, nofollow");
-    expect(res.headers.get("referrer-policy")).toBe("same-origin");
+    expect(res.headers.get("referrer-policy")).toBe("strict-origin");
     expect(await res.text()).toBe(body);
 
     expect(fake.objects.has(row.object_path!), "the object is deleted").toBe(false);
@@ -44,7 +44,7 @@ describe("the owner's POST", () => {
 
     const again = await handleDownload(post(row.id), row.id, as(owner));
     expect(again.status).toBe(404);
-    expect(again.headers.get("referrer-policy")).toBe("same-origin");
+    expect(again.headers.get("referrer-policy")).toBe("strict-origin");
   });
 
   it("two POSTs at the same moment: exactly one gets the file", async () => {

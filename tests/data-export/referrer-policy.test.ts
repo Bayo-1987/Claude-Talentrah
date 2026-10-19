@@ -1,5 +1,5 @@
 /**
- * DATA-EXPORT follow-up 2: ONE Referrer-Policy, `same-origin`, on everything under /data-export: the handler's HTML responses, its redirects, the POST's file response, the <meta name="referrer"> tag in the
+ * DATA-EXPORT follow-up 2: ONE Referrer-Policy, `strict-origin`, on everything under /data-export: the handler's HTML responses, its redirects, the POST's file response, the <meta name="referrer"> tag in the
  * pages, and the next.config.ts rule for /data-export/:path*. No exception, and none of them is `no-referrer` (a form POST from a no-referrer page goes out with `Origin: null`, which the POST's same-origin
  * check refuses: e2e/data-export-origin.spec.ts proves that in a real browser) or `never`. In-memory store, no database.
  */
@@ -36,7 +36,7 @@ const rulePolicy = async (): Promise<string | undefined> => {
 };
 
 describe("the one value", () => {
-  it("is same-origin", () => expect(REFERRER_POLICY).toBe("same-origin"));
+  it("is strict-origin", () => expect(REFERRER_POLICY).toBe("strict-origin"));
 
   it("the next.config.ts rule for /data-export/:path* carries it (a literal there, pinned equal to the constant)", async () => {
     expect(await rulePolicy()).toBe(REFERRER_POLICY);
@@ -77,7 +77,7 @@ describe("none of them is no-referrer or never", () => {
     }
     const config = readFileSync("next.config.ts", "utf8");
     const rule = config.slice(config.indexOf('source: "/data-export/:path*"'), config.indexOf('source: "/data-export/:path*"') + 200);
-    expect(rule).toContain('value: "same-origin"');
+    expect(rule).toContain('value: "strict-origin"');
     expect(rule).not.toMatch(/no-referrer|never/);
   });
 });

@@ -50,7 +50,7 @@ export function isPrefetch(request: Request): boolean {
 export const NO_STORE = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" } as const;
 export const ALLOW = "GET, HEAD, POST, OPTIONS";
 
-/** An HTML page that is never cached or indexed and never sends the URL (it carries the export id) to another site (REFERRER_POLICY: same-origin). */
+/** An HTML page that is never cached or indexed and never sends the URL (it carries the export id) in any Referer (REFERRER_POLICY: strict-origin, the bare origin at most). */
 export function htmlResponse(status: number, html: string): Response {
   return new Response(html, { status, headers: { ...NO_STORE, "Content-Type": "text/html; charset=utf-8", "Referrer-Policy": REFERRER_POLICY } });
 }
