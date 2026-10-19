@@ -1,6 +1,6 @@
 # Admin-produced data export
 
-An admin, on a support request, produces a copy of ONE person's data. There is **no self-service**: no page, no button, and a person cannot start an export. This file is the whole picture; the
+An admin, on a support request, produces a copy of ONE person's data. There is **no self-service**: a person cannot start an export (the only page they ever see is the one-button confirm page for a file support has already produced; see *The download*). This file is the whole picture; the
 decisions behind it are the owner's, 17-18 Oct 2026, and the open questions for the owner's data-protection adviser are at the end (none of them gates anything here).
 
 ## What happens, in order
@@ -27,19 +27,41 @@ decisions behind it are the owner's, 17-18 Oct 2026, and the open questions for 
    back so a retry can start at once.
 9. **The final row `people.export_finished`** with `outcome: "completed"`.
 
-## The download (`GET /data-export/<id>`)
+## The download (`/data-export/<id>`: GET shows a page, POST claims)
 
-The only thing a person touches. Order: method check, prefetch check, session, **claim**, stream, delete in a `finally`.
+The only thing a person touches. The link in the email is `GET /data-export/<id>`; it opens a **confirm page**, and only pressing its **Download my data** button (a form `POST` to the same path) claims
+the file. One route handler (`src/app/data-export/[id]/route.ts`) serves both, and the HTML comes straight from it (`src/lib/data-export/pages.ts`), not through the app layout: no install strip, no
+service-worker registration, no analytics; the confirm page's only script is the few inline lines that disable the button on submit, and the refusal page has none.
 
-* **HEAD and OPTIONS** are explicit handlers that answer empty and **never claim**. The bundled Next docs do not say what HEAD does when only GET is exported, so the rule is the explicit handler,
-  and `tests/data-export/download-route.test.ts` records what each method does.
-* A GET that carries a prefetch signal (`Sec-Purpose: prefetch`, `Purpose: prefetch`, `Next-Router-Prefetch`, `X-Middleware-Prefetch`) answers without claiming.
-* Signed out: to `/login` with the existing return trip. Signed in as **another** account: the same generic refusal as an expired or used link, plus a `people.export_denied` row.
-* Signed in as the owner: `claim_data_export_download(export id, user id)` is **one conditional `UPDATE`** (owner, generated, unclaimed, undeleted, unexpired) and returns the current attempt's path.
-  The file is streamed with the service role (**not** a signed URL) and the object is deleted and the row marked `deleted` in a `finally`, whether the stream finished, failed or the client dropped.
-  **A failed download consumes the single use**; support starts a new export, which is allowed straight away.
+**Why two methods (the evidence, 18-19 Oct).** When the link itself claimed and streamed, every click produced TWO GETs 1 to 1.5 s apart from the same browser (Vercel logs of both exports): the first
+answered 200 and streamed to completion, the second began while it was still streaming and was refused as already used. Why a second GET exists is not proven (a browser extension that re-fetches a
+download is the leading suspect); whatever the cause, a link that spends itself on the first GET is fragile against any client that fetches twice. Now a GET is read-only and safe to repeat.
+
+* **GET** claims nothing, deletes nothing and writes no audit row, with one exception kept as it was: a signed-in account that is **not** the owner gets the refusal and a `people.export_denied` row
+  (one row per such GET, pinned by a test; the growth on repeated GETs is a separate follow-up). The confirm page appears only when the claim *would* succeed (owner, generated, unclaimed, undeleted,
+  unexpired); that check is advisory and the POST's claim is the only authority. Everything else gets the generic refusal (404, the same sentence as before, now as a small page), and **the body for
+  another account's id is byte-identical to the body for an id that does not exist**. Signed out: to `/login` with the return trip (the status is a 302).
+* **POST** is the old path, unchanged in behaviour: session, `claim_data_export_download(export id, user id)` (**one conditional `UPDATE`**: owner, generated, unclaimed, undeleted, unexpired), the
+  file streamed with the service role (**not** a signed URL), the object deleted and the row marked `deleted` in a `finally` whether the stream finished, failed or the client dropped, the same two audit
+  rows, the same refusal. **A failed download consumes the single use**; support starts a new export, which is allowed straight away. Signed out: **303** to `/login` with the return trip (so the browser
+  follows with a GET to the confirm page, never a replayed POST).
+* **Same-origin rule on the POST** (`src/lib/data-export/origin.ts`): the `Origin` header (or, when there is none, the `Referer`) must name the host the request arrived on (the `Host` header), **host and
+  port, case-insensitively, never a hard-coded domain**, so a preview host and production both work. `Origin: null`, a foreign host, a different port, or neither header: the generic refusal and nothing is
+  claimed. `x-forwarded-host` is not read. The session cookie is SameSite=lax, so a cross-site POST carries no session anyway; this is the second layer.
+* **The button is disabled on submit** so a double-click sends one POST; with scripts off the plain form still works. The atomic claim makes a second POST a refusal either way.
+* **HEAD and OPTIONS** are explicit handlers that answer empty and **never touch the database**. The bundled Next docs do not say what HEAD does when only GET is exported, so the rule is the explicit
+  handler; `tests/data-export/download-confirm.test.ts` and `tests/data-export/download.test.ts` record what each method does. A request that carries a prefetch signal (`Sec-Purpose: prefetch`,
+  `Purpose: prefetch`, `Next-Router-Prefetch`, `X-Middleware-Prefetch`) also answers empty without reading anything.
+* **Headers.** Every response carries `Cache-Control: no-store` and `X-Robots-Tag: noindex, nofollow`; the pages and the file response carry `Referrer-Policy: no-referrer` (the URL holds the export id),
+  set both by the handler and by a rule in `next.config.ts` that comes after the site-wide one. The site's Content-Security-Policy is **Report-Only** and sets no `form-action` (which does not fall back to
+  `default-src`), so the same-origin form post and the inline script are allowed; `tests/data-export/download-headers.test.ts` prints the policy it read.
+* **Counts-only log lines** in the POST path, so a test can be read from the platform logs without any identifier: `[data-export] claimed`, or `[data-export] refusal class=` one of `claim_error`,
+  `not_claimable`, `denied`, `object_unreadable`. Never an id, an address or an error text; the GET writes none.
 * The route is exempt from the pending-deletion gate (`src/lib/auth/pending-deletion-gate.ts`): a person in their 30 days can open it.
-* One generic refusal for everything else, so a probe learns nothing about which case it was.
+* **Residual risk design A does not remove:** a client that makes a duplicate POST, or an extension that intercepts the POST's attachment and loses it, still burns the single use. That is why a preview test
+  in the owner's own Chrome comes before any production export.
+* Tests: `tests/data-export/download-confirm.test.ts` (GET), `download-post.test.ts` (POST and log lines), `download-origin.test.ts` (same-origin), `download-headers.test.ts` (CSP, Referrer-Policy,
+  minimal pages, email text), `e2e/data-export-double-click.spec.ts` (one POST on a double-click, in a real browser), and the database-backed `download.test.ts` (the claim, the stream failures, the cleanup).
 
 ## Cancelling an unused export
 

@@ -33,7 +33,7 @@ function assemble(subject: string, firstName: string | null, lines: string[], bu
   return { subject, text, html: renderBrandedEmail({ bodyHtml }) };
 }
 
-const utc = (d: Date) => `${d.toISOString().slice(0, 16).replace("T", " ")} UTC`;
+export const utc = (d: Date) => `${d.toISOString().slice(0, 16).replace("T", " ")} UTC`;
 
 export function buildStartNoticeEmail({ firstName, startedAt, supportUrl }: { firstName: string | null; startedAt: Date; supportUrl: string }): EmailMessage {
   return assemble("Talentrah support is preparing a copy of your data", firstName, [
@@ -48,7 +48,7 @@ export function buildLinkEmail({ firstName, link, expiresAt, supportUrl }: { fir
     "Your copy of your Talentrah data is ready",
     firstName,
     [
-      `Your copy is ready. Open the link below while you are signed in to your Talentrah account. It works once, only for this account, and until ${utc(expiresAt)}. The file is deleted as soon as you have downloaded it, or when the link expires.`,
+      `Your copy is ready. Open the link below while you are signed in to your Talentrah account, then press Download. It works once, only for this account, and until ${utc(expiresAt)}. The file is deleted as soon as you have downloaded it, or when the link expires.`,
       `If you did not ask for this, ignore this email and contact us: ${supportUrl}`,
     ],
     { label: "Download my data", url: link },
