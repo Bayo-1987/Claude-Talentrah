@@ -1,6 +1,7 @@
 /**
- * The download (GET /data-export/<id>) against the real local database and bucket: only the signed-in owner, once, before expiry; the object is deleted whether the stream finishes, fails or the
- * client drops; HEAD, OPTIONS and a prefetch never claim. The session is a fake `getUser` (the route supplies the real cookie reader); everything else is real.
+ * The download (POST /data-export/<id>, the only thing that claims) against the real local database and bucket: only the signed-in owner, once, before expiry; the object is deleted whether the
+ * stream finishes, fails or the client drops; HEAD, OPTIONS, a GET and a prefetch never claim. The session is a fake `getUser` (the route supplies the real cookie reader); everything else is real.
+ * The read-only GET (the confirm page), the same-origin rule and the log lines are in download-confirm.test.ts, download-origin.test.ts and download-post.test.ts (in-memory, no database).
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
@@ -39,7 +40,8 @@ afterAll(async () => {
 }, 120_000);
 
 const URL_BASE = "https://www.example.test";
-const get = (id: string, headers: Record<string, string> = {}, method = "GET") => new Request(`${URL_BASE}/data-export/${id}`, { method, headers });
+// MOVED from GET to POST (the claim moved with it); the request now carries the Origin a browser form post sends, which the route checks against the host.
+const get = (id: string, headers: Record<string, string> = {}, method = "POST") => new Request(`${URL_BASE}/data-export/${id}`, { method, headers: { Origin: URL_BASE, ...headers } });
 const as = (userId: string | null) => ({ service: countedService().client, getUser: async () => (userId ? { id: userId } : null) });
 
 /** A finished export for `person`, made by the real start flow (a real file in the bucket). */
@@ -107,7 +109,7 @@ describe("everyone else gets the same generic refusal", () => {
     const p = await makePerson();
     const row = await exportFor(p);
     const res = await handleDownload(get(row.id), row.id, as(null));
-    expect(res.status).toBe(302);
+    expect(res.status, "MOVED: a POST redirects with 303 so the browser follows with a GET").toBe(303);
     const to = new URL(res.headers.get("location")!);
     expect(to.pathname).toBe("/login");
     expect(to.searchParams.get("redirectTo")).toBe(`/data-export/${row.id}`);
@@ -235,7 +237,7 @@ describe("the object is deleted whether the stream finishes, fails or the client
   });
 });
 
-describe("HEAD, OPTIONS and a prefetch never claim (C2)", () => {
+describe("HEAD, OPTIONS, a GET and a prefetch never claim (C2)", () => {
   it("the route exports explicit HEAD and OPTIONS handlers that answer empty and never touch the database", async () => {
     const route = await import("@/app/data-export/[id]/route");
     const p = await makePerson();
@@ -244,7 +246,7 @@ describe("HEAD, OPTIONS and a prefetch never claim (C2)", () => {
     for (const handler of [route.HEAD, route.OPTIONS]) {
       const res = await handler();
       expect(res.status).toBe(204);
-      expect(res.headers.get("allow")).toBe("GET, HEAD, OPTIONS");
+      expect(res.headers.get("allow")).toBe("GET, HEAD, POST, OPTIONS");
       expect(await res.text()).toBe("");
     }
     expect(h.serviceRoleCalls, "no service client was even created").toBe(before);
@@ -256,7 +258,8 @@ describe("HEAD, OPTIONS and a prefetch never claim (C2)", () => {
     const row = await exportFor(p);
     let sessionReads = 0;
     const deps = { service: countedService().client, getUser: async () => { sessionReads += 1; return { id: p.id }; } };
-    for (const method of ["HEAD", "OPTIONS", "POST"]) expect((await handleDownload(get(row.id, {}, method), row.id, deps)).status, method).toBe(204);
+    // MOVED: "POST" was in this list when the GET claimed; now the POST claims and a GET is the one that answers empty here.
+    for (const method of ["HEAD", "OPTIONS", "GET"]) expect((await handleDownload(get(row.id, {}, method), row.id, deps)).status, method).toBe(204);
     expect(sessionReads).toBe(0);
     expect((await getRow(row.id))!.claimed_at).toBeNull();
   });
