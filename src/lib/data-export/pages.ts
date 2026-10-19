@@ -1,4 +1,5 @@
 import { utc } from "./email";
+import { REFERRER_POLICY } from "./referrer-policy";
 
 /**
  * The two pages of the data export download, as plain HTML strings. They are served by the route handler itself (src/app/data-export/[id]/route.ts), NOT through the app layout, so neither one
@@ -43,7 +44,7 @@ a{color:var(--rust)}
 const SCRIPT = `(function(){var f=document.getElementById("dl");if(!f)return;f.addEventListener("submit",function(e){if(f.getAttribute("data-sent")){e.preventDefault();return}f.setAttribute("data-sent","1");var b=f.querySelector("button");if(b)b.disabled=true});window.addEventListener("pageshow",function(e){if(e.persisted){f.removeAttribute("data-sent");var b=f.querySelector("button");if(b)b.disabled=false}})})();`;
 
 const doc = (title: string, body: string, script = ""): string =>
-  `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${esc(title)}</title><style>${STYLE}</style></head><body><main>${body}</main>${script ? `<script>${script}</script>` : ""}</body></html>`;
+  `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="${REFERRER_POLICY}"><title>${esc(title)}</title><style>${STYLE}</style></head><body><main>${body}</main>${script ? `<script>${script}</script>` : ""}</body></html>`;
 
 export function renderConfirmPage({ id, expiresText }: ConfirmPageProps): string {
   return doc(

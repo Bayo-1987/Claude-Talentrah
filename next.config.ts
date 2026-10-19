@@ -197,10 +197,10 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // The data export download (confirm page, refusal page and the file itself): the URL carries the export id, so none of them sends it as a referrer. It sits AFTER the rule above and
+        // The data export download (confirm page, refusal page and the file itself): the URL carries the export id, so none of them sends it to another site. `same-origin` (not `no-referrer`: a form POST from a no-referrer page goes out with `Origin: null`, which the POST refuses); the one value is src/lib/data-export/referrer-policy.ts, pinned equal by tests/data-export/download-headers.test.ts. It sits AFTER the rule above and
         // repeats the key on purpose: when two rules set the same header the later one wins, which tests/data-export/download-headers.test.ts checks.
         source: "/data-export/:path*",
-        headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
+        headers: [{ key: "Referrer-Policy", value: "same-origin" }],
       },
       {
         // An applicant's assessment response (ASSESSMENT-VIEWER-1): a candidate's own written work, so the page is never indexed and never cached by a browser, proxy or CDN.

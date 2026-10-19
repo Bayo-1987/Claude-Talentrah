@@ -1,6 +1,6 @@
 /**
  * What the real site configuration does to the data export pages (DATA-EXPORT-DOWNLOAD-DELIVERY-1, sections 7 and 1b): the real Content-Security-Policy and where it comes from, that a
- * same-origin form POST and the page's one inline script are allowed by it, that Referrer-Policy: no-referrer wins for this route, and that the pages are minimal. Reads next.config.ts itself.
+ * same-origin form POST and the page's one inline script are allowed by it, that Referrer-Policy: same-origin wins for this route, and that the pages are minimal. Reads next.config.ts itself.
  */
 import { describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
@@ -44,8 +44,8 @@ describe("the site's real Content-Security-Policy on /data-export/<id>", () => {
 });
 
 describe("Referrer-Policy", () => {
-  it("no-referrer is the LAST value set for /data-export/*, after the site-wide strict-origin-when-cross-origin, and not for other routes", async () => {
-    expect((await resolved(`/data-export/${randomUUID()}`)).get("referrer-policy")).toBe("no-referrer");
+  it("same-origin is the LAST value set for /data-export/*, after the site-wide strict-origin-when-cross-origin, and not for other routes", async () => {
+    expect((await resolved(`/data-export/${randomUUID()}`)).get("referrer-policy")).toBe("same-origin");
     expect((await resolved("/jobs")).get("referrer-policy")).toBe("strict-origin-when-cross-origin");
   });
 });

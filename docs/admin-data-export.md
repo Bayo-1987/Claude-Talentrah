@@ -52,16 +52,18 @@ download is the leading suspect); whatever the cause, a link that spends itself 
 * **HEAD and OPTIONS** are explicit handlers that answer empty and **never touch the database**. The bundled Next docs do not say what HEAD does when only GET is exported, so the rule is the explicit
   handler; `tests/data-export/download-confirm.test.ts` and `tests/data-export/download.test.ts` record what each method does. A request that carries a prefetch signal (`Sec-Purpose: prefetch`,
   `Purpose: prefetch`, `Next-Router-Prefetch`, `X-Middleware-Prefetch`) also answers empty without reading anything.
-* **Headers.** Every response carries `Cache-Control: no-store` and `X-Robots-Tag: noindex, nofollow`; the pages and the file response carry `Referrer-Policy: no-referrer` (the URL holds the export id),
-  set both by the handler and by a rule in `next.config.ts` that comes after the site-wide one. The site's Content-Security-Policy is **Report-Only** and sets no `form-action` (which does not fall back to
+* **Headers.** Every response carries `Cache-Control: no-store` and `X-Robots-Tag: noindex, nofollow`; everything under `/data-export` carries ONE `Referrer-Policy: same-origin` (the URL holds the export id, so nothing is sent to another site):
+  the handler's pages, redirects and file response, the pages' `<meta name="referrer">` and a rule in `next.config.ts` that comes after the site-wide one; the value is `src/lib/data-export/referrer-policy.ts`.
+  It is `same-origin` and NOT `no-referrer` because a form POST from a `no-referrer` page is sent with `Origin: null`, which the POST's same-origin check refuses, so every real click would have got the refusal page
+  (`e2e/data-export-origin.spec.ts` proves it in a real browser). The site's Content-Security-Policy is **Report-Only** and sets no `form-action` (which does not fall back to
   `default-src`), so the same-origin form post and the inline script are allowed; `tests/data-export/download-headers.test.ts` prints the policy it read.
-* **Counts-only log lines** in the POST path, so a test can be read from the platform logs without any identifier: `[data-export] claimed`, or `[data-export] refusal class=` one of `claim_error`,
-  `not_claimable`, `denied`, `object_unreadable`. Never an id, an address or an error text; the GET writes none.
+* **Counts-only log lines** in the POST path, so a test can be read from the platform logs without any identifier: `[data-export] claimed`, or `[data-export] refusal class=` one of `origin_refused` (the same-origin check refused the POST: a foreign or
+  `null` Origin, no Origin and no Referer, or another port), `claim_error`, `not_claimable`, `denied`, `object_unreadable`. Never an id, an address or an error text; the GET writes none.
 * The route is exempt from the pending-deletion gate (`src/lib/auth/pending-deletion-gate.ts`): a person in their 30 days can open it.
 * **Residual risk design A does not remove:** a client that makes a duplicate POST, or an extension that intercepts the POST's attachment and loses it, still burns the single use. That is why a preview test
   in the owner's own Chrome comes before any production export.
-* Tests: `tests/data-export/download-confirm.test.ts` (GET), `download-post.test.ts` (POST and log lines), `download-origin.test.ts` (same-origin), `download-headers.test.ts` (CSP, Referrer-Policy,
-  minimal pages, email text), `e2e/data-export-double-click.spec.ts` (one POST on a double-click, in a real browser), and the database-backed `download.test.ts` (the claim, the stream failures, the cleanup).
+* Tests: `tests/data-export/download-confirm.test.ts` (GET), `download-post.test.ts` (POST and log lines), `download-origin.test.ts` (same-origin), `download-origin-log.test.ts` (the `origin_refused` line), `referrer-policy.test.ts` (the one Referrer-Policy everywhere), `download-headers.test.ts` (CSP, Referrer-Policy,
+  minimal pages, email text), `e2e/data-export-double-click.spec.ts` (one POST on a double-click, in a real browser), `e2e/data-export-origin.spec.ts` (the Origin the browser really sends on the POST), and the database-backed `download.test.ts` (the claim, the stream failures, the cleanup).
 
 ## Cancelling an unused export
 

@@ -2,6 +2,7 @@ import "server-only";
 import { authLinkWithReturn } from "@/lib/auth/redirect-to";
 import { auditDownloadDenied } from "./audit";
 import { UUID_PATTERN } from "./constants";
+import { REFERRER_POLICY } from "./referrer-policy";
 import { ALLOW, NO_STORE, emptyAnswer, genericRefusal, htmlResponse, isPrefetch, type DownloadDeps } from "./download";
 import { expiryText, renderConfirmPage } from "./pages";
 import { getRow } from "./store";
@@ -24,7 +25,7 @@ export async function handleConfirm(request: Request, exportId: string, deps: Do
   const user = await deps.getUser();
   if (!user) {
     const to = new URL(authLinkWithReturn("/login", `/data-export/${id}`), request.url);
-    return new Response(null, { status: 302, headers: { Location: to.toString(), ...NO_STORE, "Referrer-Policy": "no-referrer" } });
+    return new Response(null, { status: 302, headers: { Location: to.toString(), ...NO_STORE, "Referrer-Policy": REFERRER_POLICY } });
   }
 
   let row: Awaited<ReturnType<typeof getRow>>;

@@ -72,13 +72,13 @@ describe("the confirm page", () => {
     for (const word of ["profiles", "table", "rows", "fixture@example.test", "bytes", "KB"]) expect(html.toLowerCase()).not.toContain(word.toLowerCase());
   });
 
-  it("carries no-store, noindex and no-referrer", async () => {
+  it("carries no-store, noindex and same-origin referrer policy", async () => {
     const owner = randomUUID();
     const row = seedExport({ user_id: owner });
     const res = await handleConfirm(get(row.id), row.id, as(owner));
     expect(res.headers.get("cache-control")).toBe("no-store");
     expect(res.headers.get("x-robots-tag")).toBe("noindex, nofollow");
-    expect(res.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(res.headers.get("referrer-policy")).toBe("same-origin");
   });
 
   it("the page function takes exactly two strings: the id and the expiry text (the row never reaches the markup)", () => {
@@ -94,7 +94,7 @@ describe("the confirm page", () => {
 describe("everything else is the refusal, never the page", () => {
   const refusalBytes = async (res: Response) => `${res.status}|${res.headers.get("content-type")}|${await res.text()}`;
 
-  it("the refusal keeps today's sentence byte for byte, status 404, with no-store, noindex and no-referrer", async () => {
+  it("the refusal keeps today's sentence byte for byte, status 404, with no-store, noindex and same-origin referrer policy", async () => {
     const res = await handleConfirm(get(randomUUID()), randomUUID(), as(randomUUID()));
     expect(res.status).toBe(404);
     const html = await res.text();
@@ -103,7 +103,7 @@ describe("everything else is the refusal, never the page", () => {
     expect(html).not.toContain("<h1");
     expect(res.headers.get("cache-control")).toBe("no-store");
     expect(res.headers.get("x-robots-tag")).toBe("noindex, nofollow");
-    expect(res.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(res.headers.get("referrer-policy")).toBe("same-origin");
   });
 
   it("the SAME id answers byte-identically whether the row belongs to another account or does not exist", async () => {
