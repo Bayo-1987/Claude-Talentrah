@@ -1,3 +1,21 @@
+/** Resolved against only to ask the URL parser which origin a value would land on; never used as a destination. */
+const PLACEHOLDER_ORIGIN = "https://redirect-check.invalid";
+
+/**
+ * True when `value`, parsed the way a browser parses a URL against a fixed placeholder origin, keeps that origin and does not resolve to a path that starts with "//"
+ * (dot segments are removed when a URL is parsed, so a path with one can resolve to such a path: still this site, but protocol-relative as soon as anything else re-serialises it).
+ * Exported so the check can be tested on its own: the rules in `safeRedirectTo` that run before it already close every way to another origin that anyone has found, so this is the
+ * parser's own answer as the last word, and it needs a test that does not depend on those rules.
+ */
+export function staysOnSite(value: string): boolean {
+  try {
+    const resolved = new URL(value, PLACEHOLDER_ORIGIN);
+    return resolved.origin === PLACEHOLDER_ORIGIN && !resolved.pathname.startsWith("//");
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Where to send someone after they sign in, when they arrived from somewhere.
  *
@@ -20,6 +38,13 @@
  *                        "/\evil.example" to "//evil.example" — same escape,
  *                        different spelling.
  *
+ *   NO control character   browsers REMOVE a tab, line feed or carriage return from a URL before parsing it, so one in the middle of a path
+ *   NO space, NO backslash can change which site the path points to even though every check above passed. Nothing at or below 0x20, no DEL (0x7f)
+ *                          and no backslash is accepted anywhere in the value.
+ *   same origin, confirmed the last word is the URL parser itself: the value is resolved against a fixed placeholder origin and refused unless
+ *                          the origin is unchanged and the resolved path does not start with "//" (a dot segment can produce that).
+ *                          The first rules above are why this rarely fires; it is here so a case nobody listed cannot get past.
+ *
  * Anything else DROPS to the default rather than erroring. A mangled link
  * should cost the return trip, never the sign-in.
  *
@@ -36,6 +61,10 @@ export function safeRedirectTo(raw: unknown, fallback: string): string {
   if (!value.startsWith("/")) return fallback;
   if (value.startsWith("//")) return fallback;
   if (value.startsWith("/\\")) return fallback;
+  // Browsers remove tab, line feed and carriage return from a URL before parsing it, so one in the middle can change what the path means.
+  if (/[\u0000-\u0020\u007f]/.test(value)) return fallback;
+  if (value.includes("\\")) return fallback;
+  if (!staysOnSite(value)) return fallback;
 
   return value;
 }
