@@ -87,7 +87,10 @@ export async function topUpWalletAction(
     status: "pending",
   });
   if (insertError) {
-    return { error: `Couldn't start the top-up: ${insertError.message}` };
+    // The database's own wording goes to the server log with the ids (never the email, which is only handed to Paystack below); the person gets a plain sentence. Nothing has been charged at this point:
+    // Paystack is not called until this row exists.
+    console.error(`[topUpWalletAction] could not record the pending top-up for org ${context.organization.id}, user ${context.userId}, reference ${reference}:`, insertError.message);
+    return { error: "Couldn't start the top-up. Nothing was charged. Please try again, or contact support if it keeps happening." };
   }
 
   let authorizationUrl: string;
