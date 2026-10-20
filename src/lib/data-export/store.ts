@@ -134,7 +134,7 @@ export async function removeObject(service: Client, path: string): Promise<boole
 
 /**
  * The same removal, and HOW MANY objects the storage service reported removing: 1 when the object was there, 0 when it was not (tests/storage/data-exports-remove-missing.test.ts holds that
- * against the real service). The sweep counts and audits an orphan only when its own call reports 1, so two runs that overlap do not both claim one object.
+ * against the real service). In the bucket pass the sweep counts and audits an orphan only when its own call reports 1, so two runs that overlap do not both claim one object. (The row pass is different: it counts and audits the run that marks the row.)
  */
 export async function removeObjectCounted(service: Client, path: string): Promise<{ ok: boolean; removed: number }> {
   const { data, error } = await service.storage.from(DATA_EXPORT_BUCKET).remove([path]);

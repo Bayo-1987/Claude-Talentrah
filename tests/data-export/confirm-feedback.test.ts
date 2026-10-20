@@ -1,7 +1,7 @@
 /**
  * DATA-EXPORT-CONFIRM-FEEDBACK-1. After the first press of Download my data the confirm page shows a line under the form: "Download started." and "Check your Downloads folder." (wording approved by
  * the owner, 20 Oct 2026). Hidden until that press; role="status" and aria-live="polite"; revealed by the page's own inline script, which stays the page's ONLY script; hidden again when the browser
- * restores the page from its back/forward cache. With scripts off nothing changes: the plain form still posts.
+ * restores the page from its back/forward cache. With scripts off the form still works as a plain POST form. Single use is NOT the script's job: it is the server's single claim (tests/data-export/confirm-single-use.test.ts).
  *
  * The page's own script is run here against a tiny fake document (the pattern of tests/legal/cookie-consent-banner.test.tsx), so the behaviour is tested, not just the markup. No database needed.
  * What does NOT change is held too: the pinned paragraph and button, one props argument, one script tag with no src, no emoji, the refusal page.
@@ -86,11 +86,28 @@ describe("what does not change", () => {
     expect(renderConfirmPage.length).toBe(1);
   });
 
-  it("with scripts off the form is a plain POST form and the line stays hidden (nothing depends on the script)", () => {
+  it("the form is a plain POST form that works without the script, and the line stays hidden until the script reveals it", () => {
     const form = /<form id="dl"[^>]*>([\s\S]*?)<\/form>/.exec(html)![0];
     expect(form).toContain('method="post"');
     expect(form).toContain('type="submit"');
     expect(html).toMatch(/<p id="dl-note"[^>]*\bhidden\b/);
+  });
+});
+
+describe("what the page does not load or wire up", () => {
+  it("has no inline event handler attribute anywhere (the only behaviour is the one script, listeners added from it)", () => {
+    expect(html).not.toMatch(/<[^>]*\son[a-z]+\s*=/i);
+  });
+
+  it("loads nothing from outside: no link, image, frame, embed, stylesheet import, url() or absolute address", () => {
+    expect(html).not.toMatch(/<(link|img|iframe|embed|object|video|audio|source|base)\b/i);
+    expect(html).not.toMatch(/@import|url\(/i);
+    expect(html).not.toMatch(/(https?:)?\/\/[a-z0-9.-]+\.[a-z]{2,}/i);
+    expect(html).not.toMatch(/\s(src|srcset)\s*=/i);
+  });
+
+  it("exactly one script tag, and it is the inline one", () => {
+    expect(html.match(/<script\b/gi)).toHaveLength(1);
   });
 });
 

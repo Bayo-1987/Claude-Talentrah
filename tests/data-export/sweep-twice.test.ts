@@ -2,8 +2,8 @@
  * Two sweeps that overlap (a Vercel cron and the GitHub workflow can both fire, and a cron can be delivered twice) must behave like one: each object is removed once, each row is marked once,
  * exactly one people.export_deleted row is written per deletion, and neither run reports an alert. Real local database and bucket; the bucket lock keeps other files out.
  *
- * The overlap is made certain, not left to timing: a barrier holds the FIRST storage remove of each run until both runs have reached it, so both have already read the same rows / listed the same
- * objects before either one acts.
+ * The overlap is forced and then checked: a barrier holds the FIRST storage remove of each run until both runs have reached it, so both have already read the same rows / listed the same
+ * objects before either one acts. If the barrier ever opens by its timeout instead, or a run never reaches it, the test fails on that (`overlapped()`), so a sequential run cannot pass as an overlap.
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
@@ -38,10 +38,14 @@ afterAll(async () => {
 /** A barrier for `parties` runs: resolves when all have arrived, or after `timeoutMs` so a run that never reaches it cannot hang the test. */
 function barrier(parties = 2, timeoutMs = 4000) {
   let arrived = 0;
+  let timedOut = false;
   let open!: () => void;
   const opened = new Promise<void>((resolve) => (open = resolve));
-  const timer = setTimeout(open, timeoutMs);
-  return async () => {
+  const timer = setTimeout(() => {
+    timedOut = true;
+    open();
+  }, timeoutMs);
+  const wait = async () => {
     arrived += 1;
     if (arrived >= parties) {
       clearTimeout(timer);
@@ -49,6 +53,9 @@ function barrier(parties = 2, timeoutMs = 4000) {
     }
     await opened;
   };
+  /** True only when every party reached the barrier while the others were still held at it (the timeout never fired). */
+  const overlapped = () => arrived >= parties && !timedOut;
+  return Object.assign(wait, { overlapped });
 }
 
 /** The service client, with the first storage remove of THIS client held at the barrier. */
@@ -85,10 +92,12 @@ function gatedClient(wait: () => Promise<void>) {
   });
 }
 
-/** Two sweeps at the same moment, overlapping on their first removal. */
+/** Two sweeps at the same moment, overlapping on their first removal. Fails here, not later, if the two runs did not actually meet at the barrier. */
 async function twoSweeps(): Promise<[SweepSummary, SweepSummary]> {
   const wait = barrier();
-  return Promise.all([sweepDataExports(gatedClient(wait)), sweepDataExports(gatedClient(wait))]);
+  const pair = await Promise.all([sweepDataExports(gatedClient(wait)), sweepDataExports(gatedClient(wait))]);
+  expect(wait.overlapped(), "both runs reached their first removal while the other was held there (they really overlapped)").toBe(true);
+  return pair;
 }
 
 const sum = (pair: [SweepSummary, SweepSummary], key: keyof SweepSummary) => Number(pair[0][key]) + Number(pair[1][key]);

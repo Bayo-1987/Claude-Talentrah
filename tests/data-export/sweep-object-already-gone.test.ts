@@ -1,6 +1,7 @@
 /**
  * The hourly sweep when the file is ALREADY gone from storage but the row still has no deleted_at (the file was removed and the row update then failed, or the file was lost some other way).
- * A due row must still be marked: the missing object is a successful removal, not a failure, so the next run finishes the row once, counts it once, audits it once and raises no alert.
+ * A due row must still be marked: the missing object is a successful removal, not a failure, so the run that finds it marks the row, counts it once, audits it once and raises no alert. In the row pass the
+ * count and the audit row belong to the run that MARKS the row, whether or not that run removed a file (here none exists to remove).
  * Against the real local database and bucket; the bucket is shared by the whole stack, so the suite takes the cross-file bucket lock.
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -85,22 +86,24 @@ describe("a due row whose object is already gone", () => {
     expect(await run()).toMatchObject(CLEAN);
   });
 
-  it("the file was removed by an earlier run whose row update then failed: the next run marks the row and does not alert", async () => {
+  it("the file is gone and the row is unmarked again (the first run's mark undone by hand to stand for a failed update): the next run marks it, counts it and audits it, so the export has TWO audit rows, and no alert", async () => {
     const p = await makePerson();
     const g = await insertGenerating(p.id);
     await putObject(pathFor(g.id, g.attempt));
     await finish(g.id, g.attempt);
     await setRow(g.id, { expires_at: new Date(Date.now() - 1000).toISOString() });
 
-    // Run 1: the object goes (the row pass and the bucket pass each try once, the first removal works), then the row is left unmarked by hand to stand for the failed update.
+    // Run 1 removes the object, marks the row and writes the first audit row. The row is then put back by hand to stand for a failed update; this is a simulation, so run 1's audit row stays.
     const first = await run();
     expect(first.expired).toBe(1);
+    expect(await auditFor(g.id)).toHaveLength(1);
     await setRow(g.id, { status: "generated", deleted_at: null });
     expect(await bucketPaths()).toEqual([]);
 
     const second = await run();
     expect(second).toMatchObject({ ...CLEAN, expired: 1 });
     expect((await getRow(g.id))!.deleted_at).toBeTruthy();
+    expect(await auditFor(g.id), "run 2 marked the row, so it audits it again: the row pass credits whoever marks the row").toHaveLength(2);
   });
 
   it("a young generated row whose object is gone is left alone until it falls due", async () => {

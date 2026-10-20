@@ -1,6 +1,6 @@
 /**
- * What the REAL storage service reports when an object is removed. The sweep counts and audits a deletion only when its own remove() reports an object removed, so two overlapping runs do not both
- * claim one object. That rests on this: remove() of an object that is not there resolves WITHOUT an error and reports ZERO removed, and remove() of an object that is there reports exactly one.
+ * What the REAL storage service reports when an object is removed. The sweep's bucket pass counts and audits an orphan only when its own remove() reports an object removed, so two overlapping runs do not
+ * both claim one object (the row pass is different: it counts and audits the run that marks the row, and a missing object is a successful removal there). That rests on this: remove() of an object that is not there resolves WITHOUT an error and reports ZERO removed, and remove() of an object that is there reports exactly one.
  *
  * Needs the local stack (it talks to real storage); in CI it runs with the rest of tests/storage. The library only hands back what the server answers
  * (node_modules/@supabase/storage-js/src/packages/StorageFileApi.ts lines 1184-1202: `data: FileObject[]` is the server's reply), so the server's behaviour is what this file checks.

@@ -92,7 +92,7 @@ export async function sweepDataExports(service: Client, options: SweepOptions = 
     }
     const status = row.status === "generated" ? "expired" : row.status === "downloaded" ? "deleted" : null;
     const reason: DeleteReason = row.status === "generated" ? "expired" : row.status === "downloaded" ? "downloaded" : "failed";
-    // The run whose conditional update changes the row owns the count and the audit row. A run that finds the row already marked (another sweep got there first) has nothing left to do: no
+    // The row pass counts and audits once, by the run whose conditional update marks the row, including when the file was already gone. A run that finds the row already marked (another sweep got there first) has nothing left to do: no
     // count, no audit row, and no alert. A row that did NOT take the mark and is not marked either changed under us: the next run looks again.
     const won = await (status === null ? markFailedRowCleaned(service, { exportId: row.id, attemptId: row.attempt_id }) : markObjectDeleted(service, { exportId: row.id, attemptId: row.attempt_id, status })).catch(() => false);
     if (!won) {
