@@ -186,3 +186,45 @@ describe("staysOnSite: what the URL parser says, as the last word", () => {
 
   it.each(["/", "/jobs", "/jobs?x=1#top", "/a/b/../c", "/%09/x", "/%5cx"])("accepts %s", (value) => expect(staysOnSite(value)).toBe(true));
 });
+
+/** More inputs (follow-up): percent-encoded dot segments, mixed whitespace, a very long value, and non-ASCII text that belongs in a path. */
+describe("more inputs", () => {
+  it.each([
+    ["a percent-encoded dot segment", "/%2e//evil.example"],
+    ["a dot then a percent-encoded dot", "/.%2E//evil.example"],
+    ["a parent segment in the middle", "/a/..//evil.example"],
+    ["a space inside the path", "/ /evil.example"],
+  ])("refused: %s", (_n, value) => {
+    expect(safe(value)).toBe(FALLBACK);
+    assertStaysOnSite(value, safe(value));
+  });
+
+  it("a leading space, then a tab, then // is the trimmed value //, which is refused", () => {
+    expect(safe(" \t//evil.example")).toBe(FALLBACK);
+    expect(safe(" \t/\t/evil.example")).toBe(FALLBACK);
+  });
+
+  it("a 10,000-character value neither crashes nor hangs: a plain long path is returned as given, a long hostile one is refused", () => {
+    const longPath = "/" + "a".repeat(10_000);
+    const started = Date.now();
+    expect(safe(longPath)).toBe(longPath);
+    expect(safe("/\t" + "a".repeat(10_000))).toBe(FALLBACK);
+    expect(safe("/" + "a".repeat(5_000) + "\\" + "a".repeat(5_000))).toBe(FALLBACK);
+    expect(safe("/." .repeat(5_000))).toBe("/." .repeat(5_000));
+    expect(safe("/" + "a/../".repeat(2_500) + "/evil.example")).toBe(FALLBACK);
+    expect(Date.now() - started, "all five long values together").toBeLessThan(2_000);
+  });
+
+  it("non-ASCII text that belongs in a path or query is accepted unchanged (it was before, and still is)", () => {
+    for (const value of ["/jobs?q=café", "/jobs/café", "/jobs?q=%C3%A9", "/scholarships?country=Côte%20d%27Ivoire", "/jobs?q=日本語"]) {
+      expect(safe(value), value).toBe(value);
+      assertStaysOnSite(value, safe(value));
+    }
+  });
+
+  it("a control character or backslash inside the QUERY or the FRAGMENT is refused as well", () => {
+    for (const value of ["/jobs?x=1\ty=2", "/jobs?x=a\\b", "/jobs?x=\u0001", "/jobs#a\\b", "/jobs#a\nb", "/jobs?x=a b"]) expect(safe(value), JSON.stringify(value)).toBe(FALLBACK);
+    // the encoded forms are plain text and stay
+    for (const value of ["/jobs?x=1%09y=2", "/jobs?x=a%5Cb", "/jobs?x=a%20b", "/jobs#a%5Cb"]) expect(safe(value), value).toBe(value);
+  });
+});
