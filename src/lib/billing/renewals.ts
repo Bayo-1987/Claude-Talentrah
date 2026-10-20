@@ -38,6 +38,12 @@ function todayDateOnly(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+/** The first instant of the next UTC day, in epoch milliseconds. */
+function startOfNextUtcDay(): number {
+  const now = new Date();
+  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+}
+
 function addDaysDateOnly(days: number): string {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() + days);
@@ -358,7 +364,8 @@ async function chargeOne(
   // Can't actually recharge without both — lapse immediately rather than
   // leave a Pass permanently stuck "active" with nothing to charge.
   if (!email || !pass || !row.authorization_code) {
-    await markLapsed(supabase, summary, row.id, { clearReference: true });
+    // Nothing can be charged, but Paystack was not asked anything here either: a stored reference may be the only thread back to money that moved, so it stays (as it always did).
+    await markLapsed(supabase, summary, row.id, { clearReference: false });
     return;
   }
 
@@ -710,15 +717,16 @@ async function extendPass(
   const newExpiryIso = newExpiry.toISOString();
 
   /*
-   * A recovered success whose period is already in place: the Pass's expiry is already beyond today (a due Pass's expiry is on or before today, since next_renewal_date is the expiry's
-   * date). Extending again would give a second period for one payment. Settle it in the ONE update: clear the reference and the retry state, and point next_renewal_date at the expiry
-   * it already has so the Pass is not due again.
+   * A recovered success whose period is already in place. DECIDED ON INSTANTS, ALL IN UTC: next_renewal_date is the UTC calendar date of a Pass's expiry and the job selects
+   * `next_renewal_date <= today (UTC)`, so a genuinely due Pass expires BEFORE the start of the next UTC day. A Pass whose expiry is at or after that instant has already been given the
+   * period this payment bought; extending again would give a second period for one payment. Settle it in the ONE update: clear the reference and the retry state, and point
+   * next_renewal_date at the UTC date of the expiry it already has so the Pass is not due again.
    */
-  if (opts.recovered && row.expires_at.slice(0, 10) > todayDateOnly()) {
+  if (opts.recovered && Date.parse(row.expires_at) >= startOfNextUtcDay()) {
     const { data, error } = await supabase
       .from("user_passes")
       .update({
-        next_renewal_date: row.expires_at.slice(0, 10),
+        next_renewal_date: new Date(Date.parse(row.expires_at)).toISOString().slice(0, 10),
         renewal_attempt_count: 0,
         pending_renewal_reference: null,
         renewal_claimed_at: null,

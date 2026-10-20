@@ -628,3 +628,170 @@ describe("a genuine decline still ends the subscription, and clears the spent re
     expect((await txRows()).map((t) => t.status)).toEqual(["failed"]);
   });
 });
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * Follow-up to PR-B (no-downgrade rule, early lapse, stale-reference boundary).
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/** A payment row at a final status, with distinctive values so any overwrite shows. */
+async function seedPaymentRow(reference: string, status: "success" | "failed") {
+  const { error } = await admin.from("payment_transactions").insert({
+    user_id: userId,
+    rail: "paystack",
+    amount: passPriceNgn,
+    currency: "NGN",
+    product_type: "pass",
+    product_id: passId,
+    paystack_reference: reference,
+    status,
+    channel: "bank",
+    authorization_code: "AUTH_seeded_row",
+    renewal_for_pass_id: userPassId,
+  });
+  if (error) throw error;
+}
+const fullRows = async (reference: string) => (await admin.from("payment_transactions").select("*").eq("paystack_reference", reference)).data ?? [];
+
+describe("recordIndeterminate never changes an existing payment row (the no-downgrade rule)", () => {
+  it.each(["success", "failed"] as const)(
+    "a row already at '%s' for the reference: the pending insert loses on the unique key and the row is byte-for-byte unchanged, with no second row",
+    async (status) => {
+      const stored = newRef();
+      await dueSetup({ pending_renewal_reference: stored });
+      await seedPaymentRow(stored, status);
+      const before = await fullRows(stored);
+      verify.mockRejectedValueOnce(await decline("Transaction reference not found.", 400, "transaction_not_found"));
+      charge.mockRejectedValueOnce(timeoutError()); // not a decline: recordIndeterminate runs with an amount, so it tries the pending insert
+
+      const summary = await run();
+
+      expect(charge).toHaveBeenCalledTimes(1);
+      expect(summary.indeterminate).toBe(1);
+      const after = await fullRows(stored);
+      expect(after, "MONEY BUG: an existing payment row was changed by the indeterminate path").toEqual(before);
+      expect(JSON.stringify(after)).toBe(JSON.stringify(before));
+      expect(after).toHaveLength(1);
+      expect(after[0].status).toBe(status);
+      const updates = faulty.calls.filter((c) => c.table === "payment_transactions" && c.op !== "select" && c.op !== "insert");
+      expect(updates, "a lost unique race is 'already exists': nothing else is written").toHaveLength(0);
+    },
+  );
+
+  it.each(["success", "failed"] as const)(
+    "the insert loses a RACE (a concurrent writer made the row '%s' just before it): treated as already existing, nothing further is written, the row is unchanged",
+    async (status) => {
+      await dueSetup();
+      charge.mockRejectedValueOnce(timeoutError());
+      let reference = "";
+      faulty.fail({
+        table: "payment_transactions",
+        op: "insert",
+        mode: "error",
+        code: "23505",
+        times: 1,
+        onFire: async () => {
+          reference = charge.mock.calls[0][0].reference as string;
+          await seedPaymentRow(reference, status);
+        },
+      });
+
+      const summary = await run();
+
+      expect(summary.indeterminate).toBe(1);
+      const rows = await fullRows(reference);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ status, channel: "bank", authorization_code: "AUTH_seeded_row" });
+      const others = faulty.calls.filter((c) => c.table === "payment_transactions" && c.op !== "select");
+      expect(others.map((c) => `${c.op}:${c.outcome}`), "only the one failed insert, nothing after it").toEqual(["insert:error"]);
+    },
+  );
+});
+
+describe("an early lapse (nothing to charge) keeps a stored reference", () => {
+  it("a Pass with a missing card token and a stored pending_renewal_reference: lapsed, and the reference is STILL on the row; Paystack is not asked anything", async () => {
+    const stored = newRef();
+    await dueSetup({ authorization_code: null, pending_renewal_reference: stored });
+
+    const summary = await run();
+
+    expect(summary.lapsed).toBe(1);
+    expect(charge).not.toHaveBeenCalled();
+    expect(verify).not.toHaveBeenCalled();
+    const row = await passRow();
+    expect(row.auto_renew_status).toBe("lapsed");
+    expect(row.pending_renewal_reference, "MONEY BUG: the only thread back to money that may have moved was cleared by a lapse that asked Paystack nothing").toBe(stored);
+  });
+
+  it("a Pass with a missing card token and NO stored reference lapses as before", async () => {
+    await dueSetup({ authorization_code: null });
+    const summary = await run();
+    expect(summary.lapsed).toBe(1);
+    const row = await passRow();
+    expect(row.auto_renew_status).toBe("lapsed");
+    expect(row.pending_renewal_reference).toBeNull();
+  });
+});
+
+describe("a recovered success whose period is already in place: decided on INSTANTS against the start of the next UTC day", () => {
+  /*
+   * A due Pass has next_renewal_date <= today (UTC date), and next_renewal_date is the UTC date of its expiry, so a genuinely due Pass expires BEFORE the start of the next UTC
+   * day. A recovered success on a Pass whose expiry is at or after that instant has already been applied: it is not extended again. All date arithmetic is UTC.
+   * The clock is pinned (Date only) at 12:00:00Z so the boundary cannot move under the test.
+   */
+  const pinned = () => {
+    const now = new Date();
+    const noon = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0);
+    const boundary = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+    return { noon, boundary };
+  };
+  afterEach(() => vi.useRealTimers());
+
+  async function recoveredAt(expiryMs: number) {
+    const stored = newRef();
+    const { noon } = pinned();
+    const pass = await dueSetup({ expires_at: new Date(expiryMs).toISOString(), pending_renewal_reference: stored });
+    await pendingTx(stored);
+    verify.mockResolvedValueOnce(verified(stored, "success"));
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(noon);
+    const summary = await run();
+    vi.useRealTimers();
+    return { stored, pass, summary };
+  }
+
+  it("one second BEFORE the boundary: genuinely new, the Pass IS extended by one period and the reference cleared", async () => {
+    const { boundary } = pinned();
+    const { summary, pass } = await recoveredAt(boundary - 1000);
+    expect(summary.renewed).toBe(1);
+    const row = await passRow();
+    expect(Date.parse(row.expires_at)).toBe(expectedExpiry(pass.expires_at));
+    expect(row.pending_renewal_reference).toBeNull();
+    expect(charge).not.toHaveBeenCalled();
+  });
+
+  it("exactly AT the boundary: already in place, expiry unchanged, next_renewal_date is the expiry's UTC date, the reference cleared", async () => {
+    const { boundary } = pinned();
+    await recoveredAt(boundary);
+    const row = await passRow();
+    expect(Date.parse(row.expires_at)).toBe(boundary);
+    expect(row.next_renewal_date).toBe(new Date(boundary).toISOString().slice(0, 10));
+    expect(row.pending_renewal_reference).toBeNull();
+    expect(await txRows()).toMatchObject([{ status: "success" }]);
+  });
+
+  it("one second AFTER the boundary: already in place, expiry unchanged, next_renewal_date is the expiry's UTC date", async () => {
+    const { boundary } = pinned();
+    await recoveredAt(boundary + 1000);
+    const row = await passRow();
+    expect(Date.parse(row.expires_at)).toBe(boundary + 1000);
+    expect(row.next_renewal_date).toBe(new Date(boundary + 1000).toISOString().slice(0, 10));
+    expect(row.pending_renewal_reference).toBeNull();
+  });
+
+  it("a recovered success that is genuinely new (expired two hours before the boundary) still extends", async () => {
+    const { boundary } = pinned();
+    const { summary, pass } = await recoveredAt(boundary - 2 * 3_600_000);
+    expect(summary.renewed).toBe(1);
+    expect(Date.parse((await passRow()).expires_at)).toBe(expectedExpiry(pass.expires_at));
+  });
+});
