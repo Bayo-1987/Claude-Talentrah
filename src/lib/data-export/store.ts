@@ -100,6 +100,23 @@ export async function markObjectDeleted(service: Client, input: { exportId: stri
   return data !== null;
 }
 
+/**
+ * The cleanup mark of a `failed` row, as ONE conditional update: it sets deleted_at only if the row is still `failed`, still this attempt's and not yet marked. True for the one run that changed it,
+ * false for any other (the row was already marked, is not failed, or belongs to another attempt). Two sweeps that overlap therefore cannot both mark, count and audit the same row.
+ */
+export async function markFailedRowCleaned(service: Client, input: { exportId: string; attemptId: string }): Promise<boolean> {
+  const { data, error } = await service
+    .from("data_export_files")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", input.exportId)
+    .eq("attempt_id", input.attemptId)
+    .eq("status", "failed")
+    .is("deleted_at", null)
+    .select("id");
+  if (error) fail("mark the failed row cleaned", error);
+  return (data ?? []).length === 1;
+}
+
 /* ─── the bucket ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── */
 
 export async function uploadObject(service: Client, path: string, body: Blob): Promise<void> {
@@ -112,12 +129,20 @@ export async function uploadObject(service: Client, path: string, body: Blob): P
  * Returns true when the object is gone (removed now, or never there), false when the storage service refused: the caller keeps the row so the next sweep retries.
  */
 export async function removeObject(service: Client, path: string): Promise<boolean> {
-  const { error } = await service.storage.from(DATA_EXPORT_BUCKET).remove([path]);
+  return (await removeObjectCounted(service, path)).ok;
+}
+
+/**
+ * The same removal, and HOW MANY objects the storage service reported removing: 1 when the object was there, 0 when it was not (tests/storage/data-exports-remove-missing.test.ts holds that
+ * against the real service). The sweep counts and audits an orphan only when its own call reports 1, so two runs that overlap do not both claim one object.
+ */
+export async function removeObjectCounted(service: Client, path: string): Promise<{ ok: boolean; removed: number }> {
+  const { data, error } = await service.storage.from(DATA_EXPORT_BUCKET).remove([path]);
   if (error) {
     console.error("[data-export] could not remove an object", error.message);
-    return false;
+    return { ok: false, removed: 0 };
   }
-  return true;
+  return { ok: true, removed: data?.length ?? 0 };
 }
 
 export async function downloadObject(service: Client, path: string): Promise<Blob | null> {

@@ -1,7 +1,7 @@
 import "server-only";
 import { auditDeleted } from "./audit";
 import { DATA_EXPORT_BUCKET, objectPathFor, parseObjectName, type DeleteReason } from "./constants";
-import { cancelStaleRows, markObjectDeleted, removeObject, type Client, type ExportRow } from "./store";
+import { cancelStaleRows, getRow, markFailedRowCleaned, markObjectDeleted, removeObject, removeObjectCounted, type Client, type ExportRow } from "./store";
 
 /**
  * THE HOURLY SWEEP of the data-exports bucket and of the rows that describe it (GET /api/admin/sweep-data-exports, called by .github/workflows/sweep-data-exports-hourly.yml).
@@ -92,9 +92,11 @@ export async function sweepDataExports(service: Client, options: SweepOptions = 
     }
     const status = row.status === "generated" ? "expired" : row.status === "downloaded" ? "deleted" : null;
     const reason: DeleteReason = row.status === "generated" ? "expired" : row.status === "downloaded" ? "downloaded" : "failed";
-    const marked = await markObjectDeleted(service, { exportId: row.id, attemptId: row.attempt_id, status }).catch(() => false);
-    if (!marked) {
-      // The object is gone but the row did not take the mark (it changed under us): the next run looks again.
+    // The run whose conditional update changes the row owns the count and the audit row. A run that finds the row already marked (another sweep got there first) has nothing left to do: no
+    // count, no audit row, and no alert. A row that did NOT take the mark and is not marked either changed under us: the next run looks again.
+    const won = await (status === null ? markFailedRowCleaned(service, { exportId: row.id, attemptId: row.attempt_id }) : markObjectDeleted(service, { exportId: row.id, attemptId: row.attempt_id, status })).catch(() => false);
+    if (!won) {
+      if (await alreadyCleaned(service, row.id)) continue;
       summary.alerts++;
       continue;
     }
@@ -134,10 +136,13 @@ export async function sweepDataExports(service: Client, options: SweepOptions = 
     const row = named ? rows.get(named.exportId) : undefined;
     if (named && row && isLive(row, named.attemptId, now)) continue;
 
-    if (!(await removeObject(service, path))) {
+    const gone = await removeObjectCounted(service, path);
+    if (!gone.ok) {
       summary.alerts++;
       continue;
     }
+    // Another run removed it between our listing and our delete: nothing of ours to count or audit.
+    if (gone.removed === 0) continue;
     summary.orphansDeleted++;
     orphanWarned++;
     const reason: DeleteReason = named && row ? "cancelled" : "orphan";
@@ -146,6 +151,16 @@ export async function sweepDataExports(service: Client, options: SweepOptions = 
   if (orphanWarned > 0) console.warn(`[data-export-sweep] deleted ${orphanWarned} object(s) that had no live row`);
 
   return finish(summary);
+}
+
+/** True when the row is gone (its account was deleted) or already carries the cleanup mark, i.e. another run did this row's work. A read that fails counts as not done, so the run reports it. */
+async function alreadyCleaned(service: Client, exportId: string): Promise<boolean> {
+  try {
+    const row = await getRow(service, exportId);
+    return row === null || row.deleted_at !== null;
+  } catch {
+    return false;
+  }
 }
 
 function finish(summary: SweepSummary): SweepSummary {
