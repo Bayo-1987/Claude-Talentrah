@@ -399,9 +399,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          shopt -s nullglob
           mkdir -p "$RUNNER_TEMP/post-cutoff"
+          # The comparison is NUMERIC, on the first four digits of the file name: 0263 is not held back, 0264 is, and a timestamp-style name (20261101120000_x.sql,
+          # which starts 2026) is held back too. Only files named like a migration (digits, then an underscore) are compared; any other file is left alone, as the
+          # CLI itself skips it. tests/ci/grants-new-rule-leg.test.ts runs this step on a folder with a boundary case.
           for f in supabase/migrations/*.sql; do
-            n="$(basename "$f" | cut -c1-4)"
+            name="$(basename "$f")"
+            case "$name" in [0-9][0-9][0-9][0-9]*_*) ;; *) continue ;; esac
+            n="${name:0:4}"
             if [ "$((10#$n))" -gt "$((10#$GRANTS_CUTOFF))" ]; then mv "$f" "$RUNNER_TEMP/post-cutoff/"; fi
           done
           echo "held back $(ls "$RUNNER_TEMP/post-cutoff" | wc -l | tr -d ' ') migration(s) numbered after $GRANTS_CUTOFF"
@@ -447,11 +453,13 @@ jobs:
         run: |
           set -euo pipefail
           if [ ! -e "$RUNNER_TEMP/leg-applied" ]; then echo "skipped: no migration after $GRANTS_CUTOFF (see the previous step)"; exit 0; fi
+          # Fail CLOSED: without the list captured before the migrations the step cannot tell new tables from old ones, and must not pass without checking.
+          if [ ! -s "$RUNNER_TEMP/tables-before.txt" ]; then echo "::error::the list of tables captured before the migrations is missing or empty, so the check cannot tell which tables are new"; exit 1; fi
           PROJECT_ID="$(sed -n 's/^project_id = "\(.*\)"/\1/p' supabase/config.toml)"
           PSQL="docker exec -i supabase_db_${PROJECT_ID} psql -U postgres -d postgres -X -q -A -t -v ON_ERROR_STOP=1"
           eval "$(supabase status -o env | grep -E '^(API_URL|SERVICE_ROLE_KEY)=' | sed 's/^/export /')"
           $PSQL -c "select relname from pg_class where relnamespace = 'public'::regnamespace and relkind in ('r','p') order by 1" \
-            | { grep -v -x -F -f "$RUNNER_TEMP/tables-before.txt" || true; } > "$RUNNER_TEMP/tables-new.txt"
+            | { grep -v -x -F -f "$RUNNER_TEMP/tables-before.txt" || [ "$?" -eq 1 ]; } > "$RUNNER_TEMP/tables-new.txt"
           echo "tables created after the cutoff: $(wc -l < "$RUNNER_TEMP/tables-new.txt" | tr -d ' ')"
           $PSQL -c "notify pgrst, 'reload schema'"
           fail=0
@@ -468,7 +476,9 @@ jobs:
           done < "$RUNNER_TEMP/tables-new.txt"
           exit $fail
 
-      # WARNING ONLY, by design: this step can never fail the job (every path ends `exit 0`, and it does not use `set -e`).
+      # WARNING ONLY, by design: this step can never fail the job. Two layers, because the runner starts every `shell: bash` step with `-e` (errexit ON), which a
+      # script's own `set -uo pipefail` does NOT turn off: the step is `continue-on-error: true`, and its script begins `set +e`; it also checks its inputs and ends
+      # `exit 0` on every path. tests/ci/grants-new-rule-leg.test.ts runs it with a failing database, a missing config.toml and a missing list.
       # Why it only warns: a trigger function legitimately needs no grant for any role (the trigger fires without a caller privilege check), so "service_role
       # lacks EXECUTE" is not always a defect, and a failing check would force a pointless grant onto every trigger function. It exists so a missing grant on a
       # function the application DOES call through the service role is visible in the job log instead of surfacing as a runtime 42501 in production.
@@ -478,12 +488,20 @@ jobs:
       # platform's behaviour for functions is not verified.
       - name: Warn about functions created after the cutoff that service_role cannot execute (warning only, never fails the job)
         shell: bash
+        continue-on-error: true
         run: |
-          set -uo pipefail
+          set +e
+          set -o pipefail
           if [ ! -e "$RUNNER_TEMP/leg-applied" ]; then echo "skipped: no migration after $GRANTS_CUTOFF (see the apply step)"; exit 0; fi
-          PROJECT_ID="$(sed -n 's/^project_id = "\(.*\)"/\1/p' supabase/config.toml)"
+          PROJECT_ID="$(sed -n 's/^project_id = "\(.*\)"/\1/p' supabase/config.toml 2>/dev/null)"
+          if [ -z "$PROJECT_ID" ] || [ ! -s "$RUNNER_TEMP/functions-before.txt" ]; then
+            echo "::warning::the function check was skipped: it needs project_id in supabase/config.toml and the list of functions captured before the migrations"
+            exit 0
+          fi
           PSQL="docker exec -i supabase_db_${PROJECT_ID} psql -U postgres -d postgres -X -q -A -t -v ON_ERROR_STOP=1"
-          lacking="$($PSQL -c "select p.oid::regprocedure::text from pg_proc p where p.pronamespace = 'public'::regnamespace and p.prokind in ('f','p') and not has_function_privilege('service_role', p.oid, 'execute') order by 1" 2>/dev/null | { grep -v -x -F -f "$RUNNER_TEMP/functions-before.txt" || true; })" || lacking=""
+          all="$($PSQL -c "select p.oid::regprocedure::text from pg_proc p where p.pronamespace = 'public'::regnamespace and p.prokind in ('f','p') and not has_function_privilege('service_role', p.oid, 'execute') order by 1" 2>/dev/null)"
+          if [ "$?" -ne 0 ]; then echo "::warning::the function check was skipped: the database query failed"; exit 0; fi
+          lacking="$(printf '%s\n' "$all" | { grep -v -x -F -f "$RUNNER_TEMP/functions-before.txt" || true; })"
           if [ -z "$lacking" ]; then echo "no function created after the cutoff lacks EXECUTE for service_role"; exit 0; fi
           while read -r f; do
             [ -n "$f" ] || continue
