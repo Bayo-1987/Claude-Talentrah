@@ -6,11 +6,14 @@
  * every read, every rpc and every write that no rule matches goes to the real database untouched; a write that a rule matches is replaced by one of
  *   - "error": the write is NOT sent; the awaited result is `{ data: null, error: { code, message } }` (a database fault),
  *   - "zero":  the write is NOT sent; the awaited result is `{ data: [], error: null }` (a conditional update that matched no row),
- *   - "crash": the write is NOT sent; awaiting it THROWS (the process died right here: nothing after this line ever ran).
- * Every write and rpc that passes through is appended to `calls`, in order, so a test can assert what happened before what.
+ *   - "crash": the write is NOT sent; awaiting it THROWS (the process died right here: nothing after this line ever ran),
+ *   - "error-after": the write IS sent and committed, and the awaited result is then an error (the answer was lost: the database did the work and the caller is told it failed).
+ * A rule may carry `code` (the error's SQLSTATE, default XX000) and `onFire` (run just before the fault is delivered, e.g. to create the row a concurrent writer would have made).
+ * Reads are covered too: op "select" on a table fails `.from(table).select(...)`. Every write, read and rpc that passes through is appended to `calls`, in order, so a test can
+ * assert what happened before what.
  */
-export type FaultOp = "update" | "insert" | "upsert" | "delete";
-export type FaultMode = "error" | "zero" | "crash";
+export type FaultOp = "update" | "insert" | "upsert" | "delete" | "select";
+export type FaultMode = "error" | "zero" | "crash" | "error-after";
 
 export interface FaultRule {
   table: string;
@@ -20,15 +23,19 @@ export interface FaultRule {
   times?: number;
   /** Narrow to a particular write by its payload (e.g. only the one that sets status to "paid"). */
   match?: (values: Record<string, unknown>) => boolean;
+  /** The SQLSTATE of the injected error (mode "error" and "error-after"). Default XX000. */
+  code?: string;
+  /** Runs just before the fault is delivered. */
+  onFire?: () => Promise<void> | void;
 }
 
 export interface WriteCall {
-  kind: "write" | "rpc";
+  kind: "write" | "read" | "rpc";
   table?: string;
   op: string;
   values?: Record<string, unknown>;
   /** What the wrapper did with it: sent to the database, or replaced by a fault. */
-  outcome: "sent" | "error" | "zero" | "crash";
+  outcome: "sent" | "error" | "zero" | "crash" | "error-after";
 }
 
 const FAULT_ERROR = { code: "XX000", message: "injected database fault", details: "", hint: "" };
@@ -58,14 +65,24 @@ export function createFaultyClient<T extends object>(real: T): FaultyClient<T> {
   }
 
   /** Wrap a filter builder so chaining (.eq, .is, .select ...) keeps working and only the final await is replaced. */
-  function wrapFaulted(mode: FaultMode, builder: object): object {
+  function wrapFaulted(rule: FaultRule, builder: object): object {
+    const mode = rule.mode;
     const handler: ProxyHandler<object> = {
       get(target, prop, receiver) {
         if (prop === "then") {
           return (resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) => {
-            if (mode === "crash") return Promise.reject(new Error("simulated crash: the process died before this write")).then(resolve, reject);
-            const result = mode === "error" ? { data: null, error: FAULT_ERROR, count: null, status: 500, statusText: "Internal Server Error" } : { data: [], error: null, count: 0, status: 200, statusText: "OK" };
-            return Promise.resolve(result).then(resolve, reject);
+            const deliver = async () => {
+              if (rule.onFire) await rule.onFire();
+              if (mode === "crash") throw new Error("simulated crash: the process died before this write");
+              const fault = { ...FAULT_ERROR, code: rule.code ?? FAULT_ERROR.code };
+              if (mode === "error-after") {
+                // The write really happens; only the answer is lost.
+                await (target as unknown as PromiseLike<unknown>);
+                return { data: null, error: fault, count: null, status: 500, statusText: "Internal Server Error" };
+              }
+              return mode === "error" ? { data: null, error: fault, count: null, status: 500, statusText: "Internal Server Error" } : { data: [], error: null, count: 0, status: 200, statusText: "OK" };
+            };
+            return deliver().then(resolve, reject);
           };
         }
         const value = Reflect.get(target, prop, receiver);
@@ -83,18 +100,19 @@ export function createFaultyClient<T extends object>(real: T): FaultyClient<T> {
     return new Proxy(tableBuilder, {
       get(target, prop, receiver) {
         const value = Reflect.get(target, prop, receiver);
-        if (typeof value !== "function" || (prop !== "update" && prop !== "insert" && prop !== "upsert" && prop !== "delete")) return value;
+        if (typeof value !== "function" || (prop !== "update" && prop !== "insert" && prop !== "upsert" && prop !== "delete" && prop !== "select")) return value;
         return (...args: unknown[]) => {
           const op = prop as FaultOp;
           const first = args[0];
           const values = (first && typeof first === "object" && !Array.isArray(first) ? first : {}) as Record<string, unknown>;
           const rule = takeRule(table, op, values);
           const built = (value as (...a: unknown[]) => object).apply(target, args);
+          const kind = op === "select" ? "read" : "write";
           if (rule) {
-            calls.push({ kind: "write", table, op, values, outcome: rule.mode });
-            return wrapFaulted(rule.mode, built);
+            calls.push({ kind, table, op, values, outcome: rule.mode });
+            return wrapFaulted(rule, built);
           }
-          calls.push({ kind: "write", table, op, values, outcome: "sent" });
+          calls.push({ kind, table, op, values, outcome: "sent" });
           return built;
         };
       },

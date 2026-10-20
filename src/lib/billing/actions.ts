@@ -104,6 +104,8 @@ export async function cancelAutoRenewAction(userPassId: string) {
     return;
   }
 
-  await cancelPassAutoRenewal(userPassId);
+  const cancelled = await cancelPassAutoRenewal(userPassId);
+  // A cancel that did not take must not look like one that did: say so on the page and leave the Cancel button where it is. `redirect` throws, so it stays outside any try/catch.
+  if (!cancelled.ok) redirect("/billing?error=cancel_failed");
   revalidatePath("/billing");
 }
