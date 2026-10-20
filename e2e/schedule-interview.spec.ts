@@ -1,10 +1,54 @@
 /**
- * Schedule interview (0253) through the real UI: the candidate's page in two time zones either side of the UK clock change (Sunday 25 Oct 2026), booking, the loser of a race, someone else's invitation,
- * and the employer's form with its overlap warning. Offers are created through the database function (the invitation EMAIL is covered on a real database in tests/interviews; the test app has no mail key).
+ * Schedule interview (0253) through the real UI: the candidate's page in two time zones, booking, the loser of a race, someone else's invitation, and the employer's form with its overlap warning. Offers are
+ * created through the database function (the invitation EMAIL is covered on a real database in tests/interviews; the test app has no mail key).
+ *
+ * EVERY TIME IN THIS FILE IS COMPUTED FROM THE CLOCK, by `at()` below. create_interview_offer (migration 0253) refuses a time earlier than now + 1 hour or later than now + 60 days, so a hard-coded date turns
+ * this spec red the day it passes (it did, on 20 Oct 2026). The deterministic check of the UK clock change (BST before Sunday 25 Oct 2026, GMT after, against Lagos) used to live in the first test here with fixed
+ * dates; it cannot live in a flow that must offer times within 60 days of "now", so it is tests/interviews/format-clock-change.test.ts (fixed dates, explicit zones, no database).
+ *
+ * E2E_DATE_SHIFT_DAYS=30 moves every time 30 days later: the proof that nothing in here depends on today's date.
  */
 import { test, expect, admin, mintSecondSession } from "./fixtures/authed";
 import { randomUUID } from "node:crypto";
 import { deleteOrgsCascade } from "../tests/support/delete-orgs";
+
+const SHIFT_DAYS = Number(process.env.E2E_DATE_SHIFT_DAYS ?? 0);
+
+/** The one place dates are made: `daysFromToday` days after today (UTC) at hh:mm UTC, plus E2E_DATE_SHIFT_DAYS. Refuses a result outside the window the offer function accepts, with room to spare. */
+function at(daysFromToday: number, hourUtc = 9, minuteUtc = 0): Date {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + daysFromToday + SHIFT_DAYS);
+  d.setUTCHours(hourUtc, minuteUtc, 0, 0);
+  const ahead = d.getTime() - Date.now();
+  if (ahead < 2 * 3_600_000 || ahead > 55 * 86_400_000) throw new Error(`test time ${d.toISOString()} is outside the offer window (now + 1 hour to now + 60 days); lower E2E_DATE_SHIFT_DAYS or the day offset`);
+  return d;
+}
+/** "YYYY-MM-DDTHH:MM:SSZ": the form the offer function and the assertions use. */
+const iso = (d: Date): string => d.toISOString().replace(".000Z", "Z");
+/** "YYYY-MM-DDTHH:MM:SS.000Z": what the database hands back. */
+const isoMs = (d: Date): string => d.toISOString();
+/** What a datetime-local input takes. */
+const inputValue = (d: Date): string => d.toISOString().slice(0, 16);
+
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/**
+ * What the candidate's page should say for a stored time in a zone, worked out here from Intl, not from the app's own formatter: "Sat 24 Oct at 10:00 to 10:45 WAT". Lagos is UTC+1 all year (WAT); London is BST
+ * (UTC+1) or GMT (UTC+0) depending on the date, so the same stored time reads 10:00 in both on one side of the UK clock change and 10:00 in Lagos but 09:00 in London on the other.
+ */
+function expectedRange(start: Date, minutes: number, timeZone: "Africa/Lagos" | "Europe/London"): RegExp {
+  const parts = (d: Date) => {
+    const f = new Intl.DateTimeFormat("en-US", { timeZone, hourCycle: "h23", year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).formatToParts(d);
+    const n = (t: string) => Number(f.find((p) => p.type === t)!.value);
+    return { y: n("year"), m: n("month"), d: n("day"), hh: String(n("hour")).padStart(2, "0"), mm: String(n("minute")).padStart(2, "0") };
+  };
+  const a = parts(start);
+  const b = parts(new Date(start.getTime() + minutes * 60_000));
+  const weekday = WEEKDAYS[new Date(Date.UTC(a.y, a.m - 1, a.d)).getUTCDay()];
+  const offset = new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "shortOffset" }).formatToParts(start).find((p) => p.type === "timeZoneName")!.value;
+  const abbreviation = timeZone === "Africa/Lagos" ? "WAT" : offset === "GMT+1" ? "BST" : "GMT";
+  return new RegExp(`${weekday} ${a.d} ${MONTHS[a.m - 1]} at ${a.hh}:${a.mm} to ${b.hh}:${b.mm} ${abbreviation}`);
+}
 
 test.describe("schedule interview", () => {
   const orgIds: string[] = [];
@@ -59,23 +103,25 @@ test.describe("schedule interview", () => {
     return { context, page: await context.newPage() };
   }
 
-  test("the same stored time reads 10:00 in Lagos and London BEFORE the UK clocks go back, and 10:00 in Lagos but 09:00 in London AFTER", async ({ browser, baseURL, testUser }) => {
+  test("the candidate's page shows each offered time in the browser's own zone: Lagos (UTC+1 all year) and London (BST or GMT, whichever applies on that date)", async ({ browser, baseURL, testUser }) => {
     const mine = await org(testUser.id, "tz");
     const jobId = await job(mine.id, "Growth Marketer");
     const joy = await user("tz", "Joy", "Akindele");
     const applicationId = await apply(joy.id, jobId);
-    const { offerId } = await offer(testUser.id, applicationId, ["2026-10-24T09:00:00Z", "2026-10-26T09:00:00Z"]);
+    const first = at(3);
+    const second = at(5);
+    const { offerId } = await offer(testUser.id, applicationId, [iso(first), iso(second)]);
 
     const lagos = await candidatePage(browser, baseURL, joy, "Africa/Lagos");
     await lagos.page.goto(`/interviews/${offerId}`);
-    await expect(lagos.page.getByText(/Sat 24 Oct at 10:00 to 10:45 WAT/)).toBeVisible();
-    await expect(lagos.page.getByText(/Mon 26 Oct at 10:00 to 10:45 WAT/)).toBeVisible();
+    await expect(lagos.page.getByText(expectedRange(first, 45, "Africa/Lagos"))).toBeVisible();
+    await expect(lagos.page.getByText(expectedRange(second, 45, "Africa/Lagos"))).toBeVisible();
     await lagos.context.close();
 
     const london = await candidatePage(browser, baseURL, joy, "Europe/London");
     await london.page.goto(`/interviews/${offerId}`);
-    await expect(london.page.getByText(/Sat 24 Oct at 10:00 to 10:45 BST/)).toBeVisible();
-    await expect(london.page.getByText(/Mon 26 Oct at 09:00 to 09:45 GMT/)).toBeVisible();
+    await expect(london.page.getByText(expectedRange(first, 45, "Europe/London"))).toBeVisible();
+    await expect(london.page.getByText(expectedRange(second, 45, "Europe/London"))).toBeVisible();
     await london.context.close();
   });
 
@@ -84,14 +130,15 @@ test.describe("schedule interview", () => {
     const jobId = await job(mine.id, "Growth Marketer");
     const joy = await user("book", "Joy", "Akindele");
     const applicationId = await apply(joy.id, jobId);
-    const { slots } = await offer(testUser.id, applicationId, ["2026-10-24T09:00:00Z", "2026-10-26T09:00:00Z"]);
+    const first = at(3);
+    const { slots } = await offer(testUser.id, applicationId, [iso(first), iso(at(5))]);
     const { context, page } = await candidatePage(browser, baseURL, joy, "Europe/London");
     await page.goto(`/interviews/${(await admin.from("interview_slots").select("offer_id").eq("id", slots[0].id).single()).data!.offer_id}`);
     await page.getByRole("button", { name: "Book this time" }).first().click();
     await expect(page.getByText("Interview scheduled")).toBeVisible({ timeout: 15_000 });
     const { data: booking } = await admin.from("interview_bookings").select("status, starts_at").eq("application_id", applicationId).single();
     expect(booking?.status).toBe("booked");
-    expect(new Date(booking!.starts_at).toISOString()).toBe("2026-10-24T09:00:00.000Z");
+    expect(new Date(booking!.starts_at).toISOString()).toBe(isoMs(first));
     const { data: app } = await admin.from("applications").select("stage").eq("id", applicationId).single();
     expect(app?.stage).toBe("interviewing");
     await context.close();
@@ -104,15 +151,16 @@ test.describe("schedule interview", () => {
     const tunde = await user("race-b", "Tunde", "Bello");
     const appJoy = await apply(joy.id, jobId);
     const appTunde = await apply(tunde.id, jobId);
-    const shared = "2026-10-20T09:00:00Z";
-    const a = await offer(testUser.id, appJoy, [shared, "2026-10-21T09:00:00Z"]);
-    const b = await offer(testUser.id, appTunde, [shared, "2026-10-22T09:00:00Z"]);
+    const sharedTime = at(3);
+    const shared = iso(sharedTime);
+    const a = await offer(testUser.id, appJoy, [shared, iso(at(4))]);
+    const b = await offer(testUser.id, appTunde, [shared, iso(at(5))]);
 
     const { context, page } = await candidatePage(browser, baseURL, joy, "Africa/Lagos");
     await page.goto(`/interviews/${a.offerId}`);
     await expect(page.getByRole("button", { name: "Book this time" })).toHaveCount(2);
     // Tunde takes the shared time while Joy's page is still open.
-    const tundeShared = b.slots.find((s) => new Date(s.starts_at).toISOString() === "2026-10-20T09:00:00.000Z")!;
+    const tundeShared = b.slots.find((s) => new Date(s.starts_at).toISOString() === isoMs(sharedTime))!;
     const taken = await admin.rpc("book_interview_slot", { p_user: tunde.id, p_slot: tundeShared.id });
     expect(taken.data?.[0]?.ok).toBe(true);
 
@@ -130,7 +178,7 @@ test.describe("schedule interview", () => {
     const joy = await user("own", "Joy", "Akindele");
     const intruder = await user("intruder", "Ike", "Nwosu");
     const applicationId = await apply(joy.id, jobId);
-    const { offerId } = await offer(testUser.id, applicationId, ["2026-10-24T09:00:00Z", "2026-10-26T09:00:00Z"]);
+    const { offerId } = await offer(testUser.id, applicationId, [iso(at(3)), iso(at(5))]);
     const { context, page } = await candidatePage(browser, baseURL, intruder, "Africa/Lagos");
     await page.goto(`/interviews/${offerId}`);
     await expect(page.getByRole("heading", { name: "This page doesn't exist." })).toBeVisible();
@@ -146,16 +194,17 @@ test.describe("schedule interview", () => {
     const tunde = await user("form-b", "Tunde", "Bello");
     const appJoy = await apply(joy.id, job1);
     const appTunde = await apply(tunde.id, job2);
-    const booked = await offer(testUser.id, appTunde, ["2026-10-20T09:00:00Z", "2026-10-21T09:00:00Z"]);
-    const slot = booked.slots.find((s) => new Date(s.starts_at).toISOString() === "2026-10-20T09:00:00.000Z")!;
+    const bookedTime = at(3);
+    const booked = await offer(testUser.id, appTunde, [iso(bookedTime), iso(at(4))]);
+    const slot = booked.slots.find((s) => new Date(s.starts_at).toISOString() === isoMs(bookedTime))!;
     expect((await admin.rpc("book_interview_slot", { p_user: tunde.id, p_slot: slot.id })).data?.[0]?.ok).toBe(true);
 
     await page.goto(`/employer/jobs/${job1}/applicants/${appJoy}/schedule`);
     await expect(page.getByRole("heading", { name: "Offer interview times to Joy Akindele" })).toBeVisible();
-    // 09:30 UTC the same day, entered in the browser's own zone, overlaps the booked 09:00-09:45 UTC interview.
+    // 30 minutes after the booked time (09:00 UTC, 45 minutes long), entered in the browser's own zone, overlaps the booked interview.
     const local = (iso: string) => page.evaluate((v) => { const d = new Date(v); const p = (n: number) => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; }, iso);
-    await page.getByLabel("Time 1").fill(await local("2026-10-20T09:30:00Z"));
-    await page.getByLabel("Time 2").fill(await local("2026-10-23T09:00:00Z"));
+    await page.getByLabel("Time 1").fill(await local(iso(at(3, 9, 30))));
+    await page.getByLabel("Time 2").fill(await local(iso(at(6))));
     await expect(page.getByText("This time overlaps a booked interview for Designer. You can still offer it.")).toBeVisible({ timeout: 10_000 });
 
     await page.getByRole("button", { name: "Send invitation" }).click();
@@ -176,8 +225,8 @@ test.describe("schedule interview", () => {
     const applicationId = await apply(joy.id, jobId);
     await page.goto(`/employer/jobs/${jobId}/applicants/${applicationId}/schedule`);
     await expect(page.getByText("Verify your company first.")).toBeVisible();
-    await page.getByLabel("Time 1").fill("2026-10-20T09:00");
-    await page.getByLabel("Time 2").fill("2026-10-21T09:00");
+    await page.getByLabel("Time 1").fill(inputValue(at(3)));
+    await page.getByLabel("Time 2").fill(inputValue(at(4)));
     await expect(page.getByRole("button", { name: "Send invitation" })).toBeDisabled();
   });
 
