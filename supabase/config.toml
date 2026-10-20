@@ -20,7 +20,11 @@ max_rows = 1000
 # `postgres` are reachable through the Data API roles (`anon`, `authenticated`, `service_role`)
 # without explicit GRANTs, matching the cloud default. Set to `false` to require explicit GRANTs
 # instead. Left unset, a fresh project falls back to `true`.
-# auto_expose_new_tables = true
+# PINNED to the old default on purpose: the existing migrations were written and asserted under it (nine of them assert grants), and the CLI's own
+# default for an unset key has changed between releases (false on 2.106.0 to 2.115.0, true from 2.116.0). The key is deprecated and scheduled for
+# removal on 2026-10-30 (CLI v2.106.0 release note): re-check this line whenever the CLI pin in .github/actions/local-supabase/action.yml moves.
+# The `grants-new-rule` job in .github/workflows/ci.yml is what exercises the NEW rule, for migrations numbered after its cutoff.
+auto_expose_new_tables = true
 
 [api.tls]
 # Enable HTTPS endpoints locally using a self-signed certificate.

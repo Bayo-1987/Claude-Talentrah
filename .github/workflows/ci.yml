@@ -367,6 +367,130 @@ jobs:
       - name: Unit tests (Vitest)
         run: npm run test
 
+  # ── POST-CUTOFF GRANTS LEG ──────────────────────────────────────────────────
+  # The jobs above and below replay every migration with Supabase's OLD default (auto_expose_new_tables = true in supabase/config.toml), so a new table
+  # that forgets its GRANTs still works there and CI stays green. From 2026-10-30 Supabase stops granting new tables to anon, authenticated and service_role
+  # on existing projects too. This job reproduces that: it replays only the grandfathered migrations (numbered up to GRANTS_CUTOFF) under the old rule,
+  # switches the default privileges with the two statements Supabase publishes for opting in early, then applies every later migration. A later migration
+  # that relies on automatic access leaves a table service_role cannot read, and the request step fails. Until a migration after the cutoff exists the job
+  # has nothing to check and says so.
+  #
+  # NO `paths:` FILTER, NO `if:`, NO `needs:`, ON PURPOSE. This is meant to become a required check. A required check that is skipped (because a path
+  # filter did not match, or because an upstream job did not run) never reports, and a check that never reports blocks the merge. It costs one extra stack
+  # per run; that is the price of a check that always answers. tests/ci/grants-new-rule-leg.test.ts pins all three.
+  grants-new-rule:
+    name: Grants under the new Data API rule
+    runs-on: ubuntu-latest
+    # Measured locally at about 1 to 2 minutes (the replay is most of it); 15 leaves room for image pulls and the registry's rate-limit retries.
+    timeout-minutes: 15
+    env:
+      # The last migration that existed before the cutoff. It never moves: every later migration is applied under the new rule.
+      GRANTS_CUTOFF: "0263"
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Supabase CLI
+        # The same pin as .github/actions/local-supabase/action.yml (a commit sha, and version 2.117.0).
+        uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3, the head of the v1 branch on 2026-10-20
+        with:
+          version: 2.117.0
+
+      - name: Hold back the migrations numbered after the cutoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/post-cutoff"
+          for f in supabase/migrations/*.sql; do
+            n="$(basename "$f" | cut -c1-4)"
+            if [ "$((10#$n))" -gt "$((10#$GRANTS_CUTOFF))" ]; then mv "$f" "$RUNNER_TEMP/post-cutoff/"; fi
+          done
+          echo "held back $(ls "$RUNNER_TEMP/post-cutoff" | wc -l | tr -d ' ') migration(s) numbered after $GRANTS_CUTOFF"
+
+      - name: Replay the grandfathered migrations (supabase/config.toml sets auto_expose_new_tables = true)
+        shell: bash
+        run: bash .github/actions/local-supabase/start-supabase.sh
+
+      - name: Switch to the new rule (the statements Supabase publishes for opting in early)
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROJECT_ID="$(sed -n 's/^project_id = "\(.*\)"/\1/p' supabase/config.toml)"
+          PSQL="docker exec -i supabase_db_${PROJECT_ID} psql -U postgres -d postgres -X -q -A -t -v ON_ERROR_STOP=1"
+          $PSQL <<'SQL'
+          alter default privileges for role postgres in schema public
+            revoke select, insert, update, delete on tables from anon, authenticated, service_role;
+
+          alter default privileges for role postgres in schema public
+            revoke usage, select on sequences from anon, authenticated, service_role;
+          SQL
+          $PSQL -c "select relname from pg_class where relnamespace = 'public'::regnamespace and relkind in ('r','p') order by 1" > "$RUNNER_TEMP/tables-before.txt"
+          $PSQL -c "select p.oid::regprocedure::text from pg_proc p where p.pronamespace = 'public'::regnamespace and p.prokind in ('f','p') order by 1" > "$RUNNER_TEMP/functions-before.txt"
+          echo "public tables before the switch: $(wc -l < "$RUNNER_TEMP/tables-before.txt" | tr -d ' ')"
+          echo "public functions before the switch: $(wc -l < "$RUNNER_TEMP/functions-before.txt" | tr -d ' ')"
+
+      - name: Apply the migrations numbered after the cutoff, under the new rule
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=("$RUNNER_TEMP"/post-cutoff/*.sql)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "nothing to check yet; the first migration after $GRANTS_CUTOFF will be the first real test"
+            exit 0
+          fi
+          mv "${files[@]}" supabase/migrations/
+          supabase migration up
+          touch "$RUNNER_TEMP/leg-applied"
+
+      - name: service_role can reach every table created after the cutoff (real Data API request)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -e "$RUNNER_TEMP/leg-applied" ]; then echo "skipped: no migration after $GRANTS_CUTOFF (see the previous step)"; exit 0; fi
+          PROJECT_ID="$(sed -n 's/^project_id = "\(.*\)"/\1/p' supabase/config.toml)"
+          PSQL="docker exec -i supabase_db_${PROJECT_ID} psql -U postgres -d postgres -X -q -A -t -v ON_ERROR_STOP=1"
+          eval "$(supabase status -o env | grep -E '^(API_URL|SERVICE_ROLE_KEY)=' | sed 's/^/export /')"
+          $PSQL -c "select relname from pg_class where relnamespace = 'public'::regnamespace and relkind in ('r','p') order by 1" \
+            | { grep -v -x -F -f "$RUNNER_TEMP/tables-before.txt" || true; } > "$RUNNER_TEMP/tables-new.txt"
+          echo "tables created after the cutoff: $(wc -l < "$RUNNER_TEMP/tables-new.txt" | tr -d ' ')"
+          $PSQL -c "notify pgrst, 'reload schema'"
+          fail=0
+          while read -r t; do
+            [ -n "$t" ] || continue
+            code=404
+            for _ in $(seq 1 30); do
+              code="$(curl -s -o /dev/null -w '%{http_code}' -H "apikey: $SERVICE_ROLE_KEY" -H "Authorization: Bearer $SERVICE_ROLE_KEY" "$API_URL/rest/v1/$t?select=*&limit=1")"
+              [ "$code" != 404 ] && break
+              sleep 1
+            done
+            if [ "$code" -ge 200 ] && [ "$code" -lt 300 ]; then echo "ok   public.$t (service_role select: $code)"
+            else echo "::error::public.$t is not reachable by service_role (HTTP $code). A migration after $GRANTS_CUTOFF relies on automatic access: add explicit GRANTs (prompt 01 section 2.9)."; fail=1; fi
+          done < "$RUNNER_TEMP/tables-new.txt"
+          exit $fail
+
+      # WARNING ONLY, by design: this step can never fail the job (every path ends `exit 0`, and it does not use `set -e`).
+      # Why it only warns: a trigger function legitimately needs no grant for any role (the trigger fires without a caller privilege check), so "service_role
+      # lacks EXECUTE" is not always a defect, and a failing check would force a pointless grant onto every trigger function. It exists so a missing grant on a
+      # function the application DOES call through the service role is visible in the job log instead of surfacing as a runtime 42501 in production.
+      # It lists a function only if it was created after the cutoff (it is compared with the list captured before the migrations were applied, the same way as
+      # the tables) and service_role lacks EXECUTE on it. NOTE: Supabase's published opt-in statements do not revoke the default EXECUTE on functions, so
+      # this fires only when a migration itself removes service_role's access; the CLI's own `auto_expose_new_tables = false` is stricter, and the hosted
+      # platform's behaviour for functions is not verified.
+      - name: Warn about functions created after the cutoff that service_role cannot execute (warning only, never fails the job)
+        shell: bash
+        run: |
+          set -uo pipefail
+          if [ ! -e "$RUNNER_TEMP/leg-applied" ]; then echo "skipped: no migration after $GRANTS_CUTOFF (see the apply step)"; exit 0; fi
+          PROJECT_ID="$(sed -n 's/^project_id = "\(.*\)"/\1/p' supabase/config.toml)"
+          PSQL="docker exec -i supabase_db_${PROJECT_ID} psql -U postgres -d postgres -X -q -A -t -v ON_ERROR_STOP=1"
+          lacking="$($PSQL -c "select p.oid::regprocedure::text from pg_proc p where p.pronamespace = 'public'::regnamespace and p.prokind in ('f','p') and not has_function_privilege('service_role', p.oid, 'execute') order by 1" 2>/dev/null | { grep -v -x -F -f "$RUNNER_TEMP/functions-before.txt" || true; })" || lacking=""
+          if [ -z "$lacking" ]; then echo "no function created after the cutoff lacks EXECUTE for service_role"; exit 0; fi
+          while read -r f; do
+            [ -n "$f" ] || continue
+            echo "::warning::function public.$f was created after $GRANTS_CUTOFF and service_role has no EXECUTE on it. If application code calls it through the service role, add an explicit grant (prompt 01 section 2.9); a trigger function legitimately needs none."
+          done <<< "$lacking"
+          exit 0
+
   # ── E2E SHARDS ──────────────────────────────────────────────────────────
   #
   # The Playwright suite is split across three runners with Playwright's own
