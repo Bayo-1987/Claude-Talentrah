@@ -198,6 +198,22 @@ describe("two overlapping sweeps behave like one", () => {
     expect(reasons(await deletedFor(g.id))).toEqual([]);
   });
 
+  it("an orphan whose removal storage refuses is an alert, nothing is counted or audited, and the next run removes it", async () => {
+    const orphan = `${randomUUID()}/${randomUUID()}.json`;
+    await putObject(orphan);
+    const deletedBefore = (await auditRowsSince()).filter((r) => r.action === "people.export_deleted").length;
+    flags.failRemove = 1;
+    const first = await sweepDataExports(countedService().client);
+    expect(first.alerts).toBe(1);
+    expect(first.orphansDeleted).toBe(0);
+    expect(first.ok).toBe(false);
+    expect(await bucketPaths()).toEqual([orphan]);
+    expect((await auditRowsSince()).filter((r) => r.action === "people.export_deleted"), "nothing audited by the refused run").toHaveLength(deletedBefore);
+    const second = await sweepDataExports(countedService().client);
+    expect(second).toMatchObject({ alerts: 0, orphansDeleted: 1, ok: true });
+    expect(await bucketPaths()).toEqual([]);
+  });
+
   it("two sweeps one after the other: the second changes nothing and writes nothing (already pinned by sweep.test.ts T-A6; here for the orphan and the expired row too)", async () => {
     const p = await makePerson();
     const g = await insertGenerating(p.id);
