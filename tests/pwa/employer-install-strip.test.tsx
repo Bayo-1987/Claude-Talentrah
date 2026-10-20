@@ -71,6 +71,32 @@ describe("the employer layout mounts it in the signed-in branch only, last", () 
   });
 });
 
+describe("on a phone the bar stands on the bottom edge in the employer shell", () => {
+  // The shared bar is raised 58.5px (bottom-[calc(58.5px+env(safe-area-inset-bottom))] below 760px) to stand above the SEEKER shell's Farah tab, whose own reserve covers that
+  // slot. The strip's spacer is measured to the bar's height only, so without a tab the last 58.5px of every employer page sat under the bar. The employer layout wraps the strip
+  // and puts the bar on the edge instead (a descendant selector beats the bar's own class; the shared strip files are untouched), keeping the safe area as the bar's own bottom
+  // padding so the spacer, which is measured from the bar, still matches it.
+  const layout = code("src/app/employer/layout.tsx");
+
+  it("wraps the strip in an element that overrides the bar's bottom offset and the safe-area padding", () => {
+    const at = layout.indexOf("<EmployerInstallStrip");
+    const wrapperStart = layout.lastIndexOf("<div", at);
+    const wrapper = layout.slice(wrapperStart, at);
+    expect(wrapper).toContain("[&_[data-testid=install-strip]]:bottom-0");
+    expect(wrapper).toContain("[&_[data-testid=install-strip]]:pb-[calc(0.25rem+env(safe-area-inset-bottom))]");
+    expect(layout.slice(at)).toMatch(/^<EmployerInstallStrip \/>\s*<\/div>/); // the wrapper holds the strip and nothing after it
+  });
+
+  it("does not add its own fixed padding next to the strip's spacer", () => {
+    expect(layout).not.toMatch(/58\.5px/);
+  });
+
+  it("changes nothing in the shared strip or the seeker shell", () => {
+    expect(read("src/components/pwa/install-strip-view.tsx")).toContain("bottom-[calc(58.5px+env(safe-area-inset-bottom))]");
+    expect(code("src/components/pwa/install-strip-lazy.tsx")).not.toMatch(/employer/i);
+  });
+});
+
 describe("hidden in print", () => {
   it("the bar and its spacer both carry print:hidden (the employer layout prints the applicant resume through the shell)", () => {
     expect(read("src/components/pwa/install-strip-view.tsx")).toContain("print:hidden");

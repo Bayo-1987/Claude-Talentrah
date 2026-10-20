@@ -241,6 +241,23 @@ test.describe("never on top of a page's primary action", () => {
       el.addEventListener("click", (e) => e.preventDefault(), true); // a click must reach it, but must not submit or leave the page
       return { label: (el.textContent || el.getAttribute("aria-label") || el.tagName).trim().slice(0, 40), tag: el.tagName, x: r.left + r.width / 2, y: r.top + r.height / 2, top: r.top, bottom: r.bottom, left: r.left, right: r.right, bar: { top: bar.top, bottom: bar.bottom, left: bar.left, right: bar.right }, vh: window.innerHeight };
     });
+    // The lowest piece of real CONTENT on the page (text, media, controls; wrappers and spacers are not content), page scrolled to its end: it must end above the bar's top edge too,
+    // not only the bottom control, so a card or paragraph running under the bar is caught as well.
+    const lastContentBottom = await page.evaluate(() => {
+      const MEDIA = new Set(["IMG", "SVG", "CANVAS", "VIDEO", "INPUT", "TEXTAREA", "SELECT", "BUTTON", "HR"]);
+      let max = 0;
+      for (const el of document.querySelectorAll<HTMLElement>("body *")) {
+        const cs = getComputedStyle(el);
+        if (cs.position === "fixed" || cs.display === "none" || cs.visibility === "hidden") continue;
+        if (el.closest('[data-testid="install-strip"], [data-testid="install-strip-spacer"], [aria-hidden="true"], script, style')) continue;
+        const ownText = Array.from(el.childNodes).some((n) => n.nodeType === 3 && (n.textContent ?? "").trim() !== "");
+        if (!ownText && !MEDIA.has(el.tagName.toUpperCase())) continue;
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) continue;
+        max = Math.max(max, r.bottom);
+      }
+      return max;
+    });
     const overlap = probe.left < probe.bar.right && probe.right > probe.bar.left && probe.top < probe.bar.bottom && probe.bottom > probe.bar.top;
     await page.mouse.click(probe.x, probe.y);
     const reached = await page.evaluate(() => (window as unknown as { __s4Hit?: boolean }).__s4Hit === true);
@@ -250,9 +267,10 @@ test.describe("never on top of a page's primary action", () => {
       mkdirSync(SHOT_DIR, { recursive: true });
       await page.screenshot({ path: path.join(SHOT_DIR, `${label}.png`) });
     }
-    console.log(`S4_PRIMARY ${label} ${JSON.stringify({ control: probe.label, tag: probe.tag, controlTop: Math.round(probe.top), controlBottom: Math.round(probe.bottom), barTop: Math.round(probe.bar.top), barBottom: Math.round(probe.bar.bottom), viewport: probe.vh, overlap, clickReached: reached })}`);
+    console.log(`S4_PRIMARY ${label} ${JSON.stringify({ control: probe.label, tag: probe.tag, controlTop: Math.round(probe.top), controlBottom: Math.round(probe.bottom), barTop: Math.round(probe.bar.top), barBottom: Math.round(probe.bar.bottom), viewport: probe.vh, overlap, lastContentBottom: Math.round(lastContentBottom), clickReached: reached })}`);
     expect(probe.bottom, `${label}: the control ('${probe.label}') is inside the viewport`).toBeLessThanOrEqual(probe.vh + 0.5);
     expect(overlap, `${label}: the bar (${Math.round(probe.bar.top)}-${Math.round(probe.bar.bottom)}) covers the bottom control '${probe.label}' (${Math.round(probe.top)}-${Math.round(probe.bottom)})`).toBe(false);
+    expect(lastContentBottom, `${label}: the lowest content (${Math.round(lastContentBottom)}) must end above the bar's top edge (${Math.round(probe.bar.top)})`).toBeLessThanOrEqual(probe.bar.top + 0.5);
     expect(reached, `${label}: a real click at the control's centre reaches it`).toBe(true);
   }
 

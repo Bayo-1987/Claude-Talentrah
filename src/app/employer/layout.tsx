@@ -47,8 +47,14 @@ export default async function EmployerLayout({ children }: { children: React.Rea
       {/* print: the applicant resume page prints through here, and its own margin is ResumePrintSurface's. */}
       <div className="mx-auto w-full max-w-[1120px] px-10 py-8 print:max-w-none print:p-0">{children}</div>
       {/* The install-to-home-screen strip, as in the seeker shell: signed-in branch only (never the signed-out return above, so not the public /employer page), a fixed bar
-          on the bottom edge, last in DOM order so the skip link stays the first Tab stop; nothing under PWA_KILL=1. Hidden in print, like the rest of the shell's chrome. */}
-      <EmployerInstallStrip />
+          on the bottom edge, last in DOM order so the skip link stays the first Tab stop; nothing under PWA_KILL=1. Hidden in print, like the rest of the shell's chrome.
+          THE WRAPPER is why the bar stands on the bottom edge on a phone. The shared bar is raised 58.5px below 760px to stand above the SEEKER shell's Farah tab, whose own
+          reserve covers that slot; the strip's spacer is measured to the bar's height only, so with no tab the last 58.5px of every employer page sat under the bar (a
+          descendant selector beats the bar's own class, so the shared strip files stay untouched). The safe area becomes the bar's own bottom padding (on top of its usual 0.25rem) instead of its offset,
+          so the spacer, which is measured from the bar, still matches it exactly. One spacer, no second padding. */}
+      <div className="[&_[data-testid=install-strip]]:bottom-0 [&_[data-testid=install-strip]]:pb-[calc(0.25rem+env(safe-area-inset-bottom))]">
+        <EmployerInstallStrip />
+      </div>
     </div>
   );
 }
