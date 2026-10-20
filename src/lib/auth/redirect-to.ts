@@ -1,3 +1,21 @@
+/** Resolved against only to ask the URL parser which origin a value would land on; never used as a destination. */
+const PLACEHOLDER_ORIGIN = "https://redirect-check.invalid";
+
+/**
+ * True when `value`, parsed the way a browser parses a URL against a fixed placeholder origin, keeps that origin and does not resolve to a path that starts with "//"
+ * (dot segments are removed when a URL is parsed, so a path with one can resolve to such a path: still this site, but protocol-relative as soon as anything else re-serialises it).
+ * Exported so the check can be tested on its own: the rules in `safeRedirectTo` that run before it already close every way to another origin that anyone has found, so this is the
+ * parser's own answer as the last word, and it needs a test that does not depend on those rules.
+ */
+export function staysOnSite(value: string): boolean {
+  try {
+    const resolved = new URL(value, PLACEHOLDER_ORIGIN);
+    return resolved.origin === PLACEHOLDER_ORIGIN && !resolved.pathname.startsWith("//");
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Where to send someone after they sign in, when they arrived from somewhere.
  *
@@ -36,9 +54,6 @@
  * two should not share a definition that could be relaxed for the other's
  * benefit.
  */
-/** Resolved against only to ask the URL parser which origin a value would land on; never used as a destination. */
-const PLACEHOLDER_ORIGIN = "https://redirect-check.invalid";
-
 export function safeRedirectTo(raw: unknown, fallback: string): string {
   if (typeof raw !== "string") return fallback;
 
@@ -49,14 +64,7 @@ export function safeRedirectTo(raw: unknown, fallback: string): string {
   // Browsers remove tab, line feed and carriage return from a URL before parsing it, so one in the middle can change what the path means.
   if (/[\u0000-\u0020\u007f]/.test(value)) return fallback;
   if (value.includes("\\")) return fallback;
-  try {
-    const resolved = new URL(value, PLACEHOLDER_ORIGIN);
-    if (resolved.origin !== PLACEHOLDER_ORIGIN) return fallback;
-    // Dot segments are removed when a URL is parsed, so a path with one can resolve to a path that starts with "//": still this site, but protocol-relative as soon as anything else re-serialises it.
-    if (resolved.pathname.startsWith("//")) return fallback;
-  } catch {
-    return fallback;
-  }
+  if (!staysOnSite(value)) return fallback;
 
   return value;
 }

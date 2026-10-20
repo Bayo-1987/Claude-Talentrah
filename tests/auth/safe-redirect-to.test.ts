@@ -4,7 +4,7 @@
  * carriage return from a URL before parsing, so "/<tab>/host" would be read as "//host". No test here depends on the function's own rules, only on where its answer resolves.
  */
 import { describe, expect, it } from "vitest";
-import { onboardingDestination, safeRedirectTo } from "@/lib/auth/redirect-to";
+import { onboardingDestination, safeRedirectTo, staysOnSite } from "@/lib/auth/redirect-to";
 
 const SITE = "https://talentrah.test";
 const FALLBACK = "/FALLBACK";
@@ -144,4 +144,45 @@ describe("a caller that builds on it", () => {
     expect(onboardingDestination("/\t/example.test")).toBe("/onboarding");
     expect(onboardingDestination("/\n/example.test")).toBe("/onboarding");
   });
+});
+
+/** The reviewed table, written out exactly: every row is refused (the fallback comes back) or accepted unchanged. */
+describe("the reviewed table of inputs", () => {
+  it.each([
+    ["tab", "/\t/evil.example"],
+    ["line feed", "/\n/evil.example"],
+    ["carriage return", "/\r/evil.example"],
+    ["NUL", "/\u0000/x"],
+    ["DEL", "/\u007f/x"],
+    ["a control character in the middle of a path", "/a\u0001b"],
+    ["a backslash in the middle of a path", "/a\\b"],
+    ["double slash host", "//evil.example"],
+    ["slash backslash host", "/\\evil.example"],
+    ["absolute URL", "https://evil.example"],
+    ["javascript:", "javascript:alert(1)"],
+    ["a bare host", "evil.example"],
+    ["empty", ""],
+    ["whitespace only", " \t\n "],
+  ])("refused: %s", (_n, value) => expect(safe(value)).toBe(FALLBACK));
+
+  it.each(["/dashboard", "/jobs?id=1", "/onboarding#step", "/jobs/abc-123?x=1&y=2#top", "/employer/campaigns"])("accepted unchanged: %s", (value) => expect(safe(value)).toBe(value));
+});
+
+/**
+ * The parser's own check, tested on its own. `safeRedirectTo`'s earlier rules already close every route to another origin that was found (a value that starts with one "/" and has no control character or
+ * backslash always resolves to the site), so no input can show the last check working THROUGH `safeRedirectTo`; this does, directly.
+ */
+describe("staysOnSite: what the URL parser says, as the last word", () => {
+  it.each([
+    ["a protocol-relative host", "//evil.example/x"],
+    ["an absolute URL on another host", "https://evil.example/x"],
+    ["the same host on another scheme (same hostname, different origin)", "http://redirect-check.invalid/x"],
+    ["the same host on another port", "https://redirect-check.invalid:8443/x"],
+    ["a backslash host", "/\\evil.example"],
+    ["javascript:", "javascript:alert(1)"],
+    ["a dot segment that leaves a path starting with //", "/.//evil.example"],
+    ["a tab that makes the browser read a protocol-relative host", "/\t/evil.example"],
+  ])("refuses %s", (_n, value) => expect(staysOnSite(value)).toBe(false));
+
+  it.each(["/", "/jobs", "/jobs?x=1#top", "/a/b/../c", "/%09/x", "/%5cx"])("accepts %s", (value) => expect(staysOnSite(value)).toBe(true));
 });
