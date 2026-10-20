@@ -178,6 +178,11 @@ export default async function BillingPage({
             yet in this environment.
           </p>
         )}
+        {error === "cancel_failed" && (
+          <p className="mt-3 max-w-[560px] border-[1.5px] border-rust bg-rust-soft px-4 py-3 text-[13.5px] text-rust">
+            We could not cancel your renewal. Please try again.
+          </p>
+        )}
         {!paystackConfigured && (
           <p
             className="mt-3 max-w-[560px] border-[1.5px] border-amber bg-[oklch(96%_0.03_70)] px-4 py-3 text-[13.5px]"
