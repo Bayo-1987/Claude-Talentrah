@@ -10,7 +10,7 @@ const REASON_LABELS: Record<(typeof REASON_CODES)[number], string> = {
   account_support: "A support case needs it",
 };
 const CHECK_LABELS: Record<(typeof REQUESTER_CHECKS)[number], string> = {
-  contact_form: "They sent the request through the contact form while signed in to this account",
+  contact_form: "Asked through the contact form (sender not verified)",
   registered_address_reply: "Replied from the address on the account",
 };
 

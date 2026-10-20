@@ -6,8 +6,8 @@ decisions behind it are the owner's, 17-18 Oct 2026, and the open questions for 
 ## What happens, in order
 
 1. **An admin with the `data_export` permission** (granted to nobody by default, migration 0262) opens the person under *Admin > People lookup* and fills three fields: the support **ticket
-   reference** (letters, digits, dot, dash; checked by pattern), a **reason** and **how the requester was checked** (both pick-lists; the owner's rule is the signed-in contact form where
-   possible, otherwise a reply from the registered address). The form posts to `POST /admin/data-export`, a route handler with its **own** guard (`getAdmin()`, never the seeker session): no
+   reference** (letters, digits, dot, dash; checked by pattern), a **reason** and **how the requester was checked** (both pick-lists; the owner's rule is the contact form where
+   possible, otherwise a reply from the registered address; the form records no account, so the label reads "Asked through the contact form (sender not verified)"). The form posts to `POST /admin/data-export`, a route handler with its **own** guard (`getAdmin()`, never the seeker session): no
    identity answers 401; an identity without the permission answers 403 **and writes `people.export_denied`**.
 2. **A strict audit row `people.export_requested`** is written *before anything is read*. If it cannot be written, nothing is read and the answer is a generic 503 (fail closed).
 3. **Target checks.** The target must be a uuid; not the admin's own account; a person with a profile row; and not an admin account that shares the acting admin's address. A person inside the
