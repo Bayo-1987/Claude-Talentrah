@@ -109,26 +109,87 @@ describe("ci.yml has the grants-new-rule job", () => {
   });
 
   it("has a warning-only step for functions that never fails the job", () => {
-    const warn = runs.findIndex((r) => r.includes("::warning::"));
-    expect(warn, "a step must print ::warning::").toBeGreaterThanOrEqual(0);
+    const warn = runs.findIndex((r) => r.includes("has_function_privilege"));
+    expect(warn, "a step must check has_function_privilege and print ::warning::").toBeGreaterThanOrEqual(0);
+    expect(runs[warn]).toContain("::warning::");
     expect(runs[warn]).not.toContain("::error::");
     expect(runs[warn]).not.toMatch(/exit\s+[1-9]/);
     expect(runs[warn]).toMatch(/exit 0\s*$/);
     expect(steps[warn].name ?? "", "the step name says it only warns").toMatch(/warn/i);
   });
 
-  it("runs its steps in order: hold back, replay, switch, apply, request, then the function warning", () => {
+  it("runs its steps in order: hold back, replay, switch, apply, request, the function warning, then the sequence warning", () => {
     const order = [
       indexOf("post-cutoff"), // the hold-back step moves the later migrations aside
       indexOf("start-supabase.sh"),
       indexOf("alter default privileges"),
       indexOf("supabase migration up"),
       runs.findIndex((r) => r.includes("/rest/v1/")),
-      runs.findIndex((r) => r.includes("::warning::")),
+      runs.findIndex((r) => r.includes("has_function_privilege")),
+      runs.findIndex((r) => r.includes("has_sequence_privilege")),
     ];
     for (const i of order) expect(i).toBeGreaterThanOrEqual(0);
     expect(order).toEqual([...order].sort((a, b) => a - b));
     expect(new Set(order).size).toBe(order.length);
+  });
+});
+
+/*
+ * PARITY WITH THE SHARED ACTION. The grants job replays the grandfathered migrations on a stack that must be the same stack the other jobs get, or a green result here
+ * says nothing about them. The shared action (.github/actions/local-supabase/action.yml) sets, around start-supabase.sh: the CLI install (a commit-sha pin and
+ * version 2.117.0), the start step (`shell: bash`, run from the workspace root, no arguments, no env, no with, no working-directory), and `supabase db reset` (the one
+ * step this job deliberately does not run: it would only repeat the replay that `start` just did, before the switch). The script itself runs a plain `supabase start`
+ * with no excluded service. These tests fail if the job's call stops matching on any of those points.
+ */
+describe("the grants job starts the stack the way the shared local-supabase action does", () => {
+  const shared = action.runs.steps;
+  const job = workflow.jobs["grants-new-rule"];
+  const sharedInstall = shared.find((s) => s.uses?.startsWith("supabase/setup-cli@"));
+  const sharedStart = shared.find((s) => s.run?.includes("start-supabase.sh"));
+  const jobInstall = job?.steps?.find((s) => s.uses?.startsWith("supabase/setup-cli@"));
+  const jobStart = job?.steps?.find((s) => s.run?.includes("start-supabase.sh"));
+  const normal = (run: string | undefined) => (run ?? "").replace('"${{ github.action_path }}/start-supabase.sh"', ".github/actions/local-supabase/start-supabase.sh").trim();
+
+  it("finds both start steps", () => {
+    expect(sharedStart, "the shared action must still have a start step").toBeDefined();
+    expect(jobStart, "the grants job must still have a start step").toBeDefined();
+  });
+
+  it("installs the same CLI: the same pinned action and the same with: block", () => {
+    expect(jobInstall?.uses).toBe(sharedInstall?.uses);
+    expect(jobInstall?.with).toEqual(sharedInstall?.with);
+  });
+
+  it("runs the same script the same way: bash, the same command line, no arguments", () => {
+    expect(jobStart!.shell).toBe(sharedStart!.shell);
+    expect(normal(jobStart!.run)).toBe(normal(sharedStart!.run));
+    expect(normal(jobStart!.run)).toBe("bash .github/actions/local-supabase/start-supabase.sh");
+    expect(existsSync(".github/actions/local-supabase/start-supabase.sh")).toBe(true);
+  });
+
+  it("sets nothing around the start that would change the stack: no env, with, working-directory or condition on either start step, and no job-level env but the cutoff", () => {
+    for (const step of [sharedStart!, jobStart!]) {
+      const extra = step as Step & Record<string, unknown>;
+      for (const key of ["env", "with", "working-directory", "if", "continue-on-error", "timeout-minutes"]) expect(extra[key], `${key} on a start step`).toBeUndefined();
+    }
+    expect(Object.keys(job.env ?? {})).toEqual(["GRANTS_CUTOFF"]);
+    expect((action as unknown as { inputs?: unknown }).inputs, "the shared action takes no inputs").toBeUndefined();
+    expect((workflow as unknown as { defaults?: unknown }).defaults, "no workflow-level defaults (shell, working-directory)").toBeUndefined();
+    expect((job as unknown as { defaults?: unknown }).defaults, "no job-level defaults (shell, working-directory)").toBeUndefined();
+  });
+
+  it("checks the repository out before the start, because the script lives in it", () => {
+    const steps = job.steps ?? [];
+    const checkout = steps.findIndex((s) => s.uses?.startsWith("actions/checkout@"));
+    expect(checkout).toBeGreaterThanOrEqual(0);
+    expect(checkout).toBeLessThan(steps.indexOf(jobStart!));
+  });
+
+  it("start-supabase.sh runs a plain `supabase start` with no excluded service and no skipped health check", () => {
+    const script = readFileSync(".github/actions/local-supabase/start-supabase.sh", "utf8");
+    const starts = script.split("\n").filter((l) => /\bsupabase start\b/.test(l) && !l.trim().startsWith("#") && !/echo|::/.test(l));
+    expect(starts.map((l) => l.trim())).toEqual(['supabase start 2>&1 | tee "$log"']);
+    expect(script).not.toMatch(/--exclude|--ignore-health-check|(^|\s)-x\s/m);
   });
 });
 
@@ -157,9 +218,18 @@ describe("the job's shell, run for real", () => {
 [ "\${FAKE_DOCKER_FAIL:-0}" = 1 ] && { echo "fake docker: failing on purpose" >&2; exit 1; }
 sql=""; args=("$@"); for ((i=0; i<\${#args[@]}; i++)); do [ "\${args[$i]}" = "-c" ] && sql="\${args[$((i+1))]}"; done
 if [ -z "$sql" ]; then cat > /dev/null; exit 0; fi
+# The fake answers by the KINDS the query asks for, the way the real catalog would: a query that does not list 'v' (views) never sees a view.
 case "$sql" in
-  *"relkind in ('r','p')"*) printf 'profiles\\nresumes\\n'; [ -e "$RUNNER_TEMP/leg-applied" ] && for t in \${NEW_TABLES:-}; do echo "$t"; done ;;
+  *"relkind in ("*)
+    printf 'profiles\\nresumes\\n'
+    case "$sql" in *"'v'"*) printf 'old_view\\n' ;; esac
+    if [ -e "$RUNNER_TEMP/leg-applied" ]; then
+      for t in \${NEW_TABLES:-}; do echo "$t"; done
+      case "$sql" in *"'v'"*) for v in \${NEW_VIEWS:-}; do echo "$v"; done ;; esac
+    fi ;;
   *has_function_privilege*) printf '%b' "\${LACKING_FUNCS:-}" ;;
+  *has_sequence_privilege*) printf '%b' "\${LACKING_SEQS:-}" ;;
+  *"relkind = 'S'"*) printf 'old_seq\\n'; [ -e "$RUNNER_TEMP/leg-applied" ] && for q in \${NEW_SEQS:-}; do echo "$q"; done ;;
   *"notify pgrst"*) : ;;
   *) : ;;
 esac
@@ -238,7 +308,7 @@ printf '%s' "$code"
   describe("the service_role request step fails closed", () => {
     const request = () => stepNamed("service_role can reach");
     const applied = () => writeFileSync(path.join(dir, "rt/leg-applied"), "");
-    const before = (text = "profiles\nresumes\n") => writeFileSync(path.join(dir, "rt/tables-before.txt"), text);
+    const before = (text = "profiles\nresumes\nold_view\n") => writeFileSync(path.join(dir, "rt/relations-before.txt"), text);
 
     it("passes when every new table answers 200", () => {
       workspace([]); applied(); before();
@@ -254,8 +324,8 @@ printf '%s' "$code"
       expect(r.out).toContain("::error::public.bad_table is not reachable by service_role (HTTP 403)");
     });
 
-    it("FAILS when the list of tables captured before the migrations is missing (it must never pass without checking)", () => {
-      workspace([]); applied(); // no tables-before.txt
+    it("FAILS when the list of relations captured before the migrations is missing (it must never pass without checking)", () => {
+      workspace([]); applied(); // no relations-before.txt
       const r = run(request(), { NEW_TABLES: "bad_table", CURL_CODES: "bad_table=403" });
       expect(r.code, r.out).not.toBe(0);
       expect(r.out).toContain("::error::");
@@ -271,13 +341,49 @@ printf '%s' "$code"
     // An unreadable list makes `grep -f` exit 2 (an error), which must not be mistaken for "no new table". A root user can read any file, so this cannot be shown there.
     it.skipIf(process.getuid?.() === 0)("FAILS when grep itself errors on the list (an error is not the same as no new table)", () => {
       workspace([]); applied(); before();
-      chmodSync(path.join(dir, "rt/tables-before.txt"), 0o000);
+      chmodSync(path.join(dir, "rt/relations-before.txt"), 0o000);
       // grep exits at once on the unreadable list without reading its input, so the writer in front of it can die of SIGPIPE, which also fails the step and would hide a
       // swallowed grep error. A wrapper that reads all its input first makes the outcome depend only on grep's own exit status.
       writeFileSync(path.join(dir, "bin/grep"), '#!/bin/bash\nin="$(cat)"\nPATH="$REAL_PATH" grep "$@" <<< "$in"\n');
       chmodSync(path.join(dir, "bin/grep"), 0o755);
       const r = run(request(), { NEW_TABLES: "bad_table", CURL_CODES: "bad_table=403", REAL_PATH: process.env.PATH ?? "" });
       expect(r.code, r.out).not.toBe(0);
+    });
+
+
+    // VIEWS. Supabase's new rule withholds automatic access from views, materialized views and foreign tables as well as tables, and PostgREST serves all of them.
+    it("FAILS when a new VIEW has no grant (403), and says which one", () => {
+      workspace([]); applied(); before();
+      const r = run(request(), { NEW_VIEWS: "bad_view", CURL_CODES: "bad_view=403" });
+      expect(r.code, r.out).not.toBe(0);
+      expect(r.out).toContain("::error::public.bad_view is not reachable by service_role (HTTP 403)");
+    });
+
+    it("passes when a new VIEW has an explicit grant (200) and a new table does too", () => {
+      workspace([]); applied(); before();
+      const r = run(request(), { NEW_TABLES: "good_table", NEW_VIEWS: "good_view", CURL_CODES: "good_table=200,good_view=200" });
+      expect(r.code, r.out).toBe(0);
+      expect(r.out).toContain("ok   public.good_view");
+      expect(r.out).toContain("ok   public.good_table");
+    });
+
+    it("a view that already existed before the migrations is not checked, because the before-list is captured with the same kinds (the switch step is run for real)", () => {
+      workspace([]);
+      const sw = run(stepNamed("Switch to the new rule"));
+      expect(sw.code, sw.out).toBe(0);
+      applied();
+      const r = run(request(), { NEW_VIEWS: "good_view", CURL_CODES: "old_view=403,good_view=200" });
+      expect(r.code, r.out).toBe(0);
+      expect(r.out).not.toContain("old_view");
+      expect(r.out).toContain("ok   public.good_view");
+    });
+
+    it("lists tables and views by the same kinds before and after (r, p, v, m, f), so a kind added to one side cannot go missing from the other", () => {
+      const sw = stepNamed("Switch to the new rule").run!;
+      const rq = request().run!;
+      const KINDS = "relkind in ('r','p','v','m','f')";
+      expect(sw.split(KINDS).length - 1, "the switch step captures the before-list with all five kinds").toBe(1);
+      expect(rq.split(KINDS).length - 1, "the request step reads the after-list with all five kinds").toBe(1);
     });
 
     it("is skipped, and passes, when no migration was applied after the cutoff", () => {
@@ -333,6 +439,90 @@ printf '%s' "$code"
       const r = run(warn(), { LACKING_FUNCS: "new_fn(integer)\\n" });
       expect(r.code, r.out).toBe(0);
       expect(r.out).toContain("::warning::the function check was skipped");
+    });
+  });
+
+  describe("the switch step captures the lists the later steps compare against", () => {
+    it("writes the relations (tables and views), the functions and the sequences that exist before the migrations", () => {
+      workspace([]);
+      const r = run(stepNamed("Switch to the new rule"));
+      expect(r.code, r.out).toBe(0);
+      expect(readFileSync(path.join(dir, "rt/relations-before.txt"), "utf8")).toBe("profiles\nresumes\nold_view\n");
+      expect(readFileSync(path.join(dir, "rt/sequences-before.txt"), "utf8")).toBe("old_seq\n");
+      expect(existsSync(path.join(dir, "rt/functions-before.txt"))).toBe(true);
+      expect(r.out).toContain("public sequences before the switch: 1");
+    });
+  });
+
+  describe("the sequence step can never fail the job", () => {
+    const warn = () => stepNamed("Warn about sequences");
+    const applied = () => writeFileSync(path.join(dir, "rt/leg-applied"), "");
+    const before = (text = "old_seq\n") => writeFileSync(path.join(dir, "rt/sequences-before.txt"), text);
+
+    it("is marked continue-on-error, turns the runner's errexit off itself and ends in exit 0", () => {
+      expect(warn()["continue-on-error"], "continue-on-error: true must stay on the step").toBe(true);
+      expect(warn().run).toMatch(/^\s*set \+e\s*$/m);
+      expect(warn().run).toMatch(/exit 0\s*$/);
+      expect(warn().run).not.toContain("::error::");
+      expect(warn().run).not.toMatch(/exit\s+[1-9]/);
+    });
+
+    // Found only by a run against a real database: has_sequence_privilege errors on any relation that is not a sequence, and the planner may apply it before
+    // `relkind = 'S'`. A fake database cannot show that, so the guard is pinned here by its text.
+    it("guards has_sequence_privilege with a CASE on relkind, so it is never evaluated on a table or an index", () => {
+      expect(squash(warn().run!)).toContain("case when c.relkind = 'S' then not has_sequence_privilege('service_role', c.oid, 'usage') end");
+    });
+
+    it("prints a warning for a new sequence that service_role cannot use, and still exits 0", () => {
+      workspace([]); applied(); before();
+      const r = run(warn(), { LACKING_SEQS: "old_seq\nnew_seq\n" });
+      expect(r.code, r.out).toBe(0);
+      expect(r.out).toContain("::warning::sequence public.new_seq");
+      expect(r.out).not.toContain("public.old_seq");
+    });
+
+    it("stays silent (no warning) when no new sequence lacks USAGE", () => {
+      workspace([]); applied(); before();
+      const r = run(warn(), { LACKING_SEQS: "old_seq\n" });
+      expect(r.code, r.out).toBe(0);
+      expect(r.out).not.toContain("::warning::");
+      expect(r.out).toContain("no sequence created after the cutoff lacks USAGE for service_role");
+    });
+
+    it("checks against an EMPTY list of earlier sequences (a database with none yet is not a reason to skip)", () => {
+      workspace([]); applied(); before("");
+      const r = run(warn(), { LACKING_SEQS: "first_seq\n" });
+      expect(r.code, r.out).toBe(0);
+      expect(r.out).toContain("::warning::sequence public.first_seq");
+    });
+
+    it("is skipped, and exits 0, when no migration was applied after the cutoff", () => {
+      workspace([]); before();
+      const r = run(warn(), { LACKING_SEQS: "new_seq\n" });
+      expect(r.code, r.out).toBe(0);
+      expect(r.out).toContain("skipped: no migration after 0263");
+      expect(r.out).not.toContain("::warning::");
+    });
+
+    it("exits 0 when the database query fails", () => {
+      workspace([]); applied(); before();
+      const r = run(warn(), { FAKE_DOCKER_FAIL: "1" });
+      expect(r.code, r.out).toBe(0);
+      expect(r.out).toContain("::warning::the sequence check was skipped");
+    });
+
+    it("exits 0 when supabase/config.toml is missing", () => {
+      workspace([], { config: false }); applied(); before();
+      const r = run(warn());
+      expect(r.code, r.out).toBe(0);
+      expect(r.out).toContain("::warning::the sequence check was skipped");
+    });
+
+    it("exits 0 when the list of sequences captured before the migrations is missing", () => {
+      workspace([]); applied(); // no sequences-before.txt
+      const r = run(warn(), { LACKING_SEQS: "new_seq\n" });
+      expect(r.code, r.out).toBe(0);
+      expect(r.out).toContain("::warning::the sequence check was skipped");
     });
   });
 });

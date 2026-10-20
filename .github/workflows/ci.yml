@@ -372,8 +372,8 @@ jobs:
   # that forgets its GRANTs still works there and CI stays green. From 2026-10-30 Supabase stops granting new tables to anon, authenticated and service_role
   # on existing projects too. This job reproduces that: it replays only the grandfathered migrations (numbered up to GRANTS_CUTOFF) under the old rule,
   # switches the default privileges with the two statements Supabase publishes for opting in early, then applies every later migration. A later migration
-  # that relies on automatic access leaves a table service_role cannot read, and the request step fails. Until a migration after the cutoff exists the job
-  # has nothing to check and says so.
+  # that relies on automatic access leaves a table, view, materialized view or foreign table service_role cannot read, and the request step fails. Until a
+  # migration after the cutoff exists the job has nothing to check and says so. Functions and sequences are only WARNED about (the last two steps).
   #
   # NO `paths:` FILTER, NO `if:`, NO `needs:`, ON PURPOSE. This is meant to become a required check. A required check that is skipped (because a path
   # filter did not match, or because an upstream job did not run) never reports, and a check that never reports blocks the merge. It costs one extra stack
@@ -410,8 +410,14 @@ jobs:
             n="${name:0:4}"
             if [ "$((10#$n))" -gt "$((10#$GRANTS_CUTOFF))" ]; then mv "$f" "$RUNNER_TEMP/post-cutoff/"; fi
           done
-          echo "held back $(ls "$RUNNER_TEMP/post-cutoff" | wc -l | tr -d ' ') migration(s) numbered after $GRANTS_CUTOFF"
+          held=("$RUNNER_TEMP"/post-cutoff/*)
+          echo "held back ${#held[@]} migration(s) numbered after $GRANTS_CUTOFF"
 
+      # PARITY WITH THE SHARED ACTION (.github/actions/local-supabase): this is the same script, run the same way (bash, from the workspace root, no arguments, no
+      # env, no `with`), on the same CLI (the install step above), so the stack is the one the other jobs get: the same `supabase start` with no excluded service,
+      # the same retry on a registry rate limit. The one step of the shared action this job does not run is `supabase db reset`: it is a second replay of the same
+      # files straight after `start` has applied them, and here it would only repeat the grandfathered replay before the switch below. tests/ci/grants-new-rule-leg.test.ts
+      # pins the points that must not drift.
       - name: Replay the grandfathered migrations (supabase/config.toml sets auto_expose_new_tables = true)
         shell: bash
         run: bash .github/actions/local-supabase/start-supabase.sh
@@ -429,10 +435,14 @@ jobs:
           alter default privileges for role postgres in schema public
             revoke usage, select on sequences from anon, authenticated, service_role;
           SQL
-          $PSQL -c "select relname from pg_class where relnamespace = 'public'::regnamespace and relkind in ('r','p') order by 1" > "$RUNNER_TEMP/tables-before.txt"
+          # What is already there before the later migrations. RELATIONS: tables (r), partitioned tables (p), views (v), materialized views (m) and foreign tables (f),
+          # the kinds PostgREST serves; the same list is read again after the migrations, so the two must stay the same set of kinds.
+          $PSQL -c "select relname from pg_class where relnamespace = 'public'::regnamespace and relkind in ('r','p','v','m','f') order by 1" > "$RUNNER_TEMP/relations-before.txt"
           $PSQL -c "select p.oid::regprocedure::text from pg_proc p where p.pronamespace = 'public'::regnamespace and p.prokind in ('f','p') order by 1" > "$RUNNER_TEMP/functions-before.txt"
-          echo "public tables before the switch: $(wc -l < "$RUNNER_TEMP/tables-before.txt" | tr -d ' ')"
+          $PSQL -c "select relname from pg_class where relnamespace = 'public'::regnamespace and relkind = 'S' order by 1" > "$RUNNER_TEMP/sequences-before.txt"
+          echo "public relations (tables, views, materialized views, foreign tables) before the switch: $(wc -l < "$RUNNER_TEMP/relations-before.txt" | tr -d ' ')"
           echo "public functions before the switch: $(wc -l < "$RUNNER_TEMP/functions-before.txt" | tr -d ' ')"
+          echo "public sequences before the switch: $(wc -l < "$RUNNER_TEMP/sequences-before.txt" | tr -d ' ')"
 
       - name: Apply the migrations numbered after the cutoff, under the new rule
         shell: bash
@@ -448,19 +458,21 @@ jobs:
           supabase migration up
           touch "$RUNNER_TEMP/leg-applied"
 
-      - name: service_role can reach every table created after the cutoff (real Data API request)
+      - name: service_role can reach every table and view created after the cutoff (real Data API request)
         shell: bash
         run: |
           set -euo pipefail
           if [ ! -e "$RUNNER_TEMP/leg-applied" ]; then echo "skipped: no migration after $GRANTS_CUTOFF (see the previous step)"; exit 0; fi
-          # Fail CLOSED: without the list captured before the migrations the step cannot tell new tables from old ones, and must not pass without checking.
-          if [ ! -s "$RUNNER_TEMP/tables-before.txt" ]; then echo "::error::the list of tables captured before the migrations is missing or empty, so the check cannot tell which tables are new"; exit 1; fi
+          # Fail CLOSED: without the list captured before the migrations the step cannot tell new relations from old ones, and must not pass without checking.
+          if [ ! -s "$RUNNER_TEMP/relations-before.txt" ]; then echo "::error::the list of relations captured before the migrations is missing or empty, so the check cannot tell which tables and views are new"; exit 1; fi
           PROJECT_ID="$(sed -n 's/^project_id = "\(.*\)"/\1/p' supabase/config.toml)"
           PSQL="docker exec -i supabase_db_${PROJECT_ID} psql -U postgres -d postgres -X -q -A -t -v ON_ERROR_STOP=1"
           eval "$(supabase status -o env | grep -E '^(API_URL|SERVICE_ROLE_KEY)=' | sed 's/^/export /')"
-          $PSQL -c "select relname from pg_class where relnamespace = 'public'::regnamespace and relkind in ('r','p') order by 1" \
-            | { grep -v -x -F -f "$RUNNER_TEMP/tables-before.txt" || [ "$?" -eq 1 ]; } > "$RUNNER_TEMP/tables-new.txt"
-          echo "tables created after the cutoff: $(wc -l < "$RUNNER_TEMP/tables-new.txt" | tr -d ' ')"
+          # The SAME kinds as the list captured before the migrations (tables, partitioned tables, views, materialized views, foreign tables): PostgREST serves all
+          # of them, and Supabase's new rule withholds automatic access from all of them, so a view with no GRANT is as unreachable as a table with none.
+          $PSQL -c "select relname from pg_class where relnamespace = 'public'::regnamespace and relkind in ('r','p','v','m','f') order by 1" \
+            | { grep -v -x -F -f "$RUNNER_TEMP/relations-before.txt" || [ "$?" -eq 1 ]; } > "$RUNNER_TEMP/relations-new.txt"
+          echo "tables and views created after the cutoff: $(wc -l < "$RUNNER_TEMP/relations-new.txt" | tr -d ' ')"
           $PSQL -c "notify pgrst, 'reload schema'"
           fail=0
           while read -r t; do
@@ -473,7 +485,7 @@ jobs:
             done
             if [ "$code" -ge 200 ] && [ "$code" -lt 300 ]; then echo "ok   public.$t (service_role select: $code)"
             else echo "::error::public.$t is not reachable by service_role (HTTP $code). A migration after $GRANTS_CUTOFF relies on automatic access: add explicit GRANTs (prompt 01 section 2.9)."; fail=1; fi
-          done < "$RUNNER_TEMP/tables-new.txt"
+          done < "$RUNNER_TEMP/relations-new.txt"
           exit $fail
 
       # WARNING ONLY, by design: this step can never fail the job. Two layers, because the runner starts every `shell: bash` step with `-e` (errexit ON), which a
@@ -499,13 +511,47 @@ jobs:
             exit 0
           fi
           PSQL="docker exec -i supabase_db_${PROJECT_ID} psql -U postgres -d postgres -X -q -A -t -v ON_ERROR_STOP=1"
-          all="$($PSQL -c "select p.oid::regprocedure::text from pg_proc p where p.pronamespace = 'public'::regnamespace and p.prokind in ('f','p') and not has_function_privilege('service_role', p.oid, 'execute') order by 1" 2>/dev/null)"
-          if [ "$?" -ne 0 ]; then echo "::warning::the function check was skipped: the database query failed"; exit 0; fi
+          if ! all="$($PSQL -c "select p.oid::regprocedure::text from pg_proc p where p.pronamespace = 'public'::regnamespace and p.prokind in ('f','p') and not has_function_privilege('service_role', p.oid, 'execute') order by 1" 2>/dev/null)"; then
+            echo "::warning::the function check was skipped: the database query failed"; exit 0
+          fi
           lacking="$(printf '%s\n' "$all" | { grep -v -x -F -f "$RUNNER_TEMP/functions-before.txt" || true; })"
           if [ -z "$lacking" ]; then echo "no function created after the cutoff lacks EXECUTE for service_role"; exit 0; fi
           while read -r f; do
             [ -n "$f" ] || continue
             echo "::warning::function public.$f was created after $GRANTS_CUTOFF and service_role has no EXECUTE on it. If application code calls it through the service role, add an explicit grant (prompt 01 section 2.9); a trigger function legitimately needs none."
+          done <<< "$lacking"
+          exit 0
+
+      # WARNING ONLY, by design, in the same shape as the function step above (continue-on-error: true, `set +e`, every path ends `exit 0`, a missing input is a
+      # warning and a skip): it can never fail the job. Why it only warns: a SERIAL or hand-made sequence needs USAGE for whoever inserts (the Data API role), but an
+      # IDENTITY column's sequence needs no grant at all (Postgres reads it internally with no privilege check), and this query cannot tell them apart, so a
+      # missing USAGE is not always a defect. It lists a sequence only if it was created after the cutoff (compared with the list captured before the migrations
+      # were applied) and service_role has no USAGE on it (has_sequence_privilege). Supabase's published opt-in statement also revokes `usage, select on sequences`.
+      # THE CASE IN THE QUERY IS NOT DECORATION: has_sequence_privilege raises an error for a relation that is not a sequence, and Postgres does not promise to apply
+      # `relkind = 'S'` before it. Without the CASE the query failed on a real database ("is not a sequence") while the step quietly reported "skipped"; only a run
+      # against a real stack showed it (a fake database cannot), and tests/ci/grants-new-rule-leg.test.ts pins the guard.
+      - name: Warn about sequences created after the cutoff that service_role cannot use (warning only, never fails the job)
+        shell: bash
+        continue-on-error: true
+        run: |
+          set +e
+          set -o pipefail
+          if [ ! -e "$RUNNER_TEMP/leg-applied" ]; then echo "skipped: no migration after $GRANTS_CUTOFF (see the apply step)"; exit 0; fi
+          PROJECT_ID="$(sed -n 's/^project_id = "\(.*\)"/\1/p' supabase/config.toml 2>/dev/null)"
+          # The list may be EMPTY (a database with no sequence yet), so only a MISSING file is a reason to skip.
+          if [ -z "$PROJECT_ID" ] || [ ! -e "$RUNNER_TEMP/sequences-before.txt" ]; then
+            echo "::warning::the sequence check was skipped: it needs project_id in supabase/config.toml and the list of sequences captured before the migrations"
+            exit 0
+          fi
+          PSQL="docker exec -i supabase_db_${PROJECT_ID} psql -U postgres -d postgres -X -q -A -t -v ON_ERROR_STOP=1"
+          if ! all="$($PSQL -c "select c.relname from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind = 'S' and case when c.relkind = 'S' then not has_sequence_privilege('service_role', c.oid, 'usage') end order by 1" 2>/dev/null)"; then
+            echo "::warning::the sequence check was skipped: the database query failed"; exit 0
+          fi
+          lacking="$(printf '%s\n' "$all" | { grep -v -x -F -f "$RUNNER_TEMP/sequences-before.txt" || true; })"
+          if [ -z "$lacking" ]; then echo "no sequence created after the cutoff lacks USAGE for service_role"; exit 0; fi
+          while read -r q; do
+            [ -n "$q" ] || continue
+            echo "::warning::sequence public.$q was created after $GRANTS_CUTOFF and service_role has no USAGE on it. If a serial column or nextval() default inserts through the service role, add an explicit grant (prompt 01 section 2.9); an identity column's sequence needs none."
           done <<< "$lacking"
           exit 0
 
