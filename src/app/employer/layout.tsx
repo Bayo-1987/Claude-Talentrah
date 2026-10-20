@@ -2,6 +2,7 @@ import { getOptionalUser } from "@/lib/auth/require-user";
 import { getEmployerContext } from "@/lib/employer/membership";
 import { orgInitials as orgInitialsOf } from "@/lib/employer/org-initials";
 import { EmployerMasthead } from "@/components/employer/employer-masthead";
+import { EmployerInstallStrip } from "@/components/employer/employer-install-strip";
 
 /**
  * Separate shell from the seeker app: CLAUDE.md's IA gives employers their own
@@ -45,6 +46,9 @@ export default async function EmployerLayout({ children }: { children: React.Rea
       <EmployerMasthead orgInitials={orgInitials} orgName={orgName} />
       {/* print: the applicant resume page prints through here, and its own margin is ResumePrintSurface's. */}
       <div className="mx-auto w-full max-w-[1120px] px-10 py-8 print:max-w-none print:p-0">{children}</div>
+      {/* The install-to-home-screen strip, as in the seeker shell: signed-in branch only (never the signed-out return above, so not the public /employer page), a fixed bar
+          on the bottom edge, last in DOM order so the skip link stays the first Tab stop; nothing under PWA_KILL=1. Hidden in print, like the rest of the shell's chrome. */}
+      <EmployerInstallStrip />
     </div>
   );
 }
