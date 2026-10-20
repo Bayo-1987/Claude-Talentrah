@@ -20,6 +20,13 @@
  *                        "/\evil.example" to "//evil.example" — same escape,
  *                        different spelling.
  *
+ *   NO control character   browsers REMOVE a tab, line feed or carriage return from a URL before parsing it, so one in the middle of a path
+ *   NO space, NO backslash can change which site the path points to even though every check above passed. Nothing at or below 0x20, no DEL (0x7f)
+ *                          and no backslash is accepted anywhere in the value.
+ *   same origin, confirmed the last word is the URL parser itself: the value is resolved against a fixed placeholder origin and refused unless
+ *                          the origin is unchanged and the resolved path does not start with "//" (a dot segment can produce that).
+ *                          The first rules above are why this rarely fires; it is here so a case nobody listed cannot get past.
+ *
  * Anything else DROPS to the default rather than erroring. A mangled link
  * should cost the return trip, never the sign-in.
  *
@@ -29,6 +36,9 @@
  * two should not share a definition that could be relaxed for the other's
  * benefit.
  */
+/** Resolved against only to ask the URL parser which origin a value would land on; never used as a destination. */
+const PLACEHOLDER_ORIGIN = "https://redirect-check.invalid";
+
 export function safeRedirectTo(raw: unknown, fallback: string): string {
   if (typeof raw !== "string") return fallback;
 
@@ -36,6 +46,17 @@ export function safeRedirectTo(raw: unknown, fallback: string): string {
   if (!value.startsWith("/")) return fallback;
   if (value.startsWith("//")) return fallback;
   if (value.startsWith("/\\")) return fallback;
+  // Browsers remove tab, line feed and carriage return from a URL before parsing it, so one in the middle can change what the path means.
+  if (/[\u0000-\u0020\u007f]/.test(value)) return fallback;
+  if (value.includes("\\")) return fallback;
+  try {
+    const resolved = new URL(value, PLACEHOLDER_ORIGIN);
+    if (resolved.origin !== PLACEHOLDER_ORIGIN) return fallback;
+    // Dot segments are removed when a URL is parsed, so a path with one can resolve to a path that starts with "//": still this site, but protocol-relative as soon as anything else re-serialises it.
+    if (resolved.pathname.startsWith("//")) return fallback;
+  } catch {
+    return fallback;
+  }
 
   return value;
 }
