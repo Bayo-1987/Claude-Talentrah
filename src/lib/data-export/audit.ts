@@ -91,14 +91,20 @@ export async function auditDenied(admin: Admin, input: { operation: "start" | "c
   });
 }
 
-/** A signed-in account that is not the owner opened somebody's link. Written by the system actor: there is no admin. */
-export async function auditDownloadDenied(input: { exportId: string }): Promise<void> {
+/** The first 8 lowercase hex characters of a user id, when it is a valid uuid; otherwise null. Never the whole id. */
+const viewerPrefix = (id: string | null | undefined): string | null => (id && UUID_PATTERN.test(id) ? id.slice(0, 8).toLowerCase() : null);
+
+/**
+ * A signed-in account that is not the owner opened somebody's link. Written by the system actor: there is no admin. `viewer_id_prefix` is a SHORT FINGERPRINT of that account (the first 8 characters
+ * of its id, never the full id and never an email) so the refusal can be explained later by comparing it with a known account's id.
+ */
+export async function auditDownloadDenied(input: { exportId: string; viewerId: string }): Promise<void> {
   await recordAdminAction({
     identity: systemActor,
     action: EXPORT_AUDIT_ACTIONS.denied,
     targetTable: "data_export_files",
     targetId: safeTarget(input.exportId),
-    detail: { operation: "download", reason: "wrong_account" } satisfies Detail,
+    detail: { operation: "download", reason: "wrong_account", viewer_id_prefix: viewerPrefix(input.viewerId) } satisfies Detail,
   });
 }
 
