@@ -18,7 +18,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { AUDIT_EXCEPTIONS } from "../../scripts/audit-exceptions";
 import { evaluateAudit, parseAuditReport } from "../../scripts/check-dependency-audit";
@@ -32,6 +32,26 @@ describe("the exception itself is pinned (a value nobody can change by accident)
     expect(AUDIT_EXCEPTIONS).toEqual([
       expect.objectContaining({ advisory: "GHSA-vfj7-8cjw-p6xm", expires: "2026-12-01", issue: 687 }),
     ]);
+  });
+});
+
+describe("the expiry date has one home", () => {
+  const walk = (dir: string): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(dir, e.name)) : [path.join(dir, e.name)]));
+
+  it("no file under .github/ repeats the expiry read from scripts/audit-exceptions.ts, and the audit job's comments carry no date at all", () => {
+    const expiry = AUDIT_EXCEPTIONS[0].expires;
+    expect(expiry, "the search below is only meaningful for a YYYY-MM-DD string").toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    const root = path.join(__dirname, "../../.github");
+    const files = walk(root);
+    expect(files.length, "the walk found the .github files").toBeGreaterThan(5);
+    const repeating = files.filter((f) => readFileSync(f, "utf8").includes(expiry)).map((f) => path.relative(root, f));
+    expect(repeating, `a copy of ${expiry} outside scripts/audit-exceptions.ts goes stale at the next renewal`).toEqual([]);
+    // A copy of a PREVIOUS expiry is the same fault, and the search above cannot see it: the audit job's text must hold no date.
+    const ci = readFileSync(path.join(root, "workflows/ci.yml"), "utf8");
+    const job = ci.slice(ci.indexOf("dependency-audit:"), ci.indexOf("\n  checks:"));
+    expect(job.length, "the audit job was found in ci.yml").toBeGreaterThan(500);
+    expect(job).not.toMatch(/\b\d{4}-\d{2}-\d{2}\b/);
   });
 });
 
