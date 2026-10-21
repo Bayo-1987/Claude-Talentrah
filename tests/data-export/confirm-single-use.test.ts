@@ -1,7 +1,7 @@
 /**
- * Single use belongs to the SERVER. The confirm page's script only disables the button and shows a line; with scripts off a double click can send two POSTs, and the answer to the second is still a
- * refusal because the claim is one conditional update. This file takes the form's method and action FROM the rendered page and sends them twice to the real handler with no script involved.
- * In-memory store, no database (the real claim function is held by tests/data-export/download.test.ts and tests/rls/data-export-files.test.ts).
+ * What this file proves, and what it does not. It proves (1) the confirm page's form posts to the right place, /data-export/<id> by POST, read FROM the rendered page, and (2) the real handler turns a claim that
+ * answers null into a 404, with no script involved. The in-memory store here is a double: the null on the second request comes from the double, so this file cannot catch a broken real claim.
+ * The single-use guarantee itself is tested in tests/rls/data-export-files.test.ts (the real claim function, including parallel claims) and tests/data-export/download.test.ts (the real handler, database and bucket).
  */
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import { randomUUID } from "node:crypto";
@@ -22,8 +22,8 @@ afterEach(() => info.mockRestore());
 const BASE = "https://www.example.test";
 const as = (userId: string) => ({ service: {} as never, getUser: async () => ({ id: userId }) });
 
-describe("the form's single use is the server's claim, not the script", () => {
-  it("the page's form posts to /data-export/<id>, and sending that POST twice (the script never ran) gives the file once and a refusal the second time", async () => {
+describe("the page posts to the right place and the real handler refuses a null claim", () => {
+  it("the page's form posts to /data-export/<id>; sent twice with no script, the first gets the file and the second (the double answers null) is a 404", async () => {
     const owner = randomUUID();
     const row = seedExport({ user_id: owner });
     const html = renderConfirmPage({ id: row.id, expiresText: "2026-10-22 09:30 UTC" });

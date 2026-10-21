@@ -1,6 +1,6 @@
 /**
- * Two sweeps that overlap (a Vercel cron and the GitHub workflow can both fire, and a cron can be delivered twice) must behave like one: each object is removed once, each row is marked once,
- * exactly one people.export_deleted row is written per deletion, and neither run reports an alert. Real local database and bucket; the bucket lock keeps other files out.
+ * Two sweeps that overlap (a Vercel cron and the GitHub workflow can both fire, and a cron can be delivered twice) must behave like one. In the row pass BOTH runs issue the remove and only the run that marks
+ * the row counts and audits it; in the bucket pass an orphan is counted and audited only by the run whose removal reported it. Result: exactly one people.export_deleted row per deletion, and neither run reports an alert. Real local database and bucket; the bucket lock keeps other files out.
  *
  * The overlap is forced and then checked: a barrier holds the FIRST storage remove of each run until both runs have reached it, so both have already read the same rows / listed the same
  * objects before either one acts. If the barrier ever opens by its timeout instead, or a run never reaches it, the test fails on that (`overlapped()`), so a sequential run cannot pass as an overlap.
