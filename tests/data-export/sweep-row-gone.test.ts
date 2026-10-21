@@ -121,6 +121,24 @@ describe("the row is gone after this run removed the file", () => {
   });
 });
 
+describe("the orphan cap in the bucket pass", () => {
+  it("deleteCap 2: a row-gone orphan plus two bucket orphans are all removed in one run, the row-gone one does not use up the cap, 3 orphans counted, one audit row each, no alert", async () => {
+    const p = await makePerson();
+    const g = await insertGenerating(p.id);
+    await putObject(pathFor(g.id, g.attempt));
+    await finish(g.id, g.attempt);
+    await setRow(g.id, { expires_at: new Date(Date.now() - 1000).toISOString() });
+    const bucketOrphans = [`${randomUUID()}/${randomUUID()}.json`, `${randomUUID()}/${randomUUID()}.json`];
+    for (const o of bucketOrphans) await putObject(o);
+
+    const summary = await sweepDataExports(clientThat(dropRow(g.id)), { deleteCap: 2 });
+    expect(await getRow(g.id), "the row is gone").toBeNull();
+    expect(await bucketPaths(), "all three files were removed in this run").toEqual([]);
+    expect(summary).toMatchObject({ ...QUIET, orphansDeleted: 3, capped: false });
+    for (const id of [g.id, ...bucketOrphans.map((o) => o.split("/")[0])]) expect(reasonsOf(await auditFor(id)), `one orphan audit row for ${id}`).toEqual(["orphan"]);
+  });
+});
+
 describe("a mark that does not take", () => {
   it("on a FAILED row that is not marked and not gone (its attempt changed under the run) is an alert, nothing is counted or audited, and the next run finishes it", async () => {
     const p = await makePerson();

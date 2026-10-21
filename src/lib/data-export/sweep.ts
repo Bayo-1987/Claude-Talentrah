@@ -22,7 +22,8 @@ import { cancelStaleRows, getRow, markFailedRowCleaned, markObjectDeleted, remov
  * attempt id, which no row owns any more, so the bucket pass removes it.
  *
  * COUNTS ONLY come out: no id, no path, no name. A `people.export_deleted` row (system actor) is written when a row is closed, including when no file existed for it, and for each orphan object
- * removed; orphans are counted and logged as a warning, because finding one means something upstream is wrong.
+ * removed. Orphans are counted. The warning log covers only the orphans the bucket pass finds, because finding one means something upstream is wrong; a row removed meanwhile (its account was deleted)
+ * is counted and audited but not logged.
  */
 
 export interface SweepSummary {
