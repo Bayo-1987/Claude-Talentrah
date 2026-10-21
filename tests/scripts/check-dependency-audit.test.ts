@@ -5,7 +5,8 @@
  * a stack-exhaustion DoS) reached through a lint-time dev dependency chain (braces <- micromatch <- fast-glob <-
  * @next/eslint-plugin-next <- eslint-config-next). The advisory has no patched version, so there was nothing to fix and the gate
  * stayed red on every PR, which is how a gate stops meaning anything. The decision (#687): carve out exactly that advisory id,
- * until 2026-11-03, for the full tree only; the production tree (`--omit=dev`) gets no exceptions at all.
+ * until 2026-11-03, for the full tree only; the production tree (`--omit=dev`) gets no exceptions at all. Renewed on 2026-10-21 to 2026-12-01
+ * (still no patched braces; see #687): the dates below are the renewed ones.
  *
  * WHAT THESE TESTS PIN, against `npm audit --json` fixtures (the braces chain is a real capture from main 9b83b30):
  *  - only the excepted advisory      -> pass
@@ -27,9 +28,9 @@ const load = (name: string) => parseAuditReport(readFileSync(path.join(FIX, name
 const BEFORE_EXPIRY = new Date("2026-10-03T12:00:00Z");
 
 describe("the exception itself is pinned (a value nobody can change by accident)", () => {
-  it("is exactly one advisory id, the date 2026-11-03, issue #687", () => {
+  it("is exactly one advisory id, the date 2026-12-01, issue #687", () => {
     expect(AUDIT_EXCEPTIONS).toEqual([
-      expect.objectContaining({ advisory: "GHSA-vfj7-8cjw-p6xm", expires: "2026-11-03", issue: 687 }),
+      expect.objectContaining({ advisory: "GHSA-vfj7-8cjw-p6xm", expires: "2026-12-01", issue: 687 }),
     ]);
   });
 });
@@ -39,7 +40,7 @@ describe("full tree (dev dependencies included), with the exception", () => {
     const r = evaluateAudit(load("braces-chain-only.json"), { now: BEFORE_EXPIRY });
     expect(r.ok, r.messages.join("\n")).toBe(true);
     expect(r.messages.join("\n")).toMatch(/GHSA-vfj7-8cjw-p6xm/);
-    expect(r.messages.join("\n")).toMatch(/2026-11-03/);
+    expect(r.messages.join("\n")).toMatch(/2026-12-01/);
     expect(r.messages.join("\n")).toMatch(/#687/);
   });
 
@@ -71,12 +72,12 @@ describe("full tree (dev dependencies included), with the exception", () => {
   });
 
   describe("expiry", () => {
-    it("still passes on the last day (2026-11-03, UTC, to the last second)", () => {
-      expect(evaluateAudit(load("braces-chain-only.json"), { now: new Date("2026-11-03T23:59:59Z") }).ok).toBe(true);
+    it("still passes on the last day (2026-12-01, UTC, to the last second)", () => {
+      expect(evaluateAudit(load("braces-chain-only.json"), { now: new Date("2026-12-01T23:59:59Z") }).ok).toBe(true);
     });
 
-    it("FAILS from 2026-11-04T00:00:00Z, and the message names #687 and says to check for a patched braces", () => {
-      const r = evaluateAudit(load("braces-chain-only.json"), { now: new Date("2026-11-04T00:00:00Z") });
+    it("FAILS from 2026-12-02T00:00:00Z, and the message names #687 and says to check for a patched braces", () => {
+      const r = evaluateAudit(load("braces-chain-only.json"), { now: new Date("2026-12-02T00:00:00Z") });
       expect(r.ok).toBe(false);
       const text = r.messages.join("\n");
       expect(text).toMatch(/#687/);
@@ -151,7 +152,7 @@ describe("the command line (real process, so the exit code is what CI sees)", ()
   });
 
   it("exits 1, naming #687, once expired", () => {
-    const r = spawnSync("npx", ["tsx", script, path.join(FIX, "braces-chain-only.json"), "--now=2026-11-04T00:00:00Z"], { encoding: "utf8" });
+    const r = spawnSync("npx", ["tsx", script, path.join(FIX, "braces-chain-only.json"), "--now=2026-12-02T00:00:00Z"], { encoding: "utf8" });
     expect(r.status).toBe(1);
     expect(r.stderr + r.stdout).toMatch(/#687/);
   });
