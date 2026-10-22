@@ -1,6 +1,14 @@
--- Rollback of 0265 (parts 1 and 2). Removes the ledger functions, the seven tables (their triggers, policies, indexes and grants go with them) and the two trigger functions.
+-- Rollback of 0265 (parts 1 to 3). Removes the device, unsubscribe and revoke functions and trigger, the seven preference columns and the five flag rows, the ledger functions, the seven tables (their triggers, policies, indexes and grants go with them) and the two trigger functions.
 -- Every statement is "if exists", so the file runs cleanly on a database where 0265 was never applied and can be run twice. Later parts of 0265 add their own lines ABOVE these.
 -- The functions go first, then the tables child first. There are no rows to preserve: nothing outside these tables refers to them.
+drop trigger if exists notification_revoke_devices_on_deletion_request on public.profiles;
+drop function if exists public.notification_revoke_devices_on_deletion_request();
+drop function if exists public.email_unsubscribe_stream(text, text, boolean);
+drop function if exists public.register_push_subscription(text, text, text, text, text);
+alter table public.email_preferences
+  drop column if exists push_enabled, drop column if exists push_new_applicant, drop column if exists push_application_viewed, drop column if exists push_match_alert,
+  drop column if exists push_promotions, drop column if exists email_promotions, drop column if exists email_announcements;
+delete from public.feature_flags where key in ('notifications_master', 'push_sender', 'admin_messaging', 'admin_promotions', 'admin_email');
 drop function if exists public.prune_notification_deliveries(integer);
 drop function if exists public.unread_notification_count(uuid);
 drop function if exists public.resolve_stale_claim(uuid, uuid, text);

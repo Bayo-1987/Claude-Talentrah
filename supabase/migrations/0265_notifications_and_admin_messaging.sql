@@ -547,6 +547,127 @@ grant execute on function public.unread_notification_count(uuid) to service_role
 grant execute on function public.prune_notification_deliveries(integer) to service_role;
 
 -- ---------------------------------------------------------------------------------------
+-- Part 3: push devices, the preference columns, the stream unsubscribe and the five flags
+-- ---------------------------------------------------------------------------------------
+
+-- Preference columns on the existing email_preferences table (service-role only: 0083 revoked every client privilege, and nothing here grants one). Exactly these seven, no more. The
+-- table's grant to service_role is restated explicitly so this file does not lean on the platform's default.
+alter table public.email_preferences
+  add column if not exists push_enabled boolean not null default false,
+  add column if not exists push_new_applicant boolean not null default false,
+  add column if not exists push_application_viewed boolean not null default false,
+  add column if not exists push_match_alert boolean not null default false,
+  add column if not exists push_promotions boolean not null default false,
+  add column if not exists email_promotions boolean not null default false,
+  add column if not exists email_announcements boolean not null default true;
+grant select, insert, update, delete on public.email_preferences to service_role;
+
+-- The five flags, all off. A flag row that already exists (the owner's) is left exactly as it is. A missing row means off, in every function that reads one.
+insert into public.feature_flags (key, label, enabled) values
+  ('notifications_master', 'Notifications: master switch', false),
+  ('push_sender', 'Notifications: send push', false),
+  ('admin_messaging', 'Admin messages: enabled', false),
+  ('admin_promotions', 'Admin messages: promotions', false),
+  ('admin_email', 'Admin messages: email', false)
+on conflict (key) do nothing;
+
+-- Register a browser device for the SIGNED-IN person (auth.uid(); there is no user argument). https only, length caps, at most ten active devices, an unknown zone name refused with 22023
+-- (a missing or empty one is Africa/Lagos). An endpoint someone else holds is re-bound in place to the caller: one row per endpoint, the previous owner no longer sees it, and their ledger
+-- rows are left as they were (backlog PUSH-REBIND-LEDGER-LINK-1). The person's own advisory lock makes the limit hold under concurrent registrations.
+create function public.register_push_subscription(p_endpoint text, p_p256dh text, p_auth text, p_ua text, p_timezone text default null)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $register$
+declare
+  v_user uuid := auth.uid();
+  v_zone text;
+  v_id uuid;
+begin
+  if v_user is null then
+    raise exception 'permission denied' using errcode = '42501';
+  end if;
+  if p_endpoint is null or p_p256dh is null or p_auth is null or p_ua is null then
+    raise exception 'invalid parameter' using errcode = '22023';
+  end if;
+  if p_endpoint not like 'https://%' then
+    raise exception 'operation refused' using errcode = 'P0001', hint = 'not_https';
+  end if;
+  if char_length(p_endpoint) > 2048 or char_length(p_p256dh) > 256 or char_length(p_auth) > 256 or char_length(p_ua) > 40 then
+    raise exception 'operation refused' using errcode = 'P0001', hint = 'value_too_long';
+  end if;
+  v_zone := case when p_timezone is null or p_timezone = '' then 'Africa/Lagos' else p_timezone end;
+  if char_length(v_zone) > 64 or not exists (select 1 from pg_catalog.pg_timezone_names n where n.name = v_zone) then
+    raise exception 'invalid parameter' using errcode = '22023';
+  end if;
+
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_user::text, 1));
+  if (select count(*) from public.push_subscriptions d where d.user_id = v_user and d.revoked_at is null and d.endpoint <> p_endpoint) >= 10 then
+    raise exception 'operation refused' using errcode = 'P0001', hint = 'device_limit';
+  end if;
+
+  insert into public.push_subscriptions as d (user_id, endpoint, p256dh, auth, ua_short, timezone)
+  values (v_user, p_endpoint, p_p256dh, p_auth, p_ua, v_zone)
+  on conflict (endpoint) do update
+    set user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth, ua_short = excluded.ua_short, timezone = excluded.timezone,
+        last_seen_at = pg_catalog.now(), revoked_at = null, revoke_reason = null
+  returning d.id into v_id;
+  return v_id;
+end
+$register$;
+
+-- A deletion REQUEST revokes the person's active devices with the reason deleted. A trigger, not a function a caller can reach (a new RPC would change the pinned names); internal, executable
+-- by nobody. It acts only when the column goes from null to a value: a later change of the date, or cancelling the request, touches nothing.
+create function public.notification_revoke_devices_on_deletion_request()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $revoke$
+begin
+  update public.push_subscriptions d set revoked_at = pg_catalog.now(), revoke_reason = 'deleted' where d.user_id = new.id and d.revoked_at is null;
+  return new;
+end
+$revoke$;
+
+create trigger notification_revoke_devices_on_deletion_request
+  after update of deletion_requested_at on public.profiles
+  for each row when (old.deletion_requested_at is null and new.deletion_requested_at is not null)
+  execute function public.notification_revoke_devices_on_deletion_request();
+
+-- The unsubscribe link of a stream. Same token authorisation as email_unsubscribe (0083): the token identifies the person, service role only. An unknown or null token is matched = false and
+-- no error; an unknown or null stream is 22023; a null p_subscribed is false.
+create function public.email_unsubscribe_stream(p_token text, p_stream text, p_subscribed boolean default false)
+returns table (matched boolean)
+language plpgsql
+security definer
+set search_path = ''
+as $unsubscribe$
+declare
+  v_found boolean;
+begin
+  if p_stream is null or p_stream not in ('announcements', 'promotions') then
+    raise exception 'invalid parameter' using errcode = '22023';
+  end if;
+  if p_stream = 'announcements' then
+    update public.email_preferences e set email_announcements = coalesce(p_subscribed, false), updated_at = pg_catalog.now() where e.unsubscribe_token = p_token;
+  else
+    update public.email_preferences e set email_promotions = coalesce(p_subscribed, false), updated_at = pg_catalog.now() where e.unsubscribe_token = p_token;
+  end if;
+  v_found := found;
+  return query select v_found;
+end
+$unsubscribe$;
+
+revoke all on function public.register_push_subscription(text, text, text, text, text) from public, anon, authenticated, service_role;
+revoke all on function public.notification_revoke_devices_on_deletion_request() from public, anon, authenticated, service_role;
+revoke all on function public.email_unsubscribe_stream(text, text, boolean) from public, anon, authenticated, service_role;
+
+grant execute on function public.register_push_subscription(text, text, text, text, text) to authenticated;
+grant execute on function public.email_unsubscribe_stream(text, text, boolean) to service_role;
+
+-- ---------------------------------------------------------------------------------------
 -- Self-check (LAST statement): the grants, the column grants, row security, the policies and the trigger functions are exactly as intended. Raises on anything missing or extra.
 -- ---------------------------------------------------------------------------------------
 do $check$
@@ -554,7 +675,7 @@ declare
   r record;
   problems text[] := '{}';
   tables text[] := array['notification_deliveries', 'push_subscriptions', 'admin_messages', 'admin_message_recipients', 'admin_message_events', 'notification_settings', 'notification_setting_changes'];
-  functions text[] := array['notification_in_quiet_hours', 'claim_notification', 'release_notification', 'mark_notification_sent', 'stale_notification_claims', 'resolve_stale_claim', 'unread_notification_count', 'prune_notification_deliveries', 'notification_guard_append_only', 'notification_guard_message_edit'];
+  functions text[] := array['notification_in_quiet_hours', 'claim_notification', 'release_notification', 'mark_notification_sent', 'stale_notification_claims', 'resolve_stale_claim', 'unread_notification_count', 'prune_notification_deliveries', 'register_push_subscription', 'email_unsubscribe_stream', 'notification_revoke_devices_on_deletion_request', 'notification_guard_append_only', 'notification_guard_message_edit'];
 begin
   -- Table-level privileges, every type including TRUNCATE, REFERENCES, TRIGGER and MAINTAIN, for every role including PUBLIC.
   for r in
@@ -636,7 +757,9 @@ begin
       ('stale_notification_claims', 'service_role'),
       ('resolve_stale_claim', 'service_role'),
       ('unread_notification_count', 'service_role'),
-      ('prune_notification_deliveries', 'service_role')
+      ('prune_notification_deliveries', 'service_role'),
+      ('register_push_subscription', 'authenticated'),
+      ('email_unsubscribe_stream', 'service_role')
     ),
     have_fn as (
       select p.proname::text as fn, coalesce(g.rolname::text, 'PUBLIC') as who
@@ -656,6 +779,41 @@ begin
   end loop;
   for r in select p.proname::text as fn from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname = any (functions) and (p.proisstrict or p.proconfig is distinct from array['search_path=""']) loop
     problems := problems || format('function %s is strict or does not pin an empty search_path', r.fn);
+  end loop;
+
+  -- The altered table: service_role holds select, insert, update and delete; no client role holds any privilege on it, table or column; the seven columns and the five flags exist.
+  for r in select x.p from unnest(array['SELECT', 'INSERT', 'UPDATE', 'DELETE']) x(p) where not has_table_privilege('service_role', 'public.email_preferences', x.p) loop
+    problems := problems || format('service_role lacks %s on email_preferences', r.p);
+  end loop;
+  for r in
+    select coalesce(g.rolname::text, 'PUBLIC') as who, a.privilege_type::text as priv
+      from pg_class c
+      cross join lateral aclexplode(coalesce(c.relacl, acldefault('r', c.relowner))) a
+      left join pg_roles g on g.oid = a.grantee
+     where c.oid = 'public.email_preferences'::regclass and a.grantee <> c.relowner and (a.grantee = 0 or g.rolname in ('anon', 'authenticated'))
+  loop
+    problems := problems || format('extra privilege %s on email_preferences for %s', r.priv, r.who);
+  end loop;
+  for r in
+    select a.attname::text as col, coalesce(g.rolname::text, 'PUBLIC') as who
+      from pg_attribute a
+      cross join lateral aclexplode(a.attacl) x
+      left join pg_roles g on g.oid = x.grantee
+     where a.attrelid = 'public.email_preferences'::regclass and a.attacl is not null and (x.grantee = 0 or g.rolname in ('anon', 'authenticated'))
+  loop
+    problems := problems || format('extra column privilege on email_preferences.%s for %s', r.col, r.who);
+  end loop;
+  for r in
+    select k.col from unnest(array['push_enabled', 'push_new_applicant', 'push_application_viewed', 'push_match_alert', 'push_promotions', 'email_promotions', 'email_announcements']) k(col)
+     where not exists (select 1 from information_schema.columns c where c.table_schema = 'public' and c.table_name = 'email_preferences' and c.column_name = k.col and c.data_type = 'boolean' and c.is_nullable = 'NO')
+  loop
+    problems := problems || format('email_preferences.%s is missing or not a boolean NOT NULL', r.col);
+  end loop;
+  for r in
+    select k.flag from unnest(array['notifications_master', 'push_sender', 'admin_messaging', 'admin_promotions', 'admin_email']) k(flag)
+     where not exists (select 1 from public.feature_flags f where f.key = k.flag)
+  loop
+    problems := problems || format('flag %s is missing', r.flag);
   end loop;
 
   -- One notice per object, read back from the catalog.

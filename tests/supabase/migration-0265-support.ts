@@ -189,7 +189,7 @@ create table auth.users (id uuid primary key, email text, instance_id uuid, aud 
 create function auth.uid() returns uuid language sql stable as $f$
   select coalesce(nullif(current_setting('request.jwt.claim.sub', true), ''), (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub'))::uuid
 $f$;
-create table public.profiles (id uuid primary key references auth.users (id) on delete cascade, email text);
+create table public.profiles (id uuid primary key references auth.users (id) on delete cascade, email text, deletion_requested_at timestamptz);
 create function public.handle_new_user() returns trigger language plpgsql as $f$
 begin
   insert into public.profiles (id, email) values (new.id, new.email);
@@ -207,7 +207,22 @@ $f$;
 revoke all on function public.admin_has_permission(uuid, public.admin_permission) from public, anon, authenticated;
 grant execute on function public.admin_has_permission(uuid, public.admin_permission) to service_role;
 create table public.user_notifications (id uuid primary key default gen_random_uuid(), user_id uuid not null references public.profiles (id) on delete cascade, read_at timestamptz);
-create table public.email_preferences (user_id uuid primary key references public.profiles (id) on delete cascade);
+create table public.email_preferences (
+  user_id uuid primary key references public.profiles (id) on delete cascade,
+  job_match_digest boolean not null default true,
+  unsubscribe_token text not null unique default md5(random()::text || clock_timestamp()::text),
+  win_back_email boolean not null default true,
+  updated_at timestamptz not null default now()
+);
+revoke all on table public.email_preferences from anon, authenticated;
+create function public.profiles_ensure_email_preferences() returns trigger language plpgsql as $f$
+begin
+  insert into public.email_preferences (user_id) values (new.id) on conflict do nothing;
+  return new;
+end
+$f$;
+create trigger profiles_ensure_email_preferences after insert on public.profiles for each row execute function public.profiles_ensure_email_preferences();
+create table public.feature_flags (key text primary key, label text not null, enabled boolean not null default false, updated_by uuid, updated_at timestamptz not null default now());
 alter default privileges for role postgres in schema public grant all on tables to anon, authenticated, service_role;
 alter default privileges for role postgres in schema public grant all on sequences to anon, authenticated, service_role;
 alter default privileges for role postgres in schema public grant all on functions to anon, authenticated, service_role;
@@ -369,17 +384,20 @@ export const normalise = (s: string | undefined) => (s ?? "").split(" ; ").map((
 
 /** How Postgres prints an empty search_path setting. */
 export const CONFIG = '{"search_path=\\"\\""}';
-export const FUNCTIONS: Record<string, { definer: boolean; callable: boolean }> = {
-  notification_in_quiet_hours: { definer: false, callable: false },
-  claim_notification: { definer: true, callable: true },
-  release_notification: { definer: false, callable: true },
-  mark_notification_sent: { definer: false, callable: true },
-  stale_notification_claims: { definer: false, callable: true },
-  resolve_stale_claim: { definer: true, callable: true },
-  unread_notification_count: { definer: true, callable: true },
-  prune_notification_deliveries: { definer: false, callable: true },
-  notification_guard_append_only: { definer: false, callable: false },
-  notification_guard_message_edit: { definer: false, callable: false },
+export const FUNCTIONS: Record<string, { definer: boolean; role: "service_role" | "authenticated" | "nobody"; callable: boolean }> = {
+  notification_in_quiet_hours: { definer: false, role: "nobody", callable: false },
+  claim_notification: { definer: true, role: "service_role", callable: true },
+  release_notification: { definer: false, role: "service_role", callable: true },
+  mark_notification_sent: { definer: false, role: "service_role", callable: true },
+  stale_notification_claims: { definer: false, role: "service_role", callable: true },
+  resolve_stale_claim: { definer: true, role: "service_role", callable: true },
+  unread_notification_count: { definer: true, role: "service_role", callable: true },
+  prune_notification_deliveries: { definer: false, role: "service_role", callable: true },
+  register_push_subscription: { definer: true, role: "authenticated", callable: true },
+  email_unsubscribe_stream: { definer: true, role: "service_role", callable: true },
+  notification_revoke_devices_on_deletion_request: { definer: true, role: "nobody", callable: false },
+  notification_guard_append_only: { definer: false, role: "nobody", callable: false },
+  notification_guard_message_edit: { definer: false, role: "nobody", callable: false },
 };
 export const NAMES = Object.keys(FUNCTIONS);
 export const NAME_LIST = `(${NAMES.map((n) => `'${n}'`).join(", ")})`;

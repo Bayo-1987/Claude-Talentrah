@@ -292,6 +292,15 @@ describe("0265 part 1: privileges, row security and triggers (replayed in a roll
         ["the quiet-hours predicate made executable by service_role", "do $check$", "grant execute on function public.notification_in_quiet_hours(timestamptz, text) to service_role;\ndo $check$"],
         ["the claim function loses its service_role grant", "grant execute on function public.claim_notification(uuid, text, uuid, text, uuid, interval) to service_role;\n", ""],
         ["the unread-count function loses its service_role grant", "grant execute on function public.unread_notification_count(uuid) to service_role;\n", ""],
+        ["EXECUTE on register_push_subscription granted to anon", "do $check$", "grant execute on function public.register_push_subscription(text, text, text, text, text) to anon;\ndo $check$"],
+        ["register_push_subscription loses its authenticated grant", "grant execute on function public.register_push_subscription(text, text, text, text, text) to authenticated;\n", ""],
+        ["EXECUTE on email_unsubscribe_stream granted to authenticated", "do $check$", "grant execute on function public.email_unsubscribe_stream(text, text, boolean) to authenticated;\ndo $check$"],
+        ["EXECUTE on the deletion-request trigger function granted to authenticated", "do $check$", "grant execute on function public.notification_revoke_devices_on_deletion_request() to authenticated;\ndo $check$"],
+        ["a table privilege on email_preferences granted to anon", "do $check$", "grant select on public.email_preferences to anon;\ndo $check$"],
+        ["a column privilege on email_preferences granted to authenticated", "do $check$", "grant select (push_enabled) on public.email_preferences to authenticated;\ndo $check$"],
+        ["a preference column missing", "  add column if not exists push_match_alert boolean not null default false,\n", ""],
+        ["a flag row missing", "('admin_email', 'Admin messages: email', false)", "('zz_other_flag', 'x', false)"],
+        ["register_push_subscription made STRICT", "returns uuid\nlanguage plpgsql\nsecurity definer\nset search_path = ''\nas $register$", "returns uuid\nlanguage plpgsql\nstrict\nsecurity definer\nset search_path = ''\nas $register$"],
         ["a function made STRICT", "language plpgsql\nsecurity invoker\nset search_path = ''\nas $mark$", "language plpgsql\nstrict\nsecurity invoker\nset search_path = ''\nas $mark$"],
         ["a function without a pinned search_path", "language plpgsql\nsecurity invoker\nset search_path = ''\nas $mark$", "language plpgsql\nsecurity invoker\nas $mark$"],
       ])("%s: the apply fails and says so", (_name, from, to) => {
@@ -337,21 +346,21 @@ describe("0265 part 1: privileges, row security and triggers (replayed in a roll
       FIXTURES,
       draftSql(M1),
       deviceSql(D1, U1),
-      scalar("functions_before", `select count(*) from pg_proc where pronamespace = 'public'::regnamespace and proname in ('notification_in_quiet_hours', 'claim_notification', 'release_notification', 'mark_notification_sent', 'stale_notification_claims', 'resolve_stale_claim', 'unread_notification_count', 'prune_notification_deliveries', 'notification_guard_append_only', 'notification_guard_message_edit')`),
+      scalar("functions_before", `select count(*) from pg_proc where pronamespace = 'public'::regnamespace and proname in ('notification_in_quiet_hours', 'claim_notification', 'release_notification', 'mark_notification_sent', 'stale_notification_claims', 'resolve_stale_claim', 'unread_notification_count', 'prune_notification_deliveries', 'register_push_subscription', 'email_unsubscribe_stream', 'notification_revoke_devices_on_deletion_request', 'notification_guard_append_only', 'notification_guard_message_edit')`),
       scalar("tables_before", `select count(*) from pg_class where relnamespace = 'public'::regnamespace and relkind = 'r' and relname in ${IN_LIST}`),
       rollback,
       rollback,
       scalar("tables_after", `select count(*) from pg_class where relnamespace = 'public'::regnamespace and relkind = 'r' and relname in ${IN_LIST}`),
-      scalar("functions_after", `select count(*) from pg_proc where pronamespace = 'public'::regnamespace and proname in ('notification_in_quiet_hours', 'claim_notification', 'release_notification', 'mark_notification_sent', 'stale_notification_claims', 'resolve_stale_claim', 'unread_notification_count', 'prune_notification_deliveries', 'notification_guard_append_only', 'notification_guard_message_edit')`),
+      scalar("functions_after", `select count(*) from pg_proc where pronamespace = 'public'::regnamespace and proname in ('notification_in_quiet_hours', 'claim_notification', 'release_notification', 'mark_notification_sent', 'stale_notification_claims', 'resolve_stale_claim', 'unread_notification_count', 'prune_notification_deliveries', 'register_push_subscription', 'email_unsubscribe_stream', 'notification_revoke_devices_on_deletion_request', 'notification_guard_append_only', 'notification_guard_message_edit')`),
       scalar("policies_after", `select count(*) from pg_policy where polrelid not in (select oid from pg_class where relnamespace <> 'public'::regnamespace) and polname like 'push_subscriptions_%'`),
       scalar("other_objects_untouched", "select (to_regclass('public.profiles') is not null and to_regclass('public.admin_users') is not null and to_regclass('public.email_preferences') is not null)::text"),
     ].join("\n");
     const r = replay0265(body);
 
     it("the replay applies", () => expect(r.ok, r.stderr).toBe(true));
-    it("removes all seven tables and all ten functions, runs twice without error, and touches nothing else", () => {
+    it("removes all seven tables and all thirteen functions, runs twice without error, and touches nothing else", () => {
       expect(r.res.tables_before).toBe("7");
-      expect(r.res.functions_before).toBe("10");
+      expect(r.res.functions_before).toBe("13");
       expect(r.res.tables_after).toBe("0");
       expect(r.res.functions_after).toBe("0");
       expect(r.res.policies_after).toBe("0");

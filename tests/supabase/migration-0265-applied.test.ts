@@ -78,11 +78,11 @@ describe("0265 part 1 as applied to the database under test (no DDL)", () => {
       expect(r.res.fk_indexes).toBe("admin_message_events_message_id_idx,admin_message_recipients_user_id_idx,notification_deliveries_device_id_idx,push_subscriptions_user_id_idx");
       expect(r.res.link_check).toBe("1");
     });
-    it("the ten functions exist once each, none is strict, each pins an empty search_path, and EXECUTE is held by exactly service_role (or nobody for the three internal ones)", () => {
+    it("every function of the migration exists once, none is strict, each pins an empty search_path, and EXECUTE is held by exactly the right role (service_role; authenticated for the device registration; nobody for the internal ones)", () => {
       expect(r.res.fn_names).toBe([...NAMES].sort().join(","));
       for (const n of NAMES) {
         expect(r.res[`fn_flags_${n}`], n).toBe(`false/${FUNCTIONS[n].definer}/${CONFIG}`);
-        expect(r.res[`fn_acl_${n}`], n).toBe(FUNCTIONS[n].callable ? "service_role" : "nobody");
+        expect(r.res[`fn_acl_${n}`], n).toBe(FUNCTIONS[n].role);
       }
     });
     it("the settings table holds exactly the two limits (their values are not asserted: an operator may have changed them)", () => {

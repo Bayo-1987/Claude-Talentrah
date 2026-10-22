@@ -798,7 +798,8 @@ describe("the functions: exact list, flags and EXECUTE per role (N1-R2, N1-R5, g
     unread_notification_count: `p_user => '${U1}'`,
     prune_notification_deliveries: "p_older_than_days => 30",
   };
-  const callables = NAMES.filter((n) => FUNCTIONS[n].callable);
+  // the ledger functions that only the service role may call (register_push_subscription is the signed-in person's and has its own tests)
+  const callables = NAMES.filter((n) => FUNCTIONS[n].callable && FUNCTIONS[n].role === "service_role" && dummy[n]);
   const body = [
     FIXTURES,
     scalar("all_names", `select string_agg(p.proname, ',' order by p.proname) from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname in ${NAME_LIST}`),
@@ -814,7 +815,7 @@ describe("the functions: exact list, flags and EXECUTE per role (N1-R2, N1-R5, g
   const r = replay0265(body);
 
   it("the replay applies", () => expect(r.ok, r.stderr).toBe(true));
-  it("the migration creates exactly these ten functions, each once (no overloads)", () => {
+  it("the migration creates exactly these thirteen functions, each once (no overloads)", () => {
     expect(r.res.all_names).toBe([...NAMES].sort().join(","));
     expect(r.res.overloads).toBe("0");
   });
@@ -822,7 +823,7 @@ describe("the functions: exact list, flags and EXECUTE per role (N1-R2, N1-R5, g
     expect(r.res[`flags_${n}`]).toBe(`false/${FUNCTIONS[n].definer}/${CONFIG}`);
   });
   it.each(NAMES)("%s: EXECUTE is held by exactly the right role", (n) => {
-    expect(r.res[`acl_${n}`]).toBe(FUNCTIONS[n].callable ? "service_role" : "nobody");
+    expect(r.res[`acl_${n}`]).toBe(FUNCTIONS[n].role);
   });
   it("anon and authenticated are refused with 42501 by every callable function (the grant is the mechanism, there is no role check in a body)", () => {
     for (const role of ["anon", "authenticated"]) for (const n of callables) expect(r.res[`${role}_${n}`], `${role} ${n}`).toBe("ok");

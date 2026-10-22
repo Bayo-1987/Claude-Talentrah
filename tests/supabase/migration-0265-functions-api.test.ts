@@ -204,6 +204,69 @@ describe("the ledger functions through the Data API (committed fixtures, cleaned
     }, 60_000);
   });
 
+  describe("register_push_subscription: the signed-in person's own call, over HTTP", () => {
+    const endpoint = (n: number | string) => `https://push.example.invalid/api-${randomUUID()}-${n}`;
+    const args = (over: Record<string, unknown> = {}) => ({ p_endpoint: endpoint("x"), p_p256dh: "k", p_auth: "a", p_ua: "Chrome on Android", ...over });
+    it("an anonymous visitor and the service role are refused by the grant (42501), not by a check in the body", async () => {
+      for (const client of [anon, svc]) {
+        const res = await client.rpc("register_push_subscription", args());
+        expect(["42501", "PGRST202"], String(res.error?.code)).toContain(res.error?.code);
+        expect(res.data ?? null).toBeNull();
+      }
+    });
+    it("a signed-in person registers a device for THEMSELVES: the id comes back, the row is theirs, and the zone defaults to Africa/Lagos", async () => {
+      const person = await newPerson("n1-api-reg");
+      const ep = endpoint("own");
+      const { data, error } = await untyped(person.client).rpc("register_push_subscription", args({ p_endpoint: ep }));
+      expect(error).toBeNull();
+      expect(typeof data).toBe("string");
+      const row = await svc.from("push_subscriptions").select("user_id, timezone, ua_short").eq("endpoint", ep).single();
+      expect(row.data).toEqual({ user_id: person.id, timezone: "Africa/Lagos", ua_short: "Chrome on Android" });
+    });
+    it("the refusals carry their errcode and HINT, and the message is one of the three generic texts without any value", async () => {
+      const person = await newPerson("n1-api-reg-bad");
+      const call = (over: Record<string, unknown>) => untyped(person.client).rpc("register_push_subscription", args(over));
+      const secret = "secret-endpoint-value";
+      const cases: Array<[Record<string, unknown>, string, string | null]> = [
+        [{ p_endpoint: `http://push.example.invalid/${secret}` }, "P0001", "not_https"],
+        [{ p_endpoint: `https://${"x".repeat(2049 - 8)}` }, "P0001", "value_too_long"],
+        [{ p_ua: "u".repeat(41) }, "P0001", "value_too_long"],
+        [{ p_timezone: "Mars/Olympus" }, "22023", null],
+        [{ p_auth: null }, "22023", null],
+      ];
+      for (const [over, code, hint] of cases) {
+        const { error } = await call(over);
+        expect([error?.code, error?.hint ?? null], JSON.stringify(Object.keys(over))).toEqual([code, hint]);
+        expect(GENERIC.has(error!.message), error!.message).toBe(true);
+        expect(`${error!.message} ${error!.details ?? ""}`).not.toContain(secret);
+      }
+    });
+    it("the eleventh active device is P0001 device_limit; one more after a delete of their own is accepted", async () => {
+      const person = await newPerson("n1-api-reg-limit");
+      const eps = Array.from({ length: 10 }, (_, i) => endpoint(i));
+      const ids: string[] = [];
+      for (const e of eps) {
+        const made = await untyped(person.client).rpc("register_push_subscription", args({ p_endpoint: e }));
+        expect(made.error).toBeNull();
+        ids.push(made.data as string);
+      }
+      const over = await untyped(person.client).rpc("register_push_subscription", args({ p_endpoint: endpoint("eleven") }));
+      expect([over.error?.code, over.error?.hint]).toEqual(["P0001", "device_limit"]);
+      // The endpoint is a credential the person cannot even filter on; they delete by the id the call returned.
+      const del = await untyped(person.client).from("push_subscriptions").delete().eq("id", ids[0]);
+      expect(del.error).toBeNull();
+      expect((await untyped(person.client).rpc("register_push_subscription", args({ p_endpoint: endpoint("eleven-b") }))).error).toBeNull();
+    }, 60_000);
+    it("15 concurrent registrations of new endpoints by one signed-in session admit exactly ten", async () => {
+      const person = await newPerson("n1-api-reg-race");
+      const results = await Promise.all(Array.from({ length: 15 }, (_, i) => untyped(person.client).rpc("register_push_subscription", args({ p_endpoint: endpoint(`race${i}`) }))));
+      expect(results.filter((r) => !r.error).length).toBe(10);
+      expect(results.filter((r) => r.error?.code === "P0001" && r.error?.hint === "device_limit").length).toBe(5);
+      const held = await svc.from("push_subscriptions").select("id", { count: "exact", head: true }).eq("user_id", person.id).is("revoked_at", null);
+      expect(held.count).toBe(10);
+    }, 60_000);
+  });
+
   it("cleans up after itself: every fixture row is gone and the tables hold what they held before this file started", async () => {
     await cleanup();
     expect({ deliveries: count("notification_deliveries"), devices: count("push_subscriptions"), events: count("admin_message_events") }).toEqual(before);
