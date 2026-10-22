@@ -240,9 +240,9 @@ describe("the ledger functions through the Data API (committed fixtures, cleaned
     it("the refusals carry their errcode and HINT, and the message is one of the three generic texts without any value", async () => {
       const person = await newPerson("n1-api-reg-bad");
       const call = (over: Record<string, unknown>) => untyped(person.client).rpc("register_push_subscription", args(over));
-      const secret = "secret-endpoint-value";
+      const marker = "endpoint-marker-value";
       const cases: Array<[Record<string, unknown>, string, string | null]> = [
-        [{ p_endpoint: `http://push.example.invalid/${secret}` }, "P0001", "not_https"],
+        [{ p_endpoint: `http://push.example.invalid/${marker}` }, "P0001", "not_https"],
         [{ p_endpoint: `https://${"x".repeat(2049 - 8)}` }, "P0001", "value_too_long"],
         [{ p_ua: "u".repeat(41) }, "P0001", "value_too_long"],
         [{ p_timezone: "Mars/Olympus" }, "22023", null],
@@ -252,7 +252,7 @@ describe("the ledger functions through the Data API (committed fixtures, cleaned
         const { error } = await call(over);
         expect([error?.code, error?.hint ?? null], JSON.stringify(Object.keys(over))).toEqual([code, hint]);
         expect(GENERIC.has(error!.message), error!.message).toBe(true);
-        expect(`${error!.message} ${error!.details ?? ""}`).not.toContain(secret);
+        expect(`${error!.message} ${error!.details ?? ""}`).not.toContain(marker);
       }
     });
     it("the eleventh active device is P0001 device_limit; one more after a delete of their own is accepted", async () => {

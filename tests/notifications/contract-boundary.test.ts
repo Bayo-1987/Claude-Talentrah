@@ -26,7 +26,13 @@ import {
  */
 const ROOT = path.resolve(__dirname, "..", "..");
 const ALLOWLIST: Allowlist = {
-  files: ["src/lib/notifications/contract-db.ts", "src/lib/supabase/types.ts"],
+  files: [
+    "src/lib/notifications/contract-db.ts",
+    "src/lib/supabase/types.ts",
+    // N1-R29 Q1: the account export names the three notification tables it leaves out, and its test pins them
+    "src/lib/account-export/manifest.ts",
+    "tests/lib/account-export/manifest.test.ts",
+  ],
   dirs: ["supabase/migrations/", "tests/rls/", "tests/supabase/"],
 };
 const NAMES: string[] = [...Object.values(NOTIFICATION_TABLES), ...Object.values(NOTIFICATION_RPCS)];

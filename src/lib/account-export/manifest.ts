@@ -28,8 +28,6 @@
  *   internal       infrastructure that is not the person's data (throttle counters).
  */
 
-import { NOTIFICATION_TABLES } from "@/lib/notifications/contract-db";
-
 export type ColumnClass =
   | { kind: "include" }
   | { kind: "own-contact" }
@@ -246,9 +244,9 @@ export const EXCLUDED_TABLES: Record<string, string> = {
   organizations: "an organisation, not the person; the person is only its creator or the admin who confirmed it",
   scholarships: "a catalogue entry; the person is only the admin who moderated it",
   talent_directory_waitlist: "an organisation's waitlist entry; the person is only who joined it",
-  [NOTIFICATION_TABLES.adminMessageRecipients]: "an operator's record of who a message was prepared for (0265); the person is only a recipient; export decision tracked in DATA-EXPORT-NOTIF-1",
-  [NOTIFICATION_TABLES.deliveries]: "delivery bookkeeping; export decision tracked in DATA-EXPORT-NOTIF-1",
-  [NOTIFICATION_TABLES.pushSubscriptions]: "the person's browser push devices (0265): the endpoint and keys are credentials and are never exported; export decision tracked in DATA-EXPORT-NOTIF-1",
+  admin_message_recipients: "an operator's record of who a message was prepared for (0265); the person is only a recipient; export decision tracked in DATA-EXPORT-NOTIF-1",
+  notification_deliveries: "delivery bookkeeping; export decision tracked in DATA-EXPORT-NOTIF-1",
+  push_subscriptions: "the person's browser push devices (0265): the endpoint and keys are credentials and are never exported; export decision tracked in DATA-EXPORT-NOTIF-1",
   test_user_pool: "test infrastructure, absent from a real account",
   blog_posts: "a post's author is staff",
   "auth.*": "the auth schema: sessions, identities and factors are not exported",
