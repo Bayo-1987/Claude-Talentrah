@@ -103,6 +103,16 @@ export type NotificationRpcName = (typeof NOTIFICATION_RPCS)[RpcKey];
 /* Error vocabulary and the error class.                               */
 /* ------------------------------------------------------------------ */
 
+/** Why a claim returned no id, in check order (contract note 2). */
+export const CLAIM_REFUSALS = [
+  "device_unavailable",
+  "quiet_hours",
+  "budget_cap",
+  "cap_24h",
+  "ceiling_month",
+  "already_claimed",
+] as const;
+
 export const NOTIFICATION_ERROR_CODES = ["invalid_parameter", "permission_denied", "refused", "unknown"] as const;
 
 export const NOTIFICATION_REFUSAL_REASONS = [
@@ -117,6 +127,7 @@ export const NOTIFICATION_REFUSAL_REASONS = [
   "kind_not_confirmed",
   "invalid_state",
   "not_found",
+  "unknown_id",
   "not_https",
   "value_too_long",
   "device_limit",
@@ -249,7 +260,7 @@ function firstRow(data: unknown): Record<string, unknown> | null {
 }
 
 function asClaimRefusal(value: unknown): ClaimRefusal | null {
-  return value === "cap_24h" || value === "ceiling_month" ? value : null;
+  return typeof value === "string" && (CLAIM_REFUSALS as readonly string[]).includes(value) ? (value as ClaimRefusal) : null;
 }
 
 function asIdList(data: unknown, field: string): string[] {
@@ -273,8 +284,11 @@ export async function claimNotification(
   args: ClaimNotificationArgs,
 ): Promise<ClaimNotificationResult> {
   const row = firstRow(unwrap(await loose(client).rpc(NOTIFICATION_RPCS.claimNotification, args), "claimNotification"));
-  if (!row) return { id: null, refused: null };
-  return { id: typeof row.id === "string" ? row.id : null, refused: asClaimRefusal(row.refused) };
+  if (row && typeof row.id === "string" && row.refused == null) return { id: row.id, refused: null };
+  const refused = row && row.id == null ? asClaimRefusal(row.refused) : null;
+  if (refused) return { id: null, refused };
+  // Not exactly one non-null value: the database broke the contract. Fail loudly.
+  throw notificationErrorFrom({ code: null }, { rpc: "claimNotification" });
 }
 
 export async function releaseNotification(client: NotificationClient, args: ReleaseNotificationArgs): Promise<void> {

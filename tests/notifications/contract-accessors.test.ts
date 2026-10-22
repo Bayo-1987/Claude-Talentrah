@@ -165,21 +165,26 @@ describe("normalising what the database returns", () => {
   const answer = (body: unknown, status = 200) => clientAnswering(() => ({ status, body }));
   const claim = { p_user: ID, p_kind: "admin_message", p_subject: ID, p_channel: "email" } as const;
 
-  it("a claim that returns nothing is { id: null, refused: null }, from null, from [] and from an empty row", async () => {
-    for (const [body, status] of [[null, 204], [[], 200], [[{ id: null, refused: null }], 200]] as const) {
-      expect(await db.claimNotification(answer(body, status).client, claim)).toEqual({ id: null, refused: null });
+  it("a claim row has exactly one non-null value; anything else is a broken contract and raises", async () => {
+    expect(await db.claimNotification(answer([{ id: ID, refused: null }]).client, claim)).toEqual({ id: ID, refused: null });
+    expect(await db.claimNotification(answer({ id: null, refused: "already_claimed" }).client, claim)).toEqual({
+      id: null,
+      refused: "already_claimed",
+    });
+    for (const [body, status] of [[null, 204], [[], 200], [[{ id: null, refused: null }], 200], [[{ id: ID, refused: "cap_24h" }], 200]] as const) {
+      const error = (await db.claimNotification(answer(body, status).client, claim).catch((e: unknown) => e)) as NotificationDbError;
+      expect(error).toBeInstanceOf(NotificationDbError);
+      expect(error.info.code).toBe("unknown");
     }
   });
 
-  it("a claim reports which email limit refused, and ignores a value outside the closed pair", async () => {
+  it("a claim reports which limit refused, and a value outside the closed list raises", async () => {
     expect(await db.claimNotification(answer([{ id: null, refused: "ceiling_month" }]).client, claim)).toEqual({
       id: null,
       refused: "ceiling_month",
     });
-    expect(await db.claimNotification(answer([{ id: null, refused: "something_else" }]).client, claim)).toEqual({
-      id: null,
-      refused: null,
-    });
+    const error = (await db.claimNotification(answer([{ id: null, refused: "something_else" }]).client, claim).catch((e: unknown) => e)) as NotificationDbError;
+    expect(error.info.code).toBe("unknown");
   });
 
   it("a repeat start returns null; a first start returns the message id", async () => {

@@ -5,7 +5,7 @@ import {
   ADMIN_MESSAGE_STATUSES,
   ADMIN_RECIPIENT_OUTCOMES,
   ADMIN_SEGMENT_KEYS,
-  CLAIM_REFUSALS,
+  EMAIL_LIMIT_REFUSALS,
   NOTIFICATION_CHANNELS,
   NOTIFICATION_FLAGS,
   NOTIFICATION_KINDS,
@@ -27,6 +27,7 @@ import {
   type PushSubscriptionClientRow,
   type PushSubscriptionRow,
 } from "@/lib/notifications/contract";
+import { CLAIM_REFUSALS } from "@/lib/notifications/contract-db";
 
 /**
  * VALUE PINS for every closed list and number the contract repeats from the
@@ -66,7 +67,10 @@ describe("closed lists equal the prompt", () => {
     }
   });
   it("which limit refused, setting keys, permission labels", () => {
-    expect([...CLAIM_REFUSALS]).toEqual(["cap_24h", "ceiling_month"]);
+    expect([...CLAIM_REFUSALS]).toEqual([
+      "device_unavailable", "quiet_hours", "budget_cap", "cap_24h", "ceiling_month", "already_claimed",
+    ]);
+    expect([...EMAIL_LIMIT_REFUSALS]).toEqual(["cap_24h", "ceiling_month"]);
     expect([...NOTIFICATION_SETTING_KEYS]).toEqual(["mass_email_cap_24h", "mass_email_ceiling_month"]);
     expect([...NOTIFICATION_PERMISSIONS]).toEqual(["user_messaging", "operators"]);
   });
@@ -119,7 +123,11 @@ describe("row types", () => {
     expectTypeOf<NotificationSettingRow["int_value"]>().toEqualTypeOf<number>();
   });
 
-  it("the only email-like column names are the seven the addendum reviewed", () => {
+  it("the only email-like column names are the addendum's reviewed ones, plus ONE KNOWN CONFLICT", () => {
+    // KNOWN CONFLICT, reported to the Reviewer: decision 13 adds a count column whose name
+    // contains the word the addendum's name rule flags. The addendum's two lists are closed and
+    // the builder may not widen them, so the database PR's catalogue test will be RED on that
+    // column until the addendum or the column name changes. It is pinned here so it stays visible.
     type EmailLike<Row> = Extract<keyof Row, `${string}${"email" | "address" | "recipient"}${string}`>;
     type Found =
       | EmailLike<NotificationDeliveryRow>
@@ -136,6 +144,7 @@ describe("row types", () => {
       | "updated_by_email"
       | "to_email"
       | "email_outcome"
+      | "recipient_count"
     >();
   });
 
@@ -147,5 +156,13 @@ describe("row types", () => {
   it("every table row is usable as a client row type (index-signature compatible)", () => {
     type AllRows = NotificationTableRows[keyof NotificationTableRows];
     expectTypeOf<AllRows>().toExtend<Record<string, unknown>>();
+  });
+
+  it("the four count columns on the messages table are integers (numbers), never text", () => {
+    expectTypeOf<AdminMessageRow["recipient_count"]>().toEqualTypeOf<number>();
+    expectTypeOf<AdminMessageRow["sent_count"]>().toEqualTypeOf<number>();
+    expectTypeOf<AdminMessageRow["failed_count"]>().toEqualTypeOf<number>();
+    expectTypeOf<AdminMessageRow["skipped_count"]>().toEqualTypeOf<number>();
+    expectTypeOf<AdminMessageEventRow>().not.toHaveProperty("sent_count"); // event rows carry no counts
   });
 });

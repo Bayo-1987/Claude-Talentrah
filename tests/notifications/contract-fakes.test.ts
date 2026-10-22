@@ -642,3 +642,189 @@ describe("the push sender fake", () => {
     expect(sender.sent).toEqual([]);
   });
 });
+
+/* ------------------------------------------------------------------ */
+/* Reviewer decisions of 22 Oct 2026.                                  */
+/* ------------------------------------------------------------------ */
+
+describe("decision 2: one-row claim result and the fixed refusal order", () => {
+  const seedOpenPush = (user: string, device: string, kinds: number) => {
+    // Rows placed directly: the state a user-event budget at its cap leaves behind.
+    for (let i = 0; i < kinds; i += 1) {
+      fake.deliveries.push({
+        id: fake.newId(), user_id: user, kind: "match_alert", subject_id: fake.newId(), device_id: device,
+        channel: "push", claimed_at: fake.now().toISOString(), sent_at: null, released_at: null,
+      });
+    }
+  };
+
+  it("exactly one of id and refused is non-null, for a success and for every kind of refusal", async () => {
+    const { user, device } = personWithDevice();
+    const subject = fake.newId();
+    const outcomes = [
+      await claim(user, "match_alert", subject, "push", device), // success
+      await claim(user, "match_alert", subject, "push", device), // already_claimed
+      await claim(user, "match_alert", fake.newId(), "push", fake.newId()), // device_unavailable
+    ];
+    for (const outcome of outcomes) expect((outcome.id === null) !== (outcome.refused === null)).toBe(true);
+    expect(outcomes.map((o) => o.refused)).toEqual([null, "already_claimed", "device_unavailable"]);
+  });
+
+  it("pair 1-2: an unavailable device is reported before quiet hours", async () => {
+    fake.setNow(new Date("2026-10-26T22:00:00Z")); // 23:00 in Lagos
+    const { user, device } = personWithDevice();
+    fake.devices.find((d) => d.id === device)!.revoked_at = fake.now().toISOString();
+    expect((await claim(user, "match_alert", fake.newId(), "push", device)).refused).toBe("device_unavailable");
+  });
+
+  it("pair 2-3: quiet hours are reported before the budget cap", async () => {
+    const { user, device } = personWithDevice();
+    seedOpenPush(user, device, 3);
+    fake.setNow(new Date("2026-10-26T22:00:00Z")); // 23:00 in Lagos, and the cap is reached
+    expect((await claim(user, "match_alert", fake.newId(), "push", device)).refused).toBe("quiet_hours");
+  });
+
+  it("pair 3-6: the budget cap is reported before an already-claimed key", async () => {
+    const { user, device } = personWithDevice();
+    const subject = fake.newId();
+    seedOpenPush(user, device, 3);
+    fake.deliveries.push({
+      id: fake.newId(), user_id: user, kind: "new_applicant", subject_id: subject, device_id: device,
+      channel: "push", claimed_at: fake.now().toISOString(), sent_at: null, released_at: null,
+    });
+    // The key (new_applicant, subject, device) is taken AND the other three events are at the cap of 3.
+    expect((await claim(user, "new_applicant", subject, "push", device)).refused).toBe("budget_cap");
+  });
+
+  it("pair 4-5: the 24 hour cap is reported before the monthly ceiling", async () => {
+    fake.putSetting("mass_email_cap_24h", 1, null);
+    fake.putSetting("mass_email_ceiling_month", 1, null);
+    await claim(fake.newId(), "admin_message", fake.newId(), "email");
+    expect((await claim(fake.newId(), "admin_message", fake.newId(), "email")).refused).toBe("cap_24h");
+  });
+
+  it("pair 5-6: the monthly ceiling is reported before an already-claimed key", async () => {
+    const user = fake.newId();
+    const message = fake.newId();
+    expect((await claim(user, "admin_message", message, "email")).id).not.toBeNull();
+    fake.putSetting("mass_email_ceiling_month", 1, null);
+    expect((await claim(user, "admin_message", message, "email")).refused).toBe("ceiling_month");
+  });
+});
+
+describe("decision 3: the push budget counts distinct events, and not the one being claimed", () => {
+  it("a second device for an already-counted event is allowed at the cap; a further distinct event is refused", async () => {
+    const { user, device } = personWithDevice();
+    const second = fake.addDevice({ userId: user }).id;
+    const events = [fake.newId(), fake.newId(), fake.newId()];
+    for (const event of events) expect((await claim(user, "match_alert", event, "push", device)).id).not.toBeNull(); // the third distinct event fills the cap of 3
+    expect((await claim(user, "match_alert", events[2], "push", second)).id).not.toBeNull(); // not counted twice
+    expect((await claim(user, "match_alert", fake.newId(), "push", device)).refused).toBe("budget_cap");
+  });
+});
+
+describe("decision 4: releasing an unknown id", () => {
+  it("raises P0001 with the hint unknown_id", async () => {
+    const info = await refusalOf(fake.releaseNotification({ p_id: fake.newId(), p_reason: "gone" }));
+    expect(info).toMatchObject({ code: "refused", sqlstate: "P0001", reason: "unknown_id" });
+  });
+});
+
+describe("decision 6: over-long values are refused, never truncated", () => {
+  const register = (overrides: Record<string, string>) =>
+    fake.forCaller(fake.newId()).registerPushSubscription({
+      p_endpoint: "https://push.example.invalid/x", p_p256dh: "k", p_auth: "a", p_ua: "Chrome", ...overrides,
+    });
+
+  it("p256dh and auth over 256, a time zone over 64 and a ua over 40 are refused; the limits themselves are accepted", async () => {
+    expect((await refusalOf(register({ p_p256dh: "x".repeat(257) }))).reason).toBe("value_too_long");
+    expect((await refusalOf(register({ p_auth: "x".repeat(257) }))).reason).toBe("value_too_long");
+    expect((await refusalOf(register({ p_timezone: "x".repeat(65) }))).code).toBe("invalid_parameter");
+    expect((await refusalOf(register({ p_ua: "x".repeat(41) }))).reason).toBe("value_too_long");
+    await register({ p_p256dh: "x".repeat(256), p_auth: "x".repeat(256), p_ua: "x".repeat(40), p_endpoint: `https://p.invalid/${"e".repeat(2048 - 18)}` });
+    expect(fake.devices).toHaveLength(1);
+    expect(fake.devices[0].ua_short).toHaveLength(40);
+  });
+});
+
+describe("decision 7: one row per endpoint, updated in place", () => {
+  it("A registers, B registers the same endpoint: one row, the same row, A sees nothing and cannot delete it", async () => {
+    const a = fake.newId();
+    const b = fake.newId();
+    const endpoint = "https://push.example.invalid/shared";
+    const registerFor = (user: string, keys: string) =>
+      fake.forCaller(user).registerPushSubscription({ p_endpoint: endpoint, p_p256dh: keys, p_auth: keys, p_ua: "Chrome" });
+
+    const idA = await registerFor(a, "keyA");
+    fake.devices[0].revoked_at = fake.now().toISOString();
+    fake.devices[0].revoke_reason = "user";
+    fake.advance(HOUR);
+    const idB = await registerFor(b, "keyB");
+
+    expect(fake.devices).toHaveLength(1);
+    expect(idB).toBe(idA); // updated in place, not deleted and recreated
+    expect(fake.devices[0]).toMatchObject({
+      id: idA, user_id: b, p256dh: "keyB", auth: "keyB", revoked_at: null, revoke_reason: null,
+      last_seen_at: fake.now().toISOString(),
+    });
+    expect(fake.listDevices(a)).toEqual([]);
+    expect(fake.removeDevice(a, idA)).toBe(0);
+    expect(fake.devices).toHaveLength(1);
+    expect(fake.listDevices(b).map((d) => d.id)).toEqual([idA]);
+    expect(Object.keys(fake.listDevices(b)[0]).sort()).toEqual(["created_at", "id", "last_seen_at", "revoked_at", "ua_short"]);
+  });
+});
+
+describe("decision 9: the segment function", () => {
+  it("returns ids, and an unknown parameter key is refused rather than ignored", async () => {
+    const admin = fake.newId();
+    fake.addAdmin(admin, "a@example.test", ["user_messaging"]);
+    const person = fake.newId();
+    fake.addPerson({ id: person });
+    expect(await fake.resolveAdminSegment({ p_key: "everyone", p_params: {}, p_actor: admin })).toEqual([person]);
+    const info = await refusalOf(
+      fake.resolveAdminSegment({ p_key: "everyone", p_params: { limit: 5 } as never, p_actor: admin }),
+    );
+    expect(info).toMatchObject({ code: "invalid_parameter", sqlstate: "22023" });
+  });
+});
+
+describe("decision 12: flags off at start", () => {
+  it("returns null and persists the flag_stopped event; it does not raise", async () => {
+    const admin = fake.newId();
+    fake.addAdmin(admin, "a@example.test", ["user_messaging"]);
+    const message = fake.addDraftMessage({ createdBy: admin });
+    const outcome = await fake.startAdminMessageSend({ p_message: message.id, p_actor: admin }); // every flag is off by default
+    expect(outcome).toBeNull();
+    expect(fake.events.filter((e) => e.event === "flag_stopped")).toHaveLength(1);
+  });
+});
+
+describe("decision 13: the count columns are integers", () => {
+  it("recipient, sent, failed and skipped counts are whole numbers, 0 for a new message and set by prepare", async () => {
+    const admin = fake.newId();
+    fake.addAdmin(admin, "a@example.test", ["user_messaging"]);
+    for (const key of [NOTIFICATION_FLAGS.master, NOTIFICATION_FLAGS.adminMessaging]) fake.setFlag(key, true);
+    for (let i = 0; i < 4; i += 1) fake.addPerson({ id: fake.newId() });
+    const message = fake.addDraftMessage({ createdBy: admin });
+    const counts = () => [message.recipient_count, message.sent_count, message.failed_count, message.skipped_count];
+    expect(counts()).toEqual([0, 0, 0, 0]);
+    await fake.prepareAdminMessage({ p_message: message.id, p_actor: admin, p_max_audience: 500 });
+    expect(counts()).toEqual([4, 0, 0, 0]);
+    for (const value of counts()) expect(Number.isInteger(value)).toBe(true);
+    expect(typeof message.recipient_count).toBe("number");
+    expect(fake.events.every((e) => !("sent_count" in e))).toBe(true);
+  });
+});
+
+describe("decision 16: deleting a person cascades", () => {
+  it("removes their devices, claims and recipient rows and nobody else's", async () => {
+    const gone = personWithDevice();
+    const kept = personWithDevice();
+    await claim(gone.user, "match_alert", fake.newId(), "inapp");
+    await claim(kept.user, "match_alert", fake.newId(), "inapp");
+    fake.deleteUser(gone.user);
+    expect(fake.devices.map((d) => d.user_id)).toEqual([kept.user]);
+    expect(fake.deliveries.map((d) => d.user_id)).toEqual([kept.user]);
+  });
+});

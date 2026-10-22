@@ -21,12 +21,65 @@
  * change the CTO has approved. Builders read it and stop and report if they need
  * a change.
  *
+ * CONTRACT NOTES (Reviewer decisions of 22 Oct 2026; they win over the prompt)
+ *
+ *  1. The prune function is NOT in this contract. The database PR adds it (one
+ *     integer argument, default 30 days, returns the number of rows deleted,
+ *     service role only) together with its accessor and fake. That is the one
+ *     recorded exception to "only a contract-change PR changes the contract".
+ *  2. The claim function returns ONE row, `{ id, refused }`, and EXACTLY ONE of
+ *     the two is non-null. Refusals are checked in this fixed order and the
+ *     first one that applies is reported:
+ *       1. device_unavailable  push only: the device is missing, someone
+ *                              else's, or revoked
+ *       2. quiet_hours         push only: 22:00 to 07:00 in the device's zone
+ *       3. budget_cap          push only: the person's distinct-event count for
+ *                              this kind's budget is at its cap
+ *       4. cap_24h             admin email only: the rolling 24 hour cap
+ *       5. ceiling_month       admin email only: the UTC calendar month ceiling
+ *       6. already_claimed     every channel: the unreleased unique key is taken
+ *     Each adjacent pair that can apply together (1-2, 2-3, 3-6 for push;
+ *     4-5, 5-6 for admin email) is pinned by one test.
+ *  3. Push budget as built: the event being claimed is not counted against
+ *     itself, so a second device for an already-counted event is allowed at
+ *     the cap and a new distinct event at the cap is refused.
+ *  4. Releasing an unknown id raises (P0001, hint unknown_id).
+ *  6. The register function refuses over-long values and never truncates:
+ *     endpoint 2048, p256dh and auth 256, timezone 64, ua_short 40. The
+ *     database PR must carry matching CHECK constraints; the conformance test
+ *     asserts them.
+ *  7. One devices row per endpoint. Registering an endpoint that exists updates
+ *     that row in place to the new person (owner, keys, last_seen_at, and
+ *     revoked_at cleared). The previous owner no longer sees it and cannot
+ *     delete it. There is no "rebound" revoke reason.
+ *  8. `last_seen_at` is NOT NULL, default now().
+ * 10. The addendum spells a 'rejected' audit event. NOTHING writes it in the
+ *     database PR's scope: no function and no status exists for it.
+ * 12. When the flags stop a start, the start function returns null AND the
+ *     flag_stopped event is persisted. It does not raise: a raise would roll
+ *     the event back.
+ * 13. The messages table carries integer NOT NULL DEFAULT 0 count columns
+ *     (recipient, sent, failed, skipped). Event rows carry no counts.
+ * 15. The database raises with an errcode (22023, 42501 or P0001) and puts the
+ *     reason in the exception HINT; the accessor reads the HINT. The
+ *     conformance test reads it through the Data API.
+ * 16. The devices owner column references the user table ON DELETE CASCADE.
+ *     The fakes model the cascade only.
+ * 17. The push payload and the route shapes are PROVISIONAL and change only
+ *     through a contract-change PR.
+ *
+ * WHAT THE BOUNDARY TEST SCANS. Every file under `src/` and `tests/` outside the
+ * allowlist, as whole words: comments and test titles are scanned too, so none
+ * of them may spell a table or function name. An underscore is a word character,
+ * so a longer identifier that merely contains a name is not a hit.
+ *
  * THE TYPE-ONLY CYCLE. `contract-db.ts` imports types from this file and this
  * file imports two name-union types from `contract-db.ts`. Both imports are
  * `import type`, so both are erased at compile time and there is no runtime
  * cycle.
  */
 import type {
+  CLAIM_REFUSALS,
   NOTIFICATION_ERROR_CODES,
   NOTIFICATION_REFUSAL_REASONS,
   NotificationRpcName,
@@ -123,9 +176,16 @@ export type StaleClaimResolution = (typeof STALE_CLAIM_RESOLUTIONS)[number];
 export const UNSUBSCRIBE_STREAMS = ["announcements", "promotions"] as const;
 export type UnsubscribeStream = (typeof UNSUBSCRIBE_STREAMS)[number];
 
-/** Which limit refused an admin email claim; the sender pauses with a different status for each. */
-export const CLAIM_REFUSALS = ["cap_24h", "ceiling_month"] as const;
+/**
+ * Why a claim returned no id, in the order the checks run (see contract note 2).
+ * The list is defined in `contract-db.ts` because the accessor validates against
+ * it at run time.
+ */
 export type ClaimRefusal = (typeof CLAIM_REFUSALS)[number];
+
+/** The two admin-email limits. The sender pauses with a different status for each. */
+export const EMAIL_LIMIT_REFUSALS = ["cap_24h", "ceiling_month"] as const;
+export type EmailLimitRefusal = (typeof EMAIL_LIMIT_REFUSALS)[number];
 
 /** The two keys the settings table may hold (closed list). */
 export const NOTIFICATION_SETTING_KEYS = ["mass_email_cap_24h", "mass_email_ceiling_month"] as const;
@@ -261,6 +321,11 @@ export type AdminMessageRow = {
   status: AdminMessageStatus;
   requires_approval: boolean;
   audience_count: number;
+  /** Integer counts, NOT NULL DEFAULT 0 (contract note 13). */
+  recipient_count: number;
+  sent_count: number;
+  failed_count: number;
+  skipped_count: number;
   kind_confirmed_by_approver: string | null;
   created_by: string | null;
   created_by_email: string;
@@ -345,8 +410,10 @@ export type ClaimNotificationArgs = {
   /** An interval literal such as "24 hours". Defaults to 24 hours in the database. */
   p_window?: string;
 };
-/** `id` is null when nothing was claimed; `refused` says which email limit refused, else null. */
-export type ClaimNotificationResult = { id: string | null; refused: ClaimRefusal | null };
+/** One row; exactly one of `id` and `refused` is non-null. */
+export type ClaimNotificationResult =
+  | { id: string; refused: null }
+  | { id: null; refused: ClaimRefusal };
 
 export type ReleaseNotificationArgs = { p_id: string; p_reason: PushReleaseReason };
 export type MarkNotificationSentArgs = { p_id: string };
@@ -375,12 +442,12 @@ export type RegisterPushSubscriptionArgs = {
 export type EmailUnsubscribeStreamArgs = { p_token: string; p_stream: UnsubscribeStream; p_subscribed?: boolean };
 export type EmailUnsubscribeStreamResult = { matched: boolean };
 
-export type ResolveAdminSegmentArgs = { p_actor: string; p_key: AdminSegmentKey; p_params: AdminSegmentParams };
+export type ResolveAdminSegmentArgs = { p_key: AdminSegmentKey; p_params: AdminSegmentParams; p_actor: string };
 export type PrepareAdminMessageArgs = { p_message: string; p_actor: string; p_max_audience: number };
 export type AdminMessageActorArgs = { p_message: string; p_actor: string };
 export type ApproveAdminMessageArgs = { p_message: string; p_actor: string; p_kind_confirmed: AdminMessageKind };
 export type AdminMessageAuditArgs = { p_actor: string; p_message?: string | null };
-export type PauseAdminMessageSendArgs = { p_message: string; p_reason: ClaimRefusal };
+export type PauseAdminMessageSendArgs = { p_message: string; p_reason: EmailLimitRefusal };
 export type SetNotificationSettingArgs = { p_key: NotificationSettingKey; p_value: number; p_actor: string };
 export type AdminEmailEligibleRecipientsArgs = { p_user_ids: string[]; p_stream: UnsubscribeStream };
 

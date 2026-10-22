@@ -90,6 +90,16 @@ describe("notifications contract boundary: the scanner has teeth", () => {
     expect(flagged).not.toContain("src/lib/clean.ts");
   });
 
+  it("treats the underscore as a word character: a longer identifier containing a name is not a hit, the bare name is", () => {
+    const settings = NOTIFICATION_TABLES.settings;
+    const pattern = buildNamePattern(NAMES);
+    expect(pattern.test(`const x = "email_${settings}";`)).toBe(false);
+    expect(pattern.test(`const x = "${settings}_extra";`)).toBe(false);
+    expect(pattern.test(`const x = "${settings}";`)).toBe(true);
+    expect(pattern.test(`// mentions ${settings} in a comment`)).toBe(true);
+    expect(pattern.test(`it("title that says ${settings}", () => {});`)).toBe(true); // test titles are scanned too
+  });
+
   it("reports the file, the line and the name", () => {
     const hit = result.hits.find((h) => h.file === "src/lib/a.ts");
     expect(hit).toEqual({ file: "src/lib/a.ts", line: 1, name: table });

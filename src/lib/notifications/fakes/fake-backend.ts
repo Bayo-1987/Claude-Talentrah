@@ -29,6 +29,7 @@ import {
   type AdminSegmentParams,
   type ClaimNotificationArgs,
   type ClaimNotificationResult,
+  type ClaimRefusal,
   type EmailPreferencesNotificationColumns,
   type NotificationChannel,
   type NotificationDeliveryRow,
@@ -38,6 +39,7 @@ import {
   type NotificationSettingKey,
   type NotificationSettingRow,
   type PushRevokeReason,
+  type PushSubscriptionClientRow,
   type PushSubscriptionRow,
   type RpcContract,
   type RpcKey,
@@ -252,6 +254,10 @@ export class FakeNotificationBackend implements ServiceRpcs {
       status: "draft",
       requires_approval: input.requiresApproval ?? true,
       audience_count: 0,
+      recipient_count: 0,
+      sent_count: 0,
+      failed_count: 0,
+      skipped_count: 0,
       kind_confirmed_by_approver: null,
       created_by: input.createdBy,
       created_by_email: admin?.email ?? "",
@@ -320,14 +326,15 @@ export class FakeNotificationBackend implements ServiceRpcs {
     const windowMs = parseInterval(args.p_window, DAY_MS, rpc);
     const now = this.now();
     const device = args.p_device ?? null;
-    const none: ClaimNotificationResult = { id: null, refused: null };
+    const refused = (code: ClaimRefusal): ClaimNotificationResult => ({ id: null, refused: code });
     const open = (row: NotificationDeliveryRow) => row.released_at === null;
 
     if (args.p_channel === "push") {
       const target = this.devices.find((d) => d.id === device);
-      if (!target || target.user_id !== args.p_user || target.revoked_at !== null) return none;
-      // The zone is read from the stored device, never from the caller.
-      if (isQuietHour(now, target.timezone)) return none;
+      // 1. device_unavailable
+      if (!target || target.user_id !== args.p_user || target.revoked_at !== null) return refused("device_unavailable");
+      // 2. quiet_hours: the zone is read from the stored device, never from the caller.
+      if (isQuietHour(now, target.timezone)) return refused("quiet_hours");
       const adminBudget = args.p_kind === "admin_message";
       const cap = adminBudget ? NOTIFICATION_LIMITS.adminPushCap : NOTIFICATION_LIMITS.userEventPushCap;
       const events = new Set<string>();
@@ -339,7 +346,8 @@ export class FakeNotificationBackend implements ServiceRpcs {
         if (row.kind === args.p_kind && row.subject_id === args.p_subject) continue;
         events.add(`${row.kind}:${row.subject_id}`);
       }
-      if (events.size >= cap) return none;
+      // 3. budget_cap
+      if (events.size >= cap) return refused("budget_cap");
     }
 
     if (args.p_channel === "email" && args.p_kind === "admin_message") {
@@ -347,12 +355,14 @@ export class FakeNotificationBackend implements ServiceRpcs {
         (row) =>
           row.channel === "email" && row.kind === "admin_message" && open(row) && now.getTime() - Date.parse(row.claimed_at) < DAY_MS,
       );
-      if (inWindow.length >= this.settingValue("mass_email_cap_24h")) return { id: null, refused: "cap_24h" };
+      // 4. cap_24h
+      if (inWindow.length >= this.settingValue("mass_email_cap_24h")) return refused("cap_24h");
       const monthStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
       const inMonth = this.deliveries.filter(
         (row) => row.channel === "email" && row.kind === "admin_message" && open(row) && Date.parse(row.claimed_at) >= monthStart,
       );
-      if (inMonth.length >= this.settingValue("mass_email_ceiling_month")) return { id: null, refused: "ceiling_month" };
+      // 5. ceiling_month
+      if (inMonth.length >= this.settingValue("mass_email_ceiling_month")) return refused("ceiling_month");
     }
 
     const taken = this.deliveries.some(
@@ -364,7 +374,8 @@ export class FakeNotificationBackend implements ServiceRpcs {
         row.channel === args.p_channel &&
         row.device_id === device,
     );
-    if (taken) return none;
+    // 6. already_claimed
+    if (taken) return refused("already_claimed");
 
     const row: NotificationDeliveryRow = {
       id: this.newId(),
@@ -384,7 +395,7 @@ export class FakeNotificationBackend implements ServiceRpcs {
   async releaseNotification(args: RpcContract["releaseNotification"]["args"]): Promise<void> {
     const rpc: RpcKey = "releaseNotification";
     const row = this.deliveries.find((d) => d.id === args.p_id);
-    if (!row) throw refuse(rpc, "not_found");
+    if (!row) throw refuse(rpc, "unknown_id");
     if (row.channel === "email") throw refuse(rpc, "email_release_refused");
     if (!PUSH_RELEASE_REASONS.includes(args.p_reason)) throw refuse(rpc, "invalid_release_reason");
     if (row.released_at === null) row.released_at = this.now().toISOString();
@@ -477,6 +488,29 @@ export class FakeNotificationBackend implements ServiceRpcs {
     };
   }
 
+  /** What a signed-in person sees of their own devices: the five safe columns, own rows only. */
+  listDevices(userId: string): PushSubscriptionClientRow[] {
+    return this.devices
+      .filter((d) => d.user_id === userId)
+      .map((d) => ({ id: d.id, ua_short: d.ua_short, created_at: d.created_at, last_seen_at: d.last_seen_at, revoked_at: d.revoked_at }));
+  }
+
+  /** A signed-in person's own-row delete. It filters by id and owner and returns how many rows it removed. */
+  removeDevice(userId: string, deviceId: string): number {
+    const before = this.devices.length;
+    this.devices = this.devices.filter((d) => !(d.id === deviceId && d.user_id === userId));
+    return before - this.devices.length;
+  }
+
+  /** Account deletion. Models the cascade only: every row that references the person goes with them. */
+  deleteUser(userId: string): void {
+    this.people.delete(userId);
+    this.devices = this.devices.filter((d) => d.user_id !== userId);
+    this.deliveries = this.deliveries.filter((d) => d.user_id !== userId);
+    this.recipients = this.recipients.filter((r) => r.user_id !== userId);
+    this.inbox = this.inbox.filter((n) => n.user_id !== userId);
+  }
+
   /** A deletion request revokes the person's devices (reason `deleted`). */
   requestDeletion(userId: string): void {
     const person = this.people.get(userId);
@@ -497,6 +531,10 @@ export class FakeNotificationBackend implements ServiceRpcs {
     this.requirePermission(args.p_actor, "user_messaging", rpc);
     if (!ADMIN_SEGMENT_KEYS.includes(args.p_key)) throw fail("invalid_parameter", "22023", null, rpc);
     const params = args.p_params;
+    // Unknown parameter keys are refused, not ignored.
+    if (Object.keys(params).some((key) => key !== "days" && key !== "since" && key !== "country")) {
+      throw fail("invalid_parameter", "22023", null, rpc);
+    }
     const now = this.now().getTime();
     const matches = [...this.people.values()].filter((person) => {
       if (person.deletionRequested || person.isQa) return false; // every segment
@@ -577,6 +615,7 @@ export class FakeNotificationBackend implements ServiceRpcs {
       });
     }
     message.audience_count = this.recipients.filter((r) => r.message_id === message.id).length;
+    message.recipient_count = message.audience_count;
     message.status = "prepared";
     this.addEvent(message.id, "prepared", {}, args.p_actor);
     return message.audience_count;
