@@ -47,6 +47,7 @@ import {
   type SessionRpcs,
   type UnsubscribeStream,
 } from "../contract";
+import { hourInZone, isKnownTimeZone } from "@/lib/format/datetime";
 import {
   NOTIFICATION_RPCS,
   NotificationDbError,
@@ -110,21 +111,9 @@ function fail(
 const refuse = (rpc: RpcKey, reason: Refusal) => fail("refused", "P0001", reason, rpc);
 const denied = (rpc: RpcKey) => fail("permission_denied", "42501", null, rpc);
 
-function localHour(at: Date, timeZone: string): number {
-  const parts = new Intl.DateTimeFormat("en-GB", { timeZone, hour: "numeric", hourCycle: "h23" }).formatToParts(at);
-  return Number(parts.find((part) => part.type === "hour")?.value ?? "0");
-}
 function isQuietHour(at: Date, timeZone: string): boolean {
-  const hour = localHour(at, timeZone);
+  const hour = hourInZone(timeZone, at);
   return hour >= NOTIFICATION_LIMITS.quietHoursStart || hour < NOTIFICATION_LIMITS.quietHoursEnd;
-}
-function isIanaName(name: string): boolean {
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone: name });
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 export class FakeNotificationBackend implements ServiceRpcs {
@@ -462,7 +451,7 @@ export class FakeNotificationBackend implements ServiceRpcs {
         }
         const zone = args.p_timezone === undefined || args.p_timezone === null || args.p_timezone === "" ? limits.defaultTimezone : args.p_timezone;
         // A present value must be an IANA name; it is refused, never replaced.
-        if (zone.length > limits.timezoneMaxLength || !isIanaName(zone)) throw fail("invalid_parameter", "22023", null, rpc);
+        if (zone.length > limits.timezoneMaxLength || !isKnownTimeZone(zone)) throw fail("invalid_parameter", "22023", null, rpc);
 
         const now = this.now().toISOString();
         const existing = this.devices.find((d) => d.endpoint === args.p_endpoint);
