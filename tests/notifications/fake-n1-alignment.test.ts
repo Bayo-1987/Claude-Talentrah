@@ -202,3 +202,60 @@ describe("F7: the inactive-seekers days value is an integer 30, 60 or 90 in the 
   });
   // JSON has one number 30: the text 30.0 reaches the fake as 30 (JavaScript cannot tell them apart), so only the database sees the difference and refuses it (22023, never 22P02).
 });
+
+describe("fake boundaries added in the follow-up: exactly 30 minutes, and a stop recorded again after something else happened", () => {
+  it("an e-mail claim open for exactly 30 minutes is accepted (the floor is inclusive, as in the database)", async () => {
+    fake.deliveries.push({ id: "00000000-0000-4000-8000-0000000000f1", user_id: USER, kind: "match_alert", subject_id: fake.newId(), device_id: null, channel: "email", claimed_at: new Date(fake.now().getTime() - 30 * 60_000).toISOString(), sent_at: null, released_at: null });
+    await fake.resolveStaleClaim({ p_id: "00000000-0000-4000-8000-0000000000f1", p_actor: ADMIN, p_resolution: "mark_sent" });
+    expect(fake.deliveries[fake.deliveries.length - 1].sent_at).not.toBeNull();
+  });
+  it("with a flag off, a stop is recorded once; after another event on the message, one more", async () => {
+    (["notifications_master", "admin_messaging"] as const).forEach((k) => fake.setFlag(k, true));
+    const m = fake.addDraftMessage({ createdBy: ADMIN, requiresApproval: false });
+    m.status = "approved";
+    fake.setFlag("admin_messaging", false);
+    await fake.startAdminMessageSend({ p_message: m.id, p_actor: ADMIN });
+    await fake.startAdminMessageSend({ p_message: m.id, p_actor: ADMIN });
+    expect(fake.events.filter((e) => e.message_id === m.id && e.event === "flag_stopped")).toHaveLength(1);
+    await fake.recordAdminMessageTest({ p_message: m.id, p_actor: ADMIN });
+    await fake.startAdminMessageSend({ p_message: m.id, p_actor: ADMIN });
+    await fake.startAdminMessageSend({ p_message: m.id, p_actor: ADMIN });
+    expect(fake.events.filter((e) => e.message_id === m.id && e.event === "flag_stopped")).toHaveLength(2);
+  });
+});
+
+describe("fake follow-up: the overall start limit, an active device taken over, and a device registering again", () => {
+  it("an eleventh start overall inside 24 hours is overall_daily_limit, whoever created the ten", async () => {
+    (["notifications_master", "admin_messaging"] as const).forEach((k) => fake.setFlag(k, true));
+    fake.addAdmin(NEW_ADMIN, "n@example.test", ["user_messaging"]);
+    for (let i = 0; i < 10; i++) {
+      const m = fake.addDraftMessage({ createdBy: i % 2 === 0 ? ADMIN : NEW_ADMIN, requiresApproval: false });
+      m.sent_started_at = new Date(fake.now().getTime() - 3600_000).toISOString();
+      m.status = "sent";
+    }
+    const third = "00000000-0000-4000-8000-0000000000b9";
+    fake.addAdmin(third, "t@example.test", ["user_messaging"]);
+    const next = fake.addDraftMessage({ createdBy: third, requiresApproval: false });
+    next.status = "prepared";
+    await expect(fake.startAdminMessageSend({ p_message: next.id, p_actor: third })).rejects.toMatchObject({ info: { sqlstate: "P0001", reason: "overall_daily_limit" } });
+  });
+  const ep = "https://push.example.invalid/follow-up";
+  const reg = (user: string, keys: string) => fake.forCaller(user).registerPushSubscription({ p_endpoint: ep, p_p256dh: keys, p_auth: keys, p_ua: "Chrome" });
+  it("a take-over revokes an ACTIVE previous row (user) and gives the caller a new one", async () => {
+    const other = fake.newId();
+    fake.addPerson({ id: other });
+    const first = await reg(USER, "k1");
+    expect(fake.devices.find((d) => d.id === first)!.revoked_at).toBeNull();
+    const second = await reg(other, "k2");
+    expect(second).not.toBe(first);
+    expect(fake.devices.find((d) => d.id === first)).toMatchObject({ user_id: USER, revoke_reason: "user" });
+    expect(fake.devices.find((d) => d.id === first)!.revoked_at).not.toBeNull();
+  });
+  it("the same person registering the same endpoint again keeps the row (same id, one device), refreshed", async () => {
+    const first = await reg(USER, "k1");
+    const again = await reg(USER, "k2");
+    expect(again).toBe(first);
+    expect(fake.devices).toHaveLength(1);
+    expect(fake.devices[0]).toMatchObject({ p256dh: "k2", revoked_at: null });
+  });
+});

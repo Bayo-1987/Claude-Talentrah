@@ -586,6 +586,9 @@ export class FakeNotificationBackend implements ServiceRpcs {
     if (Object.keys(params).some((key) => key !== "days" && key !== "since" && key !== "country")) {
       throw fail("invalid_parameter", "22023", null, rpc);
     }
+    // The parameters of a segment are checked whatever the audience is (the database checks them before it reads a single row): a window that is not 30, 60 or 90, or a date that does not parse, is 22023 even when nobody matches.
+    if (args.p_key === "inactive_seekers" && params.days !== 30 && params.days !== 60 && params.days !== 90) throw fail("invalid_parameter", "22023", null, rpc);
+    if (args.p_key === "signed_up_since" && (!params.since || Number.isNaN(Date.parse(params.since)))) throw fail("invalid_parameter", "22023", null, rpc);
     const now = this.now().getTime();
     const matches = [...this.people.values()].filter((person) => {
       if (person.deletionRequested || person.isQa) return false; // every segment
