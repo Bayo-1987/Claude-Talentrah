@@ -367,6 +367,182 @@ export type Database = {
           },
         ]
       }
+      admin_message_events: {
+        Row: {
+          actor_admin_id: string | null
+          actor_email: string | null
+          at: string
+          detail: Json
+          event: string
+          id: string
+          message_id: string | null
+        }
+        Insert: {
+          actor_admin_id?: string | null
+          actor_email?: string | null
+          at?: string
+          detail?: Json
+          event: string
+          id?: string
+          message_id?: string | null
+        }
+        Update: {
+          actor_admin_id?: string | null
+          actor_email?: string | null
+          at?: string
+          detail?: Json
+          event?: string
+          id?: string
+          message_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_message_events_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "admin_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_message_recipients: {
+        Row: {
+          email_outcome: string | null
+          id: string
+          message_id: string
+          push_outcome: string | null
+          to_email: boolean
+          to_inapp: boolean
+          to_push: boolean
+          user_id: string
+        }
+        Insert: {
+          email_outcome?: string | null
+          id?: string
+          message_id: string
+          push_outcome?: string | null
+          to_email?: boolean
+          to_inapp?: boolean
+          to_push?: boolean
+          user_id: string
+        }
+        Update: {
+          email_outcome?: string | null
+          id?: string
+          message_id?: string
+          push_outcome?: string | null
+          to_email?: boolean
+          to_inapp?: boolean
+          to_push?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_message_recipients_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "admin_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_message_recipients_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_messages: {
+        Row: {
+          approved_by: string | null
+          approved_by_email: string | null
+          audience_count: number
+          body: string
+          channels: string[]
+          consent_line: string | null
+          created_at: string
+          created_by: string | null
+          created_by_email: string
+          failed_count: number
+          id: string
+          kind: string
+          kind_confirmed_by_approver: string | null
+          link_path: string | null
+          requires_approval: boolean
+          segment_key: string
+          segment_params: Json
+          sent_count: number
+          sent_started_at: string | null
+          skipped_count: number
+          status: string
+          title: string
+        }
+        Insert: {
+          approved_by?: string | null
+          approved_by_email?: string | null
+          audience_count?: number
+          body: string
+          channels: string[]
+          consent_line?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_email: string
+          failed_count?: number
+          id?: string
+          kind: string
+          kind_confirmed_by_approver?: string | null
+          link_path?: string | null
+          requires_approval?: boolean
+          segment_key: string
+          segment_params?: Json
+          sent_count?: number
+          sent_started_at?: string | null
+          skipped_count?: number
+          status?: string
+          title: string
+        }
+        Update: {
+          approved_by?: string | null
+          approved_by_email?: string | null
+          audience_count?: number
+          body?: string
+          channels?: string[]
+          consent_line?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_email?: string
+          failed_count?: number
+          id?: string
+          kind?: string
+          kind_confirmed_by_approver?: string | null
+          link_path?: string | null
+          requires_approval?: boolean
+          segment_key?: string
+          segment_params?: Json
+          sent_count?: number
+          sent_started_at?: string | null
+          skipped_count?: number
+          status?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_messages_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_messages_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_role_permissions: {
         Row: {
           permission: Database["public"]["Enums"]["admin_permission"]
@@ -1427,10 +1603,17 @@ export type Database = {
           auto_apply_digest_last_sent_at: string | null
           created_at: string
           digest_last_sent_at: string | null
+          email_announcements: boolean
+          email_promotions: boolean
           employer_resume_view: boolean
           job_match_digest: boolean
           new_applicant_notice: string
           proactive_match_alert: boolean
+          push_application_viewed: boolean
+          push_enabled: boolean
+          push_match_alert: boolean
+          push_new_applicant: boolean
+          push_promotions: boolean
           scholarship_deadline_alert: boolean
           unsubscribe_token: string
           updated_at: string
@@ -1442,10 +1625,17 @@ export type Database = {
           auto_apply_digest_last_sent_at?: string | null
           created_at?: string
           digest_last_sent_at?: string | null
+          email_announcements?: boolean
+          email_promotions?: boolean
           employer_resume_view?: boolean
           job_match_digest?: boolean
           new_applicant_notice?: string
           proactive_match_alert?: boolean
+          push_application_viewed?: boolean
+          push_enabled?: boolean
+          push_match_alert?: boolean
+          push_new_applicant?: boolean
+          push_promotions?: boolean
           scholarship_deadline_alert?: boolean
           unsubscribe_token?: string
           updated_at?: string
@@ -1457,10 +1647,17 @@ export type Database = {
           auto_apply_digest_last_sent_at?: string | null
           created_at?: string
           digest_last_sent_at?: string | null
+          email_announcements?: boolean
+          email_promotions?: boolean
           employer_resume_view?: boolean
           job_match_digest?: boolean
           new_applicant_notice?: string
           proactive_match_alert?: boolean
+          push_application_viewed?: boolean
+          push_enabled?: boolean
+          push_match_alert?: boolean
+          push_new_applicant?: boolean
+          push_promotions?: boolean
           scholarship_deadline_alert?: boolean
           unsubscribe_token?: string
           updated_at?: string
@@ -2700,6 +2897,116 @@ export type Database = {
           },
         ]
       }
+      notification_deliveries: {
+        Row: {
+          channel: string
+          claimed_at: string
+          device_id: string | null
+          id: string
+          kind: string
+          released_at: string | null
+          sent_at: string | null
+          subject_id: string
+          user_id: string
+        }
+        Insert: {
+          channel: string
+          claimed_at?: string
+          device_id?: string | null
+          id?: string
+          kind: string
+          released_at?: string | null
+          sent_at?: string | null
+          subject_id: string
+          user_id: string
+        }
+        Update: {
+          channel?: string
+          claimed_at?: string
+          device_id?: string | null
+          id?: string
+          kind?: string
+          released_at?: string | null
+          sent_at?: string | null
+          subject_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_deliveries_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "push_subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_deliveries_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_setting_changes: {
+        Row: {
+          actor_admin_id: string | null
+          actor_email: string | null
+          at: string
+          id: string
+          key: string
+          new_value: number
+          old_value: number | null
+        }
+        Insert: {
+          actor_admin_id?: string | null
+          actor_email?: string | null
+          at?: string
+          id?: string
+          key: string
+          new_value: number
+          old_value?: number | null
+        }
+        Update: {
+          actor_admin_id?: string | null
+          actor_email?: string | null
+          at?: string
+          id?: string
+          key?: string
+          new_value?: number
+          old_value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_setting_changes_key_fkey"
+            columns: ["key"]
+            isOneToOne: false
+            referencedRelation: "notification_settings"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
+      notification_settings: {
+        Row: {
+          int_value: number
+          key: string
+          updated_at: string
+          updated_by_email: string | null
+        }
+        Insert: {
+          int_value: number
+          key: string
+          updated_at?: string
+          updated_by_email?: string | null
+        }
+        Update: {
+          int_value?: number
+          key?: string
+          updated_at?: string
+          updated_by_email?: string | null
+        }
+        Relationships: []
+      }
       one_tap_moments: {
         Row: {
           created_at: string
@@ -3101,6 +3408,56 @@ export type Database = {
           {
             foreignKeyName: "profiles_referred_by_fkey"
             columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          last_seen_at: string
+          p256dh: string
+          revoke_reason: string | null
+          revoked_at: string | null
+          timezone: string
+          ua_short: string
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          last_seen_at?: string
+          p256dh: string
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          timezone?: string
+          ua_short: string
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          last_seen_at?: string
+          p256dh?: string
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          timezone?: string
+          ua_short?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -4270,6 +4627,7 @@ export type Database = {
           starts_at: string
         }[]
       }
+      mark_notification_sent: { Args: { p_id: string }; Returns: undefined }
       new_applicant_recipients: {
         Args: { p_organization: string }
         Returns: {
@@ -4311,6 +4669,10 @@ export type Database = {
           service_role_exec: boolean
           public_exec: boolean
         }[]
+      }
+      cancel_admin_message: {
+        Args: { p_actor: string; p_message: string }
+        Returns: undefined
       }
       cancel_stale_data_exports: {
         Args: never
@@ -4404,12 +4766,34 @@ export type Database = {
           reason: string
         }[]
       }
+      admin_email_eligible_recipients: {
+        Args: { p_stream: string; p_user_ids: string[] }
+        Returns: string[]
+      }
       admin_has_permission: {
         Args: {
           p_admin: string
           p_permission: Database["public"]["Enums"]["admin_permission"]
         }
         Returns: boolean
+      }
+      admin_message_audit: {
+        Args: { p_actor: string; p_message?: string }
+        Returns: {
+          actor_admin_id: string | null
+          actor_email: string | null
+          at: string
+          detail: Json
+          event: string
+          id: string
+          message_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "admin_message_events"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       admin_moderate_job_posting: {
         Args: {
@@ -4553,6 +4937,10 @@ export type Database = {
           role_id: string
         }[]
       }
+      approve_admin_message: {
+        Args: { p_actor: string; p_kind_confirmed: string; p_message: string }
+        Returns: undefined
+      }
       auto_apply_claim_submission: {
         Args: {
           p_credit_cost: number
@@ -4692,6 +5080,20 @@ export type Database = {
           session_id: string
         }[]
       }
+      claim_notification: {
+        Args: {
+          p_channel: string
+          p_device?: string
+          p_kind: string
+          p_subject: string
+          p_user: string
+          p_window?: string
+        }
+        Returns: {
+          id: string
+          refused: string
+        }[]
+      }
       claim_talent_verification_review: {
         Args: { p_reviewer_id: string; p_verification_id: string }
         Returns: {
@@ -4819,6 +5221,12 @@ export type Database = {
           matched: boolean
         }[]
       }
+      email_unsubscribe_stream: {
+        Args: { p_stream: string; p_subscribed?: boolean; p_token: string }
+        Returns: {
+          matched: boolean
+        }[]
+      }
       employer_application_screening_answers: {
         Args: { p_application_id: string }
         Returns: {
@@ -4869,6 +5277,10 @@ export type Database = {
           structured_content: Json
           template_slug: string
         }[]
+      }
+      notification_in_quiet_hours: {
+        Args: { p_instant: string; p_zone: string }
+        Returns: boolean
       }
       open_mentor_slots: {
         Args: { p_mentor_ids: string[]; p_now?: string }
@@ -5043,6 +5455,14 @@ export type Database = {
         Args: { p_campaign_id: string }
         Returns: Database["public"]["Enums"]["ad_campaign_status"]
       }
+      pause_admin_message_send: {
+        Args: { p_message: string; p_reason: string }
+        Returns: undefined
+      }
+      prepare_admin_message: {
+        Args: { p_actor: string; p_max_audience: number; p_message: string }
+        Returns: number
+      }
       proactive_match_alert_set_preference: {
         Args: { p_enabled?: boolean; p_token: string }
         Returns: {
@@ -5063,6 +5483,10 @@ export type Database = {
           match_score: number
         }[]
       }
+      prune_notification_deliveries: {
+        Args: { p_older_than_days?: number }
+        Returns: number
+      }
       record_ad_event: {
         Args: {
           p_campaign_id: string
@@ -5072,6 +5496,10 @@ export type Database = {
           p_user_id: string
         }
         Returns: boolean
+      }
+      record_admin_message_test: {
+        Args: { p_actor: string; p_message: string }
+        Returns: undefined
       }
       record_employer_resume_view: {
         Args: { p_application_id: string }
@@ -5099,8 +5527,22 @@ export type Database = {
           rank: number
         }[]
       }
+      register_push_subscription: {
+        Args: {
+          p_auth: string
+          p_endpoint: string
+          p_p256dh: string
+          p_timezone?: string
+          p_ua: string
+        }
+        Returns: string
+      }
       release_anonymous_demo_run: {
         Args: { p_ip_hash: string; p_visitor_id: string }
+        Returns: undefined
+      }
+      release_notification: {
+        Args: { p_id: string; p_reason: string }
         Returns: undefined
       }
       release_talent_verification_claim: {
@@ -5132,9 +5574,17 @@ export type Database = {
         Args: { p_new_email: string; p_user_id: string }
         Returns: undefined
       }
+      resolve_admin_segment: {
+        Args: { p_actor: string; p_key: string; p_params: Json }
+        Returns: string[]
+      }
       resolve_flagged_talent_verification: {
         Args: { p_feedback: string; p_flag_source: string; p_user_id: string; p_verification_id: string }
         Returns: boolean
+      }
+      resolve_stale_claim: {
+        Args: { p_actor: string; p_id: string; p_resolution: string }
+        Returns: undefined
       }
       resolve_talent_directory_boost: {
         Args: { p_boost_id: string; p_days: number; p_user_id: string }
@@ -5170,6 +5620,10 @@ export type Database = {
           matched: boolean
           scholarship_deadline_alert: boolean
         }[]
+      }
+      resume_admin_message_send: {
+        Args: { p_actor: string; p_message: string }
+        Returns: undefined
       }
       scholarship_close_instant: {
         Args: { p_close_time: string; p_close_tz: string; p_deadline: string }
@@ -5258,6 +5712,10 @@ export type Database = {
         }
         Returns: Database["public"]["Enums"]["ad_campaign_status"]
       }
+      set_notification_setting: {
+        Args: { p_actor: string; p_key: string; p_value: number }
+        Returns: undefined
+      }
       settle_late_mentor_payment: {
         Args: { p_now?: string; p_session_id: string }
         Returns: string
@@ -5274,6 +5732,19 @@ export type Database = {
           ok: boolean
         }[]
       }
+      stale_notification_claims: {
+        Args: { p_channel: string; p_older_than: string }
+        Returns: {
+          channel: string
+          claimed_at: string
+          id: string
+          kind: string
+        }[]
+      }
+      start_admin_message_send: {
+        Args: { p_actor: string; p_message: string }
+        Returns: string
+      }
       storage_bucket_usage: {
         Args: never
         Returns: {
@@ -5286,6 +5757,10 @@ export type Database = {
       submit_ad_campaign_for_review: {
         Args: { p_actor_user_id: string; p_campaign_id: string }
         Returns: Database["public"]["Enums"]["ad_campaign_status"]
+      }
+      submit_admin_message: {
+        Args: { p_actor: string; p_message: string }
+        Returns: undefined
       }
       submit_assessment_response: {
         Args: {
@@ -5383,6 +5858,7 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      unread_notification_count: { Args: { p_user: string }; Returns: number }
       win_back_email_set_preference: {
         Args: { p_enabled?: boolean; p_token: string }
         Returns: {
