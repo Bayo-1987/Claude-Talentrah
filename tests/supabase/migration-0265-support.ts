@@ -145,6 +145,26 @@ export function adminSql(id: string, email = `${id}@example.test`) {
 }
 export const FIXTURES = [personSql(U1), personSql(U2), adminSql(A1), adminSql(A2)].join("\n");
 
+/** Gives an admin the named permission through a role of its own (works on the scratch stand-ins and on the real tables). */
+export const ROLE1 = "00000000-0000-4000-8000-0000000000e9";
+export const grantPermissionSql = (admin: string, permission = "user_messaging", role = ROLE1) =>
+  `insert into public.admin_roles (id, name) values ('${role}', 'n1-role-${role.slice(-4)}');\nupdate public.admin_users set role_id = '${role}' where id = '${admin}';\ninsert into public.admin_role_permissions (role_id, permission) values ('${role}', '${permission}');`;
+
+/**
+ * A zone whose local time is deep INSIDE quiet hours (01:00 to 04:00) and one deep OUTSIDE them (09:00 to 19:00), computed from the real now() of the transaction (N1-R26e), kept in two
+ * session settings so a statement run through pg_temp.expect can read them. Some zone is always in each band, because the zones cover every hour of the day.
+ */
+export const ZONES_SQL = `select set_config('n1.zone_in', (select n.name from pg_catalog.pg_timezone_names n where (now() at time zone n.name)::time between time '01:00' and time '04:00' order by n.name limit 1), false);
+select set_config('n1.zone_out', (select n.name from pg_catalog.pg_timezone_names n where (now() at time zone n.name)::time between time '09:00' and time '19:00' order by n.name limit 1), false);`;
+export const ZONE_IN = "current_setting('n1.zone_in')";
+export const ZONE_OUT = "current_setting('n1.zone_out')";
+/** A device for `user` in the given zone expression (a SQL expression, for example ZONE_OUT, or a quoted literal). */
+export const deviceZoneSql = (id: string, user: string, zoneExpr: string, extra = "") =>
+  `insert into public.push_subscriptions (id, user_id, endpoint, p256dh, auth, ua_short, timezone${extra ? ", " + extra.split("=")[0] : ""}) values ('${id}', '${user}', 'https://push.example.invalid/${id}', 'k', 'a', 'Chrome', ${zoneExpr}${extra ? ", " + extra.split("=")[1] : ""});`;
+/** A claim result as one token: id|null, then the refusal or a dash. The id itself is random and is never printed. */
+export const claimTo = (name: string, args: string) =>
+  `select 'R|${name}|' || (select case when c.id is null then 'null' else 'id' end || '/' || coalesce(c.refused, '-') from public.claim_notification(${args}) c);`;
+
 /** A valid draft message created by A1. */
 export const draftSql = (id = M1) =>
   `insert into public.admin_messages (id, created_by, created_by_email, kind, title, body, channels, segment_key) values ('${id}', '${A1}', 'a1@example.test', 'service_announcement', 'Title', 'Body', array['inapp'], 'everyone');`;
@@ -158,8 +178,8 @@ export const deviceSql = (id = D1, user = U1, endpoint = `https://push.example.i
  * push_subscriptions_select_own` and `drop table ... admin_messages` against the auth service's INSERT and DELETE on auth.users and public.profiles). So a replay runs in a PRIVATE database
  * on the same stack, one per test file, created on first use and dropped when the file ends. It shares no table, row or lock with any other suite.
  *
- * WHAT THE SCRATCH DATABASE IS NOT. It is a stand-in for the parts of the real schema the migration points at: auth.users, auth.uid(), public.profiles with its sign-up trigger, public.admin_users
- * and the platform's default privileges. It is not the real schema. The real one is covered by migration-0265-applied.test.ts, which reads the APPLIED database and runs the behaviour that
+ * WHAT THE SCRATCH DATABASE IS NOT. It is a stand-in for the parts of the real schema the migration points at: auth.users, auth.uid(), public.profiles with its sign-up trigger, public.admin_users,
+ * the admin roles and permissions with the same admin_has_permission, user_notifications and the platform's default privileges. It is not the real schema. The real one is covered by migration-0265-applied.test.ts, which reads the APPLIED database and runs the behaviour that
  * depends on the real tables (deleting an admin, deleting a person) in a rolled-back transaction with no DDL in it.
  */
 export const SCRATCH_BOOTSTRAP = `
@@ -177,7 +197,16 @@ begin
 end
 $f$;
 create trigger on_auth_user_created after insert on auth.users for each row execute function public.handle_new_user();
-create table public.admin_users (id uuid primary key references auth.users (id) on delete cascade, email text not null);
+create type public.admin_permission as enum ('blog', 'operators', 'user_messaging');
+create table public.admin_roles (id uuid primary key default gen_random_uuid(), name text not null unique);
+create table public.admin_users (id uuid primary key references auth.users (id) on delete cascade, email text not null, role_id uuid references public.admin_roles (id), disabled_at timestamptz);
+create table public.admin_role_permissions (role_id uuid not null references public.admin_roles (id) on delete cascade, permission public.admin_permission not null, primary key (role_id, permission));
+create function public.admin_has_permission(p_admin uuid, p_permission public.admin_permission) returns boolean language sql stable security definer set search_path = public as $f$
+  select exists (select 1 from public.admin_users u join public.admin_role_permissions p on p.role_id = u.role_id where u.id = p_admin and u.disabled_at is null and p.permission = p_permission);
+$f$;
+revoke all on function public.admin_has_permission(uuid, public.admin_permission) from public, anon, authenticated;
+grant execute on function public.admin_has_permission(uuid, public.admin_permission) to service_role;
+create table public.user_notifications (id uuid primary key default gen_random_uuid(), user_id uuid not null references public.profiles (id) on delete cascade, read_at timestamptz);
 create table public.email_preferences (user_id uuid primary key references public.profiles (id) on delete cascade);
 alter default privileges for role postgres in schema public grant all on tables to anon, authenticated, service_role;
 alter default privileges for role postgres in schema public grant all on sequences to anon, authenticated, service_role;
@@ -335,4 +364,23 @@ export const columnsQuery = (table: string) =>
   );
 export const expectedColumns = (table: string) => COLUMNS[table].map(([n, t, nn, d]) => `${n} ${t} ${nn} ${d}`.trimEnd()).join(" ; ");
 export const normalise = (s: string | undefined) => (s ?? "").split(" ; ").map((c) => c.trimEnd()).join(" ; ");
+
+/* ---- the ten functions of the migration and what each must be ---- */
+
+/** How Postgres prints an empty search_path setting. */
+export const CONFIG = '{"search_path=\\"\\""}';
+export const FUNCTIONS: Record<string, { definer: boolean; callable: boolean }> = {
+  notification_in_quiet_hours: { definer: false, callable: false },
+  claim_notification: { definer: true, callable: true },
+  release_notification: { definer: false, callable: true },
+  mark_notification_sent: { definer: false, callable: true },
+  stale_notification_claims: { definer: false, callable: true },
+  resolve_stale_claim: { definer: true, callable: true },
+  unread_notification_count: { definer: true, callable: true },
+  prune_notification_deliveries: { definer: false, callable: true },
+  notification_guard_append_only: { definer: false, callable: false },
+  notification_guard_message_edit: { definer: false, callable: false },
+};
+export const NAMES = Object.keys(FUNCTIONS);
+export const NAME_LIST = `(${NAMES.map((n) => `'${n}'`).join(", ")})`;
 

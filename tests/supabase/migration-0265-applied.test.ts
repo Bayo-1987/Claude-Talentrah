@@ -10,7 +10,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  A1, A2, COLUMNS, D1, D2, EXPECTED_GRANTS, FIXTURES, IN_LIST, M1, OTHER_TABLES, SAFE_COLUMNS, TABLES, U1, U2, applied0265, asRole, columnGrants, columnsQuery, deviceSql, draftSql, expectedColumns,
+  A1, A2, COLUMNS, CONFIG, D1, D2, EXPECTED_GRANTS, FIXTURES, FUNCTIONS, IN_LIST, NAMES, NAME_LIST, M1, OTHER_TABLES, SAFE_COLUMNS, TABLES, U1, U2, applied0265, asRole, columnGrants, columnsQuery, deviceSql, draftSql, expectedColumns,
   functionAcl, grantMatrix, normalise, probe, rowsOf, scalar,
 } from "./migration-0265-support";
 
@@ -31,6 +31,11 @@ describe("0265 part 1 as applied to the database under test (no DDL)", () => {
       scalar("open_key_def", "select indexdef from pg_indexes where schemaname = 'public' and indexname = 'notification_deliveries_open_key'"),
       scalar("fk_indexes", `select string_agg(indexname, ',' order by indexname) from pg_indexes where schemaname = 'public' and indexname in ('notification_deliveries_device_id_idx', 'push_subscriptions_user_id_idx', 'admin_message_recipients_user_id_idx', 'admin_message_events_message_id_idx')`),
       scalar("link_check", "select count(*) from pg_constraint where conrelid = 'public.admin_messages'::regclass and conname = 'admin_messages_link_path_check'"),
+      scalar("fn_names", `select string_agg(p.proname, ',' order by p.proname) from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname in ${NAME_LIST}`),
+      ...NAMES.flatMap((n) => [
+        scalar(`fn_flags_${n}`, `select p.proisstrict::text || '/' || p.prosecdef::text || '/' || coalesce(p.proconfig::text, '') from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname = '${n}'`),
+        scalar(`fn_acl_${n}`, `select coalesce(string_agg(coalesce(g.rolname, 'PUBLIC'), ',' order by g.rolname), 'nobody') from pg_proc p cross join lateral aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a left join pg_roles g on g.oid = a.grantee where p.pronamespace = 'public'::regnamespace and p.proname = '${n}' and a.grantee <> p.proowner`),
+      ]),
       scalar("setting_keys", "select string_agg(key, ',' order by key) from public.notification_settings"),
       scalar("functions", "select string_agg(proname || ':' || prosecdef || ':' || coalesce(proconfig::text, ''), ',' order by proname) from pg_proc where pronamespace = 'public'::regnamespace and proname in ('notification_guard_append_only', 'notification_guard_message_edit')"),
     ].join("\n");
@@ -72,6 +77,13 @@ describe("0265 part 1 as applied to the database under test (no DDL)", () => {
       expect(r.res.open_key_def).toMatch(/WHERE \(\(released_at IS NULL\) AND \(\(channel <> 'push'::text\) OR \(device_id IS NOT NULL\)\)\)/);
       expect(r.res.fk_indexes).toBe("admin_message_events_message_id_idx,admin_message_recipients_user_id_idx,notification_deliveries_device_id_idx,push_subscriptions_user_id_idx");
       expect(r.res.link_check).toBe("1");
+    });
+    it("the ten functions exist once each, none is strict, each pins an empty search_path, and EXECUTE is held by exactly service_role (or nobody for the three internal ones)", () => {
+      expect(r.res.fn_names).toBe([...NAMES].sort().join(","));
+      for (const n of NAMES) {
+        expect(r.res[`fn_flags_${n}`], n).toBe(`false/${FUNCTIONS[n].definer}/${CONFIG}`);
+        expect(r.res[`fn_acl_${n}`], n).toBe(FUNCTIONS[n].callable ? "service_role" : "nobody");
+      }
     });
     it("the settings table holds exactly the two limits (their values are not asserted: an operator may have changed them)", () => {
       expect(r.res.setting_keys).toBe("mass_email_cap_24h,mass_email_ceiling_month");

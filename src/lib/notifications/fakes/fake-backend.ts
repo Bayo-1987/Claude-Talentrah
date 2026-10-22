@@ -417,6 +417,26 @@ export class FakeNotificationBackend implements ServiceRpcs {
     this.addEvent(row.kind === "admin_message" ? row.subject_id : null, "claim_resolved", { resolution: args.p_resolution }, args.p_actor);
   }
 
+  /**
+   * Retention. Removes finished (sent or released), non-email claims that are strictly older than the limit AND older than the start of the current UTC calendar month, so
+   * the monthly email ceiling can never be undercounted. Open claims and email claims are never removed.
+   */
+  async pruneNotificationDeliveries(args: RpcContract["pruneNotificationDeliveries"]["args"]): Promise<number> {
+    const rpc: RpcKey = "pruneNotificationDeliveries";
+    const days = args.p_older_than_days === undefined ? 30 : args.p_older_than_days;
+    if (days === null || !Number.isInteger(days) || days < 1 || days > 36_500) throw fail("invalid_parameter", "22023", null, rpc);
+    const now = this.now();
+    const cutoff = now.getTime() - days * DAY_MS;
+    const monthStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
+    const before = this.deliveries.length;
+    this.deliveries = this.deliveries.filter((row) => {
+      const claimed = Date.parse(row.claimed_at);
+      const finished = row.sent_at !== null || row.released_at !== null;
+      return !(row.channel !== "email" && finished && claimed < cutoff && claimed < monthStart);
+    });
+    return before - this.deliveries.length;
+  }
+
   async unreadNotificationCount(args: RpcContract["unreadNotificationCount"]["args"]): Promise<number> {
     return this.inbox.filter((n) => n.user_id === args.p_user && n.read_at === null).length;
   }

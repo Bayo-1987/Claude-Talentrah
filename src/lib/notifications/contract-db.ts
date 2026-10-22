@@ -48,6 +48,7 @@ import type {
   NotificationTableRows,
   PauseAdminMessageSendArgs,
   PrepareAdminMessageArgs,
+  PruneNotificationDeliveriesArgs,
   RegisterPushSubscriptionArgs,
   ReleaseNotificationArgs,
   ResolveAdminSegmentArgs,
@@ -82,6 +83,7 @@ export const NOTIFICATION_RPCS = {
   staleNotificationClaims: "stale_notification_claims",
   resolveStaleClaim: "resolve_stale_claim",
   unreadNotificationCount: "unread_notification_count",
+  pruneNotificationDeliveries: "prune_notification_deliveries",
   registerPushSubscription: "register_push_subscription",
   emailUnsubscribeStream: "email_unsubscribe_stream",
   resolveAdminSegment: "resolve_admin_segment",
@@ -313,6 +315,15 @@ export async function resolveStaleClaim(client: NotificationClient, args: Resolv
 
 export async function unreadNotificationCount(client: NotificationClient, args: UnreadCountArgs): Promise<number> {
   const data = unwrap(await loose(client).rpc(NOTIFICATION_RPCS.unreadNotificationCount, args), "unreadNotificationCount");
+  return typeof data === "number" ? data : Number(data ?? 0);
+}
+
+/** Deletes finished, non-email claims older than the limit (default 30 days) and returns how many it deleted. */
+export async function pruneNotificationDeliveries(
+  client: NotificationClient,
+  args: PruneNotificationDeliveriesArgs = {},
+): Promise<number> {
+  const data = unwrap(await loose(client).rpc(NOTIFICATION_RPCS.pruneNotificationDeliveries, args), "pruneNotificationDeliveries");
   return typeof data === "number" ? data : Number(data ?? 0);
 }
 
