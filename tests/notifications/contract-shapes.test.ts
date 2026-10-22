@@ -123,11 +123,7 @@ describe("row types", () => {
     expectTypeOf<NotificationSettingRow["int_value"]>().toEqualTypeOf<number>();
   });
 
-  it("the only email-like column names are the addendum's reviewed ones, plus ONE KNOWN CONFLICT", () => {
-    // KNOWN CONFLICT, reported to the Reviewer: decision 13 adds a count column whose name
-    // contains the word the addendum's name rule flags. The addendum's two lists are closed and
-    // the builder may not widen them, so the database PR's catalogue test will be RED on that
-    // column until the addendum or the column name changes. It is pinned here so it stays visible.
+  it("the only email-like column names are the addendum's reviewed ones", () => {
     type EmailLike<Row> = Extract<keyof Row, `${string}${"email" | "address" | "recipient"}${string}`>;
     type Found =
       | EmailLike<NotificationDeliveryRow>
@@ -144,7 +140,6 @@ describe("row types", () => {
       | "updated_by_email"
       | "to_email"
       | "email_outcome"
-      | "recipient_count"
     >();
   });
 
@@ -158,8 +153,8 @@ describe("row types", () => {
     expectTypeOf<AllRows>().toExtend<Record<string, unknown>>();
   });
 
-  it("the four count columns on the messages table are integers (numbers), never text", () => {
-    expectTypeOf<AdminMessageRow["recipient_count"]>().toEqualTypeOf<number>();
+  it("the count columns on the messages table are integers (numbers), never text", () => {
+    expectTypeOf<AdminMessageRow["audience_count"]>().toEqualTypeOf<number>();
     expectTypeOf<AdminMessageRow["sent_count"]>().toEqualTypeOf<number>();
     expectTypeOf<AdminMessageRow["failed_count"]>().toEqualTypeOf<number>();
     expectTypeOf<AdminMessageRow["skipped_count"]>().toEqualTypeOf<number>();

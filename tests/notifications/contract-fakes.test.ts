@@ -801,18 +801,19 @@ describe("decision 12: flags off at start", () => {
 });
 
 describe("decision 13: the count columns are integers", () => {
-  it("recipient, sent, failed and skipped counts are whole numbers, 0 for a new message and set by prepare", async () => {
+  it("audience, sent, failed and skipped counts are whole numbers, 0 for a new message; prepare sets the audience count only", async () => {
     const admin = fake.newId();
     fake.addAdmin(admin, "a@example.test", ["user_messaging"]);
     for (const key of [NOTIFICATION_FLAGS.master, NOTIFICATION_FLAGS.adminMessaging]) fake.setFlag(key, true);
     for (let i = 0; i < 4; i += 1) fake.addPerson({ id: fake.newId() });
     const message = fake.addDraftMessage({ createdBy: admin });
-    const counts = () => [message.recipient_count, message.sent_count, message.failed_count, message.skipped_count];
+    const counts = () => [message.audience_count, message.sent_count, message.failed_count, message.skipped_count];
     expect(counts()).toEqual([0, 0, 0, 0]);
     await fake.prepareAdminMessage({ p_message: message.id, p_actor: admin, p_max_audience: 500 });
     expect(counts()).toEqual([4, 0, 0, 0]);
     for (const value of counts()) expect(Number.isInteger(value)).toBe(true);
-    expect(typeof message.recipient_count).toBe("number");
+    expect(typeof message.audience_count).toBe("number");
+    expect("recipient_count" in message).toBe(false);
     expect(fake.events.every((e) => !("sent_count" in e))).toBe(true);
   });
 });

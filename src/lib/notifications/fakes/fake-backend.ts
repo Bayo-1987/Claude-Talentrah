@@ -254,7 +254,6 @@ export class FakeNotificationBackend implements ServiceRpcs {
       status: "draft",
       requires_approval: input.requiresApproval ?? true,
       audience_count: 0,
-      recipient_count: 0,
       sent_count: 0,
       failed_count: 0,
       skipped_count: 0,
@@ -615,7 +614,6 @@ export class FakeNotificationBackend implements ServiceRpcs {
       });
     }
     message.audience_count = this.recipients.filter((r) => r.message_id === message.id).length;
-    message.recipient_count = message.audience_count;
     message.status = "prepared";
     this.addEvent(message.id, "prepared", {}, args.p_actor);
     return message.audience_count;

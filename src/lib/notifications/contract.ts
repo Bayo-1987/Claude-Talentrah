@@ -38,6 +38,9 @@
  *       4. cap_24h             admin email only: the rolling 24 hour cap
  *       5. ceiling_month       admin email only: the UTC calendar month ceiling
  *       6. already_claimed     every channel: the unreleased unique key is taken
+ *     These six codes are the CLOSED list the database PR's claim function
+ *     must produce (and no other): device_unavailable, quiet_hours,
+ *     budget_cap, cap_24h, ceiling_month, already_claimed.
  *     Each adjacent pair that can apply together (1-2, 2-3, 3-6 for push;
  *     4-5, 5-6 for admin email) is pinned by one test.
  *  3. Push budget as built: the event being claimed is not counted against
@@ -59,7 +62,9 @@
  *     flag_stopped event is persisted. It does not raise: a raise would roll
  *     the event back.
  * 13. The messages table carries integer NOT NULL DEFAULT 0 count columns
- *     (recipient, sent, failed, skipped). Event rows carry no counts.
+ *     (sent, failed, skipped). The number of recipients is `audience_count`.
+ *     Event rows carry no counts. No column name contains email, address or
+ *     recipient except the seven on the email-pins addendum's closed lists.
  * 15. The database raises with an errcode (22023, 42501 or P0001) and puts the
  *     reason in the exception HINT; the accessor reads the HINT. The
  *     conformance test reads it through the Data API.
@@ -321,8 +326,7 @@ export type AdminMessageRow = {
   status: AdminMessageStatus;
   requires_approval: boolean;
   audience_count: number;
-  /** Integer counts, NOT NULL DEFAULT 0 (contract note 13). */
-  recipient_count: number;
+  /** Integer counts, NOT NULL DEFAULT 0 (contract note 13). The recipient total is `audience_count`. */
   sent_count: number;
   failed_count: number;
   skipped_count: number;
