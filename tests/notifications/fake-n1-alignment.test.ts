@@ -92,3 +92,27 @@ describe("Q5: a non-push claim ignores the device and stores none", () => {
     expect(fake.deliveries.find((d) => d.id === res.id)?.device_id).toBe(dev.id);
   });
 });
+
+describe("commit 4: the stream unsubscribe and the device registration refuse what the database refuses", () => {
+  const refusalOf = async (run: () => Promise<unknown>) => {
+    try {
+      await run();
+    } catch (e) {
+      return e instanceof NotificationDbError ? `${e.info.sqlstate}/${e.info.code}` : String(e);
+    }
+    return "NOT REFUSED";
+  };
+  it.each([["an unknown stream", "newsletters"], ["a null stream", null], ["an empty stream", ""], ["a stream in the wrong case", "Promotions"]])("%s is 22023, whether or not the token matches", async (_n, stream) => {
+    fake.addPerson({ id: "00000000-0000-4000-8000-0000000000a9", unsubscribeToken: "tok-1" });
+    for (const token of ["tok-1", "no-such-token", null]) {
+      expect(await refusalOf(() => fake.emailUnsubscribeStream({ p_token: token as string, p_stream: stream as never, p_subscribed: false })), String(token)).toBe("22023/invalid_parameter");
+    }
+  });
+  it("an unknown token with a known stream is matched = false and no error", async () => {
+    expect(await fake.emailUnsubscribeStream({ p_token: "no-such-token", p_stream: "promotions", p_subscribed: true })).toEqual({ matched: false });
+  });
+  it.each(["p_endpoint", "p_p256dh", "p_auth", "p_ua"])("a null %s is 22023 (the function is not strict), before any other check", async (field) => {
+    const args = { p_endpoint: "http://not-https.example.invalid/x", p_p256dh: "k", p_auth: "a", p_ua: "Chrome", p_timezone: "Mars/Olympus", [field]: null };
+    expect(await refusalOf(() => fake.forCaller(USER).registerPushSubscription(args as never))).toBe("22023/invalid_parameter");
+  });
+});

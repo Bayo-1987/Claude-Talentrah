@@ -465,6 +465,8 @@ export class FakeNotificationBackend implements ServiceRpcs {
   /* ---------------- preferences ---------------- */
 
   async emailUnsubscribeStream(args: RpcContract["emailUnsubscribeStream"]["args"]) {
+    // The database checks the stream first: an unknown or missing stream is refused whether or not the token matches.
+    if (args.p_stream !== "announcements" && args.p_stream !== "promotions") throw fail("invalid_parameter", "22023", null, "emailUnsubscribeStream");
     const person = [...this.people.values()].find((p) => p.unsubscribeToken !== null && p.unsubscribeToken === args.p_token);
     if (!person) return { matched: false };
     const subscribed = args.p_subscribed ?? false;
@@ -481,6 +483,8 @@ export class FakeNotificationBackend implements ServiceRpcs {
       registerPushSubscription: async (args) => {
         const rpc: RpcKey = "registerPushSubscription";
         const limits = NOTIFICATION_LIMITS;
+        // The function is not strict: a missing endpoint, key, secret or browser is 22023, before any other check.
+        if (args.p_endpoint == null || args.p_p256dh == null || args.p_auth == null || args.p_ua == null) throw fail("invalid_parameter", "22023", null, rpc);
         if (!args.p_endpoint.startsWith("https://")) throw refuse(rpc, "not_https");
         if (
           args.p_endpoint.length > limits.endpointMaxLength ||
