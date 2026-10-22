@@ -20,7 +20,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import {
-  LocalGuardError, assertLocalGuard, createN1Scratch, dropN1Scratch, haveN1Db, listN1Scratch, localServiceSet, newScratchName, removeAuditRowsAsOwner, requireN1Db, runN1ScratchSql, sweepStaleN1Scratch,
+  LocalGuardError, assertLocalGuard, createN1Scratch, dropN1Scratch, haveN1Db, listN1Scratch, localServiceSet, newScratchName, removeAuditRowsAsOwner, removeLedgerRowsAsOwner, requireN1Db, runN1ScratchSql, sweepStaleN1Scratch,
 } from "./migration-0265-local-db";
 
 const ROOT = join(__dirname, "../..");
@@ -289,6 +289,39 @@ describe("removeAuditRowsAsOwner: the one place that switches triggers off to de
     calls.length = 0;
     expect(() => removeAuditRowsAsOwner(["x'; drop table t; --"], "http://127.0.0.1:55421", spy)).toThrow(/uuid/);
     removeAuditRowsAsOwner([], "http://127.0.0.1:55421", spy);
+    expect(calls).toEqual([]);
+  });
+});
+
+describe("removeLedgerRowsAsOwner: the only place that deletes ledger rows by table, local stack only", () => {
+  const ID = "00000000-0000-4000-8000-0000000000c1";
+  const calls: string[] = [];
+  const spy = (script: string) => {
+    calls.push(script);
+    return { ok: true, stdout: "", stderr: "" };
+  };
+  it.each([
+    ["a hosted address", "https://abcdefgh.supabase.co"],
+    ["a private network address", "http://10.0.0.5:55421"],
+    ["a lookalike host", "http://127.0.0.1.evil.example:55421"],
+    ["localhost with user info", "http://user:pw@localhost:55421"],
+    ["an empty address", ""],
+  ])("refuses %s and runs nothing", (_n, url) => {
+    calls.length = 0;
+    expect(() => removeLedgerRowsAsOwner([ID], url, spy)).toThrow(LocalGuardError);
+    expect(calls).toEqual([]);
+  });
+  it.each(["http://127.0.0.1:55421", "http://localhost:55421"])("runs against %s, for the ids given only", (url) => {
+    calls.length = 0;
+    removeLedgerRowsAsOwner([ID], url, spy);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toContain(`'${ID}'`);
+    expect(calls[0]).toMatch(/^delete from public\.notification_deliveries where user_id in/);
+  });
+  it("refuses an id that is not a uuid, and an empty list does nothing", () => {
+    calls.length = 0;
+    expect(() => removeLedgerRowsAsOwner(["x'; drop table t; --"], "http://127.0.0.1:55421", spy)).toThrow(/uuid/);
+    removeLedgerRowsAsOwner([], "http://127.0.0.1:55421", spy);
     expect(calls).toEqual([]);
   });
 });

@@ -15,7 +15,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  A1, A2, D1, D2, EXPECTED_GRANTS, F0265, FIXTURES, IN_LIST, M1, NO_DEFAULT_GRANTS, OTHER_TABLES, R0265, SAFE_COLUMNS, TABLES, U1, U2, asRole, columnGrants, deviceSql, draftSql, functionAcl, grantMatrix, probe,
+  A1, A2, COLUMN_GRANTS_ELSEWHERE, D1, D2, EXPECTED_GRANTS, F0265, FIXTURES, IN_LIST, M1, NO_DEFAULT_GRANTS, OTHER_TABLES, R0265, SAFE_COLUMNS, TABLES, U1, U2, asRole, columnGrants, deviceSql, draftSql, functionAcl, grantMatrix, probe,
   readMigration, readRollback, replay0265, rowsOf, scalar, usesNewValueAsEnum,
 } from "./migration-0265-support";
 
@@ -132,9 +132,10 @@ describe("0265 part 1: privileges, row security and triggers (replayed in a roll
       probe("frozen_consent_line", upd("consent_line = 'We asked'"), "P0001", "invalid_state"),
       probe("frozen_kind", upd("kind = 'promotion'"), "P0001", "invalid_state"),
       rowsOf("progress_status", upd("status = 'submitted'")),
-      rowsOf("progress_counts", upd("sent_count = 2, failed_count = 1, skipped_count = 0")),
       rowsOf("progress_approver", upd(`approved_by = '${A2}', approved_by_email = 'a2@example.test', status = 'approved'`)),
       rowsOf("progress_started", upd("sent_started_at = now(), status = 'sending'")),
+      // N1B (0273): the counters can only change while a send is running, so this move now comes after the start
+      rowsOf("progress_counts", upd("sent_count = 2, failed_count = 1, skipped_count = 0")),
       probe("frozen_link_path", upd("link_path = '/jobs'"), "P0001", "invalid_state"),
       rowsOf("noop_update_link_path", upd("link_path = link_path")),
       scalar("title_after", `select title from public.admin_messages where id = '${M1}'`),
@@ -206,7 +207,8 @@ describe("0265 part 1: privileges, row security and triggers (replayed in a roll
       changeRow,
       asRole("service_role", [
         rowsOf("service_reads_events", "select * from public.admin_message_events"),
-        rowsOf("service_inserts_event", `insert into public.admin_message_events (message_id, event) values ('${M1}', 'prepared')`),
+        // N1B (0273, F3): the service role can no longer add an audit row by table (the functions write them)
+        probe("service_inserts_event", `insert into public.admin_message_events (message_id, event) values ('${M1}', 'prepared')`, "42501"),
         rowsOf("service_inserts_change", "insert into public.notification_setting_changes (key, new_value) values ('mass_email_cap_24h', 70)"),
         ...refusals("service_role"),
       ]),
@@ -222,9 +224,9 @@ describe("0265 part 1: privileges, row security and triggers (replayed in a roll
     const r = replay0265(body);
 
     it("the replay applies", () => expect(r.ok, r.stderr).toBe(true));
-    it("service_role can read and add rows", () => {
+    it("service_role can read both tables and add a setting-change row; it can no longer add an audit event by table (N1B)", () => {
       expect(r.res.service_reads_events).toBe("1");
-      expect(r.res.service_inserts_event).toBe("1");
+      expect(r.res.service_inserts_event).toBe("ok");
       expect(r.res.service_inserts_change).toBe("1");
     });
     it("service_role holds no UPDATE or DELETE privilege on either table (insert-only under G1), so the refusal comes from the missing grant", () => {
@@ -236,7 +238,7 @@ describe("0265 part 1: privileges, row security and triggers (replayed in a roll
           for (const verb of ["update", "delete", "truncate"]) expect(r.res[`${role}_${t}_${verb}`], `${role} ${verb} ${t}`).toBe("ok");
         }
       }
-      expect(r.res.events_intact).toBe("2");
+      expect(r.res.events_intact).toBe("1");
     });
     it("the refusal text is generic: it names no value from the row", () => {
       expect(r.res.trigger_message).not.toMatch(/secret|example|@/);
@@ -260,7 +262,7 @@ describe("0265 part 1: privileges, row security and triggers (replayed in a roll
     });
     it("a person's only column privilege is SELECT on the five safe columns of push_subscriptions; no other column carries a column-level grant", () => {
       expect(r.res.safe_columns).toBe(SAFE_COLUMNS);
-      expect(r.res.column_grants_elsewhere).toBe("0");
+      expect(r.res.column_grants_elsewhere).toBe(COLUMN_GRANTS_ELSEWHERE);
     });
 
     describe("the self-check raises on a missing grant, an extra grant and a missing control", () => {
@@ -338,7 +340,7 @@ describe("0265 part 1: privileges, row security and triggers (replayed in a roll
     it("with the defaults OFF the migration still applies, its self-check passes, and the grants are exactly the same", () => {
       for (const t of TABLES) expect(off.res[`grants_${t}`], t).toBe(EXPECTED_GRANTS[t]);
       expect(off.res.safe_columns).toBe(SAFE_COLUMNS);
-      expect(off.res.column_grants_elsewhere).toBe("0");
+      expect(off.res.column_grants_elsewhere).toBe(COLUMN_GRANTS_ELSEWHERE);
     });
     it("a migration that leaned on the defaults would fail there: the file minus one explicit grant does not apply under the simulation", () => {
       const forward = readMigration(F0265);

@@ -102,6 +102,21 @@ const CASES: Record<RpcKey, { call: (c: db.NotificationClient) => Promise<unknow
     call: (c) => db.recordAdminMessageTest(c, { p_message: ID, p_actor: ACTOR }),
     answer: null,
   },
+  createAdminMessage: {
+    args: { p_actor: ACTOR, p_kind: "service_announcement", p_title: "t", p_body: "b", p_link_path: null, p_channels: ["inapp"], p_segment_key: "self_test", p_segment_params: {}, p_consent_line: null },
+    call: (c) => db.createAdminMessage(c, { p_actor: ACTOR, p_kind: "service_announcement", p_title: "t", p_body: "b", p_link_path: null, p_channels: ["inapp"], p_segment_key: "self_test", p_segment_params: {}, p_consent_line: null }),
+    answer: ID,
+  },
+  recordAdminMessageProgress: {
+    args: { p_message: ID, p_sent: 1, p_failed: 0, p_skipped: 0 },
+    call: (c) => db.recordAdminMessageProgress(c, { p_message: ID, p_sent: 1, p_failed: 0, p_skipped: 0 }),
+    answer: null,
+  },
+  finishAdminMessageSend: {
+    args: { p_message: ID },
+    call: (c) => db.finishAdminMessageSend(c, { p_message: ID }),
+    answer: null,
+  },
   setNotificationSetting: {
     args: { p_key: "mass_email_cap_24h", p_value: 60, p_actor: ACTOR },
     call: (c) => db.setNotificationSetting(c, { p_key: "mass_email_cap_24h", p_value: 60, p_actor: ACTOR }),

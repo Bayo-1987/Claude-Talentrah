@@ -218,3 +218,24 @@ export function removeAuditRowsAsOwner(messageIds: readonly string[], url: strin
   );
   if (!r.ok) throw new Error(`removing audit rows failed: ${r.stderr}`);
 }
+
+/**
+ * Removes the ledger rows of the given people as the table owner. The service role can no longer delete ledger rows by table (0273), and a pooled test person is reused rather than deleted, so a
+ * test that committed claims for it clears them here. Same rule as removeAuditRowsAsOwner: it checks BEFORE anything runs that the database address is 127.0.0.1 or localhost with no user info,
+ * and it takes uuids only.
+ */
+export function removeLedgerRowsAsOwner(userIds: readonly string[], url: string | undefined = process.env.NEXT_PUBLIC_SUPABASE_URL, run: (script: string) => SqlResult = runN1Sql): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(url ?? "");
+  } catch {
+    throw new LocalGuardError("the database address is missing or cannot be parsed; ledger rows are not removed");
+  }
+  if (!LOOPBACK.has(parsed.hostname) || parsed.username !== "" || parsed.password !== "") {
+    throw new LocalGuardError(`the database host is ${parsed.hostname}, not 127.0.0.1 or localhost; ledger rows are not removed`);
+  }
+  if (userIds.length === 0) return;
+  for (const id of userIds) if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) throw new LocalGuardError("an id is not a uuid");
+  const r = run(`delete from public.notification_deliveries where user_id in (${userIds.map((u) => `'${u}'`).join(", ")});`);
+  if (!r.ok) throw new Error(`removing ledger rows failed: ${r.stderr}`);
+}

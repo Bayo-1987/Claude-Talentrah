@@ -15,7 +15,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createAuthedTestUser, deleteTestUsers } from "../support/auth";
 import { localDbContainer } from "../support/local-psql";
-import { removeAuditRowsAsOwner, requireN1Db, runN1Sql } from "./migration-0265-local-db";
+import { removeAuditRowsAsOwner, removeLedgerRowsAsOwner, requireN1Db, runN1Sql } from "./migration-0265-local-db";
 
 const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -63,7 +63,8 @@ const newPerson = async (prefix: string) => {
 
 async function cleanup() {
   if (fixtureUsers.length) {
-    await svc.from("notification_deliveries").delete().in("user_id", fixtureUsers);
+    // the service role cannot delete ledger rows by table (0273): the owner does, on the local stack only
+    removeLedgerRowsAsOwner(fixtureUsers);
     await svc.from("push_subscriptions").delete().in("user_id", fixtureUsers);
   }
   await deleteTestUsers(fixtureUsers.splice(0));
@@ -356,6 +357,25 @@ describe("the ledger functions through the Data API (committed fixtures, cleaned
         expect(GENERIC.has(e!.message), e!.message).toBe(true);
         expect(`${e!.message} ${e!.details ?? ""}`).not.toContain(operator.id);
       }
+    });
+    it("N1B (0273) over HTTP: the service role cannot write the messages, the audit rows or the ledger by table (42501); the create function sets the creator and the creator cannot approve", async () => {
+      const hand = await svc.from("admin_messages").insert({ kind: "service_announcement", title: "t", body: "b", channels: ["inapp"], segment_key: "self_test", created_by_email: "x@example.test" });
+      expect(hand.error?.code).toBe("42501");
+      const event = await svc.from("admin_message_events").insert({ event: "approved" });
+      expect(event.error?.code).toBe("42501");
+      const ledger = await svc.from("notification_deliveries").delete().eq("user_id", userA.id);
+      expect(ledger.error?.code).toBe("42501");
+      const made = await svc.rpc("create_admin_message", { p_actor: operator.id, p_kind: "service_announcement", p_title: "T", p_body: "B", p_link_path: null, p_channels: ["inapp"], p_segment_key: "self_test", p_segment_params: {}, p_consent_line: null });
+      expect(made.error).toBeNull();
+      const id = made.data as string;
+      messageIds.push(id);
+      expect(sql(`select created_by || '/' || status from public.admin_messages where id = '${id}';`)).toBe(`${operator.id}/draft`);
+      expect((await svc.rpc("prepare_admin_message", { p_message: id, p_actor: operator.id, p_max_audience: 10 })).error).toBeNull();
+      expect((await svc.rpc("submit_admin_message", { p_message: id, p_actor: operator.id })).error).toBeNull();
+      const self = await svc.rpc("approve_admin_message", { p_message: id, p_actor: operator.id, p_kind_confirmed: "service_announcement" });
+      expect([self.error?.code, self.error?.hint]).toEqual(["P0001", "self_approval"]);
+      const bad = await svc.rpc("create_admin_message", { p_actor: operator.id, p_kind: "secret-kind-value", p_title: "T", p_body: "B", p_link_path: null, p_channels: ["inapp"], p_segment_key: "self_test", p_segment_params: {}, p_consent_line: null });
+      expect([bad.error?.code, bad.error?.message]).toEqual(["22023", "invalid parameter"]);
     });
     it("a prepare over HTTP returns the frozen count, and a repeat is invalid_state", async () => {
       const m = newMessage("draft");

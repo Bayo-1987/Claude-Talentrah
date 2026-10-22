@@ -473,6 +473,22 @@ export type EmailUnsubscribeStreamResult = { matched: boolean };
 export type ResolveAdminSegmentArgs = { p_key: AdminSegmentKey; p_params: AdminSegmentParams; p_actor: string };
 export type PrepareAdminMessageArgs = { p_message: string; p_actor: string; p_max_audience: number };
 export type AdminMessageActorArgs = { p_message: string; p_actor: string };
+/** N1B (0273). The creator is the caller; there is no created_by argument. */
+export type CreateAdminMessageArgs = {
+  p_actor: string;
+  p_kind: AdminMessageKind;
+  p_title: string;
+  p_body: string;
+  p_link_path: string | null;
+  p_channels: NotificationChannel[];
+  p_segment_key: AdminSegmentKey;
+  p_segment_params: AdminSegmentParams;
+  p_consent_line: string | null;
+  p_requires_approval?: boolean;
+};
+/** N1B (0273), provisional and minimal: the sender's counters and the end of a send. No actor (the sender is the service role). */
+export type RecordAdminMessageProgressArgs = { p_message: string; p_sent: number; p_failed: number; p_skipped: number };
+export type FinishAdminMessageSendArgs = { p_message: string };
 export type ApproveAdminMessageArgs = { p_message: string; p_actor: string; p_kind_confirmed: AdminMessageKind };
 export type AdminMessageAuditArgs = { p_actor: string; p_message?: string | null };
 export type PauseAdminMessageSendArgs = { p_message: string; p_reason: EmailLimitRefusal };
@@ -502,6 +518,9 @@ export interface RpcContract {
   startAdminMessageSend: { args: AdminMessageActorArgs; result: string | null };
   adminMessageAudit: { args: AdminMessageAuditArgs; result: AdminMessageEventRow[] };
   recordAdminMessageTest: { args: AdminMessageActorArgs; result: void };
+  createAdminMessage: { args: CreateAdminMessageArgs; result: string };
+  recordAdminMessageProgress: { args: RecordAdminMessageProgressArgs; result: void };
+  finishAdminMessageSend: { args: FinishAdminMessageSendArgs; result: void };
   setNotificationSetting: { args: SetNotificationSettingArgs; result: void };
   pauseAdminMessageSend: { args: PauseAdminMessageSendArgs; result: void };
   resumeAdminMessageSend: { args: AdminMessageActorArgs; result: void };

@@ -12,6 +12,7 @@
  * the one dispatch helper reads them from the accessor module's constants.
  */
 import {
+  ADMIN_MESSAGE_KINDS,
   ADMIN_SEGMENT_KEYS,
   NOTIFICATION_CHANNELS,
   NOTIFICATION_FLAGS,
@@ -127,6 +128,19 @@ const LINK_REFUSED = "\\u0000-\\u001f\\u007f-\\u009f \\u00a0\\u1680\\u2000-\\u20
 const LINK_PATH = new RegExp(`^/([^/${LINK_REFUSED}][^${LINK_REFUSED}]*)?$`);
 export function isSameOriginPath(path: string): boolean {
   return path.length <= 200 && LINK_PATH.test(path);
+}
+
+/**
+ * A `since` value is a JSON string of the form YYYY-MM-DD that is a real calendar date (the database casts the text to a date and answers 22023 otherwise). Nothing looser is accepted: no
+ * time, no other layout, no padding, no number.
+ */
+export function isCalendarDate(value: unknown): value is string {
+  if (typeof value !== "string" || !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(value)) return false;
+  const [y, m, d] = value.split("-").map(Number);
+  if (y < 1) return false;
+  const at = new Date(Date.UTC(y, m - 1, d));
+  at.setUTCFullYear(y); // years 0 to 99 are read as 1900 to 1999 by Date.UTC
+  return at.getUTCFullYear() === y && at.getUTCMonth() === m - 1 && at.getUTCDate() === d;
 }
 
 /** The age after which an open e-mail claim may be resolved by hand: the contract's constant (N1-R34); the database holds the same figure as a literal. */
@@ -588,7 +602,7 @@ export class FakeNotificationBackend implements ServiceRpcs {
     }
     // The parameters of a segment are checked whatever the audience is (the database checks them before it reads a single row): a window that is not 30, 60 or 90, or a date that does not parse, is 22023 even when nobody matches.
     if (args.p_key === "inactive_seekers" && params.days !== 30 && params.days !== 60 && params.days !== 90) throw fail("invalid_parameter", "22023", null, rpc);
-    if (args.p_key === "signed_up_since" && (!params.since || Number.isNaN(Date.parse(params.since)))) throw fail("invalid_parameter", "22023", null, rpc);
+    if (args.p_key === "signed_up_since" && !isCalendarDate(params.since)) throw fail("invalid_parameter", "22023", null, rpc);
     const now = this.now().getTime();
     const matches = [...this.people.values()].filter((person) => {
       if (person.deletionRequested || person.isQa) return false; // every segment
@@ -607,7 +621,7 @@ export class FakeNotificationBackend implements ServiceRpcs {
           return person.role === "seeker" && person.lastActiveAt !== null && now - Date.parse(person.lastActiveAt) > days * DAY_MS;
         }
         case "signed_up_since": {
-          if (!params.since || Number.isNaN(Date.parse(params.since))) throw fail("invalid_parameter", "22023", null, rpc);
+          if (!isCalendarDate(params.since)) throw fail("invalid_parameter", "22023", null, rpc);
           return Date.parse(person.createdAt) >= Date.parse(params.since);
         }
         case "country": {
@@ -690,13 +704,70 @@ export class FakeNotificationBackend implements ServiceRpcs {
     const admin = this.requirePermission(args.p_actor, "user_messaging", rpc);
     const message = this.message(args.p_message, rpc);
     if (message.status !== "submitted") throw refuse(rpc, "invalid_state");
-    if (message.created_by === args.p_actor) throw refuse(rpc, "self_approval");
+    // Independence (N1B-R1): not the creator on the row, not the actor of the `created` event; a message with neither a creator nor a `created` event cannot be approved. The preparer and the
+    // submitter are not excluded.
+    const created = this.events.filter((e) => e.message_id === message.id && e.event === "created");
+    if (message.created_by === args.p_actor || created.some((e) => e.actor_admin_id === args.p_actor) || (message.created_by === null && created.length === 0)) {
+      throw refuse(rpc, "self_approval");
+    }
     if (args.p_kind_confirmed !== message.kind) throw refuse(rpc, "kind_not_confirmed");
     message.status = "approved";
     message.approved_by = args.p_actor;
     message.approved_by_email = admin.email;
     message.kind_confirmed_by_approver = args.p_kind_confirmed;
     this.addEvent(message.id, "approved", { kind_confirmed: args.p_kind_confirmed }, args.p_actor);
+  }
+
+  /** N1B (0273). The only way the database makes a message: the creator is the caller, a bad value is 22023 and the error carries none of the values. */
+  async createAdminMessage(args: RpcContract["createAdminMessage"]["args"]): Promise<string> {
+    const rpc: RpcKey = "createAdminMessage";
+    const admin = this.requirePermission(args.p_actor, "user_messaging", rpc);
+    const bad = () => fail("invalid_parameter", "22023", null, rpc);
+    if (args.p_requires_approval === null) throw bad();
+    const channels = args.p_channels ?? [];
+    if (!ADMIN_MESSAGE_KINDS.includes(args.p_kind)) throw bad();
+    if (typeof args.p_title !== "string" || args.p_title.length < 1 || args.p_title.length > NOTIFICATION_LIMITS.titleMaxLength) throw bad();
+    if (typeof args.p_body !== "string" || args.p_body.length < 1 || args.p_body.length > NOTIFICATION_LIMITS.bodyMaxLength) throw bad();
+    if (channels.length < 1 || channels.some((c) => !NOTIFICATION_CHANNELS.includes(c))) throw bad();
+    if (!ADMIN_SEGMENT_KEYS.includes(args.p_segment_key)) throw bad();
+    if (args.p_link_path !== null && args.p_link_path !== undefined && !isSameOriginPath(args.p_link_path)) throw bad();
+    const row = this.addDraftMessage({
+      createdBy: args.p_actor,
+      kind: args.p_kind,
+      title: args.p_title,
+      body: args.p_body,
+      linkPath: args.p_link_path ?? null,
+      channels,
+      segmentKey: args.p_segment_key,
+      segmentParams: args.p_segment_params ?? {},
+      consentLine: args.p_consent_line ?? null,
+      requiresApproval: args.p_requires_approval ?? true,
+    });
+    row.created_by_email = admin.email; // addDraftMessage already wrote the `created` event for this actor
+    return row.id;
+  }
+
+  /** N1B (0273), provisional: add to the counters of a message being sent (or paused); never subtract, never pass the audience times the channels. */
+  async recordAdminMessageProgress(args: RpcContract["recordAdminMessageProgress"]["args"]): Promise<void> {
+    const rpc: RpcKey = "recordAdminMessageProgress";
+    const values = [args.p_sent, args.p_failed, args.p_skipped];
+    if (values.some((v) => v === null || v === undefined || !Number.isInteger(v) || v < 0)) throw fail("invalid_parameter", "22023", null, rpc);
+    const message = this.message(args.p_message, rpc);
+    if (message.status !== "sending" && message.status !== "paused_email_cap" && message.status !== "paused_email_ceiling") throw refuse(rpc, "invalid_state");
+    const cap = message.audience_count * message.channels.length;
+    if (message.sent_count + args.p_sent > cap || message.failed_count + args.p_failed > cap || message.skipped_count + args.p_skipped > cap) throw fail("invalid_parameter", "22023", null, rpc);
+    message.sent_count += args.p_sent;
+    message.failed_count += args.p_failed;
+    message.skipped_count += args.p_skipped;
+  }
+
+  /** N1B (0273): the end of a send, sending to sent, with a send_finished event that has no actor. */
+  async finishAdminMessageSend(args: RpcContract["finishAdminMessageSend"]["args"]): Promise<void> {
+    const rpc: RpcKey = "finishAdminMessageSend";
+    const message = this.message(args.p_message, rpc);
+    if (message.status !== "sending") throw refuse(rpc, "invalid_state");
+    message.status = "sent";
+    this.addEvent(message.id, "send_finished", {}, null);
   }
 
   async cancelAdminMessage(args: RpcContract["cancelAdminMessage"]["args"]): Promise<void> {
