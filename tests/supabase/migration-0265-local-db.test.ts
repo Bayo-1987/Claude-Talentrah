@@ -12,13 +12,16 @@
  *   R26a the range applies when CI is not "true" and only then (both modes tested)
  *   60   .env.local is ignored by git (and the checker can say "not ignored" in a repository that does not ignore it)
  *   61   the service set of the stack is read from docker, named, and labelled reduced or full
+ *   scratch  the private databases the replay tests run in: only n1_replay_<pid>_* names are accepted, and a leftover of a dead process is swept (a live one is not)
  */
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { assertLocalGuard, haveN1Db, localServiceSet } from "./migration-0265-local-db";
+import {
+  assertLocalGuard, createN1Scratch, dropN1Scratch, haveN1Db, listN1Scratch, localServiceSet, newScratchName, runN1ScratchSql, sweepStaleN1Scratch,
+} from "./migration-0265-local-db";
 
 const ROOT = join(__dirname, "../..");
 const refused = (url: string | undefined, env: { CI?: string } = {}) => {
@@ -89,6 +92,10 @@ describe("N1-R26a: the range applies when CI is not exactly the string true, and
     expect(refused("http://127.0.0.1:55421", { CI: "true" })).toBe(false);
   });
 
+  it("CI is true: a URL with no explicit port is still refused (the range is lifted, the port requirement is not)", () => {
+    for (const url of ["http://127.0.0.1", "http://localhost", "http://127.0.0.1/"]) expect(refused(url, { CI: "true" }), url).toBe(true);
+  });
+
   it("CI is true: the shared rules still hold, a hosted-looking host is refused", () => {
     expect(refused("https://abcdefgh.supabase.co", { CI: "true" })).toBe(true);
     expect(refused("http://127.0.0.1.evil.example:54321", { CI: "true" })).toBe(true);
@@ -155,5 +162,65 @@ describe("row 61: the service set is named, read from docker", () => {
     const set = localServiceSet();
     for (const s of ["db", "kong", "auth", "rest", "storage"]) expect(set.services, s).toContain(s);
     expect(["reduced", "full"]).toContain(set.label);
+  });
+});
+
+describe("scratch databases: the names the helpers will touch", () => {
+  it("a fresh name matches n1_replay_<pid>_<suffix> and carries the process id", () => {
+    const name = newScratchName(4242);
+    expect(name).toMatch(/^n1_replay_4242_[a-z0-9]+$/);
+    expect(newScratchName(4242)).not.toBe(name);
+  });
+
+  it.each(["postgres", "template1", "template0", "", "n1_replay_", "n1_replay_x_abc", "n1_replay_12_ABC", 'n1_replay_12_a"; drop database postgres; --', "n1_replay_12_a b", "other_n1_replay_12_abc"])(
+    "refuses %j (nothing but a scratch name is created, run against or dropped)",
+    (name) => {
+      expect(() => dropN1Scratch(name)).toThrow(/not an N1 scratch database name/);
+      expect(() => createN1Scratch(name, "select 1;")).toThrow(/not an N1 scratch database name/);
+      expect(() => runN1ScratchSql(name, "select 1;")).toThrow(/not an N1 scratch database name/);
+    },
+  );
+});
+
+describe.skipIf(!haveN1Db())("scratch databases: creation, sweep and removal on the local stack", () => {
+  const dead = newScratchName(2_000_000_001);
+  const alive = newScratchName(2_000_000_002);
+
+  it("the sweep removes the scratch database of a dead process and leaves one whose process is alive", () => {
+    createN1Scratch(dead, "create table t (id int);");
+    createN1Scratch(alive, "create table t (id int);");
+    try {
+      expect(listN1Scratch()).toEqual(expect.arrayContaining([dead, alive]));
+      // only the fake pid of the "dead" fixture counts as dead: another test file in the same run owns a live scratch database, and it must not be touched
+      const removed = sweepStaleN1Scratch((pid) => pid !== 2_000_000_001);
+      expect(removed).toContain(dead);
+      expect(removed).not.toContain(alive);
+      const left = listN1Scratch();
+      expect(left).not.toContain(dead);
+      expect(left).toContain(alive);
+    } finally {
+      dropN1Scratch(dead);
+      dropN1Scratch(alive);
+    }
+    expect(listN1Scratch()).not.toContain(alive);
+  });
+
+  it("a script runs in the scratch database it was given, and a failing script reports its SQLSTATE", () => {
+    const name = newScratchName(2_000_000_003);
+    createN1Scratch(name, "create table t (id int);");
+    try {
+      const ok = runN1ScratchSql(name, "select current_database();");
+      expect(ok.ok).toBe(true);
+      expect(ok.stdout.trim()).toBe(name);
+      const bad = runN1ScratchSql(name, "select * from table_that_does_not_exist;");
+      expect(bad.ok).toBe(false);
+      expect(bad.stderr).toMatch(/42P01/);
+    } finally {
+      dropN1Scratch(name);
+    }
+  });
+
+  it("dropping a name that is not there is not an error", () => {
+    expect(() => dropN1Scratch(newScratchName(2_000_000_004))).not.toThrow();
   });
 });

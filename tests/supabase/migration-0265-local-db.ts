@@ -86,3 +86,98 @@ export function localServiceSet(listContainers: () => string[] = dockerNames, co
   const full = ["realtime", "pg_meta", "inbucket"].every((s) => services.includes(s));
   return { project, services, label: full ? "full" : "reduced" };
 }
+
+/* ------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
+/* Scratch databases. A migration REPLAY (drop and re-create the tables, then probe them) must not run in the shared `postgres` database: a table with a foreign key to profiles, */
+/* admin_users or auth.users takes heavy locks on those tables for as long as the replay lasts, and the auth service (creating and deleting users for every other suite) deadlocked */
+/* with it (40P01, seen in two whole-suite runs). So a replay runs in a private database on the SAME stack, which shares no table, row or lock with anything else.                  */
+/* ------------------------------------------------------------------------------------------------------------------------------------------------------------------ */
+
+const SCRATCH_NAME = /^n1_replay_(\d+)_[a-z0-9]+$/;
+
+function sleepMs(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/** A fresh scratch database name that carries the creating process's id (so a leftover from a crashed run can be recognised and removed). */
+export function newScratchName(pid: number = process.pid): string {
+  return `n1_replay_${pid}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
+
+function assertScratchName(db: string): void {
+  if (!SCRATCH_NAME.test(db)) throw new LocalGuardError(`not an N1 scratch database name: ${db}`);
+}
+
+/** SQL against one scratch database of the guarded local stack. Never throws on a SQL error; returns it. */
+export function runN1ScratchSql(db: string, script: string): SqlResult {
+  assertLocalGuard(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  assertScratchName(db);
+  const container = localDbContainer();
+  try {
+    const stdout = execFileSync("docker", ["exec", "-i", container, "psql", "-U", "postgres", "-d", db, "-X", "-A", "-t", "-v", "ON_ERROR_STOP=1", "-v", "VERBOSITY=verbose"], {
+      input: script,
+      encoding: "utf8",
+      maxBuffer: 16 * 1024 * 1024,
+      timeout: 120_000,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    return { ok: true, stdout, stderr: "" };
+  } catch (err) {
+    const e = err as { stdout?: unknown; stderr?: unknown };
+    return { ok: false, stdout: String(e.stdout ?? ""), stderr: String(e.stderr ?? "") };
+  }
+}
+
+/** Creates the scratch database and runs `bootstrap` in it. Two files creating at the same moment can meet "source database is being accessed" (55006); that alone is retried. */
+export function createN1Scratch(db: string, bootstrap: string): void {
+  assertLocalGuard(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  assertScratchName(db);
+  let last = "";
+  for (let attempt = 1; attempt <= 6; attempt++) {
+    const r = runN1Sql(`create database "${db}";`);
+    if (r.ok) {
+      const b = runN1ScratchSql(db, bootstrap);
+      if (!b.ok) throw new Error(`scratch database ${db}: bootstrap failed: ${b.stderr}`);
+      return;
+    }
+    last = r.stderr;
+    if (!/ERROR:\s+55006:/.test(r.stderr)) break;
+    sleepMs(300 * attempt);
+  }
+  throw new Error(`scratch database ${db}: create failed: ${last}`);
+}
+
+export function dropN1Scratch(db: string): void {
+  assertLocalGuard(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  assertScratchName(db);
+  const r = runN1Sql(`drop database if exists "${db}" with (force);`);
+  if (!r.ok) throw new Error(`scratch database ${db}: drop failed: ${r.stderr}`);
+}
+
+/** The scratch databases that exist right now (any process's). */
+export function listN1Scratch(): string[] {
+  const r = runN1Sql(`select datname from pg_database where datname like 'n1\\_replay\\_%' order by 1;`);
+  return r.ok ? r.stdout.split("\n").map((l) => l.trim()).filter((l) => SCRATCH_NAME.test(l)) : [];
+}
+
+/** Removes scratch databases whose creating process is gone (a crashed or killed run). A database of a live process is left alone. */
+export function sweepStaleN1Scratch(isAlive: (pid: number) => boolean = pidAlive): string[] {
+  const removed: string[] = [];
+  for (const db of listN1Scratch()) {
+    const pid = Number(SCRATCH_NAME.exec(db)![1]);
+    if (!isAlive(pid)) {
+      dropN1Scratch(db);
+      removed.push(db);
+    }
+  }
+  return removed;
+}
+
+function pidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
