@@ -527,6 +527,8 @@ export class FakeNotificationBackend implements ServiceRpcs {
 
   async resolveAdminSegment(args: RpcContract["resolveAdminSegment"]["args"]): Promise<string[]> {
     const rpc: RpcKey = "resolveAdminSegment";
+    // The actor is required: a missing one is a caller error (22023), checked before the permission.
+    if (args.p_actor === null || args.p_actor === undefined) throw fail("invalid_parameter", "22023", null, rpc);
     this.requirePermission(args.p_actor, "user_messaging", rpc);
     if (!ADMIN_SEGMENT_KEYS.includes(args.p_key)) throw fail("invalid_parameter", "22023", null, rpc);
     const params = args.p_params;

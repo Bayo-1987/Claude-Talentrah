@@ -18,6 +18,8 @@ import { describe, expect, it } from "vitest";
  *   LIST 2, the two non-address columns:
  *     the recipients row's to_email (a boolean flag) and email_outcome (a closed outcome).
  * The lists are closed: adding a name here is a finding to report, not an edit.
+ * The pattern used here is wider than the addendum's words (it also catches e-mail,
+ * addr, recip and rcpt), and the closed lists still hold.
  *
  * This scans the SOURCE of every row type in the contract, so a new column that
  * trips the rule turns the test red naming the row type and the key. (A second,
@@ -25,7 +27,7 @@ import { describe, expect, it } from "vitest";
  * name row types, never database tables: this file is inside the scanned tree.
  */
 const SOURCE = readFileSync(path.resolve(__dirname, "../../src/lib/notifications/contract.ts"), "utf8");
-const EMAIL_LIKE = /email|address|recipient/i;
+const EMAIL_LIKE = /e-?mail|addr|recip|rcpt/i;
 
 /** The row types, with the email-like keys each is allowed (lists 1 and 2 above). */
 const ALLOWED: Record<string, readonly string[]> = {

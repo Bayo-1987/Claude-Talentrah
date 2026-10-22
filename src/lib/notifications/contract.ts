@@ -43,6 +43,12 @@
  *     budget_cap, cap_24h, ceiling_month, already_claimed.
  *     Each adjacent pair that can apply together (1-2, 2-3, 3-6 for push;
  *     4-5, 5-6 for admin email) is pinned by one test.
+ *  2b. Business refusals are data, not errors: the six codes above never raise.
+ *     Functions raise only for a caller's mistake: 22023 (invalid argument, for
+ *     example a missing actor on the segment function), 42501 (not permitted),
+ *     and P0001 with hint unknown_id when the release function gets an id that
+ *     does not exist. The segment function is service-role only and its actor
+ *     is a required uuid.
  *  3. Push budget as built: the event being claimed is not counted against
  *     itself, so a second device for an already-counted event is allowed at
  *     the cap and a new distinct event at the cap is refused.
