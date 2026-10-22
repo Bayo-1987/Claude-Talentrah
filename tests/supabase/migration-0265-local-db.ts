@@ -193,3 +193,28 @@ function pidAlive(pid: number): boolean {
     return (err as NodeJS.ErrnoException).code === "EPERM";
   }
 }
+
+/**
+ * The one place that deletes append-only audit rows. The audit tables refuse update, delete and truncate for everyone, so a Data API test that commits events cannot remove them as a
+ * client; it removes exactly its own rows as the table's owner with triggers off for that single session (`session_replication_role = replica`). That is only ever acceptable on a
+ * local stack, so this function checks, BEFORE anything runs, that the database address is 127.0.0.1 or localhost with no user info, and refuses everything else (a hosted project, a
+ * private-network address, a lookalike host). It takes uuids only.
+ */
+export function removeAuditRowsAsOwner(messageIds: readonly string[], url: string | undefined = process.env.NEXT_PUBLIC_SUPABASE_URL, run: (script: string) => SqlResult = runN1Sql): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(url ?? "");
+  } catch {
+    throw new LocalGuardError("the database address is missing or cannot be parsed; audit rows are not removed");
+  }
+  if (!LOOPBACK.has(parsed.hostname) || parsed.username !== "" || parsed.password !== "") {
+    throw new LocalGuardError(`the database host is ${parsed.hostname}, not 127.0.0.1 or localhost; audit rows are not removed`);
+  }
+  if (messageIds.length === 0) return;
+  for (const id of messageIds) if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) throw new LocalGuardError("an id is not a uuid");
+  const list = messageIds.map((m) => `'${m}'`).join(", ");
+  const r = run(
+    `set session_replication_role = replica; delete from public.admin_message_events where message_id in (${list}); delete from public.admin_message_recipients where message_id in (${list}); delete from public.admin_messages where id in (${list});`,
+  );
+  if (!r.ok) throw new Error(`removing audit rows failed: ${r.stderr}`);
+}

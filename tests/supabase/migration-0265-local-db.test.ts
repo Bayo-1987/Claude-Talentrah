@@ -20,7 +20,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  assertLocalGuard, createN1Scratch, dropN1Scratch, haveN1Db, listN1Scratch, localServiceSet, newScratchName, requireN1Db, runN1ScratchSql, sweepStaleN1Scratch,
+  LocalGuardError, assertLocalGuard, createN1Scratch, dropN1Scratch, haveN1Db, listN1Scratch, localServiceSet, newScratchName, removeAuditRowsAsOwner, requireN1Db, runN1ScratchSql, sweepStaleN1Scratch,
 } from "./migration-0265-local-db";
 
 const ROOT = join(__dirname, "../..");
@@ -251,5 +251,39 @@ describe("scratch databases: creation, sweep and removal on the local stack", ()
 
   it("dropping a name that is not there is not an error", () => {
     expect(() => dropN1Scratch(newScratchName(2_000_000_004))).not.toThrow();
+  });
+});
+
+describe("removeAuditRowsAsOwner: the one place that switches triggers off to delete append-only rows", () => {
+  const ID = "00000000-0000-4000-8000-0000000000c1";
+  const calls: string[] = [];
+  const spy = (script: string) => {
+    calls.push(script);
+    return { ok: true, stdout: "", stderr: "" };
+  };
+  it.each([
+    ["a hosted address", "https://abcdefgh.supabase.co"],
+    ["a private network address", "http://10.0.0.5:55421"],
+    ["a lookalike host", "http://127.0.0.1.evil.example:55421"],
+    ["localhost with user info", "http://user:pw@localhost:55421"],
+    ["an empty address", ""],
+  ])("refuses %s and runs nothing", (_n, url) => {
+    calls.length = 0;
+    expect(() => removeAuditRowsAsOwner([ID], url, spy)).toThrow(LocalGuardError);
+    expect(calls).toEqual([]);
+  });
+  it.each(["http://127.0.0.1:55421", "http://localhost:55421"])("runs against %s, with triggers off for that one session only, and only for the ids given", (url) => {
+    calls.length = 0;
+    removeAuditRowsAsOwner([ID], url, spy);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatch(/^set session_replication_role = replica;/);
+    expect(calls[0]).toContain(`'${ID}'`);
+    expect(calls[0]).not.toMatch(/truncate/i);
+  });
+  it("refuses an id that is not a uuid, and an empty list does nothing", () => {
+    calls.length = 0;
+    expect(() => removeAuditRowsAsOwner(["x'; drop table t; --"], "http://127.0.0.1:55421", spy)).toThrow(/uuid/);
+    removeAuditRowsAsOwner([], "http://127.0.0.1:55421", spy);
+    expect(calls).toEqual([]);
   });
 });

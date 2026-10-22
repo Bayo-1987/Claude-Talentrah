@@ -15,7 +15,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createAuthedTestUser, deleteTestUsers } from "../support/auth";
 import { localDbContainer } from "../support/local-psql";
-import { requireN1Db, runN1Sql } from "./migration-0265-local-db";
+import { removeAuditRowsAsOwner, requireN1Db, runN1Sql } from "./migration-0265-local-db";
 
 const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -310,8 +310,7 @@ describe("the ledger functions through the Data API (committed fixtures, cleaned
       for (const [k, v] of Object.entries(flagsBefore)) sql(`update public.feature_flags set enabled = ${v} where key = '${k}';`);
       if (messageIds.length) {
         // the audit table is append-only: only the table's owner, with triggers off for this one session, can remove the rows this file made
-        const list = messageIds.map((m) => `'${m}'`).join(", ");
-        sql(`set session_replication_role = replica; delete from public.admin_message_events where message_id in (${list}); delete from public.admin_message_recipients where message_id in (${list}); delete from public.admin_messages where id in (${list});`);
+        removeAuditRowsAsOwner(messageIds);
       }
       // the operator's role and its permission are rows other suites read (the enum test reads the permission table), so they go too, the admin first
       if (roleId) sql(`delete from public.admin_users where id = '${operator.id}'; delete from public.admin_role_permissions where role_id = '${roleId}'; delete from public.admin_roles where id = '${roleId}';`);
