@@ -395,8 +395,11 @@ export class FakeNotificationBackend implements ServiceRpcs {
     const rpc: RpcKey = "releaseNotification";
     const row = this.deliveries.find((d) => d.id === args.p_id);
     if (!row) throw refuse(rpc, "unknown_id");
-    if (row.channel === "email") throw refuse(rpc, "email_release_refused");
-    if (!PUSH_RELEASE_REASONS.includes(args.p_reason)) throw refuse(rpc, "invalid_release_reason");
+    // The release function raises P0001 only for an unknown id. Releasing an email claim is
+    // not permitted (42501) and a reason outside the closed list is an invalid argument
+    // (22023); both keep their reason as the hint.
+    if (row.channel === "email") throw fail("permission_denied", "42501", "email_release_refused", rpc);
+    if (!PUSH_RELEASE_REASONS.includes(args.p_reason)) throw fail("invalid_parameter", "22023", "invalid_release_reason", rpc);
     if (row.released_at === null) row.released_at = this.now().toISOString();
   }
 
@@ -730,6 +733,23 @@ export class FakeNotificationBackend implements ServiceRpcs {
   }
 
   /* ---------------- dispatch by database name ---------------- */
+
+  /**
+   * Calls a function as a given database role. Every function but the session-bound
+   * one is executable by the service role only; any other caller gets 42501.
+   */
+  async invokeAs(
+    role: "service_role" | "authenticated" | "anon",
+    name: NotificationRpcName,
+    args: unknown,
+    caller?: string,
+  ): Promise<unknown> {
+    const key = (Object.keys(NOTIFICATION_RPCS) as RpcKey[]).find((k) => NOTIFICATION_RPCS[k] === name);
+    if (!key) throw fail("invalid_parameter", "22023", null, "claimNotification");
+    const allowed = key === "registerPushSubscription" ? role === "authenticated" : role === "service_role";
+    if (!allowed) throw denied(key);
+    return this.invoke(name, args, caller);
+  }
 
   /**
    * Calls a function by its database name, the way a client's `rpc` would, so a

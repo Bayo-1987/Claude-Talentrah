@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -77,5 +78,88 @@ describe("the email-like column name rule over the contract's row types", () => 
   it("the list-2 columns are a boolean flag and a closed outcome, not free text", () => {
     expect(SOURCE).toMatch(/\bto_email: boolean;/);
     expect(SOURCE).toMatch(/\bemail_outcome: AdminRecipientOutcome \| null;/);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Ruling B5: EVERY property key of EVERY exported type and interface, */
+/* whatever the type is called, in the contract and the accessor module.*/
+/* ------------------------------------------------------------------ */
+
+const LIB = path.resolve(__dirname, "../../src/lib/notifications");
+
+/** `TypeName.key` for every property or method signature anywhere inside an exported type or interface. */
+function exportedTypeKeys(relative: string): { type: string; key: string }[] {
+  const source = readFileSync(path.join(LIB, relative), "utf8");
+  const file = ts.createSourceFile(relative, source, ts.ScriptTarget.Latest, true);
+  const out: { type: string; key: string }[] = [];
+  for (const statement of file.statements) {
+    const exported = ts.canHaveModifiers(statement) && ts.getModifiers(statement)?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
+    if (!exported || !(ts.isTypeAliasDeclaration(statement) || ts.isInterfaceDeclaration(statement))) continue;
+    const type = statement.name.text;
+    const visit = (node: ts.Node) => {
+      if ((ts.isPropertySignature(node) || ts.isMethodSignature(node)) && node.name) {
+        out.push({ type, key: ts.isIdentifier(node.name) || ts.isStringLiteral(node.name) ? node.name.text : node.name.getText() });
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(statement);
+  }
+  return out;
+}
+
+/**
+ * FINDING, reported to the Reviewer and NOT allowlisted: the two preference
+ * columns the prompt spells for the email preferences row match the name rule
+ * and are on neither closed list. They are pinned here, separately and
+ * exactly, so they stay visible and a third such key cannot join them.
+ */
+const PENDING_RULING = ["EmailPreferencesNotificationColumns.email_promotions", "EmailPreferencesNotificationColumns.email_announcements"];
+
+/**
+ * FINDING, reported and NOT allowlisted: three keys are not data columns at all.
+ * They are the lookup keys that name a database object in the contract's maps
+ * (the recipients row type, and two function keys). Their spelling is tied to
+ * the names the hashes pin, so they cannot change without renaming the table or
+ * the function. Pinned exactly, for the same reason.
+ */
+const OBJECT_KEYS = [
+  "NotificationTableRows.adminMessageRecipients",
+  "RpcContract.emailUnsubscribeStream",
+  "RpcContract.adminEmailEligibleRecipients",
+];
+
+describe("ruling B5: the name rule over every exported type and interface", () => {
+  const all = [...exportedTypeKeys("contract.ts"), ...exportedTypeKeys("contract-db.ts")];
+  const SIX = new Set(["created_by_email", "approved_by_email", "actor_email", "updated_by_email", "to_email", "email_outcome"]);
+
+  it("really covers the contract: many types, and types whose name does not end in Row", () => {
+    const types = new Set(all.map((entry) => entry.type));
+    expect(types.size).toBeGreaterThan(40);
+    expect(all.length).toBeGreaterThan(200);
+    for (const name of ["EmailUnsubscribeStreamResult", "EmailPreferencesNotificationColumns", "ClaimNotificationArgs", "NotificationErrorInfo"]) {
+      expect(types, name).toContain(name);
+    }
+  });
+
+  it("no key of any exported type matches the name rule except the six allowed names and the pending-ruling pair", () => {
+    const offenders = all
+      .filter(({ key }) => EMAIL_LIKE.test(key))
+      .map(({ type, key }) => `${type}.${key}`)
+      .filter((entry) => !SIX.has(entry.split(".")[1]) && !PENDING_RULING.includes(entry) && !OBJECT_KEYS.includes(entry));
+    expect(offenders, "address-like keys outside the allowed names").toEqual([]);
+  });
+
+  it("beyond the six, exactly the pending-ruling pair and the three object keys match: reported as findings, not allowlisted", () => {
+    const found = all
+      .filter(({ key }) => EMAIL_LIKE.test(key))
+      .map(({ type, key }) => `${type}.${key}`)
+      .filter((entry) => !SIX.has(entry.split(".")[1]));
+    expect(found.sort()).toEqual([...PENDING_RULING, ...OBJECT_KEYS].sort());
+  });
+
+  it("the six allowed names all appear (the scan is not vacuous)", () => {
+    const keys = new Set(all.map((entry) => entry.key));
+    for (const name of SIX) expect(keys, name).toContain(name);
   });
 });

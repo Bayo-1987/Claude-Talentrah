@@ -68,7 +68,7 @@ describe("the ledger", () => {
     const { user } = personWithDevice();
     const row = await claim(user, "admin_message", fake.newId(), "email");
     const info = await refusalOf(fake.releaseNotification({ p_id: row.id!, p_reason: "gone" }));
-    expect(info).toMatchObject({ code: "refused", reason: "email_release_refused" });
+    expect(info).toMatchObject({ code: "permission_denied", sqlstate: "42501", reason: "email_release_refused" });
     expect(fake.deliveries[0].released_at).toBeNull();
   });
 

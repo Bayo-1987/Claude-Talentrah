@@ -44,11 +44,21 @@
  *     Each adjacent pair that can apply together (1-2, 2-3, 3-6 for push;
  *     4-5, 5-6 for admin email) is pinned by one test.
  *  2b. Business refusals are data, not errors: the six codes above never raise.
- *     Functions raise only for a caller's mistake: 22023 (invalid argument, for
- *     example a missing actor on the segment function), 42501 (not permitted),
- *     and P0001 with hint unknown_id when the release function gets an id that
- *     does not exist. The segment function is service-role only and its actor
- *     is a required uuid.
+ *     The claim function raises only 22023 (invalid argument) and 42501 (the
+ *     caller is not the service role). The release function raises P0001 only
+ *     with the hint unknown_id; releasing an email claim is 42501 and a reason
+ *     outside the closed list is 22023, each keeping its reason as the hint.
+ *     Every other function raises 22023, 42501, or P0001 with the reason as the
+ *     hint, from the 17 reason hints in the accessor module; none is added,
+ *     removed or renamed. The segment function is service-role only and its
+ *     actor is a required uuid (22023 when missing).
+ *  2c. Time edges. Quiet hours are 22:00 INCLUSIVE to 07:00 EXCLUSIVE in the
+ *     device's own zone (21:59:59 allowed, 22:00:00 quiet, 06:59:59 quiet,
+ *     07:00:00 allowed). A prior claim counts toward a window only if it is
+ *     STRICTLY newer than now minus the window: one exactly as old as the
+ *     window no longer counts, one a second newer does.
+ *  2d. The accessor module holds exactly one double cast; no other file of
+ *     the contract holds one.
  *  3. Push budget as built: the event being claimed is not counted against
  *     itself, so a second device for an already-counted event is allowed at
  *     the cap and a new distinct event at the cap is refused.
