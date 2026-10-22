@@ -120,7 +120,7 @@ export const EXPORT_MANIFEST: readonly ExportTable[] = [
     owner: ["user_id"],
     orderBy: "user_id",
     include:
-      "auto_apply_digest_last_sent_at created_at digest_last_sent_at employer_resume_view job_match_digest new_applicant_notice proactive_match_alert scholarship_deadline_alert updated_at user_id win_back_email win_back_last_sent_at",
+      "auto_apply_digest_last_sent_at created_at digest_last_sent_at email_announcements email_promotions employer_resume_view job_match_digest new_applicant_notice proactive_match_alert push_application_viewed push_enabled push_match_alert push_new_applicant push_promotions scholarship_deadline_alert updated_at user_id win_back_email win_back_last_sent_at",
     never: { unsubscribe_token: TOKEN },
   }),
   table("farah_messages", { owner: ["user_id"], include: "content context created_at id role user_id" }),

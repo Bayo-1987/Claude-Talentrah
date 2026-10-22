@@ -1603,10 +1603,17 @@ export type Database = {
           auto_apply_digest_last_sent_at: string | null
           created_at: string
           digest_last_sent_at: string | null
+          email_announcements: boolean
+          email_promotions: boolean
           employer_resume_view: boolean
           job_match_digest: boolean
           new_applicant_notice: string
           proactive_match_alert: boolean
+          push_application_viewed: boolean
+          push_enabled: boolean
+          push_match_alert: boolean
+          push_new_applicant: boolean
+          push_promotions: boolean
           scholarship_deadline_alert: boolean
           unsubscribe_token: string
           updated_at: string
@@ -1618,10 +1625,17 @@ export type Database = {
           auto_apply_digest_last_sent_at?: string | null
           created_at?: string
           digest_last_sent_at?: string | null
+          email_announcements?: boolean
+          email_promotions?: boolean
           employer_resume_view?: boolean
           job_match_digest?: boolean
           new_applicant_notice?: string
           proactive_match_alert?: boolean
+          push_application_viewed?: boolean
+          push_enabled?: boolean
+          push_match_alert?: boolean
+          push_new_applicant?: boolean
+          push_promotions?: boolean
           scholarship_deadline_alert?: boolean
           unsubscribe_token?: string
           updated_at?: string
@@ -1633,10 +1647,17 @@ export type Database = {
           auto_apply_digest_last_sent_at?: string | null
           created_at?: string
           digest_last_sent_at?: string | null
+          email_announcements?: boolean
+          email_promotions?: boolean
           employer_resume_view?: boolean
           job_match_digest?: boolean
           new_applicant_notice?: string
           proactive_match_alert?: boolean
+          push_application_viewed?: boolean
+          push_enabled?: boolean
+          push_match_alert?: boolean
+          push_new_applicant?: boolean
+          push_promotions?: boolean
           scholarship_deadline_alert?: boolean
           unsubscribe_token?: string
           updated_at?: string

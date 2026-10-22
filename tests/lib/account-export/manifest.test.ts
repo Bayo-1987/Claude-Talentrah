@@ -46,7 +46,8 @@ const CONTACT_NAME = /(email|phone|whatsapp|telegram|address|handle|linkedin|con
 /** The only columns that hold a contact detail of the person THEMSELVES. */
 const OWN_CONTACT = ["admin_users.email", "profiles.email"];
 /** Columns whose NAME contains "email" but that hold a setting, not an address. */
-const NOT_A_CONTACT = ["email_preferences.win_back_email"];
+// preference switches (booleans) whose names contain "email", not addresses
+const NOT_A_CONTACT = ["email_preferences.win_back_email", "email_preferences.email_promotions", "email_preferences.email_announcements"];
 
 describe("every column is classified, against the generated types", () => {
   it.each(EXPORT_MANIFEST.map((t) => t.table))("%s: the manifest and the types name the same columns", (table) => {
