@@ -252,6 +252,18 @@ export function timeZoneOffsetMs(timeZone: string, t: number): number {
   return Date.UTC(n("year"), n("month") - 1, n("day"), hour, n("minute"), n("second")) - floored;
 }
 
+/**
+ * The hour of the day, 0 to 23, at the instant `at` in `timeZone` (daylight saving included): 7 at 07:00:00 and 07:59:59 local time, 0 at midnight. Built on `timeZoneOffsetMs`, so it
+ * reads the zone's rules and formats nothing. Like that function it throws a RangeError for a zone name the runtime does not know (check with `isKnownTimeZone` first) and for an
+ * invalid Date; it never answers in UTC by default. The notifications fake uses it for the quiet-hours rule.
+ */
+export function hourInZone(timeZone: string, at: Date): number {
+  const t = at.getTime();
+  const day = 86_400_000;
+  const local = t + timeZoneOffsetMs(timeZone, t);
+  return Math.floor((((local % day) + day) % day) / 3_600_000);
+}
+
 /** Zone ids that ARE Coordinated Universal Time. Intl names them "GMT+00:00", which reads as an offset rather than the zone a source stated. */
 const UTC_ZONE_IDS: ReadonlySet<string> = new Set([
   "UTC", "Etc/UTC", "Etc/UCT", "UCT", "Etc/Universal", "Universal", "Etc/Zulu", "Zulu",
