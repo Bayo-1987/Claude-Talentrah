@@ -17,15 +17,16 @@ const read = (rel: string) => readFileSync(path.resolve(__dirname, "../..", rel)
 /** Source with comments removed: the files explain the very things the checks forbid. */
 const code = (rel: string) => read(rel).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 
-/** The employer layout parsed as TypeScript: the statements of the `if (!session)` early return, and the statements that follow it in the same function body. */
-function employerLayoutBranches() {
-  const file = ts.createSourceFile("layout.tsx", read("src/app/employer/layout.tsx"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  const fn = file.statements.find((st): st is ts.FunctionDeclaration => ts.isFunctionDeclaration(st) && !!st.body);
-  expect(fn, "the layout default-exports a function with a body").toBeDefined();
-  const body = fn!.body!.statements;
-  const at = body.findIndex((st) => ts.isIfStatement(st) && /^!\s*session$/.test(st.expression.getText()));
-  return { signedOut: at === -1 ? null : body[at], rest: at === -1 ? [] : body.slice(at + 1) };
-}
+/**
+ * The employer layout read as a syntax tree. Nothing here depends on a local variable's name or on where a helper is declared:
+ *  - the layout is the DEFAULT EXPORT of the file (not "the first function");
+ *  - the signed-out branch is found by the SHAPE of the guard (a top-level `if (!x)` with no else, whose body always returns), not by what x is called;
+ *  - "mounts the strip" means the strip is REACHABLE from a branch: every identifier and JSX tag in it is followed into same-file declarations (function declarations, const arrows
+ *    and const aliases, wherever they are declared), transitively, until it meets a name the file imported from the strip's own modules or an alias of one.
+ */
+const layoutFile = () => ts.createSourceFile("layout.tsx", read("src/app/employer/layout.tsx"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+const STRIP_MODULE = /(^|\/)(employer-install-strip|install-strip-lazy|install-strip)$/;
+
 function findAll(node: ts.Node, pred: (n: ts.Node) => boolean): ts.Node[] {
   const out: ts.Node[] = [];
   const walk = (n: ts.Node) => {
@@ -35,8 +36,92 @@ function findAll(node: ts.Node, pred: (n: ts.Node) => boolean): ts.Node[] {
   walk(node);
   return out;
 }
-/** True when the subtree has an identifier or JSX tag naming the strip wrapper. */
-const mentionsStrip = (node: ts.Node) => findAll(node, (n) => ts.isIdentifier(n) && n.text === "EmployerInstallStrip").length > 0;
+
+/** The default-exported function of the file: `export default function X() {}`, or `export default X` pointing at a function declaration or a const arrow. */
+function defaultExportBody(file: ts.SourceFile): ts.Block {
+  const hasMod = (n: ts.Node, k: ts.SyntaxKind) => ts.canHaveModifiers(n) && !!ts.getModifiers(n)?.some((m) => m.kind === k);
+  let fn: ts.Node | undefined = file.statements.find((st) => ts.isFunctionDeclaration(st) && hasMod(st, ts.SyntaxKind.ExportKeyword) && hasMod(st, ts.SyntaxKind.DefaultKeyword));
+  if (!fn) {
+    const assign = file.statements.find((st): st is ts.ExportAssignment => ts.isExportAssignment(st) && !st.isExportEquals);
+    if (assign && ts.isIdentifier(assign.expression)) {
+      const name = assign.expression.text;
+      fn = file.statements.find((st) => ts.isFunctionDeclaration(st) && st.name?.text === name);
+      if (!fn) {
+        const decl = findAll(file, (n) => ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.name.text === name)[0] as ts.VariableDeclaration | undefined;
+        fn = decl?.initializer;
+      }
+    } else if (assign) fn = assign.expression;
+  }
+  const body = fn && (ts.isFunctionDeclaration(fn) || ts.isArrowFunction(fn) || ts.isFunctionExpression(fn)) ? fn.body : undefined;
+  expect(body && ts.isBlock(body), "the layout is the default export of src/app/employer/layout.tsx and has a block body").toBe(true);
+  return body as ts.Block;
+}
+
+const alwaysReturns = (st: ts.Statement): boolean =>
+  ts.isReturnStatement(st) || (ts.isBlock(st) && st.statements.length > 0 && alwaysReturns(st.statements[st.statements.length - 1]));
+
+/** signedOut: the early-return guard (`if (!x) return ...`, no else); rest: the statements after it in the same body, i.e. the signed-in shell. */
+function employerLayoutBranches() {
+  const body = defaultExportBody(layoutFile()).statements;
+  const at = body.findIndex(
+    (st) => ts.isIfStatement(st) && !st.elseStatement && ts.isPrefixUnaryExpression(st.expression) && st.expression.operator === ts.SyntaxKind.ExclamationToken && alwaysReturns(st.thenStatement),
+  );
+  return { signedOut: at === -1 ? null : (body[at] as ts.IfStatement).thenStatement, rest: at === -1 ? [] : body.slice(at + 1) };
+}
+
+/** Local names that ARE the strip: whatever the file imports from the strip's own modules (renamed imports included), plus every const alias of one, to a fixed point. */
+function stripNames(file: ts.SourceFile): Set<string> {
+  const names = new Set<string>();
+  for (const st of file.statements) {
+    if (!ts.isImportDeclaration(st) || !ts.isStringLiteral(st.moduleSpecifier) || !STRIP_MODULE.test(st.moduleSpecifier.text)) continue;
+    const c = st.importClause;
+    if (c?.name) names.add(c.name.text);
+    if (c?.namedBindings && ts.isNamedImports(c.namedBindings)) for (const e of c.namedBindings.elements) names.add(e.name.text);
+  }
+  const aliases = findAll(file, (n) => ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && !!n.initializer && ts.isIdentifier(n.initializer)) as ts.VariableDeclaration[];
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const d of aliases) {
+      const alias = (d.name as ts.Identifier).text;
+      if (names.has((d.initializer as ts.Identifier).text) && !names.has(alias)) {
+        names.add(alias);
+        grew = true;
+      }
+    }
+  }
+  return names;
+}
+
+/** Same-file declarations by name (function declarations, and any variable with an initializer: arrows, function expressions, elements, aliases), wherever they sit in the file. */
+function declarations(file: ts.SourceFile): Map<string, ts.Node[]> {
+  const map = new Map<string, ts.Node[]>();
+  const add = (name: string, node: ts.Node) => map.set(name, [...(map.get(name) ?? []), node]);
+  for (const n of findAll(file, () => true)) {
+    if (ts.isFunctionDeclaration(n) && n.name && n.body) add(n.name.text, n.body);
+    if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer) add(n.name.text, n.initializer);
+  }
+  return map;
+}
+
+/** True when the strip is reachable from `roots`: any identifier or JSX tag in them that is a strip name, or that names a same-file declaration from which one is reachable. */
+function reachesStrip(roots: ts.Node[]): boolean {
+  const file = layoutFile();
+  const strip = stripNames(file);
+  const decls = declarations(file);
+  const seen = new Set<string>();
+  const queue = [...roots];
+  while (queue.length) {
+    const node = queue.pop()!;
+    for (const id of findAll(node, ts.isIdentifier) as ts.Identifier[]) {
+      if (strip.has(id.text)) return true;
+      if (!seen.has(id.text) && decls.has(id.text)) {
+        seen.add(id.text);
+        queue.push(...decls.get(id.text)!);
+      }
+    }
+  }
+  return false;
+}
 
 const saved = process.env.PWA_KILL;
 afterEach(() => {
@@ -79,11 +164,11 @@ describe("the employer layout mounts it in the signed-in branch only, last", () 
   });
 
   it("renders it AFTER the signed-out early return, so a signed-out visitor and the public /employer page get none", () => {
-    // Read as a syntax tree, not as text: the old check cut the early-return branch at the first "}" and so never saw a mount placed after {children} INSIDE it.
+    // Read as a syntax tree, not as text (see employerLayoutBranches): rename-proof, and it follows helpers and aliases.
     const { signedOut, rest } = employerLayoutBranches();
-    expect(signedOut, "an `if (!session)` early return exists").not.toBeNull();
-    expect(mentionsStrip(signedOut!), "nothing inside the signed-out branch mentions the strip").toBe(false);
-    expect(rest.some(mentionsStrip), "the strip is mounted in the statements after the early return").toBe(true);
+    expect(signedOut, "an early-return guard (`if (!x) return ...`) exists in the layout").not.toBeNull();
+    expect(reachesStrip([signedOut!]), "the strip is not reachable from the signed-out branch: not directly, not through a same-file helper component or an alias").toBe(false);
+    expect(reachesStrip(rest), "the strip is reachable from the statements after the early return").toBe(true);
   });
 
   it("PINS DOCUMENTED BEHAVIOUR: a signed-in user with NO organisation (e.g. on /employer/onboarding) gets the strip too; the owner decision on a role gate is pending", () => {
@@ -91,7 +176,8 @@ describe("the employer layout mounts it in the signed-in branch only, last", () 
     // for any signed-in user whatever their organisation. This test records that as it stands; it is NOT a statement that it is right. If the owner decides the strip should be
     // gated on a role or an organisation, this test is the one to change on purpose.
     const { rest } = employerLayoutBranches();
-    const mounts = rest.flatMap((st) => findAll(st, (n) => ts.isJsxSelfClosingElement(n) && n.tagName.getText() === "EmployerInstallStrip"));
+    const strip = stripNames(layoutFile());
+    const mounts = rest.flatMap((st) => findAll(st, (n) => ts.isJsxSelfClosingElement(n) && strip.has(n.tagName.getText())));
     expect(mounts).toHaveLength(1);
     let node: ts.Node | undefined = mounts[0].parent;
     const gates: string[] = [];
