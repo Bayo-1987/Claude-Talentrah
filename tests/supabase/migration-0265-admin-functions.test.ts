@@ -706,3 +706,40 @@ describe("admin_email_eligible_recipients: who may still get a stream by e-mail"
     for (const k of ["unknown_stream", "null_stream", "null_array"]) expect(r.res[k], k).toBe("ok");
   });
 });
+
+describe("prepare sets requires_approval: a promotion or more than 100 recipients always needs approval, and it is never lowered", () => {
+  const manyUsers = (n: number) => `insert into auth.users (id, email, instance_id, aud, role) select gen_random_uuid(), 'bulk' || g || '@example.test', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated' from generate_series(1, ${n}) g;`;
+  const flagOf = (m: string) => `select requires_approval from public.admin_messages where id = '${m}'`;
+  const small = [
+    FIXTURES,
+    OPERATORS,
+    FLAGS_ON,
+    msg(M1, { key: "self_test", approval: false }), // an announcement to one person, created without approval
+    msg(M2, { key: "self_test", approval: false, kind: "promotion" }), // a promotion to one person, created without approval
+    msg(M3, { key: "self_test", approval: true }), // already needs approval: stays
+    `select ${call.prepare(M1, A2)};`,
+    `select ${call.prepare(M2, A2)};`,
+    `select ${call.prepare(M3, A2)};`,
+    scalar("announcement_small", flagOf(M1)),
+    scalar("promotion_small", flagOf(M2)),
+    scalar("never_lowered", flagOf(M3)),
+  ].join("\n");
+  const rs = replay0265(small);
+  const sized = (n: number) =>
+    replay0265([FIXTURES, OPERATORS, FLAGS_ON, manyUsers(n), msg(M1, { key: "everyone", approval: false }), scalar("count", sel(call.prepare(M1, A2))), scalar("flag", flagOf(M1))].join("\n"));
+  const at100 = sized(94); // 4 + 2 + 94 = 100
+  const at101 = sized(95);
+
+  it("the replays apply", () => {
+    for (const r of [rs, at100, at101]) expect(r.ok, r.stderr).toBe(true);
+  });
+  it("an announcement to one person keeps requires_approval false; a promotion to one person gets true", () => {
+    expect(rs.res.announcement_small).toBe("false");
+    expect(rs.res.promotion_small).toBe("true");
+  });
+  it("exactly 100 recipients keep requires_approval false; 101 make it true", () => {
+    expect([at100.res.count, at100.res.flag]).toEqual(["100", "false"]);
+    expect([at101.res.count, at101.res.flag]).toEqual(["101", "true"]);
+  });
+  it("a message that already needs approval is never lowered", () => expect(rs.res.never_lowered).toBe("true"));
+});

@@ -653,6 +653,8 @@ export class FakeNotificationBackend implements ServiceRpcs {
       });
     }
     message.audience_count = this.recipients.filter((r) => r.message_id === message.id).length;
+    // A promotion, or more than 100 recipients, always needs approval; a flag already set is never lowered (N1-R30).
+    message.requires_approval = message.requires_approval || message.kind === "promotion" || message.audience_count > 100;
     message.status = "prepared";
     this.addEvent(message.id, "prepared", {}, args.p_actor);
     return message.audience_count;

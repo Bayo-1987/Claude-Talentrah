@@ -117,3 +117,23 @@ describe("commit 4: the stream unsubscribe and the device registration refuse wh
     expect(await refusalOf(() => fake.forCaller(USER).registerPushSubscription(args as never))).toBe("22023/invalid_parameter");
   });
 });
+
+describe("prepare raises requires_approval (a promotion, or more than 100 recipients) and never lowers it", () => {
+  const prepare = async (opts: { kind?: "promotion" | "service_announcement"; requiresApproval: boolean; people: number }) => {
+    for (let i = 0; i < opts.people; i++) fake.addPerson({ id: `00000000-0000-4000-8000-0000000${String(i + 100).padStart(5, "0")}` });
+    fake.setFlag("notifications_master", true);
+    fake.setFlag("admin_messaging", true);
+    fake.setFlag("admin_promotions", true);
+    const m = fake.addDraftMessage({ createdBy: ADMIN, kind: opts.kind ?? "service_announcement", requiresApproval: opts.requiresApproval, segmentKey: "everyone", consentLine: "You asked for offers." });
+    const count = await fake.prepareAdminMessage({ p_message: m.id, p_actor: ADMIN, p_max_audience: 500 });
+    return { count, flag: fake.messages.find((x) => x.id === m.id)!.requires_approval };
+  };
+  it("an announcement to a few people keeps false", async () => expect((await prepare({ requiresApproval: false, people: 3 })).flag).toBe(false));
+  it("a promotion gets true", async () => expect((await prepare({ kind: "promotion", requiresApproval: false, people: 3 })).flag).toBe(true));
+  it("exactly 100 recipients keep false; 101 get true", async () => {
+    // beforeEach already holds one person (USER), so 99 more make 100 and 100 more make 101
+    expect(await prepare({ requiresApproval: false, people: 99 })).toEqual({ count: 100, flag: false });
+  });
+  it("101 recipients get true", async () => expect(await prepare({ requiresApproval: false, people: 100 })).toEqual({ count: 101, flag: true }));
+  it("a message that already needs approval is never lowered", async () => expect((await prepare({ requiresApproval: true, people: 2 })).flag).toBe(true));
+});

@@ -807,7 +807,10 @@ begin
     raise exception 'operation refused' using errcode = 'P0001', hint = 'audience_over_limit';
   end if;
 
-  update public.admin_messages m set audience_count = v_rows::integer, status = 'prepared' where m.id = v_m.id;
+  -- A promotion, or an audience of more than 100, always needs a second person's approval; a message that already needed it keeps needing it (this only ever raises the flag).
+  update public.admin_messages m
+     set audience_count = v_rows::integer, status = 'prepared', requires_approval = m.requires_approval or v_m.kind = 'promotion' or v_rows > 100
+   where m.id = v_m.id;
   select u.email into v_email from public.admin_users u where u.id = p_actor;
   insert into public.admin_message_events (message_id, event, actor_admin_id, actor_email) values (v_m.id, 'prepared', p_actor, v_email);
   return v_rows::integer;
