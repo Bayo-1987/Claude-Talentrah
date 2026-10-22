@@ -95,7 +95,9 @@ describe("register_push_subscription: who may call it, the device limit and the 
     // the limit: ten active devices are fine, the eleventh is refused
     asU1(N.map((n) => reg(`d${n}`, ep(`lim${n}`)))),
     asU1([probe("eleventh", `select ${call(ep("lim11"))}`, "P0001", "device_limit")]),
+    `select set_config('n1.id3', (select id::text from public.push_subscriptions where endpoint = '${ep("lim3")}'), false);`,
     asU1([reg("reregister_at_limit", ep("lim3"))]),
+    scalar("same_id_after_reregister", `select (id::text = current_setting('n1.id3'))::text || '/' || (select count(*) from public.push_subscriptions where user_id = '${U1}' and endpoint like '%lim3')::text from public.push_subscriptions where endpoint = '${ep("lim3")}'`),
     `update public.push_subscriptions set revoked_at = now(), revoke_reason = 'user' where endpoint = '${ep("lim1")}';`,
     asU1([reg("revived_revoked", ep("lim1"))]),
     scalar("revived_state", `select coalesce(revoked_at::text, 'none') || '/' || coalesce(revoke_reason, 'none') from public.push_subscriptions where endpoint = '${ep("lim1")}'`),
@@ -107,12 +109,15 @@ describe("register_push_subscription: who may call it, the device limit and the 
     dev(D1, U1, ep("shared")),
     `insert into public.notification_deliveries (id, user_id, kind, subject_id, channel, device_id) values ('${CLAIM}', '${U1}', 'match_alert', '${SUBJECT}', 'push', '${D1}');`,
     asU2([reg("rebind", ep("shared"), { zone: "Asia/Kolkata", ua: "Firefox" })]),
-    scalar("rebound_owner", `select user_id || '/' || ua_short || '/' || timezone || '/' || (id = '${D1}')::text from public.push_subscriptions where endpoint = '${ep("shared")}'`),
+    scalar("rebound_owner", `select user_id || '/' || ua_short || '/' || timezone || '/' || (id = '${D1}')::text || '/' || coalesce(revoked_at::text, 'active') from public.push_subscriptions where endpoint = '${ep("shared")}'`),
+    // the previous owner's row is kept, revoked with the reason user, its endpoint and keys no longer usable (F5)
+    scalar("previous_row", `select user_id || '/' || (revoked_at is not null)::text || '/' || coalesce(revoke_reason, 'none') || '/' || (endpoint <> '${ep("shared")}')::text || '/' || (p256dh <> 'k' and auth <> 'a')::text from public.push_subscriptions where id = '${D1}'`),
+    scalar("new_row_is_new", `select (id <> '${D1}')::text from public.push_subscriptions where endpoint = '${ep("shared")}'`),
     scalar("one_row_per_endpoint", `select count(*) from public.push_subscriptions where endpoint = '${ep("shared")}'`),
-    asU1([rowsOf("previous_owner_sees", `select id from public.push_subscriptions where id = '${D1}'`), rowsOf("previous_owner_deletes", `delete from public.push_subscriptions where id = '${D1}'`)]),
-    asU2([rowsOf("new_owner_sees", `select id from public.push_subscriptions where id = '${D1}'`)]),
-    // the previous owner's ledger rows are left as they were (PUSH-REBIND-LEDGER-LINK-1, as the fake does)
+    // the previous owner's ledger rows are left as they were: they point at the previous owner's own (now revoked) device
     scalar("ledger_untouched", `select user_id || '/' || device_id from public.notification_deliveries where id = '${CLAIM}'`),
+    asU2([rowsOf("new_owner_sees_old_row", `select id from public.push_subscriptions where id = '${D1}'`), rowsOf("new_owner_sees_own", `select id from public.push_subscriptions where ua_short = 'Firefox' and revoked_at is null`)]),
+    asU1([rowsOf("previous_owner_sees", `select id from public.push_subscriptions where id = '${D1}'`), rowsOf("previous_owner_deletes", `delete from public.push_subscriptions where id = '${D1}'`)]),
     scalar("meta", "select p.proisstrict::text || '/' || p.prosecdef::text || '/' || coalesce(p.proconfig::text, '') from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname = 'register_push_subscription'"),
     scalar("acl", "select coalesce(string_agg(coalesce(g.rolname, 'PUBLIC'), ',' order by g.rolname), 'nobody') from pg_proc p cross join lateral aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a left join pg_roles g on g.oid = a.grantee where p.pronamespace = 'public'::regnamespace and p.proname = 'register_push_subscription' and a.grantee <> p.proowner"),
   ].join("\n");
@@ -128,6 +133,7 @@ describe("register_push_subscription: who may call it, the device limit and the 
     for (const n of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) expect(r.res[`d${n}`], `d${n}`).toBe("id");
     expect(r.res.eleventh).toBe("ok");
     expect(r.res.reregister_at_limit).toBe("id");
+    expect(r.res.same_id_after_reregister).toBe("true/1"); // the caller's own device is refreshed in place: same row, no copy
     expect(r.res.eleventh_after_a_revoke).toBe("id");
     expect(r.res.revive_over_limit, "reviving a revoked device would make eleven active").toBe("ok");
   });
@@ -136,15 +142,18 @@ describe("register_push_subscription: who may call it, the device limit and the 
     expect(r.res.revived_state).toBe("none/none");
     expect(r.res.other_person_unaffected).toBe("id");
   });
-  it("an endpoint someone else holds is re-bound in place to the caller (one row, same id, new keys, browser and zone); the previous owner no longer sees or deletes it", () => {
+  it("an endpoint someone else holds goes to the caller as a NEW row (new id, new keys, browser and zone), and the previous owner's row is kept, revoked (user), with its endpoint and keys made unusable; one live row per endpoint", () => {
     expect(r.res.rebind).toBe("id");
-    expect(r.res.rebound_owner).toBe(`${U2}/Firefox/Asia/Kolkata/true`);
+    expect(r.res.rebound_owner).toBe(`${U2}/Firefox/Asia/Kolkata/false/active`);
+    expect(r.res.new_row_is_new).toBe("true");
     expect(r.res.one_row_per_endpoint).toBe("1");
-    expect(r.res.previous_owner_sees).toBe("0");
-    expect(r.res.previous_owner_deletes).toBe("0");
-    expect(r.res.new_owner_sees).toBe("1");
+    expect(r.res.previous_row).toBe(`${U1}/true/user/true/true`);
   });
-  it("the previous owner's ledger rows are left untouched by a re-bind (backlog PUSH-REBIND-LEDGER-LINK-1)", () => expect(r.res.ledger_untouched).toBe(`${U1}/${D1}`));
+  it("the previous owner still sees their own (revoked) row and can delete it; the new owner does not see it and sees their own", () => {
+    expect([r.res.previous_owner_sees, r.res.previous_owner_deletes]).toEqual(["1", "1"]);
+    expect([r.res.new_owner_sees_old_row, r.res.new_owner_sees_own]).toEqual(["0", "1"]);
+  });
+  it("the previous owner's ledger rows still point at the previous owner's (now revoked) device, so a take-over leaves the history intact", () => expect(r.res.ledger_untouched).toBe(`${U1}/${D1}`));
 });
 
 describe("a deletion request revokes the person's devices (N1-R11)", () => {

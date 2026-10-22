@@ -191,6 +191,12 @@ export const ADMIN_MESSAGE_EVENT_KINDS = [
 ] as const;
 export type AdminMessageEventKind = (typeof ADMIN_MESSAGE_EVENT_KINDS)[number];
 
+/**
+ * The youngest an open e-mail claim may be for a person to resolve it by hand (N1-R34). The sweep's list keeps its age parameter, chosen by the caller; the resolve call refuses a
+ * claim younger than this whatever the caller passes. The SQL holds the same figure as a literal, and a test reads the migration text and asserts it equals this constant.
+ */
+export const STALE_CLAIM_MIN_AGE_MINUTES = 30;
+
 export const STALE_CLAIM_RESOLUTIONS = ["mark_sent", "release_for_retry"] as const;
 export type StaleClaimResolution = (typeof STALE_CLAIM_RESOLUTIONS)[number];
 

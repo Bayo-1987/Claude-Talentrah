@@ -139,6 +139,8 @@ describe("resolve_admin_segment: the closed list of segments", () => {
         ["days_45", "inactive_seekers", '{"days":45}'],
         ["days_string", "inactive_seekers", '{"days":"30"}'],
         ["days_null", "inactive_seekers", '{"days":null}'],
+        ["days_30_point_0", "inactive_seekers", '{"days":30.0}'],
+        ["days_30_point_5", "inactive_seekers", '{"days":30.5}'],
         ["since_missing", "signed_up_since", "{}"],
         ["since_slashes", "signed_up_since", '{"since":"10/01/2026"}'],
         ["since_month_13", "signed_up_since", '{"since":"2026-13-45"}'],
@@ -188,7 +190,7 @@ describe("resolve_admin_segment: the closed list of segments", () => {
   });
   it("a parameter a segment does not use is ignored", () => expect(r.res.unused_param_ignored).toBe(idList(...visible)));
   it.each([
-    "unknown_key", "unknown_key_next_to_good", "days_missing", "days_45", "days_string", "days_null", "since_missing", "since_slashes", "since_month_13", "since_number", "params_array", "params_scalar", "key_unknown", "key_case", "params_null", "key_null",
+    "unknown_key", "unknown_key_next_to_good", "days_missing", "days_45", "days_string", "days_null", "days_30_point_0", "days_30_point_5", "since_missing", "since_slashes", "since_month_13", "since_number", "params_array", "params_scalar", "key_unknown", "key_case", "params_null", "key_null",
   ])("%s is 22023", (n) => expect(r.res[n]).toBe("ok"));
   it("the function is not strict, is a definer and returns a set", () => expect(r.res.meta).toBe("false/true/true"));
 });
@@ -742,4 +744,138 @@ describe("prepare sets requires_approval: a promotion or more than 100 recipient
     expect([at101.res.count, at101.res.flag]).toEqual(["101", "true"]);
   });
   it("a message that already needs approval is never lowered", () => expect(rs.res.never_lowered).toBe("true"));
+});
+
+describe("start_admin_message_send: the daily limits are checked at start too (F1)", () => {
+  const idn = (n: number) => `00000000-0000-4000-8000-0000000e${String(n).padStart(4, "0")}`;
+  const sent = (n: number, by: string | null, ago: string) => msg(idn(n), { by, status: "sent", approval: false, started: ago });
+  const body = [
+    FIXTURES,
+    OPERATORS,
+    FLAGS_ON,
+    // A2 has started four sends in the last day: a fifth can start
+    ...[1, 2, 3, 4].map((n) => sent(n, A2, "2 hours")),
+    msg(M1, { status: "prepared", approval: false }),
+    scalar("fifth_starts", `select (${call.start(M1, A2)} = '${M1}')::text`),
+    // now five have started: the sixth cannot, and says why; it stays unstarted
+    msg(M2, { status: "prepared", approval: false }),
+    probe("sixth_refused", sel(call.start(M2, A2)), "P0001", "operator_daily_limit"),
+    scalar("sixth_state", `select status || '/' || coalesce(sent_started_at::text, 'none') from public.admin_messages where id = '${M2}'`),
+    // another operator's message is not held by A2's count (the limit is by the message's creator)
+    msg(M3, { by: A3, status: "prepared", approval: false }),
+    scalar("other_creator_starts", `select (${call.start(M3, A3)} = '${M3}')::text`),
+    // a message that is not startable is answered with nothing, not with a limit error
+    msg(M4, { status: "draft" }),
+    scalar("draft_with_limit_reached", sel(call.start(M4, A2))),
+  ].join("\n");
+  const r = replay0265(body);
+  const overall = replay0265(
+    [
+      FIXTURES,
+      OPERATORS,
+      FLAGS_ON,
+      ...Array.from({ length: 9 }, (_, i) => sent(i + 1, null, "3 hours")),
+      msg(M1, { by: A3, status: "prepared", approval: false }),
+      scalar("tenth_starts", `select (${call.start(M1, A3)} = '${M1}')::text`),
+      msg(M2, { by: A2, status: "prepared", approval: false }),
+      probe("eleventh_refused", sel(call.start(M2, A2)), "P0001", "overall_daily_limit"),
+    ].join("\n"),
+  );
+  // ten starts that began 30 hours ago do not hold anything back
+  const overallOld = replay0265(
+    [FIXTURES, OPERATORS, FLAGS_ON, ...Array.from({ length: 10 }, (_, i) => sent(i + 1, null, "30 hours")), msg(M1, { by: A3, status: "prepared", approval: false }), scalar("old_overall_do_not_count", `select (${call.start(M1, A3)} = '${M1}')::text`)].join("\n"),
+  );
+  const rolling = replay0265(
+    [FIXTURES, OPERATORS, FLAGS_ON, ...Array.from({ length: 5 }, (_, i) => sent(i + 1, A2, "24 hours 1 minute")), msg(M1, { status: "prepared", approval: false }), scalar("old_do_not_count", `select (${call.start(M1, A2)} = '${M1}')::text`)].join("\n"),
+  );
+
+  it("the replays apply", () => {
+    for (const x of [r, overall, rolling]) expect(x.ok, x.stderr).toBe(true);
+  });
+  it("a sixth start by one creator inside 24 hours is refused with operator_daily_limit and the message stays unstarted; the fifth is allowed; another creator is not held", () => {
+    expect(r.res.fifth_starts).toBe("true");
+    expect(r.res.sixth_refused).toBe("ok");
+    expect(r.res.sixth_state).toMatch(/^prepared\/none$/);
+    expect(r.res.other_creator_starts).toBe("true");
+  });
+  it("a message that is not startable gets null, not a limit error", () => expect(r.res.draft_with_limit_reached).toBe("NULL"));
+  it("an eleventh start overall inside 24 hours is refused with overall_daily_limit; the tenth is allowed", () => {
+    expect(overall.res.tenth_starts).toBe("true");
+    expect(overall.res.eleventh_refused).toBe("ok");
+  });
+  it("starts older than 24 hours do not count (a rolling window), for the creator and overall", () => {
+    expect(rolling.res.old_do_not_count).toBe("true");
+    expect(overallOld.ok, overallOld.stderr).toBe(true);
+    expect(overallOld.res.old_overall_do_not_count).toBe("true");
+  });
+});
+
+describe("start_admin_message_send: a flag stop is recorded once per message until something else happens to it (F8)", () => {
+  const stops = (m: string) => `select count(*) from public.admin_message_events where message_id = '${m}' and event = 'flag_stopped'`;
+  const body = [
+    FIXTURES,
+    OPERATORS,
+    FLAGS_ON,
+    msg(M1, { status: "approved", approval: false }),
+    flag("admin_messaging", false),
+    `select ${call.start(M1, A2)};`,
+    `select ${call.start(M1, A2)};`,
+    `select ${call.start(M1, A3)};`,
+    scalar("after_three_calls", stops(M1)),
+    // another message has its own stop
+    msg(M2, { status: "approved", approval: false }),
+    `select ${call.start(M2, A2)};`,
+    scalar("other_message", stops(M2)),
+    // something else happened to a message after its last stop (a dated event) and the flag is still off: one more stop is recorded, once
+    msg(M3, { status: "approved", approval: false }),
+    `insert into public.admin_message_events (message_id, event, actor_admin_id, actor_email, at) values ('${M3}', 'flag_stopped', '${A2}', 'a@example.test', now() - interval '2 minutes'), ('${M3}', 'test_sent', '${A2}', 'a@example.test', now() - interval '1 minute');`,
+    `select ${call.start(M3, A2)};`,
+    `select ${call.start(M3, A2)};`,
+    scalar("after_a_later_event", stops(M3)),
+    // an unknown message writes nothing
+    probe("unknown_message", sel(call.start(UNKNOWN, A2)), "P0001", "not_found"),
+    scalar("no_orphan_events", "select count(*) from public.admin_message_events where message_id is null"),
+  ].join("\n");
+  const r = replay0265(body);
+  it("the replay applies", () => expect(r.ok, r.stderr).toBe(true));
+  it("repeated starts with a flag off write one flag_stopped event per message, not one per call", () => {
+    expect([r.res.after_three_calls, r.res.other_message]).toEqual(["1", "1"]);
+  });
+  it("a new stop is recorded once something else has happened to the message since", () => expect(r.res.after_a_later_event).toBe("2"));
+  it("an unknown message writes no event", () => expect([r.res.unknown_message, r.res.no_orphan_events]).toEqual(["ok", "0"]));
+});
+
+describe("resolve_stale_claim: only an e-mail claim open longer than the stale age (30 minutes) (F6)", () => {
+  const S = (n: number) => `00000000-0000-4000-8000-0000000fa${String(n).padStart(3, "0")}`;
+  const claim = (n: number, channel: string, ago: string) =>
+    `insert into public.notification_deliveries (id, user_id, kind, subject_id, channel, claimed_at) values ('${S(n)}', '${U1}', 'match_alert', '${S(n + 50)}', '${channel}', now() - interval '${ago}');`;
+  const resolve = (n: number, how: string) => `public.resolve_stale_claim(p_id => '${S(n)}', p_actor => '${A2}', p_resolution => '${how}')`;
+  const body = [
+    FIXTURES,
+    OPERATORS,
+    claim(1, "email", "31 minutes"),
+    claim(2, "email", "29 minutes 30 seconds"),
+    claim(3, "push", "5 hours"),
+    claim(4, "inapp", "5 hours"),
+    claim(5, "email", "2 hours"),
+    probe("fresh_email_refused", sel(resolve(2, "mark_sent")), "P0001", "invalid_state"),
+    probe("old_push_refused", sel(resolve(3, "release_for_retry")), "P0001", "invalid_state"),
+    probe("old_inapp_refused", sel(resolve(4, "mark_sent")), "P0001", "invalid_state"),
+    scalar("refusals_changed_nothing", `select count(*) from public.notification_deliveries where id in ('${S(2)}', '${S(3)}', '${S(4)}') and sent_at is null and released_at is null`),
+    scalar("refusals_wrote_no_event", "select count(*) from public.admin_message_events where event = 'claim_resolved'"),
+    `select ${resolve(1, "mark_sent")};`,
+    `select ${resolve(5, "release_for_retry")};`,
+    scalar("old_email_resolved", `select (select sent_at is not null from public.notification_deliveries where id = '${S(1)}')::text || '/' || (select released_at is not null from public.notification_deliveries where id = '${S(5)}')::text`),
+    scalar("events", "select count(*) from public.admin_message_events where event = 'claim_resolved'"),
+  ].join("\n");
+  const r = replay0265(body);
+  it("the replay applies", () => expect(r.ok, r.stderr).toBe(true));
+  it("a fresh e-mail claim, an old push claim and an old in-app claim are refused (invalid_state) and nothing changes", () => {
+    for (const k of ["fresh_email_refused", "old_push_refused", "old_inapp_refused"]) expect(r.res[k], k).toBe("ok");
+    expect([r.res.refusals_changed_nothing, r.res.refusals_wrote_no_event]).toEqual(["3", "0"]);
+  });
+  it("an e-mail claim older than 30 minutes can be marked sent or released, and each writes one event", () => {
+    expect(r.res.old_email_resolved).toBe("true/true");
+    expect(r.res.events).toBe("2");
+  });
 });

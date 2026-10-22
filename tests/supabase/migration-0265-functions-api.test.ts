@@ -281,6 +281,23 @@ describe("the ledger functions through the Data API (committed fixtures, cleaned
     }, 60_000);
   });
 
+  describe("two sessions at once (N1-R31): the registration limit and the send limits hold across connections", () => {
+    const hold = (statements: string) =>
+      new Promise<void>((resolve) => execFile("docker", ["exec", "-i", localDbContainer(), "psql", "-U", "postgres", "-d", "postgres", "-X", "-c", statements], () => resolve()));
+    it("a registration that waits on another session's open registration of the same person sees the tenth device and is refused (the per-person lock)", async () => {
+      const person = await newPerson("n1-api-two-reg");
+      for (let i = 0; i < 9; i++) await device(person.id);
+      const holder = hold(
+        `begin; set local role authenticated; select set_config('request.jwt.claims', '{"sub":"${person.id}","role":"authenticated"}', true); select public.register_push_subscription('https://push.example.invalid/hold-${randomUUID()}', 'k', 'a', 'Chrome', null); select pg_sleep(3); commit;`,
+      );
+      await new Promise((r) => setTimeout(r, 1200));
+      const second = await untyped(person.client).rpc("register_push_subscription", { p_endpoint: `https://push.example.invalid/second-${randomUUID()}`, p_p256dh: "k", p_auth: "a", p_ua: "Chrome" });
+      await holder;
+      expect([second.error?.code, second.error?.hint]).toEqual(["P0001", "device_limit"]);
+      expect(sql(`select count(*) from public.push_subscriptions where user_id = '${person.id}' and revoked_at is null;`)).toBe("10");
+    }, 60_000);
+  });
+
   describe("the admin functions over HTTP: errcodes, hints, generic messages and a double start", () => {
     const FLAG_KEYS = ["notifications_master", "admin_messaging", "admin_promotions", "admin_email"];
     const flagsBefore: Record<string, boolean> = {};
@@ -372,6 +389,26 @@ describe("the ledger functions through the Data API (committed fixtures, cleaned
       expect(results.filter((r) => r.data === m).length).toBe(1);
       expect(results.filter((r) => r.data === null).length).toBe(9);
       expect(sql(`select count(*) from public.admin_message_events where message_id = '${m}' and event = 'send_started';`)).toBe("1");
+    }, 60_000);
+    it("a start that waits on another session's open start takes the lock, sees the fifth start and is refused with operator_daily_limit, leaving the message prepared (F1)", async () => {
+      // bring the operator to exactly four starts inside the last day (earlier tests in this block may have made some)
+      const already = Number(sql(`select count(*) from public.admin_messages where created_by = '${operator.id}' and sent_started_at > now() - interval '24 hours';`));
+      for (let i = 0; i < 4 - already; i++) {
+        const id = randomUUID();
+        messageIds.push(id);
+        sql(`insert into public.admin_messages (id, created_by, created_by_email, kind, title, body, channels, segment_key, status, requires_approval, sent_started_at) values ('${id}', '${operator.id}', 'op@example.test', 'service_announcement', 'T', 'B', array['inapp'], 'self_test', 'sent', false, now() - interval '1 hour');`);
+      }
+      const first = newMessage("prepared");
+      const second = newMessage("prepared");
+      const holder = new Promise<void>((resolve) =>
+        execFile("docker", ["exec", "-i", localDbContainer(), "psql", "-U", "postgres", "-d", "postgres", "-X", "-c", `begin; select public.start_admin_message_send('${first}', '${operator.id}'); select pg_sleep(3); commit;`], () => resolve()),
+      );
+      await new Promise((r) => setTimeout(r, 1200));
+      const refused = await svc.rpc("start_admin_message_send", { p_message: second, p_actor: operator.id });
+      await holder;
+      expect([refused.error?.code, refused.error?.hint]).toEqual(["P0001", "operator_daily_limit"]);
+      expect(sql(`select status from public.admin_messages where id = '${second}';`)).toBe("prepared");
+      expect(sql(`select status from public.admin_messages where id = '${first}';`)).toBe("sending");
     }, 60_000);
   });
 

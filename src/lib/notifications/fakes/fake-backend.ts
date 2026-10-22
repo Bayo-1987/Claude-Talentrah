@@ -19,6 +19,7 @@ import {
   NOTIFICATION_LIMITS,
   NOTIFICATION_SETTING_KEYS,
   PUSH_RELEASE_REASONS,
+  STALE_CLAIM_MIN_AGE_MINUTES,
   STALE_CLAIM_RESOLUTIONS,
   type AdminMessageEventDetail,
   type AdminMessageEventKind,
@@ -127,6 +128,9 @@ const LINK_PATH = new RegExp(`^/([^/${LINK_REFUSED}][^${LINK_REFUSED}]*)?$`);
 export function isSameOriginPath(path: string): boolean {
   return path.length <= 200 && LINK_PATH.test(path);
 }
+
+/** The age after which an open e-mail claim may be resolved by hand: the contract's constant (N1-R34); the database holds the same figure as a literal. */
+const STALE_CLAIM_AGE_MS = STALE_CLAIM_MIN_AGE_MINUTES * 60 * 1000;
 
 export class FakeNotificationBackend implements ServiceRpcs {
   deliveries: NotificationDeliveryRow[] = [];
@@ -433,6 +437,8 @@ export class FakeNotificationBackend implements ServiceRpcs {
     const row = this.deliveries.find((d) => d.id === args.p_id);
     if (!row) throw refuse(rpc, "not_found");
     if (row.sent_at !== null || row.released_at !== null) throw refuse(rpc, "invalid_state");
+    // Only an e-mail claim open longer than the stale age can be resolved by hand (N1-R31 F6).
+    if (row.channel !== "email" || this.now().getTime() - Date.parse(row.claimed_at) < STALE_CLAIM_AGE_MS) throw refuse(rpc, "invalid_state");
     if (args.p_resolution === "mark_sent") row.sent_at = this.now().toISOString();
     else row.released_at = this.now().toISOString();
     this.addEvent(row.kind === "admin_message" ? row.subject_id : null, "claim_resolved", { resolution: args.p_resolution }, args.p_actor);
@@ -503,9 +509,8 @@ export class FakeNotificationBackend implements ServiceRpcs {
         const activeOthers = this.devices.filter((d) => d.user_id === userId && d.revoked_at === null && d !== existing);
         if (activeOthers.length >= limits.maxActiveDevices) throw refuse(rpc, "device_limit");
 
-        if (existing) {
-          // Re-bound to the caller: the previous owner no longer holds it.
-          existing.user_id = userId;
+        if (existing && existing.user_id === userId) {
+          // The caller's own device registering again: refreshed in place and revived.
           existing.p256dh = args.p_p256dh;
           existing.auth = args.p_auth;
           existing.ua_short = args.p_ua;
@@ -514,6 +519,14 @@ export class FakeNotificationBackend implements ServiceRpcs {
           existing.revoked_at = null;
           existing.revoke_reason = null;
           return existing.id;
+        }
+        if (existing) {
+          // Someone else holds the endpoint: their row is kept, revoked (user) and made unusable, and the caller gets a new row (N1-R31 F5).
+          existing.revoked_at = now;
+          existing.revoke_reason = "user";
+          existing.endpoint = `https://revoked.invalid/${existing.id}`;
+          existing.p256dh = "revoked";
+          existing.auth = "revoked";
         }
         const row = this.addDevice({ userId, endpoint: args.p_endpoint, timezone: zone });
         row.p256dh = args.p_p256dh;
@@ -699,11 +712,18 @@ export class FakeNotificationBackend implements ServiceRpcs {
     this.requirePermission(args.p_actor, "user_messaging", rpc);
     const message = this.message(args.p_message, rpc);
     if (!this.sendFlagsOn(message)) {
-      this.addEvent(message.id, "flag_stopped", {}, args.p_actor);
+      // One stop event per message until something else has happened to it (N1-R31 F8): the latest event of this message is already a stop, so nothing is added.
+      const latest = [...this.events].reverse().find((e) => e.message_id === message.id);
+      if (latest?.event !== "flag_stopped") this.addEvent(message.id, "flag_stopped", {}, args.p_actor);
       return null;
     }
     const startable = message.status === "approved" || (message.status === "prepared" && !message.requires_approval);
     if (!startable) return null; // a repeat or a double start sends nothing extra
+    // The daily send limits count messages that have STARTED, so they are checked here too, by the message's creator and overall (N1-R31 F1).
+    const since = this.now().getTime() - DAY_MS;
+    const started = this.messages.filter((m) => m.sent_started_at !== null && Date.parse(m.sent_started_at) > since);
+    if (message.created_by !== null && started.filter((m) => m.created_by === message.created_by).length >= NOTIFICATION_LIMITS.adminPerOperatorPerDay) throw refuse(rpc, "operator_daily_limit");
+    if (started.length >= NOTIFICATION_LIMITS.adminOverallPerDay) throw refuse(rpc, "overall_daily_limit");
     message.status = "sending";
     message.sent_started_at = this.now().toISOString();
     this.addEvent(message.id, "send_started", {}, args.p_actor);

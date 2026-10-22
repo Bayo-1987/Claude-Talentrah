@@ -14,11 +14,11 @@
  *   61   the service set of the stack is read from docker, named, and labelled reduced or full
  *   scratch  the private databases the replay tests run in: only n1_replay_<pid>_* names are accepted, and a leftover of a dead process is swept (a live one is not)
  */
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import {
   LocalGuardError, assertLocalGuard, createN1Scratch, dropN1Scratch, haveN1Db, listN1Scratch, localServiceSet, newScratchName, removeAuditRowsAsOwner, requireN1Db, runN1ScratchSql, sweepStaleN1Scratch,
 } from "./migration-0265-local-db";
@@ -212,8 +212,13 @@ describe("scratch databases: the names the helpers will touch", () => {
 });
 
 describe("scratch databases: creation, sweep and removal on the local stack", () => {
-  const dead = newScratchName(2_000_000_001);
-  const alive = newScratchName(2_000_000_002);
+  // Two REAL, live processes stand for the "dead" and the "alive" owner. Other test files sweep with the real liveness check at the same time (whole-suite runs); fake pids looked dead to them, so
+  // they could remove a fixture mid-test (an intermittent failure seen once under load). With live pids the other sweeps leave both alone; only THIS test's predicate calls the first one dead.
+  const sleepers = [spawn("sleep", ["60"]), spawn("sleep", ["60"])];
+  const deadPid = sleepers[0].pid!;
+  const dead = newScratchName(deadPid);
+  const alive = newScratchName(sleepers[1].pid!);
+  afterAll(() => sleepers.forEach((c) => c.kill()));
 
   it("the sweep removes the scratch database of a dead process and leaves one whose process is alive", () => {
     createN1Scratch(dead, "create table t (id int);");
@@ -221,7 +226,7 @@ describe("scratch databases: creation, sweep and removal on the local stack", ()
     try {
       expect(listN1Scratch()).toEqual(expect.arrayContaining([dead, alive]));
       // only the fake pid of the "dead" fixture counts as dead: another test file in the same run owns a live scratch database, and it must not be touched
-      const removed = sweepStaleN1Scratch((pid) => pid !== 2_000_000_001);
+      const removed = sweepStaleN1Scratch((pid) => pid !== deadPid);
       expect(removed).toContain(dead);
       expect(removed).not.toContain(alive);
       const left = listN1Scratch();

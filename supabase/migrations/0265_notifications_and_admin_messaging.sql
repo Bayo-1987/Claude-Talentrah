@@ -14,16 +14,6 @@
 --
 -- Grants follow the grants addendum: nothing leans on the platform's automatic grants. Every table is revoked from every client role first, then given exactly what it needs.
 -- This file has no transaction control: the migration runner wraps it.
---
--- Seven tables, their constraints, row security, explicit least-privilege grants, the ledger functions (claim, release, mark sent, stale claims, resolve a stale claim, unread count, prune) and
--- the quiet-hours predicate, and a self-check that is the LAST statement of this file. The admin-message functions come in a later part and are placed above the self-check.
---
--- Shape: the column lists are the contract's own (src/lib/notifications/contract.ts). Where the design (v3 section 7.2) differs from the contract, the contract wins (N1-R13).
--- Rulings applied: R8 (append-only tables: service_role may read and add, nothing else, and a trigger refuses the rest), R9 (a person reads five columns of their own devices and
--- deletes them by id), R14 (foreign keys), R15 (old_value is a nullable integer), R20 (the nine message statuses), R22 (an admin can be deleted while events and an approved message exist).
---
--- Grants follow the grants addendum: nothing leans on the platform's automatic grants. Every table is revoked from every client role first, then given exactly what it needs.
--- This file has no transaction control: the migration runner wraps it.
 
 -- ---------------------------------------------------------------------------------------
 -- push_subscriptions: one row per browser device of a person
@@ -474,6 +464,8 @@ declare
   v_subject uuid;
   v_sent timestamptz;
   v_released timestamptz;
+  v_channel text;
+  v_claimed timestamptz;
   v_email text;
 begin
   if p_actor is null or not public.admin_has_permission(p_actor, 'user_messaging') then
@@ -482,12 +474,16 @@ begin
   if p_resolution is null or p_resolution not in ('mark_sent', 'release_for_retry') then
     raise exception 'invalid parameter' using errcode = '22023';
   end if;
-  select d.kind, d.subject_id, d.sent_at, d.released_at into v_kind, v_subject, v_sent, v_released
+  select d.kind, d.subject_id, d.sent_at, d.released_at, d.channel, d.claimed_at into v_kind, v_subject, v_sent, v_released, v_channel, v_claimed
     from public.notification_deliveries d where d.id = p_id for update;
   if not found then
     raise exception 'operation refused' using errcode = 'P0001', hint = 'not_found';
   end if;
   if v_sent is not null or v_released is not null then
+    raise exception 'operation refused' using errcode = 'P0001', hint = 'invalid_state';
+  end if;
+  -- Only an e-mail claim that has been open longer than the stale age (30 minutes) can be resolved by hand; a push or in-app claim, and a fresh e-mail claim (a send may be in progress), are refused.
+  if v_channel <> 'email' or v_claimed > pg_catalog.now() - interval '30 minutes' then
     raise exception 'operation refused' using errcode = 'P0001', hint = 'invalid_state';
   end if;
   if p_resolution = 'mark_sent' then
@@ -599,6 +595,8 @@ declare
   v_user uuid := auth.uid();
   v_zone text;
   v_id uuid;
+  v_old_id uuid;
+  v_old_user uuid;
 begin
   if v_user is null then
     raise exception 'permission denied' using errcode = '42501';
@@ -622,12 +620,26 @@ begin
     raise exception 'operation refused' using errcode = 'P0001', hint = 'device_limit';
   end if;
 
-  insert into public.push_subscriptions as d (user_id, endpoint, p256dh, auth, ua_short, timezone)
+  -- One writer per endpoint at a time, so two people registering the same endpoint cannot race into the unique key.
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_endpoint, 2));
+  select d.id, d.user_id into v_old_id, v_old_user from public.push_subscriptions d where d.endpoint = p_endpoint for update;
+  if found and v_old_user = v_user then
+    -- the caller's own device registering again: refreshed in place, and revived if it had been revoked
+    update public.push_subscriptions d
+       set p256dh = p_p256dh, auth = p_auth, ua_short = p_ua, timezone = v_zone, last_seen_at = pg_catalog.now(), revoked_at = null, revoke_reason = null
+     where d.id = v_old_id;
+    return v_old_id;
+  end if;
+  if found then
+    -- Someone else holds this endpoint. Their row is NOT moved: it is revoked and its endpoint and keys are made unusable, so its history (ledger rows point at it) stays with them,
+    -- and the caller gets a new row of their own.
+    update public.push_subscriptions d
+       set revoked_at = pg_catalog.now(), revoke_reason = 'user', endpoint = 'https://revoked.invalid/' || d.id::text, p256dh = 'revoked', auth = 'revoked'
+     where d.id = v_old_id;
+  end if;
+  insert into public.push_subscriptions (user_id, endpoint, p256dh, auth, ua_short, timezone)
   values (v_user, p_endpoint, p_p256dh, p_auth, p_ua, v_zone)
-  on conflict (endpoint) do update
-    set user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth, ua_short = excluded.ua_short, timezone = excluded.timezone,
-        last_seen_at = pg_catalog.now(), revoked_at = null, revoke_reason = null
-  returning d.id into v_id;
+  returning id into v_id;
   return v_id;
 end
 $register$;
@@ -714,7 +726,8 @@ begin
     raise exception 'invalid parameter' using errcode = '22023';
   end if;
   if p_key = 'inactive_seekers' then
-    if jsonb_typeof(p_params -> 'days') is distinct from 'number' or (p_params -> 'days') not in ('30'::jsonb, '60'::jsonb, '90'::jsonb) then
+    -- compared as text: jsonb reads 30.0 as equal to 30, and the cast below would then fail with the wrong error
+    if jsonb_typeof(p_params -> 'days') is distinct from 'number' or (p_params ->> 'days') not in ('30', '60', '90') then
       raise exception 'invalid parameter' using errcode = '22023';
     end if;
     v_days := (p_params ->> 'days')::integer;
@@ -944,8 +957,27 @@ begin
           and coalesce((select f.enabled from public.feature_flags f where f.key = 'admin_messaging'), false)
           and (v_m.kind <> 'promotion' or coalesce((select f.enabled from public.feature_flags f where f.key = 'admin_promotions'), false))
           and ('email' <> all (v_m.channels) or coalesce((select f.enabled from public.feature_flags f where f.key = 'admin_email'), false))) then
-    insert into public.admin_message_events (message_id, event, actor_admin_id, actor_email) values (p_message, 'flag_stopped', p_actor, v_email);
+    -- one stop event per message until something else happens to it (not one per call): an append-only table must not grow by being asked again
+    if not exists (
+      select 1 from public.admin_message_events e
+       where e.message_id = p_message and e.event = 'flag_stopped'
+         and e.at >= coalesce((select max(x.at) from public.admin_message_events x where x.message_id = p_message and x.event <> 'flag_stopped'), '-infinity'::timestamptz)
+    ) then
+      insert into public.admin_message_events (message_id, event, actor_admin_id, actor_email) values (p_message, 'flag_stopped', p_actor, v_email);
+    end if;
     return null;
+  end if;
+  -- The daily send limits count messages that have STARTED, so they are checked here too, under one lock, with the same counts as prepare: a message that cannot start now is refused with the
+  -- reason, and a message that is not startable at all (any state but approved, or prepared without approval) is answered with null before the limits are looked at.
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('admin_send_limits', 0));
+  if exists (select 1 from public.admin_messages m where m.id = p_message and (m.status = 'approved' or (m.status = 'prepared' and not m.requires_approval))) then
+    if v_m.created_by is not null
+       and (select count(*) from public.admin_messages x where x.created_by = v_m.created_by and x.sent_started_at > pg_catalog.now() - interval '24 hours') >= 5 then
+      raise exception 'operation refused' using errcode = 'P0001', hint = 'operator_daily_limit';
+    end if;
+    if (select count(*) from public.admin_messages x where x.sent_started_at > pg_catalog.now() - interval '24 hours') >= 10 then
+      raise exception 'operation refused' using errcode = 'P0001', hint = 'overall_daily_limit';
+    end if;
   end if;
   update public.admin_messages m
      set status = 'sending', sent_started_at = pg_catalog.now()

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { STALE_CLAIM_RESOLUTIONS } from "@/lib/notifications/contract";
+import { STALE_CLAIM_RESOLUTIONS, type AdminSegmentParams } from "@/lib/notifications/contract";
 import { NotificationDbError } from "@/lib/notifications/contract-db";
 import { FakeNotificationBackend } from "@/lib/notifications/fakes";
 import { LINK_BAD, LINK_GOOD } from "../support/n1-link-path-cases";
@@ -41,7 +41,7 @@ describe("Q2: the link of a draft message is a same-origin path", () => {
 describe("Q3: an unknown resolution of a stale claim is 22023 (after the permission, before the lookup)", () => {
   const stale = () => {
     const claimed = fake.deliveries;
-    fake.deliveries = [...claimed, { id: fake.newId(), user_id: USER, kind: "match_alert", subject_id: fake.newId(), device_id: null, channel: "email", claimed_at: fake.now().toISOString(), sent_at: null, released_at: null }];
+    fake.deliveries = [...claimed, { id: fake.newId(), user_id: USER, kind: "match_alert", subject_id: fake.newId(), device_id: null, channel: "email", claimed_at: new Date(fake.now().getTime() - 2 * 3600_000).toISOString(), sent_at: null, released_at: null }];
     return fake.deliveries[fake.deliveries.length - 1];
   };
   it("the closed list is unchanged", () => expect([...STALE_CLAIM_RESOLUTIONS]).toEqual(["mark_sent", "release_for_retry"]));
@@ -136,4 +136,69 @@ describe("prepare raises requires_approval (a promotion, or more than 100 recipi
   });
   it("101 recipients get true", async () => expect(await prepare({ requiresApproval: false, people: 100 })).toEqual({ count: 101, flag: true }));
   it("a message that already needs approval is never lowered", async () => expect((await prepare({ requiresApproval: true, people: 2 })).flag).toBe(true));
+});
+
+describe("N1-R31: stale resolution is for old e-mail claims only (F6), and the daily limits hold at start (F1)", () => {
+  const claimRow = (channel: "email" | "push" | "inapp", ageMs: number) => {
+    fake.deliveries.push({ id: fake.newId(), user_id: USER, kind: "match_alert", subject_id: fake.newId(), device_id: null, channel, claimed_at: new Date(fake.now().getTime() - ageMs).toISOString(), sent_at: null, released_at: null });
+    return fake.deliveries[fake.deliveries.length - 1];
+  };
+  const refused = (p: Promise<unknown>) => p.then(() => "NOT REFUSED", (e: NotificationDbError) => `${e.info.sqlstate}/${e.info.reason}`);
+  it("a fresh e-mail claim (29 minutes), an old push claim and an old in-app claim are refused invalid_state", async () => {
+    for (const row of [claimRow("email", 29 * 60_000), claimRow("push", 5 * 3600_000), claimRow("inapp", 5 * 3600_000)]) {
+      expect(await refused(fake.resolveStaleClaim({ p_id: row.id, p_actor: ADMIN, p_resolution: "mark_sent" }))).toBe("P0001/invalid_state");
+      expect(row.sent_at).toBeNull();
+    }
+  });
+  it("an e-mail claim open for 31 minutes can be resolved", async () => {
+    const row = claimRow("email", 31 * 60_000);
+    await fake.resolveStaleClaim({ p_id: row.id, p_actor: ADMIN, p_resolution: "mark_sent" });
+    expect(row.sent_at).not.toBeNull();
+  });
+  const flagsOn = () => (["notifications_master", "admin_messaging", "admin_promotions", "admin_email"] as const).forEach((k) => fake.setFlag(k, true));
+  const startable = (createdBy: string) => fake.addDraftMessage({ createdBy, requiresApproval: false });
+  const asPrepared = (m: { status: string }) => { m.status = "prepared"; };
+  it("a sixth start by one creator inside 24 hours is operator_daily_limit; an eleventh overall is overall_daily_limit; older starts do not count", async () => {
+    flagsOn();
+    fake.addAdmin(NEW_ADMIN, "b@example.test", ["user_messaging"]);
+    for (let i = 0; i < 5; i++) { const m = startable(ADMIN); asPrepared(m); m.sent_started_at = new Date(fake.now().getTime() - 3600_000).toISOString(); m.status = "sent"; }
+    const sixth = startable(ADMIN); asPrepared(sixth);
+    expect(await refused(fake.startAdminMessageSend({ p_message: sixth.id, p_actor: ADMIN }))).toBe("P0001/operator_daily_limit");
+    expect(sixth.status).toBe("prepared");
+    const other = startable(NEW_ADMIN); asPrepared(other);
+    expect(await fake.startAdminMessageSend({ p_message: other.id, p_actor: NEW_ADMIN })).toBe(other.id);
+  });
+  it("starts older than 24 hours do not count", async () => {
+    flagsOn();
+    for (let i = 0; i < 5; i++) { const m = startable(ADMIN); m.sent_started_at = new Date(fake.now().getTime() - 25 * 3600_000).toISOString(); m.status = "sent"; }
+    const next = startable(ADMIN); asPrepared(next);
+    expect(await fake.startAdminMessageSend({ p_message: next.id, p_actor: ADMIN })).toBe(next.id);
+  });
+  it("a message that cannot start gets null, not a limit error", async () => {
+    flagsOn();
+    for (let i = 0; i < 5; i++) { const m = startable(ADMIN); m.sent_started_at = new Date(fake.now().getTime() - 3600_000).toISOString(); m.status = "sent"; }
+    const draft = startable(ADMIN);
+    expect(await fake.startAdminMessageSend({ p_message: draft.id, p_actor: ADMIN })).toBeNull();
+  });
+});
+const NEW_ADMIN = "00000000-0000-4000-8000-0000000000b2";
+
+describe("F7: the inactive-seekers days value is an integer 30, 60 or 90 in the contract type, the fake and (by migration-0265-admin-functions.test.ts) the SQL", () => {
+  it("the contract type accepts 30, 60 and 90 and nothing else (checked by tsc)", () => {
+    const ok: AdminSegmentParams[] = [{ days: 30 }, { days: 60 }, { days: 90 }];
+    // @ts-expect-error 45 is not a window
+    const bad45: AdminSegmentParams = { days: 45 };
+    // @ts-expect-error a fraction is not a window
+    const bad305: AdminSegmentParams = { days: 30.5 };
+    expect(ok).toHaveLength(3);
+    expect([bad45, bad305]).toHaveLength(2);
+  });
+  const run = (days: unknown) => fake.resolveAdminSegment({ p_key: "inactive_seekers", p_params: { days } as never, p_actor: ADMIN });
+  it("the fake accepts 30, 60 and 90", async () => {
+    for (const d of [30, 60, 90]) await expect(run(d)).resolves.toEqual([]);
+  });
+  it.each([[30.5], [45], ["30"], [null], [0], [-30]])("the fake refuses %s with 22023", async (d) => {
+    await expect(run(d)).rejects.toMatchObject({ info: { sqlstate: "22023", code: "invalid_parameter" } });
+  });
+  // JSON has one number 30: the text 30.0 reaches the fake as 30 (JavaScript cannot tell them apart), so only the database sees the difference and refuses it (22023, never 22P02).
 });
