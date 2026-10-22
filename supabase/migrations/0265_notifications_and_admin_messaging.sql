@@ -306,7 +306,8 @@ begin
 end
 $quiet$;
 
--- The claim. Decides the budget from the kind (never from the caller), takes the advisory lock its counter needs, then ONE statement finds the first failing check in the contract's fixed
+-- The claim. A device belongs to a PUSH claim only: an in-app or e-mail claim ignores p_device and stores none (N1-R29), so one event is one e-mail claim whatever device id a caller passes.
+-- Decides the budget from the kind (never from the caller), takes the advisory lock its counter needs, then ONE statement finds the first failing check in the contract's fixed
 -- order and inserts only when none fails. A unique violation on the open-claim key (the same claim made at the same moment by someone else) is reported as already_claimed.
 create function public.claim_notification(
   p_user uuid,
@@ -374,7 +375,7 @@ begin
   ),
   ins as (
     insert into public.notification_deliveries as nd (user_id, kind, subject_id, device_id, channel)
-    select p_user, p_kind, p_subject, p_device, p_channel from chk where chk.refused is null
+    select p_user, p_kind, p_subject, case when p_channel = 'push' then p_device end, p_channel from chk where chk.refused is null
     on conflict do nothing
     returning nd.id
   )

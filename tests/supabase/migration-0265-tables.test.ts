@@ -7,6 +7,7 @@
  * Service set of the local stack these ran on: read at run time by migration-0265-local-db.ts (localServiceSet) and printed in the report.
  */
 import { describe, expect, it } from "vitest";
+import { LINK_BAD, LINK_GOOD } from "../support/n1-link-path-cases";
 import { A1, A2, FIXTURES, M1, M2, D1, D2, columnsQuery, deviceSql, draftSql, expectedColumns, normalise, probe, replay0265, rowsOf, scalar, U1, U2 } from "./migration-0265-support";
 
 const KINDS = ["new_applicant", "application_viewed", "match_alert", "admin_message"];
@@ -409,25 +410,13 @@ describe("0265 part 1: the tables (replayed in a rolled-back transaction)", () =
   describe("row 10b (N1-R27 Q5): link_path is a validated same-origin path", () => {
     const msg = (link: string | null) =>
       insert("admin_messages", { created_by: `'${A1}'`, created_by_email: "'a1@example.test'", kind: "'service_announcement'", title: "'T'", body: "'B'", channels: "array['inapp']", segment_key: "'everyone'", link_path: link === null ? "null" : `'${link.replace(/'/g, "''")}'` });
-    const GOOD = ["/", "/jobs", "/jobs/remote?x=1&y=2#top", "/a//b", "/mentorship/abc-123", "/x".padEnd(200, "x")];
-    const BAD: Array<[string, string]> = [
-      ["absolute url", "https://evil.test/x"],
-      ["protocol-relative", "//evil.test/x"],
-      ["scheme", "javascript:alert(1)"],
-      ["no leading slash", "jobs"],
-      ["empty", ""],
-      ["backslash after the slash", "/\\evil.test"],
-      ["backslash later", "/a\\b"],
-      ["space", "/a b"],
-      ["newline", "/a\nb"],
-      ["tab", "/a\tb"],
-      ["201 characters", "/".padEnd(201, "x")],
-    ];
+    const GOOD = LINK_GOOD;
+    const BAD = LINK_BAD;
     const body = [
       FIXTURES,
       rowsOf("null_ok", msg(null)),
       ...GOOD.map((g, i) => rowsOf(`good_${i}`, msg(g))),
-      ...BAD.map(([name, v]) => probe(`bad_${name.replace(/[^a-z]/g, "_")}`, msg(v), "23514")),
+      ...BAD.map(([, v], i) => probe(`bad_${i}`, msg(v), "23514")),
     ].join("\n");
     const r = replay0265(body);
 
@@ -437,7 +426,7 @@ describe("0265 part 1: the tables (replayed in a rolled-back transaction)", () =
       GOOD.forEach((g, i) => expect(r.res[`good_${i}`], g.slice(0, 40)).toBe("1"));
     });
     it("a URL, a protocol-relative path, a scheme, a path without the leading slash, an empty string, a backslash, whitespace, a control character or 201 characters is refused (23514)", () => {
-      for (const [name] of BAD) expect(r.res[`bad_${name.replace(/[^a-z]/g, "_")}`], name).toBe("ok");
+      BAD.forEach(([name], i) => expect(r.res[`bad_${i}`], name).toBe("ok"));
     });
   });
 

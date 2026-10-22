@@ -189,6 +189,41 @@ describe("claim_notification: in-app and email claims, arguments, one row (contr
   it("it is not strict, is a security definer with an empty search_path", () => expect(r.res.meta).toBe(`false/true/${CONFIG}`));
 });
 
+describe("claim_notification: a non-push claim ignores p_device and stores NULL (N1-R29 Q5)", () => {
+  const OTHER = "00000000-0000-4000-8000-0000000000ef";
+  const body = [
+    FIXTURES,
+    ZONES_SQL,
+    deviceZoneSql(D1, U1, ZONE_OUT),
+    asService([
+      claim("email_device_a", args(U1, "match_alert", sub(40), "email", UNKNOWN)),
+      claim("email_device_b", args(U1, "match_alert", sub(40), "email", OTHER)),
+      claim("email_real_device", args(U1, "match_alert", sub(40), "email", D1)),
+      claim("inapp_device_a", args(U1, "match_alert", sub(41), "inapp", UNKNOWN)),
+      claim("inapp_device_b", args(U1, "match_alert", sub(41), "inapp", OTHER)),
+      claim("email_no_device", args(U1, "match_alert", sub(40), "email")),
+      claim("push_keeps_device", args(U1, "match_alert", sub(42), "push", D1)),
+    ]),
+    scalar("non_push_with_device", `select count(*) from public.notification_deliveries where channel <> 'push' and device_id is not null`),
+    scalar("push_device", `select count(*) from public.notification_deliveries where channel = 'push' and device_id = '${D1}'`),
+  ].join("\n");
+  const r = replay0265(body);
+
+  it("the replay applies (a made-up device id on an e-mail or in-app claim is not a foreign-key error)", () => expect(r.ok, r.stderr).toBe(true));
+  it("two e-mail claims for one event with different device ids: the first succeeds, the second is already_claimed; so is a third with a real device and one with none", () => {
+    expect(r.res.email_device_a).toBe("id/-");
+    for (const k of ["email_device_b", "email_real_device", "email_no_device"]) expect(r.res[k], k).toBe("null/already_claimed");
+  });
+  it("the same holds for in-app claims", () => {
+    expect(r.res.inapp_device_a).toBe("id/-");
+    expect(r.res.inapp_device_b).toBe("null/already_claimed");
+  });
+  it("no non-push claim stores a device; a push claim still stores its device", () => {
+    expect(r.res.non_push_with_device).toBe("0");
+    expect(r.res.push_device).toBe("1");
+  });
+});
+
 describe("claim_notification: push, availability, quiet hours and the order of refusals", () => {
   const body = [
     FIXTURES,

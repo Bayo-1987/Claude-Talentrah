@@ -19,6 +19,7 @@ import {
   NOTIFICATION_LIMITS,
   NOTIFICATION_SETTING_KEYS,
   PUSH_RELEASE_REASONS,
+  STALE_CLAIM_RESOLUTIONS,
   type AdminMessageEventDetail,
   type AdminMessageEventKind,
   type AdminMessageEventRow,
@@ -50,6 +51,7 @@ import {
 import { hourInZone, isKnownTimeZone } from "@/lib/format/datetime";
 import {
   NOTIFICATION_RPCS,
+  NOTIFICATION_TABLES,
   NotificationDbError,
   type NotificationRpcName,
 } from "../contract-db";
@@ -114,6 +116,16 @@ const denied = (rpc: RpcKey) => fail("permission_denied", "42501", null, rpc);
 function isQuietHour(at: Date, timeZone: string): boolean {
   const hour = hourInZone(timeZone, at);
   return hour >= NOTIFICATION_LIMITS.quietHoursStart || hour < NOTIFICATION_LIMITS.quietHoursEnd;
+}
+
+/**
+ * The rule of the database CHECK on an admin message's link (N1-R29 Q2): a same-origin path. One slash first and not two, at most 200 characters, and no backslash, whitespace or control
+ * character. "Whitespace" is exactly what Postgres refuses: every JavaScript whitespace character except U+FEFF, which Postgres accepts. tests/support/n1-link-path-cases.ts holds the cases both sides run.
+ */
+const LINK_REFUSED = "\\u0000-\\u001f\\u007f-\\u009f \\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\\\";
+const LINK_PATH = new RegExp(`^/([^/${LINK_REFUSED}][^${LINK_REFUSED}]*)?$`);
+export function isSameOriginPath(path: string): boolean {
+  return path.length <= 200 && LINK_PATH.test(path);
 }
 
 export class FakeNotificationBackend implements ServiceRpcs {
@@ -228,14 +240,20 @@ export class FakeNotificationBackend implements ServiceRpcs {
     requiresApproval?: boolean;
     title?: string;
     body?: string;
+    linkPath?: string | null;
   }): AdminMessageRow {
     const admin = this.admins.get(input.createdBy);
+    const linkPath = input.linkPath ?? null;
+    if (linkPath !== null && !isSameOriginPath(linkPath)) {
+      // The database refuses it with a CHECK violation (SQLSTATE 23514); there is no contract code for that, so it is "unknown", with the table named.
+      throw new NotificationDbError({ code: "unknown", sqlstate: "23514", reason: null, rpc: null, table: NOTIFICATION_TABLES.adminMessages });
+    }
     const row: AdminMessageRow = {
       id: this.newId(),
       kind: input.kind ?? "service_announcement",
       title: input.title ?? "Title",
       body: input.body ?? "Body",
-      link_path: null,
+      link_path: linkPath,
       channels: [...(input.channels ?? ["inapp"])],
       segment_key: input.segmentKey ?? "everyone",
       segment_params: input.segmentParams ?? {},
@@ -313,7 +331,8 @@ export class FakeNotificationBackend implements ServiceRpcs {
     }
     const windowMs = parseInterval(args.p_window, DAY_MS, rpc);
     const now = this.now();
-    const device = args.p_device ?? null;
+    // A device belongs to a push claim only: any other channel ignores it and stores none (N1-R29).
+    const device = args.p_channel === "push" ? (args.p_device ?? null) : null;
     const refused = (code: ClaimRefusal): ClaimNotificationResult => ({ id: null, refused: code });
     const open = (row: NotificationDeliveryRow) => row.released_at === null;
 
@@ -409,6 +428,8 @@ export class FakeNotificationBackend implements ServiceRpcs {
   async resolveStaleClaim(args: RpcContract["resolveStaleClaim"]["args"]): Promise<void> {
     const rpc: RpcKey = "resolveStaleClaim";
     this.requirePermission(args.p_actor, "user_messaging", rpc);
+    // An unknown resolution is a caller error (22023), checked after the permission and before the lookup (N1-R29).
+    if (!(STALE_CLAIM_RESOLUTIONS as readonly string[]).includes(args.p_resolution)) throw fail("invalid_parameter", "22023", null, rpc);
     const row = this.deliveries.find((d) => d.id === args.p_id);
     if (!row) throw refuse(rpc, "not_found");
     if (row.sent_at !== null || row.released_at !== null) throw refuse(rpc, "invalid_state");
