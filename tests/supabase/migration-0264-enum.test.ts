@@ -10,7 +10,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { haveN1Db, runN1Sql } from "./migration-0265-local-db";
+import { runN1Sql } from "./migration-0265-local-db";
 import { F0264, R0264, ROOT, last, readMigration, readRollback, statements, usesNewValueAsEnum } from "./migration-0265-support";
 
 const LABEL = "user_messaging";
@@ -54,7 +54,7 @@ describe("row 2: the new label is never used as the enum in the transaction that
     expect(usesNewValueAsEnum(`select 1 where p.permission::text = '${LABEL}';`, LABEL)).toBe(false);
   });
 
-  describe.skipIf(!haveN1Db())("on the local stack, with a scratch copy of the enum", () => {
+  describe("on the local stack, with a scratch copy of the enum", () => {
     beforeAll(() => {
       expect(fresh().ok).toBe(true);
     });
@@ -103,7 +103,7 @@ describe("row 3: the rollback removes grants of the label as text and leaves the
     expect(readRollback(R0264).replace(/--.*$/gm, "")).toMatch(new RegExp(`permission::text\\s*=\\s*'${LABEL}'`));
   });
 
-  describe.skipIf(!haveN1Db())("on the local stack (everything rolled back)", () => {
+  describe("on the local stack (everything rolled back)", () => {
     it("removes a grant of the label, keeps other grants, and the label is still there afterwards", () => {
       const r = runN1Sql(
         [

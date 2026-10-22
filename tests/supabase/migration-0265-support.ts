@@ -11,7 +11,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll } from "vitest";
-import { createN1Scratch, dropN1Scratch, haveN1Db, newScratchName, runN1ScratchSql, runN1Sql, sweepStaleN1Scratch } from "./migration-0265-local-db";
+import { createN1Scratch, dropN1Scratch, newScratchName, requireN1Db, runN1ScratchSql, runN1Sql, sweepStaleN1Scratch } from "./migration-0265-local-db";
 
 export const ROOT = join(__dirname, "../..");
 export const F0264 = "0264_user_messaging_permission.sql";
@@ -202,8 +202,6 @@ afterAll(() => {
   }
 });
 
-const NO_DB = { ok: false, stdout: "", stderr: "no local database is available to this process", res: {} as Record<string, string> };
-
 function resultsOf(r: { ok: boolean; stdout: string; stderr: string }) {
   const res: Record<string, string> = {};
   for (const line of r.stdout.split("\n")) {
@@ -218,7 +216,7 @@ function resultsOf(r: { ok: boolean; stdout: string; stderr: string }) {
  * `R|<name>|<value>`; `res` maps each name to its value (psql's own command tags are ignored). When the script fails, `ok` is false and `stderr` carries the SQLSTATE.
  */
 export function replay0265(body: string, opts: { forward?: string; rollback?: string; prelude?: string } = {}) {
-  if (!haveN1Db()) return NO_DB;
+  requireN1Db();
   const forward = opts.forward ?? readMigration(F0265);
   const rollback = opts.rollback ?? readRollback(R0265);
   const script = `begin;\n${rollback}\n${opts.prelude ?? ""}\n${forward}\n${EXPECT_FN}\n${body}\nrollback;`;
@@ -230,7 +228,7 @@ export function replay0265(body: string, opts: { forward?: string; rollback?: st
  * row locks and never waits for or blocks another suite. The body must not create, alter or drop anything.
  */
 export function applied0265(body: string) {
-  if (!haveN1Db()) return NO_DB;
+  requireN1Db();
   return resultsOf(runN1Sql(`begin;\n${EXPECT_FN}\n${body}\nrollback;`));
 }
 

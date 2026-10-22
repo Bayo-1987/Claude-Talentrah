@@ -61,6 +61,18 @@ export function haveN1Db(): boolean {
   return haveLocalDb();
 }
 
+/**
+ * A database-backed test that cannot reach its database FAILS; it never skips. A skip would look exactly like a pass (N1-R27). Throws a LocalGuardError the test runner reports as the failure.
+ * `check` is injectable so the rule itself can be tested.
+ */
+export function requireN1Db(check: () => boolean = haveN1Db): void {
+  if (!check()) {
+    throw new LocalGuardError(
+      "the local database is not usable (the guard refused the URL, or there is no stack container); a database test FAILS rather than skipping: start the scratch stack and set NEXT_PUBLIC_SUPABASE_URL and LOCAL_DB_CONTAINER",
+    );
+  }
+}
+
 export type ServiceSet = { project: string; services: string[]; label: "reduced" | "full" };
 
 function dockerNames(): string[] {

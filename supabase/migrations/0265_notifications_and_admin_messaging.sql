@@ -51,9 +51,16 @@ create table public.notification_deliveries (
   constraint notification_deliveries_channel_check check (channel in ('inapp', 'push', 'email'))
 );
 
+-- The key covers OPEN claims. A push claim whose device is gone (device_id was set to null when the device was deleted) is outside the key: two devices of one person can each hold an
+-- open claim for the same event, and deleting both must not make the second delete collide with the first (N1-R27). A push claim is always made WITH a device, so nothing is lost; in-app
+-- and email claims have no device and stay unique per person, kind, event and channel.
 create unique index notification_deliveries_open_key
   on public.notification_deliveries (user_id, kind, subject_id, channel, coalesce(device_id, '00000000-0000-0000-0000-000000000000'::uuid))
-  where released_at is null;
+  where released_at is null and (channel <> 'push' or device_id is not null);
+
+-- Foreign-key columns that deletes walk through get an index (N1-R27), so deleting a device or a person does not scan these tables.
+create index notification_deliveries_device_id_idx on public.notification_deliveries (device_id);
+create index push_subscriptions_user_id_idx on public.push_subscriptions (user_id);
 
 -- ---------------------------------------------------------------------------------------
 -- admin_messages: one row per operator message
@@ -95,7 +102,9 @@ create table public.admin_messages (
   constraint admin_messages_approved_needs_approver check (status not in ('approved', 'sending', 'sent') or not requires_approval or approved_by is not null or approved_by_email is not null),
   -- A promotion that has left draft carries the consent wording it was sent under (a cancelled draft never had one).
   constraint admin_messages_promotion_needs_consent check (kind <> 'promotion' or status in ('draft', 'cancelled') or consent_line is not null),
-  constraint admin_messages_kind_confirmed_check check (kind_confirmed_by_approver is null or kind_confirmed_by_approver = kind)
+  constraint admin_messages_kind_confirmed_check check (kind_confirmed_by_approver is null or kind_confirmed_by_approver = kind),
+  -- A link is a same-origin path: it starts with one slash, is not protocol-relative ("//host"), holds no backslash, whitespace or control character, and is at most 200 characters.
+  constraint admin_messages_link_path_check check (link_path is null or (char_length(link_path) <= 200 and link_path ~ '^/([^/[:cntrl:][:space:]\\][^[:cntrl:][:space:]\\]*)?$'))
 );
 
 -- ---------------------------------------------------------------------------------------
@@ -115,6 +124,8 @@ create table public.admin_message_recipients (
   constraint admin_message_recipients_email_outcome_check check (email_outcome is null or email_outcome in ('sent', 'failed', 'skipped_opted_out', 'skipped_quiet_hours', 'skipped_cap', 'skipped_deleted', 'skipped_inactive'))
 );
 
+create index admin_message_recipients_user_id_idx on public.admin_message_recipients (user_id);
+
 -- ---------------------------------------------------------------------------------------
 -- admin_message_events: the audit trail of a message (append-only; actor_admin_id has no foreign key, so it survives an admin's deletion)
 -- ---------------------------------------------------------------------------------------
@@ -130,6 +141,8 @@ create table public.admin_message_events (
   -- The detail has a closed key list and never holds an address.
   constraint admin_message_events_detail_check check (jsonb_typeof(detail) = 'object' and (detail - array['kind_confirmed', 'resolution']) = '{}'::jsonb and position('@' in detail::text) = 0)
 );
+
+create index admin_message_events_message_id_idx on public.admin_message_events (message_id);
 
 -- ---------------------------------------------------------------------------------------
 -- notification_settings and notification_setting_changes: the two send limits and their append-only change log
@@ -180,6 +193,7 @@ begin
   if old.status <> 'draft' and (
        new.title is distinct from old.title
     or new.body is distinct from old.body
+    or new.link_path is distinct from old.link_path
     or new.channels is distinct from old.channels
     or new.segment_key is distinct from old.segment_key
     or new.segment_params is distinct from old.segment_params

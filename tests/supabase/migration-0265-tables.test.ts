@@ -7,7 +7,6 @@
  * Service set of the local stack these ran on: read at run time by migration-0265-local-db.ts (localServiceSet) and printed in the report.
  */
 import { describe, expect, it } from "vitest";
-import { haveN1Db } from "./migration-0265-local-db";
 import { A1, A2, FIXTURES, M1, M2, D1, D2, columnsQuery, deviceSql, draftSql, expectedColumns, normalise, probe, replay0265, rowsOf, scalar, U1, U2 } from "./migration-0265-support";
 
 const KINDS = ["new_applicant", "application_viewed", "match_alert", "admin_message"];
@@ -26,7 +25,7 @@ const insert = (table: string, base: Record<string, string>, over: Record<string
   return `insert into public.${table} (${Object.keys(row).join(", ")}) values (${Object.values(row).join(", ")})`;
 };
 
-describe.skipIf(!haveN1Db())("0265 part 1: the tables (replayed in a rolled-back transaction)", () => {
+describe("0265 part 1: the tables (replayed in a rolled-back transaction)", () => {
   describe("row 4: notification_deliveries", () => {
     const body = [
       FIXTURES,
@@ -75,7 +74,10 @@ describe.skipIf(!haveN1Db())("0265 part 1: the tables (replayed in a rolled-back
       rowsOf("push_device_1", row("match_alert", "push", D1)),
       rowsOf("push_device_2", row("match_alert", "push", D2)),
       probe("push_device_1_twice", row("match_alert", "push", D1), "23505"),
-      probe("null_device_twice", row("match_alert", "push", null) + `; ${row("match_alert", "push", null)}`, "23505"),
+      rowsOf("push_without_device_1", row("match_alert", "push", null)),
+      rowsOf("push_without_device_2", row("match_alert", "push", null)),
+      probe("email_twice", row("match_alert", "email", null), "23505"),
+      probe("inapp_twice_other_kind", row("new_applicant", "inapp", null), "23505"),
       rowsOf("released_row_does_not_block", row("match_alert", "inapp", null, "now()")),
       rowsOf("second_released_row", row("match_alert", "inapp", null, "now()")),
       scalar("index_def", "select indexdef from pg_indexes where schemaname = 'public' and indexname = 'notification_deliveries_open_key'"),
@@ -89,14 +91,19 @@ describe.skipIf(!haveN1Db())("0265 part 1: the tables (replayed in a rolled-back
       expect(["other_channel", "other_kind", "push_device_1", "push_device_2"].map((k) => r.res[k])).toEqual(["1", "1", "1", "1"]);
       expect(r.res.push_device_1_twice).toBe("ok");
     });
-    it("a missing device counts as one fixed value, so two device-less claims for one event collide (23505)", () => {
-      expect(r.res.null_device_twice).toBe("ok");
+    it("a missing device counts as one fixed value, so two device-less in-app or email claims for one event collide (23505)", () => {
+      expect(r.res.email_twice).toBe("ok");
+      expect(r.res.inapp_twice_other_kind).toBe("ok");
       expect(r.res.index_def).toMatch(/coalesce\(device_id, '00000000-0000-0000-0000-000000000000'::uuid\)/i);
+    });
+    it("N1-R27 Q1: a PUSH claim with no device is outside the key, so two of them (what deleting two devices leaves) do not collide", () => {
+      expect(r.res.push_without_device_1).toBe("1");
+      expect(r.res.push_without_device_2).toBe("1");
     });
     it("only OPEN claims count: released rows never block, and many may exist", () => {
       expect(r.res.released_row_does_not_block).toBe("1");
       expect(r.res.second_released_row).toBe("1");
-      expect(r.res.index_def).toMatch(/WHERE \(released_at IS NULL\)/);
+      expect(r.res.index_def).toMatch(/WHERE \(\(released_at IS NULL\) AND \(\(channel <> 'push'::text\) OR \(device_id IS NOT NULL\)\)\)/);
     });
   });
 
@@ -139,12 +146,12 @@ describe.skipIf(!haveN1Db())("0265 part 1: the tables (replayed in a rolled-back
     });
   });
 
-  describe("row 6b: KNOWN DEFECT, reported for a ruling (N1-R14 device_id SET NULL x the open-claim unique key)", () => {
-    // Two devices of one person each hold an OPEN push claim for the same event. Deleting a device sets its claim's device_id to null, and a null device counts as one fixed value in the
-    // unique key, so the second claim then collides with the first. This test pins what the database does TODAY so that the report's finding is reproducible and so that a ruling
-    // that changes the design has to change this test on purpose. It does not say the behaviour is right.
+  describe("row 6b (N1-R27 Q1): deleting devices that hold open push claims for the same event", () => {
+    // Two devices of one person each hold an OPEN push claim for the same event. Deleting a device sets its claim's device_id to null. Under the first version of the key the second
+    // claim then collided with the first (23505) and the second delete failed. The key now leaves a push claim without a device out, so both deletes succeed.
     const S = "00000000-0000-4000-8000-0000000000f3";
-    const claim = (dev: string) => `insert into public.notification_deliveries (user_id, kind, subject_id, channel, device_id, sent_at) values ('${U1}', 'match_alert', '${S}', 'push', '${dev}', now());`;
+    const S2 = "00000000-0000-4000-8000-0000000000f4";
+    const claim = (dev: string, subject = S) => `insert into public.notification_deliveries (user_id, kind, subject_id, channel, device_id, sent_at) values ('${U1}', 'match_alert', '${subject}', 'push', '${dev}', now());`;
     const body = [
       FIXTURES,
       deviceSql(D1),
@@ -152,20 +159,35 @@ describe.skipIf(!haveN1Db())("0265 part 1: the tables (replayed in a rolled-back
       claim(D1),
       claim(D2),
       rowsOf("first_device_deleted", `delete from public.push_subscriptions where id = '${D1}'`),
-      probe("second_device_delete_collides", `delete from public.push_subscriptions where id = '${D2}'`, "23505"),
+      rowsOf("second_device_deleted", `delete from public.push_subscriptions where id = '${D2}'`),
       scalar("devices_left", `select count(*) from public.push_subscriptions where user_id = '${U1}'`),
+      scalar("claims_kept_deviceless", `select count(*) from public.notification_deliveries where subject_id = '${S}' and device_id is null`),
+      // both devices of another event, removed by ONE statement
+      deviceSql("00000000-0000-4000-8000-0000000000d4", U1),
+      deviceSql("00000000-0000-4000-8000-0000000000d5", U1),
+      claim("00000000-0000-4000-8000-0000000000d4", S2),
+      claim("00000000-0000-4000-8000-0000000000d5", S2),
+      rowsOf("both_in_one_statement", `delete from public.push_subscriptions where user_id = '${U1}'`),
+      // an email claim for the same person and event is still unique
+      `insert into public.notification_deliveries (user_id, kind, subject_id, channel) values ('${U1}', 'match_alert', '${S}', 'email');`,
+      probe("duplicate_email_claim", `insert into public.notification_deliveries (user_id, kind, subject_id, channel) values ('${U1}', 'match_alert', '${S}', 'email')`, "23505"),
       rowsOf("person_delete_still_works", `delete from auth.users where id = '${U1}'`),
-      scalar("claims_left_after_person_delete", `select count(*) from public.notification_deliveries where subject_id = '${S}'`),
+      scalar("claims_left_after_person_delete", `select count(*) from public.notification_deliveries where user_id = '${U1}'`),
     ].join("\n");
     const r = replay0265(body);
 
     it("the replay applies", () => expect(r.ok, r.stderr).toBe(true));
-    it("TODAY: deleting the second device is refused with 23505 and the device stays (the defect)", () => {
+    it("deleting the first and then the second device both succeed, and the claims stay with no device", () => {
       expect(r.res.first_device_deleted).toBe("1");
-      expect(r.res.second_device_delete_collides).toBe("ok");
-      expect(r.res.devices_left).toBe("1");
+      expect(r.res.second_device_deleted).toBe("1");
+      expect(r.res.devices_left).toBe("0");
+      expect(r.res.claims_kept_deviceless).toBe("2");
     });
-    it("deleting the whole person is NOT affected: the claims and devices go with them", () => {
+    it("deleting two devices that hold claims for one event in a single statement succeeds", () => {
+      expect(r.res.both_in_one_statement).toBe("2");
+    });
+    it("a duplicate open email claim still raises 23505", () => expect(r.res.duplicate_email_claim).toBe("ok"));
+    it("deleting the whole person still removes everything", () => {
       expect(r.res.person_delete_still_works).toBe("1");
       expect(r.res.claims_left_after_person_delete).toBe("0");
     });
@@ -381,6 +403,63 @@ describe.skipIf(!haveN1Db())("0265 part 1: the tables (replayed in a rolled-back
     });
     it("actor_admin_id has NO foreign key on the two append-only tables (N1-R14)", () => {
       expect(r.res.actor_fk_count).toBe("0");
+    });
+  });
+
+  describe("row 10b (N1-R27 Q5): link_path is a validated same-origin path", () => {
+    const msg = (link: string | null) =>
+      insert("admin_messages", { created_by: `'${A1}'`, created_by_email: "'a1@example.test'", kind: "'service_announcement'", title: "'T'", body: "'B'", channels: "array['inapp']", segment_key: "'everyone'", link_path: link === null ? "null" : `'${link.replace(/'/g, "''")}'` });
+    const GOOD = ["/", "/jobs", "/jobs/remote?x=1&y=2#top", "/a//b", "/mentorship/abc-123", "/x".padEnd(200, "x")];
+    const BAD: Array<[string, string]> = [
+      ["absolute url", "https://evil.test/x"],
+      ["protocol-relative", "//evil.test/x"],
+      ["scheme", "javascript:alert(1)"],
+      ["no leading slash", "jobs"],
+      ["empty", ""],
+      ["backslash after the slash", "/\\evil.test"],
+      ["backslash later", "/a\\b"],
+      ["space", "/a b"],
+      ["newline", "/a\nb"],
+      ["tab", "/a\tb"],
+      ["201 characters", "/".padEnd(201, "x")],
+    ];
+    const body = [
+      FIXTURES,
+      rowsOf("null_ok", msg(null)),
+      ...GOOD.map((g, i) => rowsOf(`good_${i}`, msg(g))),
+      ...BAD.map(([name, v]) => probe(`bad_${name.replace(/[^a-z]/g, "_")}`, msg(v), "23514")),
+    ].join("\n");
+    const r = replay0265(body);
+
+    it("the replay applies", () => expect(r.ok, r.stderr).toBe(true));
+    it("no link, and same-origin paths up to 200 characters, are accepted", () => {
+      expect(r.res.null_ok).toBe("1");
+      GOOD.forEach((g, i) => expect(r.res[`good_${i}`], g.slice(0, 40)).toBe("1"));
+    });
+    it("a URL, a protocol-relative path, a scheme, a path without the leading slash, an empty string, a backslash, whitespace, a control character or 201 characters is refused (23514)", () => {
+      for (const [name] of BAD) expect(r.res[`bad_${name.replace(/[^a-z]/g, "_")}`], name).toBe("ok");
+    });
+  });
+
+  describe("row 21 (N1-R27): every foreign-key column that deletes cascade or restrict through has an index", () => {
+    const WANT: Array<[string, string, string]> = [
+      ["notification_deliveries_device_id_idx", "notification_deliveries", "device_id"],
+      ["push_subscriptions_user_id_idx", "push_subscriptions", "user_id"],
+      ["admin_message_recipients_user_id_idx", "admin_message_recipients", "user_id"],
+      ["admin_message_events_message_id_idx", "admin_message_events", "message_id"],
+    ];
+    const body = [
+      ...WANT.map(([name]) => scalar(`def_${name}`, `select indexdef from pg_indexes where schemaname = 'public' and indexname = '${name}'`)),
+      ...WANT.map(([name, table, col]) =>
+        scalar(`leading_${name}`, `select (a.attname = '${col}')::text from pg_index i join pg_class c on c.oid = i.indrelid join pg_class ic on ic.oid = i.indexrelid join pg_attribute a on a.attrelid = c.oid and a.attnum = i.indkey[0] where ic.relname = '${name}' and c.relname = '${table}'`),
+      ),
+    ].join("\n");
+    const r = replay0265(body);
+
+    it("the replay applies", () => expect(r.ok, r.stderr).toBe(true));
+    it.each(WANT)("%s is a plain btree index on %s(%s), and that column leads it", (name, table, col) => {
+      expect(r.res[`def_${name}`]).toBe(`CREATE INDEX ${name} ON public.${table} USING btree (${col})`);
+      expect(r.res[`leading_${name}`]).toBe("true");
     });
   });
 

@@ -9,7 +9,6 @@
  * It FAILS, and does not skip, when 0265 has not been applied to the database under test: a skipped check would look like a passing one.
  */
 import { describe, expect, it } from "vitest";
-import { haveN1Db } from "./migration-0265-local-db";
 import {
   A1, A2, COLUMNS, D1, D2, EXPECTED_GRANTS, FIXTURES, IN_LIST, M1, OTHER_TABLES, SAFE_COLUMNS, TABLES, U1, U2, applied0265, asRole, columnGrants, columnsQuery, deviceSql, draftSql, expectedColumns,
   functionAcl, grantMatrix, normalise, probe, rowsOf, scalar,
@@ -18,7 +17,7 @@ import {
 const eventRow = `insert into public.admin_message_events (message_id, event, actor_admin_id, actor_email) values ('${M1}', 'created', '${A1}', 'operator@example.test');`;
 const changeRow = `insert into public.notification_setting_changes (key, old_value, new_value, actor_admin_id, actor_email) values ('mass_email_cap_24h', 50, 60, '${A1}', 'operator@example.test');`;
 
-describe.skipIf(!haveN1Db())("0265 part 1 as applied to the database under test (no DDL)", () => {
+describe("0265 part 1 as applied to the database under test (no DDL)", () => {
   describe("the catalog", () => {
     const body = [
       scalar("tables_present", `select count(*) from pg_class where relnamespace = 'public'::regnamespace and relkind = 'r' and relname in ${IN_LIST}`),
@@ -29,6 +28,9 @@ describe.skipIf(!haveN1Db())("0265 part 1 as applied to the database under test 
       scalar("rls_on", `select string_agg(relname || '=' || relrowsecurity, ',' order by relname) from pg_class where relnamespace = 'public'::regnamespace and relname in ${IN_LIST}`),
       scalar("policies", `select string_agg(tablename || '.' || policyname || ':' || cmd || ':' || roles::text, ' ' order by tablename, policyname) from pg_policies where schemaname = 'public' and tablename in ${IN_LIST}`),
       scalar("triggers", `select string_agg(c.relname || ':' || t.tgname, ',' order by c.relname, t.tgname) from pg_trigger t join pg_class c on c.oid = t.tgrelid where not t.tgisinternal and c.relnamespace = 'public'::regnamespace and c.relname in ${IN_LIST}`),
+      scalar("open_key_def", "select indexdef from pg_indexes where schemaname = 'public' and indexname = 'notification_deliveries_open_key'"),
+      scalar("fk_indexes", `select string_agg(indexname, ',' order by indexname) from pg_indexes where schemaname = 'public' and indexname in ('notification_deliveries_device_id_idx', 'push_subscriptions_user_id_idx', 'admin_message_recipients_user_id_idx', 'admin_message_events_message_id_idx')`),
+      scalar("link_check", "select count(*) from pg_constraint where conrelid = 'public.admin_messages'::regclass and conname = 'admin_messages_link_path_check'"),
       scalar("setting_keys", "select string_agg(key, ',' order by key) from public.notification_settings"),
       scalar("functions", "select string_agg(proname || ':' || prosecdef || ':' || coalesce(proconfig::text, ''), ',' order by proname) from pg_proc where pronamespace = 'public'::regnamespace and proname in ('notification_guard_append_only', 'notification_guard_message_edit')"),
     ].join("\n");
@@ -66,6 +68,11 @@ describe.skipIf(!haveN1Db())("0265 part 1 as applied to the database under test 
         ].join(","),
       );
     });
+    it("the open-claim key leaves a push claim without a device out, and the four foreign-key indexes and the link check exist (N1-R27)", () => {
+      expect(r.res.open_key_def).toMatch(/WHERE \(\(released_at IS NULL\) AND \(\(channel <> 'push'::text\) OR \(device_id IS NOT NULL\)\)\)/);
+      expect(r.res.fk_indexes).toBe("admin_message_events_message_id_idx,admin_message_recipients_user_id_idx,notification_deliveries_device_id_idx,push_subscriptions_user_id_idx");
+      expect(r.res.link_check).toBe("1");
+    });
     it("the settings table holds exactly the two limits (their values are not asserted: an operator may have changed them)", () => {
       expect(r.res.setting_keys).toBe("mass_email_cap_24h,mass_email_ceiling_month");
     });
@@ -82,6 +89,11 @@ describe.skipIf(!haveN1Db())("0265 part 1 as applied to the database under test 
       changeRow,
       deviceSql(D1, U1),
       deviceSql(D2, U2),
+      // two devices of one person, an open push claim each for ONE event, both deleted: neither delete collides (N1-R27 Q1), on the real tables
+      deviceSql("00000000-0000-4000-8000-0000000000d6", U1),
+      deviceSql("00000000-0000-4000-8000-0000000000d7", U1),
+      `insert into public.notification_deliveries (user_id, kind, subject_id, channel, device_id, sent_at) values ('${U1}', 'match_alert', '00000000-0000-4000-8000-0000000000f5', 'push', '00000000-0000-4000-8000-0000000000d6', now()), ('${U1}', 'match_alert', '00000000-0000-4000-8000-0000000000f5', 'push', '00000000-0000-4000-8000-0000000000d7', now());`,
+      rowsOf("two_devices_deleted", `delete from public.push_subscriptions where id in ('00000000-0000-4000-8000-0000000000d6', '00000000-0000-4000-8000-0000000000d7')`),
       // an admin can be deleted while events and an APPROVED message exist (N1-R14, R22), on the real admin_users
       rowsOf("delete_creator", `delete from public.admin_users where id = '${A1}'`),
       scalar("creator_after", `select coalesce(created_by::text, 'NULL') from public.admin_messages where id = '${M1}'`),
@@ -126,6 +138,9 @@ describe.skipIf(!haveN1Db())("0265 part 1 as applied to the database under test 
       expect(r.res.approver_after).toBe("NULL/a2@example.test/approved");
       expect(r.res.events_kept).toBe("1");
       expect(r.res.event_actor_kept).toBe(A1);
+    });
+    it("deleting both devices that hold an open push claim for one event succeeds on the real tables", () => {
+      expect(r.res.two_devices_deleted).toBe("2");
     });
     it("the append-only tables refuse update and delete with 42501, even for the table's owner", () => {
       for (const k of ["events_update", "events_delete", "changes_update", "changes_delete"]) expect(r.res[k], k).toBe("ok");

@@ -14,7 +14,6 @@
  *   row 19  the same result with the platform's automatic grants switched off
  */
 import { describe, expect, it } from "vitest";
-import { haveN1Db } from "./migration-0265-local-db";
 import {
   A1, A2, D1, D2, EXPECTED_GRANTS, F0265, FIXTURES, IN_LIST, M1, NO_DEFAULT_GRANTS, OTHER_TABLES, R0265, SAFE_COLUMNS, TABLES, U1, U2, asRole, columnGrants, deviceSql, draftSql, functionAcl, grantMatrix, probe,
   readMigration, readRollback, replay0265, rowsOf, scalar, usesNewValueAsEnum,
@@ -23,7 +22,7 @@ import {
 const eventRow = `insert into public.admin_message_events (message_id, event, actor_admin_id, actor_email) values ('${M1}', 'created', '${A1}', 'secret-operator@example.test');`;
 const changeRow = `insert into public.notification_setting_changes (key, old_value, new_value, actor_admin_id, actor_email) values ('mass_email_cap_24h', 50, 60, '${A1}', 'secret-operator@example.test');`;
 
-describe.skipIf(!haveN1Db())("0265 part 1: privileges, row security and triggers (replayed in a rolled-back transaction)", () => {
+describe("0265 part 1: privileges, row security and triggers (replayed in a rolled-back transaction)", () => {
   describe("row 8: push_subscriptions, what a signed-in person can do (N1-R9, grants addendum G4)", () => {
     const body = [
       FIXTURES,
@@ -122,6 +121,7 @@ describe.skipIf(!haveN1Db())("0265 part 1: privileges, row security and triggers
       rowsOf("draft_edit_title", upd("title = 'Edited'")),
       rowsOf("draft_edit_kind", upd("kind = 'promotion'")),
       rowsOf("draft_edit_kind_back", upd("kind = 'service_announcement'")),
+      rowsOf("draft_edit_link", upd("link_path = '/mentorship'")),
       rowsOf("leave_draft", upd("status = 'prepared', audience_count = 3")),
       rowsOf("noop_update_title", upd("title = title")),
       probe("frozen_title", upd("title = 'Changed'"), "P0001", "invalid_state"),
@@ -135,24 +135,22 @@ describe.skipIf(!haveN1Db())("0265 part 1: privileges, row security and triggers
       rowsOf("progress_counts", upd("sent_count = 2, failed_count = 1, skipped_count = 0")),
       rowsOf("progress_approver", upd(`approved_by = '${A2}', approved_by_email = 'a2@example.test', status = 'approved'`)),
       rowsOf("progress_started", upd("sent_started_at = now(), status = 'sending'")),
-      rowsOf("link_path_not_frozen", upd("link_path = '/jobs'")),
+      probe("frozen_link_path", upd("link_path = '/jobs'"), "P0001", "invalid_state"),
+      rowsOf("noop_update_link_path", upd("link_path = link_path")),
       scalar("title_after", `select title from public.admin_messages where id = '${M1}'`),
     ].join("\n");
     const r = replay0265(body);
 
     it("the replay applies", () => expect(r.ok, r.stderr).toBe(true));
     it("while a draft, every field may be edited", () => {
-      expect(["draft_edit_title", "draft_edit_kind", "draft_edit_kind_back", "leave_draft"].map((k) => r.res[k])).toEqual(["1", "1", "1", "1"]);
+      expect(["draft_edit_title", "draft_edit_kind", "draft_edit_kind_back", "draft_edit_link", "leave_draft"].map((k) => r.res[k])).toEqual(["1", "1", "1", "1", "1"]);
     });
-    it("after the draft, title, body, channels, segment, consent line and kind cannot change (P0001, hint invalid_state)", () => {
-      for (const k of ["frozen_title", "frozen_body", "frozen_channels", "frozen_segment_key", "frozen_segment_params", "frozen_consent_line", "frozen_kind"]) expect(r.res[k], k).toBe("ok");
+    it("after the draft, title, body, link, channels, segment, consent line and kind cannot change (P0001, hint invalid_state)", () => {
+      for (const k of ["frozen_title", "frozen_body", "frozen_link_path", "frozen_channels", "frozen_segment_key", "frozen_segment_params", "frozen_consent_line", "frozen_kind"]) expect(r.res[k], k).toBe("ok");
       expect(r.res.title_after).toBe("Edited");
     });
     it("what a send changes can still change: status, counts, the approver, the start time; and writing a value it already holds is not an edit", () => {
-      for (const k of ["noop_update_title", "progress_status", "progress_counts", "progress_approver", "progress_started"]) expect(r.res[k], k).toBe("1");
-    });
-    it("link_path is not among the frozen fields of prompt 01 (reported as a question, not decided here)", () => {
-      expect(r.res.link_path_not_frozen).toBe("1");
+      for (const k of ["noop_update_title", "noop_update_link_path", "progress_status", "progress_counts", "progress_approver", "progress_started"]) expect(r.res[k], k).toBe("1");
     });
   });
 

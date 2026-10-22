@@ -15,12 +15,12 @@
  *   scratch  the private databases the replay tests run in: only n1_replay_<pid>_* names are accepted, and a leftover of a dead process is swept (a live one is not)
  */
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  assertLocalGuard, createN1Scratch, dropN1Scratch, haveN1Db, listN1Scratch, localServiceSet, newScratchName, runN1ScratchSql, sweepStaleN1Scratch,
+  assertLocalGuard, createN1Scratch, dropN1Scratch, haveN1Db, listN1Scratch, localServiceSet, newScratchName, requireN1Db, runN1ScratchSql, sweepStaleN1Scratch,
 } from "./migration-0265-local-db";
 
 const ROOT = join(__dirname, "../..");
@@ -103,12 +103,41 @@ describe("N1-R26a: the range applies when CI is not exactly the string true, and
   });
 });
 
-describe("a database-backed test must not skip silently", () => {
-  it("when LOCAL_DB_CONTAINER is set the local database is reachable (a skip would look like a pass)", () => {
-    if (process.env.LOCAL_DB_CONTAINER) expect(haveN1Db()).toBe(true);
-    else expect(process.env.LOCAL_DB_CONTAINER).toBeUndefined();
+describe("N1-R27 Q9: a database-backed test FAILS when the database is unusable, it never skips", () => {
+  it("requireN1Db throws a clear error when the database is not usable, and returns when it is", () => {
+    expect(() => requireN1Db(() => false)).toThrow(/FAILS rather than skipping/);
+    expect(() => requireN1Db(() => true)).not.toThrow();
+  });
+
+  it("the database is usable here (this test is unconditional: with no usable database it fails)", () => {
+    expect(haveN1Db(), "no usable local database: start the scratch stack and set NEXT_PUBLIC_SUPABASE_URL and LOCAL_DB_CONTAINER").toBe(true);
+  });
+
+  // Built from fragments so this file does not match its own scan.
+  const SKIP = new RegExp(["\\b(?:describe|it|test)\\.(?:skip", "If|skip|runIf|todo)\\b|\\b(?:x", "describe|x", "it)\\b|\\.skip\\("].join(""));
+  const FILES = readdirSync(__dirname).filter((f) => /^migration-026[45]-.*\.ts$/.test(f));
+
+  it("the scan can say yes (control): it flags each skip construct", () => {
+    const samples = [["describe", ".skip", "If(!x)(1)"], ["it", ".skip", "(1)"], ["test", ".run", "If(x)(1)"], ["x", "it", "(1)"], ["foo", ".skip", "(1)"]].map((parts) => parts.join(""));
+    for (const bad of samples) {
+      expect(SKIP.test(bad), bad).toBe(true);
+    }
+    for (const good of ['describe("a", () => {})', "it.each([1])(...)", "// we never skip"]) expect(SKIP.test(good), good).toBe(false);
+  });
+
+  it("no N1 database test file contains a skip construct", () => {
+    expect(FILES.length).toBeGreaterThanOrEqual(6);
+    const hits = FILES.filter((f) => SKIP.test(readFileSync(join(__dirname, f), "utf8")));
+    expect(hits).toEqual([]);
+  });
+
+  it("the replay and applied runners fail (throw) with no usable database instead of returning an empty result", () => {
+    const src = readFileSync(join(__dirname, "migration-0265-support.ts"), "utf8");
+    expect(src).not.toMatch(/return NO_DB/);
+    expect((src.match(/requireN1Db\(\)/g) ?? []).length).toBeGreaterThanOrEqual(2);
   });
 });
+
 
 describe("row 60: .env.local is ignored by git", () => {
   const ignored = (cwd: string) => {
@@ -182,7 +211,7 @@ describe("scratch databases: the names the helpers will touch", () => {
   );
 });
 
-describe.skipIf(!haveN1Db())("scratch databases: creation, sweep and removal on the local stack", () => {
+describe("scratch databases: creation, sweep and removal on the local stack", () => {
   const dead = newScratchName(2_000_000_001);
   const alive = newScratchName(2_000_000_002);
 
