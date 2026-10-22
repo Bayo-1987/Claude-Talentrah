@@ -797,6 +797,18 @@ describe("the functions: exact list, flags and EXECUTE per role (N1-R2, N1-R5, g
     resolve_stale_claim: `p_id => '${UNKNOWN}', p_actor => '${A2}', p_resolution => 'mark_sent'`,
     unread_notification_count: `p_user => '${U1}'`,
     prune_notification_deliveries: "p_older_than_days => 30",
+    resolve_admin_segment: `p_key => 'everyone', p_params => '{}'::jsonb, p_actor => '${A2}'`,
+    prepare_admin_message: `p_message => '${UNKNOWN}', p_actor => '${A2}', p_max_audience => 10`,
+    submit_admin_message: `p_message => '${UNKNOWN}', p_actor => '${A2}'`,
+    approve_admin_message: `p_message => '${UNKNOWN}', p_actor => '${A2}', p_kind_confirmed => 'promotion'`,
+    cancel_admin_message: `p_message => '${UNKNOWN}', p_actor => '${A2}'`,
+    start_admin_message_send: `p_message => '${UNKNOWN}', p_actor => '${A2}'`,
+    admin_message_audit: `p_actor => '${A2}'`,
+    record_admin_message_test: `p_message => '${UNKNOWN}', p_actor => '${A2}'`,
+    set_notification_setting: `p_key => 'mass_email_cap_24h', p_value => 5, p_actor => '${A2}'`,
+    pause_admin_message_send: `p_message => '${UNKNOWN}', p_reason => 'cap_24h'`,
+    resume_admin_message_send: `p_message => '${UNKNOWN}', p_actor => '${A2}'`,
+    admin_email_eligible_recipients: "p_user_ids => array[]::uuid[], p_stream => 'announcements'",
   };
   // the ledger functions that only the service role may call (register_push_subscription is the signed-in person's and has its own tests)
   const callables = NAMES.filter((n) => FUNCTIONS[n].callable && FUNCTIONS[n].role === "service_role" && dummy[n]);
@@ -815,7 +827,7 @@ describe("the functions: exact list, flags and EXECUTE per role (N1-R2, N1-R5, g
   const r = replay0265(body);
 
   it("the replay applies", () => expect(r.ok, r.stderr).toBe(true));
-  it("the migration creates exactly these thirteen functions, each once (no overloads)", () => {
+  it("the migration creates exactly the functions of the FUNCTIONS table, each once (no overloads)", () => {
     expect(r.res.all_names).toBe([...NAMES].sort().join(","));
     expect(r.res.overloads).toBe("0");
   });

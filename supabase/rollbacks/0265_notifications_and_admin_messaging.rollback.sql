@@ -1,6 +1,18 @@
--- Rollback of 0265 (parts 1 to 3). Removes the device, unsubscribe and revoke functions and trigger, the seven preference columns and the five flag rows, the ledger functions, the seven tables (their triggers, policies, indexes and grants go with them) and the two trigger functions.
+-- Rollback of 0265 (parts 1 to 4). Removes the twelve admin-message, setting and eligibility functions, the device, unsubscribe and revoke functions and trigger, the seven preference columns and the five flag rows, the ledger functions, the seven tables (their triggers, policies, indexes and grants go with them) and the two trigger functions.
 -- Every statement is "if exists", so the file runs cleanly on a database where 0265 was never applied and can be run twice. Later parts of 0265 add their own lines ABOVE these.
 -- The functions go first, then the tables child first. There are no rows to preserve: nothing outside these tables refers to them.
+drop function if exists public.admin_email_eligible_recipients(uuid[], text);
+drop function if exists public.resume_admin_message_send(uuid, uuid);
+drop function if exists public.pause_admin_message_send(uuid, text);
+drop function if exists public.set_notification_setting(text, integer, uuid);
+drop function if exists public.record_admin_message_test(uuid, uuid);
+drop function if exists public.admin_message_audit(uuid, uuid);
+drop function if exists public.start_admin_message_send(uuid, uuid);
+drop function if exists public.cancel_admin_message(uuid, uuid);
+drop function if exists public.approve_admin_message(uuid, uuid, text);
+drop function if exists public.submit_admin_message(uuid, uuid);
+drop function if exists public.prepare_admin_message(uuid, uuid, integer);
+drop function if exists public.resolve_admin_segment(text, jsonb, uuid);
 drop trigger if exists notification_revoke_devices_on_deletion_request on public.profiles;
 drop function if exists public.notification_revoke_devices_on_deletion_request();
 drop function if exists public.email_unsubscribe_stream(text, text, boolean);

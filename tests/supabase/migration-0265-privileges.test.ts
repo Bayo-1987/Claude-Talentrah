@@ -301,6 +301,13 @@ describe("0265 part 1: privileges, row security and triggers (replayed in a roll
         ["a preference column missing", "  add column if not exists push_match_alert boolean not null default false,\n", ""],
         ["a flag row missing", "('admin_email', 'Admin messages: email', false)", "('zz_other_flag', 'x', false)"],
         ["register_push_subscription made STRICT", "returns uuid\nlanguage plpgsql\nsecurity definer\nset search_path = ''\nas $register$", "returns uuid\nlanguage plpgsql\nstrict\nsecurity definer\nset search_path = ''\nas $register$"],
+        ["EXECUTE on prepare_admin_message granted to anon", "do $check$", "grant execute on function public.prepare_admin_message(uuid, uuid, integer) to anon;\ndo $check$"],
+        ["EXECUTE on set_notification_setting granted to authenticated", "do $check$", "grant execute on function public.set_notification_setting(text, integer, uuid) to authenticated;\ndo $check$"],
+        ["EXECUTE on admin_message_audit left to PUBLIC", "do $check$", "grant execute on function public.admin_message_audit(uuid, uuid) to public;\ndo $check$"],
+        ["start_admin_message_send loses its service_role grant", "grant execute on function public.start_admin_message_send(uuid, uuid) to service_role;\n", ""],
+        ["admin_email_eligible_recipients loses its service_role grant", "grant execute on function public.admin_email_eligible_recipients(uuid[], text) to service_role;\n", ""],
+        ["resolve_admin_segment made STRICT", "returns setof uuid\nlanguage plpgsql\nsecurity definer\nset search_path = ''\nas $segment$", "returns setof uuid\nlanguage plpgsql\nstrict\nsecurity definer\nset search_path = ''\nas $segment$"],
+        ["approve_admin_message without a pinned search_path", "returns void\nlanguage plpgsql\nsecurity definer\nset search_path = ''\nas $approve$", "returns void\nlanguage plpgsql\nsecurity definer\nas $approve$"],
         ["a function made STRICT", "language plpgsql\nsecurity invoker\nset search_path = ''\nas $mark$", "language plpgsql\nstrict\nsecurity invoker\nset search_path = ''\nas $mark$"],
         ["a function without a pinned search_path", "language plpgsql\nsecurity invoker\nset search_path = ''\nas $mark$", "language plpgsql\nsecurity invoker\nas $mark$"],
       ])("%s: the apply fails and says so", (_name, from, to) => {

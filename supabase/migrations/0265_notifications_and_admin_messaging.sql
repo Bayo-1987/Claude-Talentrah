@@ -668,6 +668,460 @@ grant execute on function public.register_push_subscription(text, text, text, te
 grant execute on function public.email_unsubscribe_stream(text, text, boolean) to service_role;
 
 -- ---------------------------------------------------------------------------------------
+-- Part 4: the admin-message functions, the send limits and the eligible-recipient filter
+-- ---------------------------------------------------------------------------------------
+-- Every function here is called by the server with the service role, takes the acting admin's id and checks the permission INSIDE (the service role bypasses row security, and the application's own
+-- permission check is code). None is strict, so a null argument reaches the body and is refused there. The messages are the three generic texts; the HINT names the reason.
+
+-- The audience of a segment: the ids only, from the closed list of segments. Every segment leaves out a pending deletion, a QA account and anyone without a profile (it starts from profiles).
+-- Unknown parameter keys are refused, a parameter a segment does not use is ignored.
+create function public.resolve_admin_segment(p_key text, p_params jsonb, p_actor uuid)
+returns setof uuid
+language plpgsql
+security definer
+set search_path = ''
+as $segment$
+declare
+  v_days integer;
+  v_since date;
+  v_country text;
+begin
+  if p_actor is null then
+    raise exception 'invalid parameter' using errcode = '22023';
+  end if;
+  if not public.admin_has_permission(p_actor, 'user_messaging') then
+    raise exception 'permission denied' using errcode = '42501';
+  end if;
+  if p_key is null or p_key not in ('everyone', 'seekers', 'employers', 'verified_employers', 'inactive_seekers', 'signed_up_since', 'country', 'self_test') then
+    raise exception 'invalid parameter' using errcode = '22023';
+  end if;
+  if p_params is null or jsonb_typeof(p_params) <> 'object' or (p_params - array['days', 'since', 'country']) <> '{}'::jsonb then
+    raise exception 'invalid parameter' using errcode = '22023';
+  end if;
+  if p_key = 'inactive_seekers' then
+    if jsonb_typeof(p_params -> 'days') is distinct from 'number' or (p_params -> 'days') not in ('30'::jsonb, '60'::jsonb, '90'::jsonb) then
+      raise exception 'invalid parameter' using errcode = '22023';
+    end if;
+    v_days := (p_params ->> 'days')::integer;
+  elsif p_key = 'signed_up_since' then
+    if jsonb_typeof(p_params -> 'since') is distinct from 'string' or (p_params ->> 'since') !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' then
+      raise exception 'invalid parameter' using errcode = '22023';
+    end if;
+    begin
+      v_since := (p_params ->> 'since')::date;
+    exception when datetime_field_overflow or invalid_datetime_format then
+      raise exception 'invalid parameter' using errcode = '22023';
+    end;
+  elsif p_key = 'country' then
+    v_country := lower(btrim(p_params ->> 'country'));
+  end if;
+
+  return query
+  select p.id
+    from public.profiles p
+   where p.deletion_requested_at is null
+     and not public.is_qa_account(p.email, p.first_name, p.last_name, p.referral_leaderboard_display_name)
+     and case p_key
+           when 'everyone' then true
+           when 'seekers' then not exists (select 1 from public.organization_members m where m.user_id = p.id)
+           when 'employers' then exists (select 1 from public.organization_members m where m.user_id = p.id)
+           when 'verified_employers' then exists (select 1 from public.organization_members m join public.organizations o on o.id = m.organization_id where m.user_id = p.id and o.verified)
+           when 'inactive_seekers' then not exists (select 1 from public.organization_members m where m.user_id = p.id)
+                                        and p.last_active_at is not null and p.last_active_at < pg_catalog.now() - pg_catalog.make_interval(days => v_days)
+           when 'signed_up_since' then p.created_at >= (v_since::timestamp at time zone 'UTC')
+           when 'country' then v_country is not null and v_country not in ('', 'other') and lower(btrim(p.country)) = v_country
+           when 'self_test' then p.id = p_actor
+           else false
+         end
+   order by p.id;
+end
+$segment$;
+
+-- Prepare: in one transaction, check the permission and the flags, refuse past the daily limits and the audience limit, queue one recipient row per person with the per-channel flags decided from the
+-- person's CURRENT opt-ins, freeze the count and move to prepared. The caller's audience limit never lifts the absolute one.
+create function public.prepare_admin_message(p_message uuid, p_actor uuid, p_max_audience integer)
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $prepare$
+declare
+  v_m public.admin_messages%rowtype;
+  v_email text;
+  v_limit integer;
+  v_count integer;
+  v_rows bigint;
+begin
+  if p_actor is null or not public.admin_has_permission(p_actor, 'user_messaging') then
+    raise exception 'permission denied' using errcode = '42501';
+  end if;
+  if p_max_audience is null or p_max_audience < 0 then
+    raise exception 'invalid parameter' using errcode = '22023';
+  end if;
+  select * into v_m from public.admin_messages m where m.id = p_message for update;
+  if not found then
+    raise exception 'operation refused' using errcode = 'P0001', hint = 'not_found';
+  end if;
+  if v_m.status <> 'draft' then
+    raise exception 'operation refused' using errcode = 'P0001', hint = 'invalid_state';
+  end if;
+  if not (coalesce((select f.enabled from public.feature_flags f where f.key = 'notifications_master'), false)
+          and coalesce((select f.enabled from public.feature_flags f where f.key = 'admin_messaging'), false)
+          and (v_m.kind <> 'promotion' or coalesce((select f.enabled from public.feature_flags f where f.key = 'admin_promotions'), false))
+          and ('email' <> all (v_m.channels) or coalesce((select f.enabled from public.feature_flags f where f.key = 'admin_email'), false))) then
+    raise exception 'operation refused' using errcode = 'P0001', hint = 'flag_off';
+  end if;
+  if v_m.kind = 'promotion' and btrim(coalesce(v_m.consent_line, '')) = '' then
+    raise exception 'operation refused' using errcode = 'P0001', hint = 'consent_required';
+  end if;
+  if (select count(*) from public.admin_messages x where x.created_by = p_actor and x.sent_started_at > pg_catalog.now() - interval '24 hours') >= 5 then
+    raise exception 'operation refused' using errcode = 'P0001', hint = 'operator_daily_limit';
+  end if;
+  if (select count(*) from public.admin_messages x where x.sent_started_at > pg_catalog.now() - interval '24 hours') >= 10 then
+    raise exception 'operation refused' using errcode = 'P0001', hint = 'overall_daily_limit';
+  end if;
+
+  v_limit := least(p_max_audience, 5000);
+  select count(*) into v_count from public.resolve_admin_segment(v_m.segment_key, v_m.segment_params, p_actor);
+  if v_count > v_limit then
+    raise exception 'operation refused' using errcode = 'P0001', hint = 'audience_over_limit';
+  end if;
+
+  insert into public.admin_message_recipients (message_id, user_id, to_inapp, to_push, to_email)
+  select v_m.id, s.id,
+         'inapp' = any (v_m.channels),
+         'push' = any (v_m.channels)
+           and coalesce(ep.push_enabled, false)
+           and (v_m.kind <> 'promotion' or coalesce(ep.push_promotions, false))
+           and exists (select 1 from public.push_subscriptions d where d.user_id = s.id and d.revoked_at is null),
+         'email' = any (v_m.channels)
+           and (case when v_m.kind = 'promotion' then coalesce(ep.email_promotions, false) else coalesce(ep.email_announcements, false) end)
+           and btrim(coalesce(p.email, '')) <> ''
+           and exists (select 1 from auth.users u where u.id = s.id and u.email_confirmed_at is not null)
+           and p.last_active_at is not null and p.last_active_at >= pg_catalog.now() - interval '30 days'
+    from public.resolve_admin_segment(v_m.segment_key, v_m.segment_params, p_actor) as s(id)
+    join public.profiles p on p.id = s.id
+    left join public.email_preferences ep on ep.user_id = s.id;
+  get diagnostics v_rows = row_count;
+  if v_rows > v_limit then
+    raise exception 'operation refused' using errcode = 'P0001', hint = 'audience_over_limit';
+  end if;
+
+  update public.admin_messages m set audience_count = v_rows::integer, status = 'prepared' where m.id = v_m.id;
+  select u.email into v_email from public.admin_users u where u.id = p_actor;
+  insert into public.admin_message_events (message_id, event, actor_admin_id, actor_email) values (v_m.id, 'prepared', p_actor, v_email);
+  return v_rows::integer;
+end
+$prepare$;
+
+create function public.submit_admin_message(p_message uuid, p_actor uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $submit$
+declare
+  v_status text;
+  v_email text;
+begin
+  if p_actor is null or not public.admin_has_permission(p_actor, 'user_messaging') then
+    raise exception 'permission denied' using errcode = '42501';
+  end if;
+  select m.status into v_status from public.admin_messages m where m.id = p_message for update;
+  if not found then
+    raise exception 'operation refused' using errcode = 'P0001', hint = 'not_found';
+  end if;
+  if v_status <> 'prepared' then
+    raise exception 'operation refused' using errcode = 'P0001', hint = 'invalid_state';
+  end if;
+  update public.admin_messages m set status = 'submitted' where m.id = p_message;
+  select u.email into v_email from public.admin_users u where u.id = p_actor;
+  insert into public.admin_message_events (message_id, event, actor_admin_id, actor_email) values (p_message, 'submitted', p_actor, v_email);
+end
+$submit$;
+
+-- Approve: a different admin from the creator, who names the kind they are approving (a promotion approved as an announcement is refused). The confirmation is kept on the message and in the event.
+create function public.approve_admin_message(p_message uuid, p_actor uuid, p_kind_confirmed text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $approve$
+declare
+  v_m public.admin_messages%rowtype;
+  v_email text;
+begin
+  if p_actor is null or not public.admin_has_permission(p_actor, 'user_messaging') then
+    raise exception 'permission denied' using errcode = '42501';
+  end if;
+  select * into v_m from public.admin_messages m where m.id = p_message for update;
+  if not found then
+    raise exception 'operation refused' using errcode = 'P0001', hint = 'not_found';
+  end if;
+  if v_m.status <> 'submitted' then
+    raise exception 'operation refused' using errcode = 'P0001', hint = 'invalid_state';
+  end if;
+  if v_m.created_by is not distinct from p_actor then
+    raise exception 'operation refused' using errcode = 'P0001', hint = 'self_approval';
+  end if;
+  if p_kind_confirmed is distinct from v_m.kind then
+    raise exception 'operation refused' using errcode = 'P0001', hint = 'kind_not_confirmed';
+  end if;
+  select u.email into v_email from public.admin_users u where u.id = p_actor;
+  update public.admin_messages m
+     set status = 'approved', approved_by = p_actor, approved_by_email = v_email, kind_confirmed_by_approver = p_kind_confirmed
+   where m.id = p_message;
+  insert into public.admin_message_events (message_id, event, detail, actor_admin_id, actor_email)
+  values (p_message, 'approved', jsonb_build_object('kind_confirmed', p_kind_confirmed), p_actor, v_email);
+end
+$approve$;
+
+create function public.cancel_admin_message(p_message uuid, p_actor uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $cancel$
+declare
+  v_status text;
+  v_email text;
+begin
+  if p_actor is null or not public.admin_has_permission(p_actor, 'user_messaging') then
+    raise exception 'permission denied' using errcode = '42501';
+  end if;
+  select m.status into v_status from public.admin_messages m where m.id = p_message for update;
+  if not found then
+    raise exception 'operation refused' using errcode = 'P0001', hint = 'not_found';
+  end if;
+  if v_status in ('sending', 'sent', 'cancelled') then
+    raise exception 'operation refused' using errcode = 'P0001', hint = 'invalid_state';
+  end if;
+  update public.admin_messages m set status = 'cancelled' where m.id = p_message;
+  select u.email into v_email from public.admin_users u where u.id = p_actor;
+  insert into public.admin_message_events (message_id, event, actor_admin_id, actor_email) values (p_message, 'cancelled', p_actor, v_email);
+end
+$cancel$;
+
+-- Start: ONE conditional update, so a double start or a retry changes nothing and returns null. With a flag off nothing starts and the stop is recorded.
+create function public.start_admin_message_send(p_message uuid, p_actor uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $start$
+declare
+  v_m public.admin_messages%rowtype;
+  v_email text;
+  v_id uuid;
+begin
+  if p_actor is null or not public.admin_has_permission(p_actor, 'user_messaging') then
+    raise exception 'permission denied' using errcode = '42501';
+  end if;
+  select * into v_m from public.admin_messages m where m.id = p_message;
+  if not found then
+    raise exception 'operation refused' using errcode = 'P0001', hint = 'not_found';
+  end if;
+  select u.email into v_email from public.admin_users u where u.id = p_actor;
+  if not (coalesce((select f.enabled from public.feature_flags f where f.key = 'notifications_master'), false)
+          and coalesce((select f.enabled from public.feature_flags f where f.key = 'admin_messaging'), false)
+          and (v_m.kind <> 'promotion' or coalesce((select f.enabled from public.feature_flags f where f.key = 'admin_promotions'), false))
+          and ('email' <> all (v_m.channels) or coalesce((select f.enabled from public.feature_flags f where f.key = 'admin_email'), false))) then
+    insert into public.admin_message_events (message_id, event, actor_admin_id, actor_email) values (p_message, 'flag_stopped', p_actor, v_email);
+    return null;
+  end if;
+  update public.admin_messages m
+     set status = 'sending', sent_started_at = pg_catalog.now()
+   where m.id = p_message and (m.status = 'approved' or (m.status = 'prepared' and not m.requires_approval))
+  returning m.id into v_id;
+  if v_id is not null then
+    insert into public.admin_message_events (message_id, event, actor_admin_id, actor_email) values (v_id, 'send_started', p_actor, v_email);
+  end if;
+  return v_id;
+end
+$start$;
+
+create function public.admin_message_audit(p_actor uuid, p_message uuid default null)
+returns setof public.admin_message_events
+language plpgsql
+security definer
+set search_path = ''
+as $audit$
+begin
+  if p_actor is null or not public.admin_has_permission(p_actor, 'user_messaging') then
+    raise exception 'permission denied' using errcode = '42501';
+  end if;
+  return query select e.* from public.admin_message_events e where p_message is null or e.message_id = p_message order by e.at, e.id;
+end
+$audit$;
+
+-- A test send changes nothing about the message (so it cannot block the real send); it is only recorded.
+create function public.record_admin_message_test(p_message uuid, p_actor uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $test$
+declare
+  v_email text;
+begin
+  if p_actor is null or not public.admin_has_permission(p_actor, 'user_messaging') then
+    raise exception 'permission denied' using errcode = '42501';
+  end if;
+  if not exists (select 1 from public.admin_messages m where m.id = p_message) then
+    raise exception 'operation refused' using errcode = 'P0001', hint = 'not_found';
+  end if;
+  select u.email into v_email from public.admin_users u where u.id = p_actor;
+  insert into public.admin_message_events (message_id, event, actor_admin_id, actor_email) values (p_message, 'test_sent', p_actor, v_email);
+end
+$test$;
+
+-- Only a holder of the operators permission changes a send limit. Closed keys, a bounded value; the setting and its change row are written by one statement.
+create function public.set_notification_setting(p_key text, p_value integer, p_actor uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $setting$
+declare
+  v_email text;
+begin
+  if p_actor is null or not public.admin_has_permission(p_actor, 'operators') then
+    raise exception 'permission denied' using errcode = '42501';
+  end if;
+  if p_key is null or p_key not in ('mass_email_cap_24h', 'mass_email_ceiling_month') then
+    raise exception 'operation refused' using errcode = 'P0001', hint = 'setting_key_unknown';
+  end if;
+  if p_value is null or p_value < 0 or p_value > 10000 then
+    raise exception 'operation refused' using errcode = 'P0001', hint = 'setting_value_out_of_range';
+  end if;
+  select u.email into v_email from public.admin_users u where u.id = p_actor;
+  with old as (
+    select s.int_value from public.notification_settings s where s.key = p_key
+  ), written as (
+    insert into public.notification_settings as s (key, int_value, updated_by_email, updated_at)
+    values (p_key, p_value, v_email, pg_catalog.now())
+    on conflict (key) do update set int_value = excluded.int_value, updated_by_email = excluded.updated_by_email, updated_at = excluded.updated_at
+    returning s.key
+  )
+  insert into public.notification_setting_changes (key, old_value, new_value, actor_admin_id, actor_email)
+  select w.key, (select o.int_value from old o), p_value, p_actor, v_email from written w;
+end
+$setting$;
+
+-- Pause: called by the sender when a claim is refused by a send limit. No actor (the sender is the service role). The recipients keep their email outcome empty; nothing is dropped or failed.
+create function public.pause_admin_message_send(p_message uuid, p_reason text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $pause$
+declare
+  v_status text;
+begin
+  if p_reason is null or p_reason not in ('cap_24h', 'ceiling_month') then
+    raise exception 'invalid parameter' using errcode = '22023';
+  end if;
+  select m.status into v_status from public.admin_messages m where m.id = p_message for update;
+  if not found then
+    raise exception 'operation refused' using errcode = 'P0001', hint = 'not_found';
+  end if;
+  if v_status <> 'sending' then
+    raise exception 'operation refused' using errcode = 'P0001', hint = 'invalid_state';
+  end if;
+  update public.admin_messages m set status = case p_reason when 'cap_24h' then 'paused_email_cap' else 'paused_email_ceiling' end where m.id = p_message;
+end
+$pause$;
+
+-- Resume is a person's decision: the permission and the flags are checked here, the change is audited, and nothing ever resumes by itself.
+create function public.resume_admin_message_send(p_message uuid, p_actor uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $resume$
+declare
+  v_m public.admin_messages%rowtype;
+  v_email text;
+begin
+  if p_actor is null or not public.admin_has_permission(p_actor, 'user_messaging') then
+    raise exception 'permission denied' using errcode = '42501';
+  end if;
+  select * into v_m from public.admin_messages m where m.id = p_message for update;
+  if not found then
+    raise exception 'operation refused' using errcode = 'P0001', hint = 'not_found';
+  end if;
+  if not (coalesce((select f.enabled from public.feature_flags f where f.key = 'notifications_master'), false)
+          and coalesce((select f.enabled from public.feature_flags f where f.key = 'admin_messaging'), false)
+          and (v_m.kind <> 'promotion' or coalesce((select f.enabled from public.feature_flags f where f.key = 'admin_promotions'), false))
+          and ('email' <> all (v_m.channels) or coalesce((select f.enabled from public.feature_flags f where f.key = 'admin_email'), false))) then
+    raise exception 'operation refused' using errcode = 'P0001', hint = 'flag_off';
+  end if;
+  if v_m.status not in ('paused_email_cap', 'paused_email_ceiling') then
+    raise exception 'operation refused' using errcode = 'P0001', hint = 'invalid_state';
+  end if;
+  update public.admin_messages m set status = 'sending' where m.id = p_message;
+  select u.email into v_email from public.admin_users u where u.id = p_actor;
+  insert into public.admin_message_events (message_id, event, actor_admin_id, actor_email) values (p_message, 'resumed', p_actor, v_email);
+end
+$resume$;
+
+-- The batch sender asks, at send time, which of a batch may still get this stream by e-mail: a profile, no pending deletion, not a QA account, the stream's column on, an address on the profile and a
+-- confirmed address in auth. The order of the input is kept.
+create function public.admin_email_eligible_recipients(p_user_ids uuid[], p_stream text)
+returns setof uuid
+language plpgsql
+security definer
+set search_path = ''
+as $eligible$
+begin
+  if p_user_ids is null or p_stream is null or p_stream not in ('announcements', 'promotions') then
+    raise exception 'invalid parameter' using errcode = '22023';
+  end if;
+  return query
+  select i.id
+    from unnest(p_user_ids) with ordinality as i(id, n)
+   where exists (
+     select 1
+       from public.profiles p
+       left join public.email_preferences ep on ep.user_id = p.id
+      where p.id = i.id
+        and p.deletion_requested_at is null
+        and not public.is_qa_account(p.email, p.first_name, p.last_name, p.referral_leaderboard_display_name)
+        and (case when p_stream = 'promotions' then coalesce(ep.email_promotions, false) else coalesce(ep.email_announcements, false) end)
+        and btrim(coalesce(p.email, '')) <> ''
+        and exists (select 1 from auth.users u where u.id = p.id and u.email_confirmed_at is not null)
+   )
+   order by i.n;
+end
+$eligible$;
+
+revoke all on function public.resolve_admin_segment(text, jsonb, uuid) from public, anon, authenticated, service_role;
+revoke all on function public.prepare_admin_message(uuid, uuid, integer) from public, anon, authenticated, service_role;
+revoke all on function public.submit_admin_message(uuid, uuid) from public, anon, authenticated, service_role;
+revoke all on function public.approve_admin_message(uuid, uuid, text) from public, anon, authenticated, service_role;
+revoke all on function public.cancel_admin_message(uuid, uuid) from public, anon, authenticated, service_role;
+revoke all on function public.start_admin_message_send(uuid, uuid) from public, anon, authenticated, service_role;
+revoke all on function public.admin_message_audit(uuid, uuid) from public, anon, authenticated, service_role;
+revoke all on function public.record_admin_message_test(uuid, uuid) from public, anon, authenticated, service_role;
+revoke all on function public.set_notification_setting(text, integer, uuid) from public, anon, authenticated, service_role;
+revoke all on function public.pause_admin_message_send(uuid, text) from public, anon, authenticated, service_role;
+revoke all on function public.resume_admin_message_send(uuid, uuid) from public, anon, authenticated, service_role;
+revoke all on function public.admin_email_eligible_recipients(uuid[], text) from public, anon, authenticated, service_role;
+
+grant execute on function public.resolve_admin_segment(text, jsonb, uuid) to service_role;
+grant execute on function public.prepare_admin_message(uuid, uuid, integer) to service_role;
+grant execute on function public.submit_admin_message(uuid, uuid) to service_role;
+grant execute on function public.approve_admin_message(uuid, uuid, text) to service_role;
+grant execute on function public.cancel_admin_message(uuid, uuid) to service_role;
+grant execute on function public.start_admin_message_send(uuid, uuid) to service_role;
+grant execute on function public.admin_message_audit(uuid, uuid) to service_role;
+grant execute on function public.record_admin_message_test(uuid, uuid) to service_role;
+grant execute on function public.set_notification_setting(text, integer, uuid) to service_role;
+grant execute on function public.pause_admin_message_send(uuid, text) to service_role;
+grant execute on function public.resume_admin_message_send(uuid, uuid) to service_role;
+grant execute on function public.admin_email_eligible_recipients(uuid[], text) to service_role;
+
+-- ---------------------------------------------------------------------------------------
 -- Self-check (LAST statement): the grants, the column grants, row security, the policies and the trigger functions are exactly as intended. Raises on anything missing or extra.
 -- ---------------------------------------------------------------------------------------
 do $check$
@@ -675,7 +1129,7 @@ declare
   r record;
   problems text[] := '{}';
   tables text[] := array['notification_deliveries', 'push_subscriptions', 'admin_messages', 'admin_message_recipients', 'admin_message_events', 'notification_settings', 'notification_setting_changes'];
-  functions text[] := array['notification_in_quiet_hours', 'claim_notification', 'release_notification', 'mark_notification_sent', 'stale_notification_claims', 'resolve_stale_claim', 'unread_notification_count', 'prune_notification_deliveries', 'register_push_subscription', 'email_unsubscribe_stream', 'notification_revoke_devices_on_deletion_request', 'notification_guard_append_only', 'notification_guard_message_edit'];
+  functions text[] := array['notification_in_quiet_hours', 'claim_notification', 'release_notification', 'mark_notification_sent', 'stale_notification_claims', 'resolve_stale_claim', 'unread_notification_count', 'prune_notification_deliveries', 'register_push_subscription', 'email_unsubscribe_stream', 'notification_revoke_devices_on_deletion_request', 'resolve_admin_segment', 'prepare_admin_message', 'submit_admin_message', 'approve_admin_message', 'cancel_admin_message', 'start_admin_message_send', 'admin_message_audit', 'record_admin_message_test', 'set_notification_setting', 'pause_admin_message_send', 'resume_admin_message_send', 'admin_email_eligible_recipients', 'notification_guard_append_only', 'notification_guard_message_edit'];
 begin
   -- Table-level privileges, every type including TRUNCATE, REFERENCES, TRIGGER and MAINTAIN, for every role including PUBLIC.
   for r in
@@ -759,7 +1213,19 @@ begin
       ('unread_notification_count', 'service_role'),
       ('prune_notification_deliveries', 'service_role'),
       ('register_push_subscription', 'authenticated'),
-      ('email_unsubscribe_stream', 'service_role')
+      ('email_unsubscribe_stream', 'service_role'),
+      ('resolve_admin_segment', 'service_role'),
+      ('prepare_admin_message', 'service_role'),
+      ('submit_admin_message', 'service_role'),
+      ('approve_admin_message', 'service_role'),
+      ('cancel_admin_message', 'service_role'),
+      ('start_admin_message_send', 'service_role'),
+      ('admin_message_audit', 'service_role'),
+      ('record_admin_message_test', 'service_role'),
+      ('set_notification_setting', 'service_role'),
+      ('pause_admin_message_send', 'service_role'),
+      ('resume_admin_message_send', 'service_role'),
+      ('admin_email_eligible_recipients', 'service_role')
     ),
     have_fn as (
       select p.proname::text as fn, coalesce(g.rolname::text, 'PUBLIC') as who

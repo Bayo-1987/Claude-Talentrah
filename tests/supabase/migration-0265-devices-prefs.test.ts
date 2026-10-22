@@ -296,7 +296,7 @@ describe("the five flags on a database that has none of them, and the rollback o
     scalar("flags_fresh", `select string_agg(key || '=' || enabled, ' ; ' order by key) from public.feature_flags where key = any (array[${KEYS.map((k) => `'${k}'`).join(", ")}])`),
     // the rollback, run again after the forward file, takes part 3 away completely
     rollbackText,
-    scalar("fns_after", "select count(*) from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname = any (array['register_push_subscription', 'email_unsubscribe_stream', 'notification_revoke_devices_on_deletion_request'])"),
+    scalar("fns_after", "select count(*) from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname = any (array['register_push_subscription', 'email_unsubscribe_stream', 'notification_revoke_devices_on_deletion_request', 'resolve_admin_segment', 'prepare_admin_message', 'submit_admin_message', 'approve_admin_message', 'cancel_admin_message', 'start_admin_message_send', 'admin_message_audit', 'record_admin_message_test', 'set_notification_setting', 'pause_admin_message_send', 'resume_admin_message_send', 'admin_email_eligible_recipients'])"),
     scalar("trigger_after", "select count(*) from pg_trigger t where t.tgrelid = 'public.profiles'::regclass and t.tgname = 'notification_revoke_devices_on_deletion_request'"),
     scalar("columns_after", "select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'email_preferences' and column_name = any (array['push_enabled', 'push_new_applicant', 'push_application_viewed', 'push_match_alert', 'push_promotions', 'email_promotions', 'email_announcements'])"),
     scalar("flags_after", `select count(*) from public.feature_flags where key = any (array[${KEYS.map((k) => `'${k}'`).join(", ")}])`),
@@ -305,7 +305,7 @@ describe("the five flags on a database that has none of them, and the rollback o
 
   it("the replay applies", () => expect(r.ok, r.stderr).toBe(true));
   it("a database with none of the flags gets all five, each off", () => expect(r.res.flags_fresh).toBe(KEYS.map((k) => `${k}=false`).join(" ; ")));
-  it("the rollback removes the two functions and the trigger function of part 3, the trigger, the seven columns and the five flag rows", () => {
+  it("the rollback removes the functions of parts 3 and 4 (the device, unsubscribe, revoke and the twelve admin-message functions), the trigger, the seven columns and the five flag rows", () => {
     expect([r.res.fns_after, r.res.trigger_after, r.res.columns_after, r.res.flags_after]).toEqual(["0", "0", "0", "0"]);
   });
 });

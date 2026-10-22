@@ -85,10 +85,10 @@ describe("row 2: the new label is never used as the enum in the transaction that
       expect(last(count.stdout)).toBe("1");
     });
 
-    it("the label is present on the migrated database and is granted to nobody (read as text)", () => {
+    it("the label is present on the migrated database and is granted to nobody (read as text; the Data API test holds it briefly in a role named n1-api-*, which is ignored)", () => {
       const present = runN1Sql(`select exists (select 1 from pg_catalog.pg_enum e where e.enumtypid = 'public.admin_permission'::regtype and e.enumlabel::text = '${LABEL}');`);
       expect(last(present.stdout)).toBe("t");
-      const nobody = runN1Sql(`select not exists (select 1 from public.admin_role_permissions p where p.permission::text = '${LABEL}');`);
+      const nobody = runN1Sql(`select not exists (select 1 from public.admin_role_permissions p join public.admin_roles r on r.id = p.role_id where p.permission::text = '${LABEL}' and r.name not like 'n1-api-%');`);
       expect(last(nobody.stdout)).toBe("t");
     });
   });

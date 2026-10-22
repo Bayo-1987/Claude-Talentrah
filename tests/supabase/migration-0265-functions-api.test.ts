@@ -10,9 +10,11 @@
  * Service set of the local stack: REDUCED (auth, db, kong, rest, storage).
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createAuthedTestUser, deleteTestUsers } from "../support/auth";
+import { localDbContainer } from "../support/local-psql";
 import { requireN1Db, runN1Sql } from "./migration-0265-local-db";
 
 const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -151,6 +153,18 @@ describe("the ledger functions through the Data API (committed fixtures, cleaned
       ["resolve_stale_claim", { p_id: randomUUID(), p_actor: randomUUID(), p_resolution: "mark_sent" }],
       ["unread_notification_count", { p_user: randomUUID() }],
       ["prune_notification_deliveries", { p_older_than_days: 30 }],
+      ["resolve_admin_segment", { p_key: "everyone", p_params: {}, p_actor: randomUUID() }],
+      ["prepare_admin_message", { p_message: randomUUID(), p_actor: randomUUID(), p_max_audience: 10 }],
+      ["submit_admin_message", { p_message: randomUUID(), p_actor: randomUUID() }],
+      ["approve_admin_message", { p_message: randomUUID(), p_actor: randomUUID(), p_kind_confirmed: "promotion" }],
+      ["cancel_admin_message", { p_message: randomUUID(), p_actor: randomUUID() }],
+      ["start_admin_message_send", { p_message: randomUUID(), p_actor: randomUUID() }],
+      ["admin_message_audit", { p_actor: randomUUID() }],
+      ["record_admin_message_test", { p_message: randomUUID(), p_actor: randomUUID() }],
+      ["set_notification_setting", { p_key: "mass_email_cap_24h", p_value: 5, p_actor: randomUUID() }],
+      ["pause_admin_message_send", { p_message: randomUUID(), p_reason: "cap_24h" }],
+      ["resume_admin_message_send", { p_message: randomUUID(), p_actor: randomUUID() }],
+      ["admin_email_eligible_recipients", { p_user_ids: [], p_stream: "announcements" }],
     ];
     it.each(calls)("%s: an anonymous visitor and a signed-in person are both refused", async (name, a) => {
       const anonymous = await anon.rpc(name, a);
@@ -264,6 +278,101 @@ describe("the ledger functions through the Data API (committed fixtures, cleaned
       expect(results.filter((r) => r.error?.code === "P0001" && r.error?.hint === "device_limit").length).toBe(5);
       const held = await svc.from("push_subscriptions").select("id", { count: "exact", head: true }).eq("user_id", person.id).is("revoked_at", null);
       expect(held.count).toBe(10);
+    }, 60_000);
+  });
+
+  describe("the admin functions over HTTP: errcodes, hints, generic messages and a double start", () => {
+    const FLAG_KEYS = ["notifications_master", "admin_messaging", "admin_promotions", "admin_email"];
+    const flagsBefore: Record<string, boolean> = {};
+    const messageIds: string[] = [];
+    let operator: Awaited<ReturnType<typeof newPerson>>;
+    let roleId = "";
+    let outsider: Awaited<ReturnType<typeof newPerson>>;
+    const setFlags = (on: boolean) => sql(`update public.feature_flags set enabled = ${on} where key in (${FLAG_KEYS.map((k) => `'${k}'`).join(", ")});`);
+    const newMessage = (status: string, extra = "") => {
+      const id = randomUUID();
+      messageIds.push(id);
+      sql(`insert into public.admin_messages (id, created_by, created_by_email, kind, title, body, channels, segment_key, status, requires_approval ${extra ? ", " + extra.split("=")[0] : ""}) values ('${id}', '${operator.id}', 'op@example.test', 'service_announcement', 'T', 'B', array['inapp'], 'self_test', '${status}', false ${extra ? ", " + extra.split("=")[1] : ""});`);
+      return id;
+    };
+    beforeAll(async () => {
+      for (const line of sql(`select key || '=' || enabled from public.feature_flags where key in (${FLAG_KEYS.map((k) => `'${k}'`).join(", ")});`).split("\n")) {
+        const [k, v] = line.split("=");
+        flagsBefore[k] = v === "true";
+      }
+      operator = await newPerson("n1-api-op");
+      outsider = await newPerson("n1-api-out");
+      roleId = randomUUID();
+      sql(`insert into public.admin_users (id, email) values ('${operator.id}', '${operator.email}'); insert into public.admin_roles (id, name) values ('${roleId}', 'n1-api-${roleId.slice(0, 8)}'); update public.admin_users set role_id = '${roleId}' where id = '${operator.id}'; insert into public.admin_role_permissions (role_id, permission) values ('${roleId}', 'user_messaging');`);
+      setFlags(true);
+    }, 120_000);
+    afterAll(() => {
+      for (const [k, v] of Object.entries(flagsBefore)) sql(`update public.feature_flags set enabled = ${v} where key = '${k}';`);
+      if (messageIds.length) {
+        // the audit table is append-only: only the table's owner, with triggers off for this one session, can remove the rows this file made
+        const list = messageIds.map((m) => `'${m}'`).join(", ");
+        sql(`set session_replication_role = replica; delete from public.admin_message_events where message_id in (${list}); delete from public.admin_message_recipients where message_id in (${list}); delete from public.admin_messages where id in (${list});`);
+      }
+      // the operator's role and its permission are rows other suites read (the enum test reads the permission table), so they go too, the admin first
+      if (roleId) sql(`delete from public.admin_users where id = '${operator.id}'; delete from public.admin_role_permissions where role_id = '${roleId}'; delete from public.admin_roles where id = '${roleId}';`);
+    }, 120_000);
+
+    it("a person who holds no permission is refused with 42501 and the generic message", async () => {
+      const m = newMessage("draft");
+      const { error } = await svc.rpc("prepare_admin_message", { p_message: m, p_actor: outsider.id, p_max_audience: 10 });
+      expect([error?.code, error?.message]).toEqual(["42501", "permission denied"]);
+    });
+    it("a flag off, an unknown message, a bad segment and a bad setting carry their errcode and HINT", async () => {
+      const m = newMessage("draft");
+      setFlags(false);
+      const off = await svc.rpc("prepare_admin_message", { p_message: m, p_actor: operator.id, p_max_audience: 10 });
+      setFlags(true);
+      expect([off.error?.code, off.error?.hint]).toEqual(["P0001", "flag_off"]);
+      const unknown = await svc.rpc("submit_admin_message", { p_message: randomUUID(), p_actor: operator.id });
+      expect([unknown.error?.code, unknown.error?.hint]).toEqual(["P0001", "not_found"]);
+      const segment = await svc.rpc("resolve_admin_segment", { p_key: "admins", p_params: {}, p_actor: operator.id });
+      expect(segment.error?.code).toBe("22023");
+      const nullActor = await svc.rpc("resolve_admin_segment", { p_key: "everyone", p_params: {}, p_actor: null });
+      expect(nullActor.error?.code).toBe("22023");
+      const setting = await svc.rpc("set_notification_setting", { p_key: "mass_email_cap_24h", p_value: 5, p_actor: operator.id });
+      expect([setting.error?.code, setting.error?.message]).toEqual(["42501", "permission denied"]);
+      for (const e of [off.error, unknown.error, segment.error, nullActor.error]) {
+        expect(GENERIC.has(e!.message), e!.message).toBe(true);
+        expect(`${e!.message} ${e!.details ?? ""}`).not.toContain(operator.id);
+      }
+    });
+    it("a prepare over HTTP returns the frozen count, and a repeat is invalid_state", async () => {
+      const m = newMessage("draft");
+      const first = await svc.rpc("prepare_admin_message", { p_message: m, p_actor: operator.id, p_max_audience: 10 });
+      expect([first.error, first.data]).toEqual([null, 1]);
+      const again = await svc.rpc("prepare_admin_message", { p_message: m, p_actor: operator.id, p_max_audience: 10 });
+      expect([again.error?.code, again.error?.hint]).toEqual(["P0001", "invalid_state"]);
+    });
+    it("5 concurrent prepares of one draft: exactly one succeeds, the others are invalid_state and no recipient row is duplicated", async () => {
+      const m = newMessage("draft");
+      const results = await Promise.all(Array.from({ length: 5 }, () => svc.rpc("prepare_admin_message", { p_message: m, p_actor: operator.id, p_max_audience: 10 })));
+      expect(results.filter((r) => !r.error).length).toBe(1);
+      expect(results.filter((r) => r.error?.code === "P0001" && r.error?.hint === "invalid_state").length).toBe(4);
+      expect(sql(`select count(*) from public.admin_message_recipients where message_id = '${m}';`)).toBe("1");
+    }, 60_000);
+    it("a prepare that waits on another session's open prepare of the same draft ends as invalid_state, not as a duplicate-row error (the message row is locked)", async () => {
+      const m = newMessage("draft");
+      const holder = new Promise<void>((resolve) =>
+        execFile("docker", ["exec", "-i", localDbContainer(), "psql", "-U", "postgres", "-d", "postgres", "-X", "-c", `begin; select public.prepare_admin_message('${m}', '${operator.id}', 10); select pg_sleep(3); commit;`], () => resolve()),
+      );
+      await new Promise((r) => setTimeout(r, 1200));
+      const second = await svc.rpc("prepare_admin_message", { p_message: m, p_actor: operator.id, p_max_audience: 10 });
+      await holder;
+      expect([second.error?.code, second.error?.hint]).toEqual(["P0001", "invalid_state"]);
+      expect(sql(`select count(*) from public.admin_message_recipients where message_id = '${m}';`)).toBe("1");
+    }, 60_000);
+    it("10 concurrent starts of one prepared message: exactly one wins, the others get nothing, and one event is written", async () => {
+      const m = newMessage("prepared");
+      const results = await Promise.all(Array.from({ length: 10 }, () => svc.rpc("start_admin_message_send", { p_message: m, p_actor: operator.id })));
+      expect(results.map((r) => r.error?.code ?? null)).toEqual(Array(10).fill(null));
+      expect(results.filter((r) => r.data === m).length).toBe(1);
+      expect(results.filter((r) => r.data === null).length).toBe(9);
+      expect(sql(`select count(*) from public.admin_message_events where message_id = '${m}' and event = 'send_started';`)).toBe("1");
     }, 60_000);
   });
 

@@ -185,11 +185,15 @@ export const deviceSql = (id = D1, user = U1, endpoint = `https://push.example.i
 export const SCRATCH_BOOTSTRAP = `
 create schema auth;
 grant usage on schema auth to anon, authenticated, service_role;
-create table auth.users (id uuid primary key, email text, instance_id uuid, aud text, role text);
+create table auth.users (id uuid primary key, email text, instance_id uuid, aud text, role text, email_confirmed_at timestamptz);
 create function auth.uid() returns uuid language sql stable as $f$
   select coalesce(nullif(current_setting('request.jwt.claim.sub', true), ''), (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub'))::uuid
 $f$;
-create table public.profiles (id uuid primary key references auth.users (id) on delete cascade, email text, deletion_requested_at timestamptz);
+create table public.profiles (id uuid primary key references auth.users (id) on delete cascade, email text, deletion_requested_at timestamptz, first_name text, last_name text, referral_leaderboard_display_name text, country text, created_at timestamptz not null default now(), last_active_at timestamptz);
+-- Stand-in for the platform's QA-account test (migration 0240, immutable, null-safe): here an address under qa.example.test is a QA account. The real function is exercised by the applied-database test.
+create function public.is_qa_account(p_email text, p_first text, p_last text, p_display text) returns boolean language sql immutable as $f$ select coalesce(p_email ilike '%@qa.example.test', false) $f$;
+create table public.organizations (id uuid primary key default gen_random_uuid(), verified boolean not null default false);
+create table public.organization_members (organization_id uuid not null references public.organizations (id) on delete cascade, user_id uuid not null references public.profiles (id) on delete cascade, primary key (organization_id, user_id));
 create function public.handle_new_user() returns trigger language plpgsql as $f$
 begin
   insert into public.profiles (id, email) values (new.id, new.email);
@@ -396,6 +400,18 @@ export const FUNCTIONS: Record<string, { definer: boolean; role: "service_role" 
   register_push_subscription: { definer: true, role: "authenticated", callable: true },
   email_unsubscribe_stream: { definer: true, role: "service_role", callable: true },
   notification_revoke_devices_on_deletion_request: { definer: true, role: "nobody", callable: false },
+  resolve_admin_segment: { definer: true, role: "service_role", callable: true },
+  prepare_admin_message: { definer: true, role: "service_role", callable: true },
+  submit_admin_message: { definer: true, role: "service_role", callable: true },
+  approve_admin_message: { definer: true, role: "service_role", callable: true },
+  cancel_admin_message: { definer: true, role: "service_role", callable: true },
+  start_admin_message_send: { definer: true, role: "service_role", callable: true },
+  admin_message_audit: { definer: true, role: "service_role", callable: true },
+  record_admin_message_test: { definer: true, role: "service_role", callable: true },
+  set_notification_setting: { definer: true, role: "service_role", callable: true },
+  pause_admin_message_send: { definer: true, role: "service_role", callable: true },
+  resume_admin_message_send: { definer: true, role: "service_role", callable: true },
+  admin_email_eligible_recipients: { definer: true, role: "service_role", callable: true },
   notification_guard_append_only: { definer: false, role: "nobody", callable: false },
   notification_guard_message_edit: { definer: false, role: "nobody", callable: false },
 };

@@ -6,10 +6,11 @@
  *   (d) every text, varchar or jsonb column (and arrays of them) is on the closed reviewed list D, and every column named like a failure, error, reason, outcome or status is closed
  *
  * The lists below are the Reviewer's, copied from the addendum; the builder does not add to them. A column the migration adds to an existing table is found by comparing the table's columns
- * before the migration (a snapshot taken in the replay's prelude) with its columns after. Test (b), on the event detail, is in the admin-message part. Replayed in a private scratch database.
+ * before the migration (a snapshot taken in the replay's prelude) with its columns after. Test (b), on the event detail, is the last block: it calls every function that writes an audit event and reads the events back. Replayed in a private scratch database.
  */
 import { describe, expect, it } from "vitest";
-import { replay0265, scalar } from "./migration-0265-support";
+import { A2, FIXTURES, M1, M2, U1, replay0265, scalar } from "./migration-0265-support";
+import { A3, FLAGS_ON, M3, M4, OPERATORS, call, flag, msg } from "./migration-0265-admin-support";
 
 const CREATED = ["notification_deliveries", "push_subscriptions", "admin_messages", "admin_message_recipients", "admin_message_events", "notification_settings", "notification_setting_changes"] as const;
 const IN_LIST = `array[${CREATED.map((t) => `'${t}'`).join(", ")}]`;
@@ -149,5 +150,76 @@ describe("test (d): the free-text inventory", () => {
   it("the settings change log: key is a foreign key to the settings table, old_value and new_value are integers", () => {
     expect(r.res.key_fk).toBe("notification_settings");
     for (const n of ["notification_setting_changes.old_value", "notification_setting_changes.new_value"]) expect(created.find((c) => `${c.table}.${c.column}` === n)?.dataType, n).toBe("integer");
+  });
+});
+
+describe("test (b): the event detail carries a closed list of keys and no address, whatever function wrote the event", () => {
+  const CLOSED_KEYS = ["kind_confirmed", "resolution"];
+  const KEY_RULE = /(email|address|recipient)/i;
+  const S1 = "00000000-0000-4000-8000-0000000000f5";
+  const S2 = "00000000-0000-4000-8000-0000000000f6";
+  const body = [
+    FIXTURES,
+    OPERATORS,
+    FLAGS_ON,
+    // every function that writes an event is called through its real path
+    msg(M1, { status: "prepared", approval: true }),
+    `select ${call.submit(M1, A2)};`,
+    `select ${call.approve(M1, A3, "service_announcement")};`,
+    `select ${call.start(M1, A2)};`,
+    `select ${call.pause(M1, "cap_24h")};`,
+    `select ${call.resume(M1, A2)};`,
+    msg(M2, { status: "prepared", approval: false }),
+    `select ${call.test(M2, A2)};`,
+    `select ${call.cancel(M2, A2)};`,
+    msg(M3, { key: "self_test" }),
+    `select ${call.prepare(M3, A2)};`,
+    msg(M4, { status: "approved", approval: false }),
+    flag("admin_messaging", false),
+    `select ${call.start(M4, A2)};`,
+    flag("admin_messaging", true),
+    `insert into public.notification_deliveries (id, user_id, kind, subject_id, channel) values ('${S1}', '${U1}', 'admin_message', '${M1}', 'email'), ('${S2}', '${U1}', 'admin_message', '${M1}', 'push');`,
+    `select public.resolve_stale_claim(p_id => '${S1}', p_actor => '${A2}', p_resolution => 'mark_sent');`,
+    `select public.resolve_stale_claim(p_id => '${S2}', p_actor => '${A2}', p_resolution => 'release_for_retry');`,
+    scalar("events", "select string_agg(event || '^' || detail::text, '~' order by event, detail::text) from public.admin_message_events"),
+  ].join("\n");
+  const r = replay0265(body);
+  const walk = (v: unknown, visit: (key: string | null, value: unknown) => void, key: string | null = null) => {
+    visit(key, v);
+    if (Array.isArray(v)) v.forEach((x) => walk(x, visit, key));
+    else if (v && typeof v === "object") for (const [k, x] of Object.entries(v)) walk(x, visit, k);
+  };
+  const events = (r.res.events ?? "").split("~").filter(Boolean).map((e) => {
+    const [event, detail] = e.split("^");
+    return { event, detail: JSON.parse(detail) as unknown };
+  });
+
+  it("the replay applies and every function that writes an event was called through its real path", () => {
+    expect(r.ok, r.stderr).toBe(true);
+    expect([...new Set(events.map((e) => e.event))].sort()).toEqual(["approved", "cancelled", "claim_resolved", "flag_stopped", "prepared", "resumed", "send_started", "submitted", "test_sent"]);
+  });
+  it("no event detail has a key naming an e-mail, an address or a recipient, at any depth", () => {
+    for (const e of events) walk(e.detail, (k) => { if (k !== null) expect(KEY_RULE.test(k), `${e.event}: key ${k}`).toBe(false); });
+  });
+  it("the keys of every detail come from the closed list kind_confirmed, resolution; an unknown key is a failure naming the event", () => {
+    for (const e of events) {
+      const keys = new Set<string>();
+      walk(e.detail, (k) => { if (k !== null) keys.add(k); });
+      for (const k of keys) expect(CLOSED_KEYS, `${e.event}: key ${k}`).toContain(k);
+    }
+  });
+  it("no string value anywhere in a detail contains an at sign", () => {
+    for (const e of events) walk(e.detail, (_k, v) => { if (typeof v === "string") expect(v.includes("@"), `${e.event}: ${v}`).toBe(false); });
+  });
+  it("the details that are not empty are exactly the approval confirmation and the two resolutions", () => {
+    const filled = events.filter((e) => JSON.stringify(e.detail) !== "{}").map((e) => `${e.event}:${JSON.stringify(e.detail)}`).sort();
+    expect(filled).toEqual([`approved:${JSON.stringify({ kind_confirmed: "service_announcement" })}`, `claim_resolved:${JSON.stringify({ resolution: "mark_sent" })}`, `claim_resolved:${JSON.stringify({ resolution: "release_for_retry" })}`]);
+  });
+  it("control: the walker reads keys and values at depth, so a nested address would be caught", () => {
+    const seen: string[] = [];
+    walk({ a: { b: ["x@y"] } }, (k, v) => { if (typeof v === "string") seen.push(`${k}=${v}`); });
+    expect(seen).toEqual(["b=x@y"]);
+    expect(KEY_RULE.test("recipient_count_for")).toBe(true);
+    expect(KEY_RULE.test("note")).toBe(false);
   });
 });
