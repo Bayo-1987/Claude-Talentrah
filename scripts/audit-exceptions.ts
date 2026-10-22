@@ -15,6 +15,10 @@
  * eslint-config-next), and confirm `npm audit --audit-level=high` is clean. To RENEW instead, change `expires` in a PR that says
  * why, and link it from #687. tests/scripts/check-dependency-audit.test.ts pins the id, the date and the issue number, so changing
  * any of them is a deliberate edit to that test too.
+ *
+ * RENEWED 2026-10-21 (#687): from 2026-11-03 to 2026-12-01, because `braces` still has no patched version (the advisory's first_patched_version
+ * is null and the latest tag is 3.0.3). RE-CHECK on or before 2026-12-01: the advisory, `npm view braces version`, and whether eslint-config-next /
+ * @next/eslint-plugin-next / fast-glob still pull braces; then remove the entry (patched) or renew it again in a PR that says why.
  */
 export interface AuditException {
   /** GitHub advisory id, e.g. GHSA-xxxx-xxxx-xxxx. Matched against the advisory URL npm audit reports. */
@@ -29,7 +33,7 @@ export interface AuditException {
 export const AUDIT_EXCEPTIONS: readonly AuditException[] = [
   {
     advisory: "GHSA-vfj7-8cjw-p6xm",
-    expires: "2026-11-03",
+    expires: "2026-12-01",
     issue: 687,
     reason:
       "braces <= 3.0.3, stack-exhaustion DoS on deeply nested patterns, reached only through the lint-time chain " +

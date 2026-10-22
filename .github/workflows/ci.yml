@@ -230,9 +230,10 @@ jobs:
     # `npm audit --audit-level=high` sat red on every PR. Two runs now:
     #   1. the FULL tree through scripts/check-dependency-audit.ts, which
     #      allows exactly the advisory ids listed in scripts/audit-exceptions.ts
-    #      (never a package name), each with an expiry date (this one:
-    #      2026-11-03). After it the step fails again, naming #687, until
-    #      someone removes or renews the entry on purpose;
+    #      (never a package name), each with an expiry date that lives only in
+    #      that file (this comment repeats no date). After it the step fails
+    #      again, naming #687, until someone removes or renews the entry on
+    #      purpose;
     #   2. the PRODUCTION tree (`--omit=dev`) with --strict: NO exceptions, so a
     #      high finding in anything that ships fails whatever the list says.
     # `|| true` after `npm audit --json` only lets the script read the report
