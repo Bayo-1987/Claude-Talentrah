@@ -5902,6 +5902,7 @@ export type Database = {
         | "job_review"
         | "mentor_review"
         | "data_export"
+        | "user_messaging"
       applicant_review_status:
         | "new"
         | "reviewing"
@@ -6148,6 +6149,7 @@ export const Constants = {
         "job_review",
         "mentor_review",
         "data_export",
+        "user_messaging",
       ],
       applicant_review_status: [
         "new",
