@@ -16,7 +16,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  A1, A2, CONFIG, D1, D2, FIXTURES, FUNCTIONS, M1, NAMES, NAME_LIST, U1, U2, ZONES_SQL, ZONE_IN, ZONE_OUT, adminSql, asRole, claimTo, deviceZoneSql, draftSql, grantPermissionSql, probe, replay0265, scalar,
+  A1, A2, CONFIG, D1, D2, FIXTURES, FUNCTIONS, INVOKER_ALLOWED, M1, NAMES, NAME_LIST, U1, U2, ZONES_SQL, ZONE_IN, ZONE_OUT, adminSql, asRole, claimTo, deviceZoneSql, draftSql, grantPermissionSql, probe, replay0265, scalar,
 } from "./migration-0265-support";
 
 const sub = (n: number) => `00000000-0000-4000-8000-0000000f${n.toString(16).padStart(4, "0")}`;
@@ -816,6 +816,11 @@ describe("the functions: exact list, flags and EXECUTE per role (N1-R2, N1-R5, g
     FIXTURES,
     scalar("all_names", `select string_agg(p.proname, ',' order by p.proname) from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname in ${NAME_LIST}`),
     scalar("overloads", `select count(*) - count(distinct p.proname) from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname in ${NAME_LIST}`),
+    // any function in public that the migration ADDS and that is not in the FUNCTIONS table is a failure (a new unlisted function, invoker or not)
+    scalar("unlisted_new_functions", `select coalesce(string_agg(p.proname, ',' order by p.proname), 'none') from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname not in (select n from n1_pre_fns) and p.proname not in ${NAME_LIST}`),
+    scalar("not_definer", `select coalesce(string_agg(p.proname, ',' order by p.proname), 'none') from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname in ${NAME_LIST} and not p.prosecdef`),
+    scalar("immutable_or_strict", `select coalesce(string_agg(p.proname, ',' order by p.proname), 'none') from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname in ${NAME_LIST} and (p.provolatile = 'i' or p.proisstrict)`),
+    scalar("quiet_hours_acl", `select coalesce(string_agg(g.rolname, ',' order by g.rolname), 'nobody') from pg_proc p cross join lateral aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a join pg_roles g on g.oid = a.grantee where p.proname = 'notification_in_quiet_hours' and p.pronamespace = 'public'::regnamespace and g.rolname in ('anon', 'authenticated', 'service_role')`),
     ...NAMES.flatMap((n) => [
       scalar(`flags_${n}`, `select p.proisstrict::text || '/' || p.prosecdef::text || '/' || coalesce(p.proconfig::text, '') from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname = '${n}'`),
       scalar(`acl_${n}`, `select coalesce(string_agg(coalesce(g.rolname, 'PUBLIC'), ',' order by g.rolname), 'nobody') from pg_proc p cross join lateral aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a left join pg_roles g on g.oid = a.grantee where p.pronamespace = 'public'::regnamespace and p.proname = '${n}' and a.grantee <> p.proowner`),
@@ -824,12 +829,19 @@ describe("the functions: exact list, flags and EXECUTE per role (N1-R2, N1-R5, g
       callables.map((n) => asRole(role, [probe(`${role}_${n}`, `select * from public.${n}(${dummy[n]})`, "42501")], role === "authenticated" ? U1 : undefined)),
     ),
   ].join("\n");
-  const r = replay0265(body);
+  const r = replay0265(body, { prelude: "create temp table n1_pre_fns as select p.proname::text as n from pg_proc p where p.pronamespace = 'public'::regnamespace;" });
 
   it("the replay applies", () => expect(r.ok, r.stderr).toBe(true));
+  it("no function other than those of the FUNCTIONS table is added (an unlisted invoker function would be one)", () => expect(r.res.unlisted_new_functions).toBe("none"));
   it("the migration creates exactly the functions of the FUNCTIONS table, each once (no overloads)", () => {
     expect(r.res.all_names).toBe([...NAMES].sort().join(","));
     expect(r.res.overloads).toBe("0");
+  });
+  it("every function is a security definer except exactly the allow-listed trigger guards and the quiet-hours helper (N1-R33); none is immutable or strict; the helper is executable by none of the client roles or service_role", () => {
+    expect(r.res.not_definer).toBe([...INVOKER_ALLOWED].sort().join(","));
+    expect(Object.entries(FUNCTIONS).filter(([, f]) => !f.definer).map(([n]) => n).sort()).toEqual([...INVOKER_ALLOWED].sort());
+    expect(r.res.immutable_or_strict).toBe("none");
+    expect(r.res.quiet_hours_acl).toBe("nobody");
   });
   it.each(NAMES)("%s is not strict, has the right security flag and an empty search_path", (n) => {
     expect(r.res[`flags_${n}`]).toBe(`false/${FUNCTIONS[n].definer}/${CONFIG}`);

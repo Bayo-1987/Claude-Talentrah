@@ -1,5 +1,20 @@
 -- 0265 (parts 1 and 2): the notification ledger, push devices, admin messaging and the two send limits, and the ledger functions.
 --
+-- FUNCTION KINDS (N1-R33). Every function here is a SECURITY DEFINER with an empty search_path, is not STRICT and never IMMUTABLE, and is executable only by the one role it is pinned to, EXCEPT these three,
+-- which are SECURITY INVOKER by design and are the whole allow-list (the migration's self-check and the function catalogue test both enforce it): notification_guard_append_only and
+-- notification_guard_message_edit (trigger functions, executable by nobody) and the quiet-hours helper notification_in_quiet_hours (called only by the definer claim function; no role, not even service_role, may
+-- execute it, accepted under N1-R33 although N1-R23 worded it differently).
+--
+-- Seven tables, their constraints, row security, explicit least-privilege grants, the ledger functions (claim, release, mark sent, stale claims, resolve a stale claim, unread count, prune) and
+-- the quiet-hours predicate, and a self-check that is the LAST statement of this file. The admin-message functions come in a later part and are placed above the self-check.
+--
+-- Shape: the column lists are the contract's own (src/lib/notifications/contract.ts). Where the design (v3 section 7.2) differs from the contract, the contract wins (N1-R13).
+-- Rulings applied: R8 (append-only tables: service_role may read and add, nothing else, and a trigger refuses the rest), R9 (a person reads five columns of their own devices and
+-- deletes them by id), R14 (foreign keys), R15 (old_value is a nullable integer), R20 (the nine message statuses), R22 (an admin can be deleted while events and an approved message exist).
+--
+-- Grants follow the grants addendum: nothing leans on the platform's automatic grants. Every table is revoked from every client role first, then given exactly what it needs.
+-- This file has no transaction control: the migration runner wraps it.
+--
 -- Seven tables, their constraints, row security, explicit least-privilege grants, the ledger functions (claim, release, mark sent, stale claims, resolve a stale claim, unread count, prune) and
 -- the quiet-hours predicate, and a self-check that is the LAST statement of this file. The admin-message functions come in a later part and are placed above the self-check.
 --
@@ -393,7 +408,7 @@ $claim$;
 create function public.release_notification(p_id uuid, p_reason text)
 returns void
 language plpgsql
-security invoker
+security definer
 set search_path = ''
 as $release$
 declare
@@ -416,7 +431,7 @@ $release$;
 create function public.mark_notification_sent(p_id uuid)
 returns void
 language plpgsql
-security invoker
+security definer
 set search_path = ''
 as $mark$
 begin
@@ -432,7 +447,7 @@ create function public.stale_notification_claims(p_channel text, p_older_than in
 returns table (id uuid, kind text, channel text, claimed_at timestamptz)
 language plpgsql
 stable
-security invoker
+security definer
 set search_path = ''
 as $stale$
 begin
@@ -507,7 +522,7 @@ $unread$;
 create function public.prune_notification_deliveries(p_older_than_days integer default 30)
 returns integer
 language plpgsql
-security invoker
+security definer
 set search_path = ''
 as $prune$
 declare
@@ -1248,6 +1263,23 @@ begin
   end loop;
   for r in select p.proname::text as fn from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname = any (functions) and (p.proisstrict or p.proconfig is distinct from array['search_path=""']) loop
     problems := problems || format('function %s is strict or does not pin an empty search_path', r.fn);
+  end loop;
+  -- Definers: every function of the migration is a security definer and never immutable, except the three allow-listed invoker functions (named in the header).
+  for r in
+    select p.proname::text as fn
+      from pg_proc p
+     where p.pronamespace = 'public'::regnamespace and p.proname = any (functions)
+       and (not p.prosecdef or p.provolatile = 'i')
+       and p.proname <> all (array['notification_guard_append_only', 'notification_guard_message_edit', 'notification_in_quiet_hours'])
+  loop
+    problems := problems || format('function %s is not a security definer or is immutable and is not on the allow-list', r.fn);
+  end loop;
+  for r in
+    select p.proname::text as fn
+      from pg_proc p
+     where p.pronamespace = 'public'::regnamespace and p.proname = any (array['notification_guard_append_only', 'notification_guard_message_edit', 'notification_in_quiet_hours']) and p.provolatile = 'i'
+  loop
+    problems := problems || format('allow-listed function %s is immutable', r.fn);
   end loop;
 
   -- The altered table: service_role holds select, insert, update and delete; no client role holds any privilege on it, table or column; the seven columns and the five flags exist.

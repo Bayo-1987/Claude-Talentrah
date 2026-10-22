@@ -391,12 +391,12 @@ export const CONFIG = '{"search_path=\\"\\""}';
 export const FUNCTIONS: Record<string, { definer: boolean; role: "service_role" | "authenticated" | "nobody"; callable: boolean }> = {
   notification_in_quiet_hours: { definer: false, role: "nobody", callable: false },
   claim_notification: { definer: true, role: "service_role", callable: true },
-  release_notification: { definer: false, role: "service_role", callable: true },
-  mark_notification_sent: { definer: false, role: "service_role", callable: true },
-  stale_notification_claims: { definer: false, role: "service_role", callable: true },
+  release_notification: { definer: true, role: "service_role", callable: true },
+  mark_notification_sent: { definer: true, role: "service_role", callable: true },
+  stale_notification_claims: { definer: true, role: "service_role", callable: true },
   resolve_stale_claim: { definer: true, role: "service_role", callable: true },
   unread_notification_count: { definer: true, role: "service_role", callable: true },
-  prune_notification_deliveries: { definer: false, role: "service_role", callable: true },
+  prune_notification_deliveries: { definer: true, role: "service_role", callable: true },
   register_push_subscription: { definer: true, role: "authenticated", callable: true },
   email_unsubscribe_stream: { definer: true, role: "service_role", callable: true },
   notification_revoke_devices_on_deletion_request: { definer: true, role: "nobody", callable: false },
@@ -415,6 +415,11 @@ export const FUNCTIONS: Record<string, { definer: boolean; role: "service_role" 
   notification_guard_append_only: { definer: false, role: "nobody", callable: false },
   notification_guard_message_edit: { definer: false, role: "nobody", callable: false },
 };
+/**
+ * The only functions that are NOT security definers (N1-R33): the two guard trigger functions (the append-only guard serves two triggers, the edit guard one) and the quiet-hours helper, which no role may
+ * execute (not even service_role) and which the definer claim function calls. Anything else that is not a definer fails the function catalogue test and the migration's own self-check.
+ */
+export const INVOKER_ALLOWED = ["notification_guard_append_only", "notification_guard_message_edit", "notification_in_quiet_hours"] as const;
 export const NAMES = Object.keys(FUNCTIONS);
 export const NAME_LIST = `(${NAMES.map((n) => `'${n}'`).join(", ")})`;
 

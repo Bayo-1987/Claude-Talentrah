@@ -308,8 +308,11 @@ describe("0265 part 1: privileges, row security and triggers (replayed in a roll
         ["admin_email_eligible_recipients loses its service_role grant", "grant execute on function public.admin_email_eligible_recipients(uuid[], text) to service_role;\n", ""],
         ["resolve_admin_segment made STRICT", "returns setof uuid\nlanguage plpgsql\nsecurity definer\nset search_path = ''\nas $segment$", "returns setof uuid\nlanguage plpgsql\nstrict\nsecurity definer\nset search_path = ''\nas $segment$"],
         ["approve_admin_message without a pinned search_path", "returns void\nlanguage plpgsql\nsecurity definer\nset search_path = ''\nas $approve$", "returns void\nlanguage plpgsql\nsecurity definer\nas $approve$"],
-        ["a function made STRICT", "language plpgsql\nsecurity invoker\nset search_path = ''\nas $mark$", "language plpgsql\nstrict\nsecurity invoker\nset search_path = ''\nas $mark$"],
-        ["a function without a pinned search_path", "language plpgsql\nsecurity invoker\nset search_path = ''\nas $mark$", "language plpgsql\nsecurity invoker\nas $mark$"],
+        ["release_notification made SECURITY INVOKER (N1-R33)", "returns void\nlanguage plpgsql\nsecurity definer\nset search_path = ''\nas $release$", "returns void\nlanguage plpgsql\nsecurity invoker\nset search_path = ''\nas $release$"],
+        ["prune_notification_deliveries made SECURITY INVOKER (N1-R33)", "language plpgsql\nsecurity definer\nset search_path = ''\nas $prune$", "language plpgsql\nsecurity invoker\nset search_path = ''\nas $prune$"],
+        ["a definer function made IMMUTABLE", "returns void\nlanguage plpgsql\nsecurity definer\nset search_path = ''\nas $release$", "returns void\nlanguage plpgsql\nimmutable\nsecurity definer\nset search_path = ''\nas $release$"],
+        ["a function made STRICT", "language plpgsql\nsecurity definer\nset search_path = ''\nas $mark$", "language plpgsql\nstrict\nsecurity definer\nset search_path = ''\nas $mark$"],
+        ["a function without a pinned search_path", "language plpgsql\nsecurity definer\nset search_path = ''\nas $mark$", "language plpgsql\nsecurity definer\nas $mark$"],
       ])("%s: the apply fails and says so", (_name, from, to) => {
         const result = applyFails(withEdit(from, to));
         expect(result.ok, result.stderr).toBe(false);
