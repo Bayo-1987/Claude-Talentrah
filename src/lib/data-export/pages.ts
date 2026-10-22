@@ -35,13 +35,13 @@ p{margin:0 0 16px;color:var(--ink-soft)}
 .btn{min-height:44px;padding:0 24px;border:0;background:var(--ink);color:var(--paper);font:inherit;font-weight:600;cursor:pointer}
 .btn:hover{background:var(--rust)}
 .btn:disabled{opacity:.6;cursor:default}
-.foot{margin:24px 0 0;font-size:.9rem}
+.foot{margin:24px 0 0;font-size:.9rem}[hidden]{display:none}
 a{color:var(--rust)}
 `.replace(/\n/g, "");
 
-// Disables the button on the first submit, so a double-click sends ONE request. The form still works with scripts off: this only sits on top of a plain POST form.
+// Disables the button on the first submit, so a double-click sends ONE request, and shows the hidden "Download started" line (CONFIRM-FEEDBACK-1). The form still works with scripts off: this only sits on top of a plain POST form.
 // pageshow puts it back when the browser restores the page from its back/forward cache.
-const SCRIPT = `(function(){var f=document.getElementById("dl");if(!f)return;f.addEventListener("submit",function(e){if(f.getAttribute("data-sent")){e.preventDefault();return}f.setAttribute("data-sent","1");var b=f.querySelector("button");if(b)b.disabled=true});window.addEventListener("pageshow",function(e){if(e.persisted){f.removeAttribute("data-sent");var b=f.querySelector("button");if(b)b.disabled=false}})})();`;
+const SCRIPT = `(function(){var f=document.getElementById("dl");if(!f)return;var n=document.getElementById("dl-note");f.addEventListener("submit",function(e){if(f.getAttribute("data-sent")){e.preventDefault();return}f.setAttribute("data-sent","1");var b=f.querySelector("button");if(b)b.disabled=true;if(n)n.hidden=false});window.addEventListener("pageshow",function(e){if(e.persisted){f.removeAttribute("data-sent");var b=f.querySelector("button");if(b)b.disabled=false;if(n)n.hidden=true}})})();`;
 
 const doc = (title: string, body: string, script = ""): string =>
   `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="${REFERRER_POLICY}"><title>${esc(title)}</title><style>${STYLE}</style></head><body><main>${body}</main>${script ? `<script>${script}</script>` : ""}</body></html>`;
@@ -52,6 +52,7 @@ export function renderConfirmPage({ id, expiresText }: ConfirmPageProps): string
     `<div class="box"><h1>Your copy of your Talentrah data</h1>` +
       `<p>This file holds the data we keep for your account. You can download it once. After you download it, we delete it from our servers. This link stops working on ${esc(expiresText)} either way.</p>` +
       `<form id="dl" method="post" action="/data-export/${esc(id)}"><button type="submit" class="btn">Download my data</button></form>` +
+      `<p id="dl-note" class="foot" role="status" aria-live="polite" hidden><strong>Download started.</strong> Check your Downloads folder.</p>` +
       `<p class="foot">If you did not ask for this, <a href="/contact">contact us</a>.</p></div>`,
     SCRIPT,
   );

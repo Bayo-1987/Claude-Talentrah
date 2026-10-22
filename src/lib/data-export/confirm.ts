@@ -37,7 +37,7 @@ export async function handleConfirm(request: Request, exportId: string, deps: Do
   if (!row) return genericRefusal();
   if (row.user_id !== user.id) {
     try {
-      await auditDownloadDenied({ exportId: id });
+      await auditDownloadDenied({ exportId: id, viewerId: user.id });
     } catch {
       /* the answer is the same either way */
     }

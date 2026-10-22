@@ -1,7 +1,7 @@
 import "server-only";
 import { auditDeleted } from "./audit";
 import { DATA_EXPORT_BUCKET, objectPathFor, parseObjectName, type DeleteReason } from "./constants";
-import { cancelStaleRows, markObjectDeleted, removeObject, type Client, type ExportRow } from "./store";
+import { cancelStaleRows, getRow, markFailedRowCleaned, markObjectDeleted, removeObject, removeObjectCounted, type Client, type ExportRow } from "./store";
 
 /**
  * THE HOURLY SWEEP of the data-exports bucket and of the rows that describe it (GET /api/admin/sweep-data-exports, called by .github/workflows/sweep-data-exports-hourly.yml).
@@ -21,8 +21,9 @@ import { cancelStaleRows, markObjectDeleted, removeObject, type Client, type Exp
  * a matching live row from the moment it exists, and the sweep cannot delete a file that is being written. An attempt that was cancelled while it ran can still upload late: its path carries ITS
  * attempt id, which no row owns any more, so the bucket pass removes it.
  *
- * COUNTS ONLY come out: no id, no path, no name. A deleted object writes `people.export_deleted` (system actor); orphans are counted and logged as a warning, because finding one means something upstream
- * is wrong.
+ * COUNTS ONLY come out: no id, no path, no name. A `people.export_deleted` row (system actor) is written when a row is closed, including when no file existed for it, and for each orphan object
+ * removed. Orphans are counted. The warning log covers only the orphans the bucket pass finds, because finding one means something upstream is wrong; a row removed meanwhile (its account was deleted)
+ * is counted and audited but not logged.
  */
 
 export interface SweepSummary {
@@ -84,17 +85,32 @@ export async function sweepDataExports(service: Client, options: SweepOptions = 
     console.error("[data-export-sweep] could not read the rows to clean", dueError.code ?? "");
     summary.alerts++;
   }
+  let rowGoneRemoved = 0;
   for (const row of due ?? []) {
     const path = row.object_path ?? objectPathFor(row.id, row.attempt_id);
-    if (!(await removeObject(service, path))) {
+    const removal = await removeObjectCounted(service, path);
+    if (!removal.ok) {
       summary.alerts++;
       continue;
     }
     const status = row.status === "generated" ? "expired" : row.status === "downloaded" ? "deleted" : null;
     const reason: DeleteReason = row.status === "generated" ? "expired" : row.status === "downloaded" ? "downloaded" : "failed";
-    const marked = await markObjectDeleted(service, { exportId: row.id, attemptId: row.attempt_id, status }).catch(() => false);
-    if (!marked) {
-      // The object is gone but the row did not take the mark (it changed under us): the next run looks again.
+    // The row pass counts and audits once, by the run whose conditional update marks the row, including when the file was already gone. A run that finds the row already marked (another sweep got there first) has nothing left to do: no
+    // count, no audit row, and no alert. A row that is GONE (its account was deleted and the row cascaded away) has no mark to win: if this run's own removal took the file, nobody else can record it (pass 2 lists the bucket
+    // after the file is gone), so it is counted as an orphan and audited once with reason "orphan" and no user id, the way pass 2 does; if it removed nothing, it is quiet. A row that did NOT take the mark and is neither marked nor
+    // gone changed under us: an alert, and the next run looks again.
+    const won = await (status === null ? markFailedRowCleaned(service, { exportId: row.id, attemptId: row.attempt_id }) : markObjectDeleted(service, { exportId: row.id, attemptId: row.attempt_id, status })).catch(() => false);
+    if (!won) {
+      const state = await rowState(service, row.id);
+      if (state === "gone") {
+        if (removal.removed > 0) {
+          rowGoneRemoved++;
+          summary.orphansDeleted++;
+          await auditDeleted({ exportId: row.id, reason: "orphan", userId: null });
+        }
+        continue;
+      }
+      if (state === "marked") continue;
       summary.alerts++;
       continue;
     }
@@ -126,7 +142,7 @@ export async function sweepDataExports(service: Client, options: SweepOptions = 
 
   let orphanWarned = 0;
   for (const path of objects.paths) {
-    if (summary.orphansDeleted >= deleteCap) {
+    if (summary.orphansDeleted - rowGoneRemoved >= deleteCap) {
       summary.capped = true;
       break;
     }
@@ -134,10 +150,13 @@ export async function sweepDataExports(service: Client, options: SweepOptions = 
     const row = named ? rows.get(named.exportId) : undefined;
     if (named && row && isLive(row, named.attemptId, now)) continue;
 
-    if (!(await removeObject(service, path))) {
+    const gone = await removeObjectCounted(service, path);
+    if (!gone.ok) {
       summary.alerts++;
       continue;
     }
+    // Another run removed it between our listing and our delete: nothing of ours to count or audit.
+    if (gone.removed === 0) continue;
     summary.orphansDeleted++;
     orphanWarned++;
     const reason: DeleteReason = named && row ? "cancelled" : "orphan";
@@ -146,6 +165,16 @@ export async function sweepDataExports(service: Client, options: SweepOptions = 
   if (orphanWarned > 0) console.warn(`[data-export-sweep] deleted ${orphanWarned} object(s) that had no live row`);
 
   return finish(summary);
+}
+
+/** "gone" when the row no longer exists (its account was deleted), "marked" when it already carries the cleanup mark (another run did this row's work), otherwise "open". A read that fails is "open", so the run reports it. */
+async function rowState(service: Client, exportId: string): Promise<"gone" | "marked" | "open"> {
+  try {
+    const row = await getRow(service, exportId);
+    return row === null ? "gone" : row.deleted_at !== null ? "marked" : "open";
+  } catch {
+    return "open";
+  }
 }
 
 function finish(summary: SweepSummary): SweepSummary {

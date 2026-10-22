@@ -48,7 +48,7 @@ export function buildLinkEmail({ firstName, link, expiresAt, supportUrl }: { fir
     "Your copy of your Talentrah data is ready",
     firstName,
     [
-      `Your copy is ready. Open the link below while you are signed in to your Talentrah account, then press Download. It works once, only for this account, and until ${utc(expiresAt)}. The file is deleted as soon as you have downloaded it, or when the link expires.`,
+      `Your copy is ready. Open the link below while you are signed in to your Talentrah account, then press Download. It works once, only for this account, and until ${utc(expiresAt)}. After you download it, we delete our copy. If you do not, the link stops working at that time and we remove the file afterwards.`,
       `If you did not ask for this, ignore this email and contact us: ${supportUrl}`,
     ],
     { label: "Download my data", url: link },

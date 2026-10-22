@@ -103,7 +103,7 @@ export async function handleDownload(request: Request, exportId: string, deps: D
       const row = await getRow(service, id);
       if (row && row.user_id !== user.id) {
         refusalClass = "denied";
-        await auditDownloadDenied({ exportId: id });
+        await auditDownloadDenied({ exportId: id, viewerId: user.id });
       }
       if (row && row.status === "generated" && row.expires_at && new Date(row.expires_at).getTime() <= (deps.now ?? (() => new Date()))().getTime()) {
         if (row.object_path && (await removeObject(service, row.object_path))) {

@@ -20,6 +20,7 @@ export interface FakeAudit {
   fn: "downloaded" | "deleted" | "denied";
   exportId: string;
   reason?: string;
+  viewerId?: string;
 }
 
 export const fake = {
@@ -101,6 +102,6 @@ export function auditModule() {
   return {
     auditDownloaded: async ({ exportId }: { exportId: string }) => void fake.audit.push({ fn: "downloaded", exportId }),
     auditDeleted: async ({ exportId, reason }: { exportId: string; reason: string }) => void fake.audit.push({ fn: "deleted", exportId, reason }),
-    auditDownloadDenied: async ({ exportId }: { exportId: string }) => void fake.audit.push({ fn: "denied", exportId }),
+    auditDownloadDenied: async ({ exportId, viewerId }: { exportId: string; viewerId: string }) => void fake.audit.push({ fn: "denied", exportId, viewerId }),
   };
 }
