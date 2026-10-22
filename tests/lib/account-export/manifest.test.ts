@@ -9,6 +9,7 @@
  *      addresses (the owner's rule: other people's contact details are never in the file; adding to this list is a decision, made in this test).
  */
 import { readdirSync, readFileSync } from "node:fs";
+import { NOTIFICATION_TABLES } from "@/lib/notifications/contract-db";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { EXCLUDED_TABLES, EXPORT_MANIFEST, type ColumnClass } from "@/lib/account-export/manifest";
@@ -145,12 +146,12 @@ describe("contact details", () => {
 });
 
 describe("the notification tables (N1-R29 Q1): excluded on purpose, with a reason, until the export decision is made", () => {
-  it.each(["admin_message_recipients", "notification_deliveries", "push_subscriptions"])("%s is excluded with a stated reason and is not exported", (table) => {
+  it.each([NOTIFICATION_TABLES.adminMessageRecipients, NOTIFICATION_TABLES.deliveries, NOTIFICATION_TABLES.pushSubscriptions])("%s is excluded with a stated reason and is not exported", (table) => {
     expect(EXCLUDED_TABLES[table], `${table} must be an entry of EXCLUDED_TABLES`).toBeTruthy();
     expect(EXPORT_MANIFEST.some((t) => t.table === table)).toBe(false);
   });
   it("the delivery ledger's reason reads exactly as ruled, and the push devices' reason says the keys are credentials", () => {
-    expect(EXCLUDED_TABLES.notification_deliveries).toBe("delivery bookkeeping; export decision tracked in DATA-EXPORT-NOTIF-1");
-    expect(EXCLUDED_TABLES.push_subscriptions).toMatch(/credential/);
+    expect(EXCLUDED_TABLES[NOTIFICATION_TABLES.deliveries]).toBe("delivery bookkeeping; export decision tracked in DATA-EXPORT-NOTIF-1");
+    expect(EXCLUDED_TABLES[NOTIFICATION_TABLES.pushSubscriptions]).toMatch(/credential/);
   });
 });
