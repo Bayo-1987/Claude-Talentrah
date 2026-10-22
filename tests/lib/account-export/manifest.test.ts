@@ -143,3 +143,14 @@ describe("contact details", () => {
     for (const { table, name, c } of all.filter(({ name }) => secret.test(name))) expect(c.kind, `${table}.${name}`).toBe("never");
   });
 });
+
+describe("the notification tables (N1-R29 Q1): excluded on purpose, with a reason, until the export decision is made", () => {
+  it.each(["admin_message_recipients", "notification_deliveries", "push_subscriptions"])("%s is excluded with a stated reason and is not exported", (table) => {
+    expect(EXCLUDED_TABLES[table], `${table} must be an entry of EXCLUDED_TABLES`).toBeTruthy();
+    expect(EXPORT_MANIFEST.some((t) => t.table === table)).toBe(false);
+  });
+  it("the delivery ledger's reason reads exactly as ruled, and the push devices' reason says the keys are credentials", () => {
+    expect(EXCLUDED_TABLES.notification_deliveries).toBe("delivery bookkeeping; export decision tracked in DATA-EXPORT-NOTIF-1");
+    expect(EXCLUDED_TABLES.push_subscriptions).toMatch(/credential/);
+  });
+});
