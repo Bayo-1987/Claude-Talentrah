@@ -9,12 +9,34 @@ import { afterEach, describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { isValidElement } from "react";
+import ts from "typescript";
 import { EmployerInstallStrip } from "@/components/employer/employer-install-strip";
 import { InstallStripLazy } from "@/components/pwa/install-strip-lazy";
 
 const read = (rel: string) => readFileSync(path.resolve(__dirname, "../..", rel), "utf8");
 /** Source with comments removed: the files explain the very things the checks forbid. */
 const code = (rel: string) => read(rel).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+
+/** The employer layout parsed as TypeScript: the statements of the `if (!session)` early return, and the statements that follow it in the same function body. */
+function employerLayoutBranches() {
+  const file = ts.createSourceFile("layout.tsx", read("src/app/employer/layout.tsx"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const fn = file.statements.find((st): st is ts.FunctionDeclaration => ts.isFunctionDeclaration(st) && !!st.body);
+  expect(fn, "the layout default-exports a function with a body").toBeDefined();
+  const body = fn!.body!.statements;
+  const at = body.findIndex((st) => ts.isIfStatement(st) && /^!\s*session$/.test(st.expression.getText()));
+  return { signedOut: at === -1 ? null : body[at], rest: at === -1 ? [] : body.slice(at + 1) };
+}
+function findAll(node: ts.Node, pred: (n: ts.Node) => boolean): ts.Node[] {
+  const out: ts.Node[] = [];
+  const walk = (n: ts.Node) => {
+    if (pred(n)) out.push(n);
+    ts.forEachChild(n, walk);
+  };
+  walk(node);
+  return out;
+}
+/** True when the subtree has an identifier or JSX tag naming the strip wrapper. */
+const mentionsStrip = (node: ts.Node) => findAll(node, (n) => ts.isIdentifier(n) && n.text === "EmployerInstallStrip").length > 0;
 
 const saved = process.env.PWA_KILL;
 afterEach(() => {
@@ -57,12 +79,33 @@ describe("the employer layout mounts it in the signed-in branch only, last", () 
   });
 
   it("renders it AFTER the signed-out early return, so a signed-out visitor and the public /employer page get none", () => {
-    const early = layout.indexOf("if (!session)");
-    const mount = layout.indexOf("<EmployerInstallStrip");
-    expect(early).toBeGreaterThan(-1);
-    expect(mount).toBeGreaterThan(early);
-    const signedOutBranch = layout.slice(early, layout.indexOf("}", layout.indexOf("return", early)));
-    expect(signedOutBranch).not.toContain("EmployerInstallStrip");
+    // Read as a syntax tree, not as text: the old check cut the early-return branch at the first "}" and so never saw a mount placed after {children} INSIDE it.
+    const { signedOut, rest } = employerLayoutBranches();
+    expect(signedOut, "an `if (!session)` early return exists").not.toBeNull();
+    expect(mentionsStrip(signedOut!), "nothing inside the signed-out branch mentions the strip").toBe(false);
+    expect(rest.some(mentionsStrip), "the strip is mounted in the statements after the early return").toBe(true);
+  });
+
+  it("PINS DOCUMENTED BEHAVIOUR: a signed-in user with NO organisation (e.g. on /employer/onboarding) gets the strip too; the owner decision on a role gate is pending", () => {
+    // layout.tsx documents that it deliberately does not call requireEmployer() (onboarding lives under it, a redirect would loop), so the shell, and the strip with it, renders
+    // for any signed-in user whatever their organisation. This test records that as it stands; it is NOT a statement that it is right. If the owner decides the strip should be
+    // gated on a role or an organisation, this test is the one to change on purpose.
+    const { rest } = employerLayoutBranches();
+    const mounts = rest.flatMap((st) => findAll(st, (n) => ts.isJsxSelfClosingElement(n) && n.tagName.getText() === "EmployerInstallStrip"));
+    expect(mounts).toHaveLength(1);
+    let node: ts.Node | undefined = mounts[0].parent;
+    const gates: string[] = [];
+    while (node && !ts.isReturnStatement(node)) {
+      const conditional =
+        ts.isConditionalExpression(node) ||
+        ts.isIfStatement(node) ||
+        (ts.isBinaryExpression(node) && [ts.SyntaxKind.AmpersandAmpersandToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken].includes(node.operatorToken.kind));
+      if (conditional) gates.push(node.getText().slice(0, 60));
+      node = node.parent;
+    }
+    expect(gates, "the mount sits on the unconditional signed-in return, behind no condition (no role, organisation or context gate)").toEqual([]);
+    expect(layout).toMatch(/getEmployerContext\(\)/);
+    expect(layout, "the layout does not call requireEmployer()/requireUser(): that would redirect an organisation-less user and loop on /employer/onboarding").not.toMatch(/\brequire(Employer|User)\s*\(/);
   });
 
   it("puts it last in the shell, after the content wrapper (a fixed bar, last in DOM order so the skip link stays the first Tab stop)", () => {
