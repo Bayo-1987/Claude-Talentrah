@@ -132,14 +132,20 @@ export function isSameOriginPath(path: string): boolean {
 }
 
 /**
+ * The endpoint as stored: the host lower-cased, everything else as typed (the host is ASCII by the rule below). Two spellings of one host are one endpoint. Total: an input that is not an
+ * https endpoint is returned unchanged (the caller has refused it already; this function does not decide that).
+ */
+export function normalisePushEndpoint(endpoint: string): string {
+  const match = /^https:\/\/([^/?#]*)/.exec(endpoint);
+  if (!match) return endpoint;
+  const host = match[1];
+  return `https://${host.toLowerCase()}${endpoint.slice(8 + host.length)}`;
+}
+
+/**
  * The same host rule as the device registration in the database (N1B F4): no whitespace, control character or backslash anywhere; the host is the text after https:// up to the first / ? or #, lower-cased,
  * made of letters, digits, dots and hyphens only and not ending in a dot; then an exact host or a name under a suffix.
  */
-/** The endpoint as stored: the host lower-cased, everything else as typed (the host is ASCII by the rule above). Two spellings of one host are one endpoint. */
-export function normalisePushEndpoint(endpoint: string): string {
-  const host = /^https:\/\/([^/?#]*)/.exec(endpoint)![1];
-  return `https://${host.toLowerCase()}${endpoint.slice(8 + host.length)}`;
-}
 export function isAllowedPushEndpoint(endpoint: string): boolean {
   if (/[\s\u0000-\u001f\u007f\\]/.test(endpoint)) return false;
   const match = /^https:\/\/([^/?#]*)/.exec(endpoint);

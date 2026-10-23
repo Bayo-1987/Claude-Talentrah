@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { NotificationDbError } from "@/lib/notifications/contract-db";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { FakeNotificationBackend } from "@/lib/notifications/fakes";
+import { normalisePushEndpoint } from "@/lib/notifications/fakes/fake-backend";
 
 /** N1B FIX findings N1 and N2 in the fake: the same rules as tests/supabase/migration-0273-c-endpoint-case.test.ts. */
 const U1 = "00000000-0000-4000-8000-0000000000a1";
@@ -52,5 +55,30 @@ describe("N2 in the fake: registering one's own device again refreshes the brows
     await reg(U1, "https://fcm.googleapis.com/fcm/send/refresh", { p_p256dh: "k2", p_auth: "a2", p_ua: "Firefox", p_timezone: "Europe/London" });
     const row = fake.devices[0];
     expect([row.ua_short, row.p256dh, row.auth, row.timezone]).toEqual(["Firefox", "k2", "a2", "Europe/London"]);
+  });
+});
+
+describe("N1B-NOTES-1 F5: normalisePushEndpoint is total and its comment is on the right function", () => {
+  it.each(["http://x", "HTTPS://FCM.googleapis.com/x", "ftp://x", "https:/x", "", "x", " https://fcm.googleapis.com/x"])("an input that is not an https endpoint is returned unchanged, not thrown at: %j", (input) => {
+    expect(() => normalisePushEndpoint(input)).not.toThrow();
+    expect(normalisePushEndpoint(input)).toBe(input);
+  });
+  it("an https endpoint: the host in lower case, the rest as typed, including an empty host and a host with nothing after it", () => {
+    expect(normalisePushEndpoint("https://FCM.GoogleAPIs.com/Fcm/Send/AbC")).toBe("https://fcm.googleapis.com/Fcm/Send/AbC");
+    expect(normalisePushEndpoint("https://FCM.googleapis.com?Q=AbC#FrAg")).toBe("https://fcm.googleapis.com?Q=AbC#FrAg");
+    expect(normalisePushEndpoint("https://FCM.GOOGLEAPIS.COM")).toBe("https://fcm.googleapis.com");
+    expect(normalisePushEndpoint("https://")).toBe("https://");
+  });
+  it("each of the two functions carries its own doc comment, directly above it", () => {
+    const source = readFileSync(join(process.cwd(), "src/lib/notifications/fakes/fake-backend.ts"), "utf8");
+    const docAbove = (name: string) => {
+      const at = source.indexOf(`export function ${name}(`);
+      const before = source.slice(0, at).trimEnd();
+      return before.endsWith("*/") ? before.slice(before.lastIndexOf("/**")) : "";
+    };
+    expect(docAbove("isAllowedPushEndpoint")).toContain("The same host rule as the device registration in the database");
+    expect(docAbove("normalisePushEndpoint")).toContain("The endpoint as stored");
+    expect(docAbove("normalisePushEndpoint")).not.toContain("The same host rule");
+    expect(docAbove("isAllowedPushEndpoint")).not.toContain("The endpoint as stored");
   });
 });
