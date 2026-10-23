@@ -127,6 +127,11 @@ export interface DirectoryCandidate {
   verifiedAt: string | null;
   /** "ai" or "mentor", answered by the database (0234). */
   reviewType: string | null;
+  /**
+   * Where the database placed this candidate (0268): "promoted" for the labelled strip of at most 3 boosted candidates (first page only), "organic" for everyone else. The label is the database's answer,
+   * never worked out here from a boost date (the boost date is not returned). A missing or unknown value reads as "organic": the unmarked reading, never a claim of paid placement the database did not make.
+   */
+  section: "promoted" | "organic";
 }
 
 export async function searchTalentDirectory(filters: {
@@ -156,6 +161,7 @@ export async function searchTalentDirectory(filters: {
     earliestStartDate: r.earliest_start_date,
     verifiedAt: r.verified_at,
     reviewType: r.review_type,
+    section: r.section === "promoted" ? "promoted" : "organic",
   }));
 }
 

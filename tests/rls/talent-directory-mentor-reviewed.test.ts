@@ -249,7 +249,7 @@ describe("the employer applicant list says when and by whom a resume was reviewe
 });
 
 describe("an employer who calls either function directly (with their own login) learns no score and no non-verified status (0234)", () => {
-  const SEARCH_COLUMNS = ["available_for_hire", "country", "earliest_start_date", "first_name", "last_name", "remote_ready", "review_type", "user_id", "verified_at"];
+  const SEARCH_COLUMNS = ["available_for_hire", "country", "earliest_start_date", "first_name", "last_name", "remote_ready", "review_type", "section", "user_id", "verified_at"]; // 0268 added section; still no score and no boost date
 
   it("the applicant list has no score column on any row, and its status is only 'verified' or null: a rejected score-0 applicant and a pending one both read null", async () => {
     const { data, error } = await owner.client.rpc("employer_job_applicants", { p_job_posting_id: postingId });

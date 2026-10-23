@@ -5798,6 +5798,10 @@ export type Database = {
       }
       talent_directory_preview: { Args: never; Returns: Json }
       talent_directory_preview_for: { Args: { p_ids: string[] }; Returns: Json }
+      talent_directory_promoted_ids: {
+        Args: { p_available_for_hire?: boolean; p_bucket: number; p_cap?: number; p_only_ids?: string[]; p_remote_ready?: boolean }
+        Returns: { id: string; pos: number }[]
+      }
       talent_directory_role_family: { Args: { p_title: string }; Returns: string }
       talent_directory_search: {
         Args: {
@@ -5815,6 +5819,7 @@ export type Database = {
           last_name: string
           remote_ready: boolean
           review_type: string
+          section: string
           user_id: string
           verified_at: string
         }[]

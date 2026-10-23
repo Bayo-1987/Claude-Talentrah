@@ -79,7 +79,9 @@ describe("the Talent Directory gate has one definition", () => {
     const body = code(search.body).replace(/\s+/g, " ");
     expect(body).toMatch(/s\.status = 'active'/);
     expect(body).toMatch(/s\.expires_at > now\(\)/);
-    expect(body).toMatch(/talent_boosted_until/);
+    // 0268: the boost is read by the strip helper, not by the search itself; the search calls the helper, and its organic order has no boost term (tests/supabase/migration-0268-shape.test.ts holds that line)
+    expect(body).toMatch(/talent_directory_promoted_ids/);
+    expect(body).not.toMatch(/talent_boosted_until/);
     expect(body).toMatch(/p_candidate_id/);
   });
 
