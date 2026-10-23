@@ -45,3 +45,12 @@ describe("N1 in the fake: one endpoint, however the host is spelled", () => {
     expect(await refusal(reg(U1, "https://FCM.GOOGLEAPIS.COM/fcm/send/cap-eleventh"))).toBe("P0001/device_limit");
   });
 });
+
+describe("N2 in the fake: registering one's own device again refreshes the browser name, keys and zone", () => {
+  it("all of them", async () => {
+    await reg(U1, "https://fcm.googleapis.com/fcm/send/refresh");
+    await reg(U1, "https://fcm.googleapis.com/fcm/send/refresh", { p_p256dh: "k2", p_auth: "a2", p_ua: "Firefox", p_timezone: "Europe/London" });
+    const row = fake.devices[0];
+    expect([row.ua_short, row.p256dh, row.auth, row.timezone]).toEqual(["Firefox", "k2", "a2", "Europe/London"]);
+  });
+});

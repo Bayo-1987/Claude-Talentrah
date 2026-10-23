@@ -83,3 +83,15 @@ describe("N1: the ten-device limit counts one endpoint once", () => {
     expect(r.res.live).toBe("10");
   });
 });
+
+describe("N2: registering one's own device again refreshes everything it carries, the browser name included", () => {
+  const E = "https://fcm.googleapis.com/fcm/send/refresh";
+  const body = [
+    FIXTURES,
+    asU1([rowsOf("first", reg(E, "Chrome")), rowsOf("again", `select public.register_push_subscription(p_endpoint => '${E}', p_p256dh => 'k2', p_auth => 'a2', p_ua => 'Firefox', p_timezone => 'Europe/London')`)]),
+    scalar("refreshed", `select ua_short || '/' || p256dh || '/' || auth || '/' || timezone from public.push_subscriptions where user_id = '${U1}'`),
+  ].join("\n");
+  const r = replay0265(body);
+  it("the replay applies", () => expect(r.ok, r.stderr).toBe(true));
+  it("the browser name, both keys and the zone are the new ones", () => expect(r.res.refreshed).toBe("Firefox/k2/a2/Europe/London"));
+});
