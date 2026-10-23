@@ -474,7 +474,7 @@ describe("0265 part 1: the tables (replayed in a rolled-back transaction)", () =
     const r = replay0265(body);
 
     it("the replay applies", () => expect(r.ok, r.stderr).toBe(true));
-    it("has the seven columns of the contract's event row", () => {
+    it("has the eight columns of the contract's event row (the eighth, flag_state, is N1B)", () => {
       expect(normalise(r.res.cols_admin_message_events)).toBe(expectedColumns("admin_message_events"));
     });
     it("the event CHECK lists exactly the twelve events of the email-pins addendum, and each is accepted", () => {

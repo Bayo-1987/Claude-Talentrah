@@ -374,6 +374,7 @@ export type Database = {
           at: string
           detail: Json
           event: string
+          flag_state: number | null
           id: string
           message_id: string | null
         }
@@ -383,6 +384,7 @@ export type Database = {
           at?: string
           detail?: Json
           event: string
+          flag_state?: number | null
           id?: string
           message_id?: string | null
         }
@@ -392,6 +394,7 @@ export type Database = {
           at?: string
           detail?: Json
           event?: string
+          flag_state?: number | null
           id?: string
           message_id?: string | null
         }

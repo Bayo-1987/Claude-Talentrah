@@ -36,11 +36,11 @@ describe("register_push_subscription: validation, in the fake's order", () => {
       probe("not_https", `select ${call("http://fcm.googleapis.com/x")}`, "P0001", "not_https"),
       probe("not_https_upper", `select ${call("HTTPS://fcm.googleapis.com/x")}`, "P0001", "not_https"),
       probe("not_https_first", `select ${call("http://" + x(2100))}`, "P0001", "not_https"),
-      reg("endpoint_2048", "https://" + x(2048 - 8)),
+      reg("endpoint_2048", "https://fcm.googleapis.com/" + x(2048 - 27)),
     ]),
     CLEAR_TMP,
     asU1([
-      probe("endpoint_2049", `select ${call("https://" + x(2049 - 8))}`, "P0001", "value_too_long"),
+      probe("endpoint_2049", `select ${call("https://fcm.googleapis.com/" + x(2049 - 27))}`, "P0001", "value_too_long"),
       reg("p256dh_256", ep(10), { p256dh: x(256) }),
       probe("p256dh_257", `select ${call(ep(11), { p256dh: x(257) })}`, "P0001", "value_too_long"),
       reg("auth_256", ep(12), { auth: x(256) }),

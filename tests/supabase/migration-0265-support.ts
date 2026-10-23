@@ -374,7 +374,7 @@ export const COLUMNS: Record<string, Col[]> = {
   ],
   admin_message_events: [
     ["id", "uuid", "nn", GEN], ["message_id", "uuid", "null", ""], ["event", "text", "nn", ""], ["detail", "jsonb", "nn", "'{}'::jsonb"], ["actor_admin_id", "uuid", "null", ""],
-    ["actor_email", "text", "null", ""], ["at", "timestamp with time zone", "nn", NOW],
+    ["actor_email", "text", "null", ""], ["at", "timestamp with time zone", "nn", NOW], ["flag_state", "smallint", "null", ""],
   ],
   notification_settings: [
     ["key", "text", "nn", ""], ["int_value", "integer", "nn", ""], ["updated_by_email", "text", "null", ""], ["updated_at", "timestamp with time zone", "nn", NOW],

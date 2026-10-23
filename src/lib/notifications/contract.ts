@@ -128,6 +128,16 @@ export type PushReleaseReason = (typeof PUSH_RELEASE_REASONS)[number];
 export const PUSH_REVOKE_REASONS = ["gone", "user", "kill", "deleted", "bad_key"] as const;
 export type PushRevokeReason = (typeof PUSH_REVOKE_REASONS)[number];
 
+/**
+ * The hosts a browser push endpoint may point at (N1B F4). Each is the push service of one browser, read from that vendor's own documentation:
+ * Chrome (fcm.googleapis.com), Firefox (updates.push.services.mozilla.com), Safari (any host under push.apple.com), Edge (any host under notify.windows.com).
+ * Compared after lower-casing; a name must equal an exact host or end in "." + a suffix. The database function holds the same literals and a test keeps them equal.
+ */
+export const PUSH_ENDPOINT_HOSTS = {
+  exact: ["fcm.googleapis.com", "updates.push.services.mozilla.com"],
+  suffixes: ["push.apple.com", "notify.windows.com"],
+} as const;
+
 export const ADMIN_MESSAGE_KINDS = ["service_announcement", "promotion"] as const;
 export type AdminMessageKind = (typeof ADMIN_MESSAGE_KINDS)[number];
 
@@ -391,6 +401,8 @@ export type AdminMessageEventRow = {
   actor_admin_id: string | null;
   actor_email: string | null;
   at: string;
+  /** The flags that were off when a send was asked for, as a bitmask 1..15 (master 1, messaging 2, promotions 4, e-mail 8); set on a flag_stopped event, null on every other and on those from before N1B. */
+  flag_state: number | null;
 };
 
 export type NotificationSettingRow = {

@@ -37,8 +37,8 @@ describe("the create-message function", () => {
     expect(await refusal(make(A2, over))).toBe("22023/-");
   });
   it("the error carries none of the values", async () => {
-    const e = await make(A2, { p_kind: "secret-kind-value" }).catch((x: Error) => x);
-    expect((e as Error).message).not.toContain("secret-kind-value");
+    const e = await make(A2, { p_kind: "leaky-kind-value" }).catch((x: Error) => x);
+    expect((e as Error).message).not.toContain("leaky-kind-value");
   });
 });
 
@@ -71,7 +71,7 @@ describe("the approve function: independence", () => {
     row.created_by = null;
     fake.events = fake.events.filter((e) => !(e.message_id === id && e.event === "created"));
     expect(await refusal(fake.approveAdminMessage({ p_message: id, p_actor: A3, p_kind_confirmed: "service_announcement" }))).toBe("P0001/self_approval");
-    fake.events.push({ id: fake.newId(), message_id: id, event: "created", detail: {}, actor_admin_id: A2, actor_email: "a2@example.test", at: fake.now().toISOString() });
+    fake.events.push({ id: fake.newId(), message_id: id, event: "created", detail: {}, actor_admin_id: A2, actor_email: "a2@example.test", at: fake.now().toISOString(), flag_state: null });
     expect(await refusal(fake.approveAdminMessage({ p_message: id, p_actor: A2, p_kind_confirmed: "service_announcement" }))).toBe("P0001/self_approval");
     await fake.approveAdminMessage({ p_message: id, p_actor: A3, p_kind_confirmed: "service_announcement" });
     expect(row.status).toBe("approved");

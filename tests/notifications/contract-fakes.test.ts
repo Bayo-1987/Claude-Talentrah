@@ -629,13 +629,13 @@ describe("admin messaging", () => {
 
 describe("the push sender fake", () => {
   const payload = { v: 1 as const, kind: "match_alert" as const, title: "t", body: "b", url: "/jobs", tag: "x", badge: 1 };
-  const target = { deviceId: "device-1", endpoint: "https://fcm.googleapis.com/fcm/send/SECRET-ENDPOINT", p256dh: "SECRET-KEY", auth: "SECRET-AUTH" };
+  const target = { deviceId: "device-1", endpoint: "https://fcm.googleapis.com/fcm/send/ENDPOINT-VALUE", p256dh: "KEY-VALUE", auth: "AUTH-VALUE" };
 
   it("records what it sent, by device, and never stores the endpoint or keys", async () => {
     const sender = new FakePushSender();
     expect(await sender.send(target, payload)).toEqual({ outcome: "sent" });
     expect(sender.sent).toEqual([{ deviceId: "device-1", payload }]);
-    expect(JSON.stringify(sender)).not.toContain("SECRET");
+    for (const value of ["ENDPOINT-VALUE", "KEY-VALUE", "AUTH-VALUE"]) expect(JSON.stringify(sender)).not.toContain(value);
   });
 
   it("answers with a scripted definitive or unknown outcome and records nothing for a failure", async () => {
@@ -746,7 +746,7 @@ describe("decision 6: over-long values are refused, never truncated", () => {
     expect((await refusalOf(register({ p_auth: "x".repeat(257) }))).reason).toBe("value_too_long");
     expect((await refusalOf(register({ p_timezone: "x".repeat(65) }))).code).toBe("invalid_parameter");
     expect((await refusalOf(register({ p_ua: "x".repeat(41) }))).reason).toBe("value_too_long");
-    await register({ p_p256dh: "x".repeat(256), p_auth: "x".repeat(256), p_ua: "x".repeat(40), p_endpoint: `https://p.invalid/${"e".repeat(2048 - 18)}` });
+    await register({ p_p256dh: "x".repeat(256), p_auth: "x".repeat(256), p_ua: "x".repeat(40), p_endpoint: `https://fcm.googleapis.com/${"e".repeat(2048 - 27)}` });
     expect(fake.devices).toHaveLength(1);
     expect(fake.devices[0].ua_short).toHaveLength(40);
   });

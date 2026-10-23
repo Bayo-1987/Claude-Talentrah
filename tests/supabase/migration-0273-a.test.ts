@@ -36,7 +36,7 @@ describe("F2: create_admin_message sets the creator itself, and approval needs s
     probe("bad_kind", sel(create(A2, { kind: "newsletter" })), "22023"),
     probe("null_title", sel(create(A2, { title: null })), "22023"),
     probe("bad_link", sel(create(A2, { link: "//evil.example" })), "22023"),
-    scalar("bad_value_error_text", `select pg_temp.errtext('select ${create(A2, { kind: "secret-kind-value" }).replace(/'/g, "''")}')`),
+    scalar("bad_value_error_text", `select pg_temp.errtext('select ${create(A2, { kind: "leaky-kind-value" }).replace(/'/g, "''")}')`),
     scalar("function_args", "select pg_get_function_arguments(p.oid) from pg_proc p where p.proname = 'create_admin_message' and p.pronamespace = 'public'::regnamespace"),
     // A2 created m1. A3 prepares and submits it, then approves it: allowed (the preparer and the submitter are not excluded)
     `select public.prepare_admin_message(${id("m1")}, '${A3}', 500);`,
@@ -160,7 +160,7 @@ describe("F3: frozen fields, counters and the start time", () => {
   it("the start time is written once", () => expect(r.res.start_time_rewritten).toBe("ok"));
   it("deleting the admin clears created_by and keeps the e-mail snapshot", () => {
     expect(r.res.delete_admin).toBe("1");
-    expect(r.res.creator_cleared).toBe("NULL/creator@example.test");
+    expect(r.res.creator_cleared).toBe(`NULL/${A4}@example.test`);
   });
 });
 

@@ -30,13 +30,15 @@ export type Msg = {
   approval?: boolean;
   approver?: string | null;
   started?: string | null;
+  /** The creator's address as snapshotted on the row; by default it is derived from the creator (the admin fixtures use `<id>@example.test`), so two creators never share one. */
+  email?: string;
 };
 export const lit = (v: string | null | undefined) => (v === null || v === undefined ? "null" : `'${v.replace(/'/g, "''")}'`);
 export const msg = (id: string, o: Msg = {}) => {
   const kind = o.kind ?? "service_announcement";
   const by = o.by === undefined ? A2 : o.by;
   const consent = o.consent === undefined ? (kind === "promotion" ? "You asked for offers from Talentrah." : null) : o.consent;
-  return `insert into public.admin_messages (id, created_by, created_by_email, kind, title, body, channels, segment_key, segment_params, consent_line, status, requires_approval, approved_by, approved_by_email, sent_started_at) values ('${id}', ${lit(by)}, 'creator@example.test', '${kind}', 'Title', 'Body', ${o.channels ?? "array['inapp']"}, '${o.key ?? "self_test"}', '${o.params ?? "{}"}'::jsonb, ${lit(consent)}, '${o.status ?? "draft"}', ${o.approval ?? true}, ${lit(o.approver)}, ${o.approver ? "'approver@example.test'" : "null"}, ${o.started ? `now() - interval '${o.started}'` : "null"});`;
+  return `insert into public.admin_messages (id, created_by, created_by_email, kind, title, body, channels, segment_key, segment_params, consent_line, status, requires_approval, approved_by, approved_by_email, sent_started_at) values ('${id}', ${lit(by)}, ${lit(o.email ?? (by ? `${by}@example.test` : "creator@example.test"))}, '${kind}', 'Title', 'Body', ${o.channels ?? "array['inapp']"}, '${o.key ?? "self_test"}', '${o.params ?? "{}"}'::jsonb, ${lit(consent)}, '${o.status ?? "draft"}', ${o.approval ?? true}, ${lit(o.approver)}, ${o.approver ? "'approver@example.test'" : "null"}, ${o.started ? `now() - interval '${o.started}'` : "null"});`;
 };
 export const call = {
   resolve: (key: string | null, params: string | null, actor: string | null) => `public.resolve_admin_segment(p_key => ${lit(key)}, p_params => ${params === null ? "null" : `'${params}'::jsonb`}, p_actor => ${lit(actor)})`,

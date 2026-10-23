@@ -132,13 +132,13 @@ describe("the ledger functions through the Data API (committed fixtures, cleaned
       const subject = randomUUID();
       const errors = [
         (await svc.rpc("release_notification", { p_id: subject, p_reason: "secret-reason-value" })).error,
-        (await claim(svc, { p_user: userA.id, p_kind: "secret-kind-value", p_subject: subject, p_channel: "inapp" })).error,
+        (await claim(svc, { p_user: userA.id, p_kind: "leaky-kind-value", p_subject: subject, p_channel: "inapp" })).error,
         (await svc.rpc("resolve_stale_claim", { p_id: subject, p_actor: userA.id, p_resolution: "mark_sent" })).error,
       ];
       for (const e of errors) {
         expect(e).toBeTruthy();
         expect(GENERIC.has(e!.message), e!.message).toBe(true);
-        expect(`${e!.message} ${e!.details ?? ""}`).not.toMatch(new RegExp(`${subject}|secret-reason-value|secret-kind-value|${userA.id}`));
+        expect(`${e!.message} ${e!.details ?? ""}`).not.toMatch(new RegExp(`${subject}|secret-reason-value|leaky-kind-value|${userA.id}`));
       }
     });
   });
@@ -294,6 +294,22 @@ describe("the ledger functions through the Data API (committed fixtures, cleaned
     }, 60_000);
   });
 
+  describe("two sessions at once (N1B): one endpoint registered by two people", () => {
+    it("a registration that waits on another person's open registration of the same NEW endpoint takes it over cleanly, not as a duplicate-key error (the endpoint lock)", async () => {
+      const first = await newPerson("n1-api-ep-a");
+      const second = await newPerson("n1-api-ep-b");
+      const shared = `https://fcm.googleapis.com/fcm/send/shared-${randomUUID()}`;
+      const held = await holdSession(
+        `begin; set local role authenticated; select set_config('request.jwt.claims', '{"sub":"${first.id}","role":"authenticated"}', true); select public.register_push_subscription('${shared}', 'k', 'a', 'Chrome', null);`,
+      );
+      const taken = await untyped(second.client).rpc("register_push_subscription", { p_endpoint: shared, p_p256dh: "k2", p_auth: "a2", p_ua: "Chrome" });
+      await held.done;
+      expect(taken.error).toBeNull();
+      expect(sql(`select user_id from public.push_subscriptions where endpoint = '${shared}' and revoked_at is null;`)).toBe(second.id);
+      expect(sql(`select revoke_reason || '/' || (endpoint like 'https://revoked.invalid/%')::text from public.push_subscriptions where user_id = '${first.id}';`)).toBe("user/true");
+    }, 60_000);
+  });
+
   describe("the admin functions over HTTP: errcodes, hints, generic messages and a double start", () => {
     const FLAG_KEYS = ["notifications_master", "admin_messaging", "admin_promotions", "admin_email"];
     const flagsBefore: Record<string, boolean> = {};
@@ -369,7 +385,7 @@ describe("the ledger functions through the Data API (committed fixtures, cleaned
       expect((await svc.rpc("submit_admin_message", { p_message: id, p_actor: operator.id })).error).toBeNull();
       const self = await svc.rpc("approve_admin_message", { p_message: id, p_actor: operator.id, p_kind_confirmed: "service_announcement" });
       expect([self.error?.code, self.error?.hint]).toEqual(["P0001", "self_approval"]);
-      const bad = await svc.rpc("create_admin_message", { p_actor: operator.id, p_kind: "secret-kind-value", p_title: "T", p_body: "B", p_link_path: null, p_channels: ["inapp"], p_segment_key: "self_test", p_segment_params: {}, p_consent_line: null });
+      const bad = await svc.rpc("create_admin_message", { p_actor: operator.id, p_kind: "leaky-kind-value", p_title: "T", p_body: "B", p_link_path: null, p_channels: ["inapp"], p_segment_key: "self_test", p_segment_params: {}, p_consent_line: null });
       expect([bad.error?.code, bad.error?.message]).toEqual(["22023", "invalid parameter"]);
     });
     it("a prepare over HTTP returns the frozen count, and a repeat is invalid_state", async () => {
@@ -418,6 +434,20 @@ describe("the ledger functions through the Data API (committed fixtures, cleaned
       expect([refused.error?.code, refused.error?.hint]).toEqual(["P0001", "operator_daily_limit"]);
       expect(sql(`select status from public.admin_messages where id = '${second}';`)).toBe("prepared");
       expect(sql(`select status from public.admin_messages where id = '${first}';`)).toBe("sending");
+    }, 60_000);
+    it("a start that waits on another session's open start with a flag off sees that session's stop and writes none of its own (the per-message lock, F8)", async () => {
+      const m = newMessage("approved");
+      sql(`update public.feature_flags set enabled = false where key = 'admin_messaging';`);
+      try {
+        const held = await holdSession(`begin; select public.start_admin_message_send('${m}', '${operator.id}');`);
+        const second = await svc.rpc("start_admin_message_send", { p_message: m, p_actor: operator.id });
+        await held.done;
+        expect(second.error).toBeNull();
+        expect(second.data).toBeNull();
+        expect(sql(`select count(*) || '/' || min(flag_state) from public.admin_message_events where message_id = '${m}' and event = 'flag_stopped';`)).toBe("1/2");
+      } finally {
+        sql(`update public.feature_flags set enabled = true where key = 'admin_messaging';`);
+      }
     }, 60_000);
   });
 

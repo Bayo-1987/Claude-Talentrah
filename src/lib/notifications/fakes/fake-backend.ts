@@ -18,6 +18,7 @@ import {
   NOTIFICATION_FLAGS,
   NOTIFICATION_KINDS,
   NOTIFICATION_LIMITS,
+  PUSH_ENDPOINT_HOSTS,
   NOTIFICATION_SETTING_KEYS,
   PUSH_RELEASE_REASONS,
   STALE_CLAIM_MIN_AGE_MINUTES,
@@ -128,6 +129,19 @@ const LINK_REFUSED = "\\u0000-\\u001f\\u007f-\\u009f \\u00a0\\u1680\\u2000-\\u20
 const LINK_PATH = new RegExp(`^/([^/${LINK_REFUSED}][^${LINK_REFUSED}]*)?$`);
 export function isSameOriginPath(path: string): boolean {
   return path.length <= 200 && LINK_PATH.test(path);
+}
+
+/**
+ * The same host rule as the device registration in the database (N1B F4): no whitespace, control character or backslash anywhere; the host is the text after https:// up to the first / ? or #, lower-cased,
+ * made of letters, digits, dots and hyphens only and not ending in a dot; then an exact host or a name under a suffix.
+ */
+export function isAllowedPushEndpoint(endpoint: string): boolean {
+  if (/[\s\u0000-\u001f\u007f\\]/.test(endpoint)) return false;
+  const match = /^https:\/\/([^/?#]*)/.exec(endpoint);
+  if (!match) return false;
+  const host = match[1].toLowerCase();
+  if (!/^[a-z0-9.-]+$/.test(host)) return false;
+  return (PUSH_ENDPOINT_HOSTS.exact as readonly string[]).includes(host) || PUSH_ENDPOINT_HOSTS.suffixes.some((suffix) => host.endsWith(`.${suffix}`));
 }
 
 /**
@@ -315,6 +329,7 @@ export class FakeNotificationBackend implements ServiceRpcs {
     event: AdminMessageEventKind,
     detail: AdminMessageEventDetail,
     actor: string | null,
+    flagState: number | null = null,
   ): void {
     this.events.push({
       id: this.newId(),
@@ -324,16 +339,23 @@ export class FakeNotificationBackend implements ServiceRpcs {
       actor_admin_id: actor,
       actor_email: actor ? (this.admins.get(actor)?.email ?? null) : null,
       at: this.now().toISOString(),
+      flag_state: flagState,
     });
   }
   private settingValue(key: NotificationSettingKey): number {
     return this.settings.find((row) => row.key === key)?.int_value ?? 0; // missing means 0
   }
+  /** The flags that are off AND matter for this message, as a bitmask: master 1, messaging 2, promotions 4 (promotion only), e-mail 8 (e-mail channel only). Zero: every flag that matters is on. */
+  private flagsOffState(message: AdminMessageRow): number {
+    return (
+      (this.flag(NOTIFICATION_FLAGS.master) ? 0 : 1) +
+      (this.flag(NOTIFICATION_FLAGS.adminMessaging) ? 0 : 2) +
+      (message.kind !== "promotion" || this.flag(NOTIFICATION_FLAGS.adminPromotions) ? 0 : 4) +
+      (!message.channels.includes("email") || this.flag(NOTIFICATION_FLAGS.adminEmail) ? 0 : 8)
+    );
+  }
   private sendFlagsOn(message: AdminMessageRow): boolean {
-    if (!this.flag(NOTIFICATION_FLAGS.master) || !this.flag(NOTIFICATION_FLAGS.adminMessaging)) return false;
-    if (message.kind === "promotion" && !this.flag(NOTIFICATION_FLAGS.adminPromotions)) return false;
-    if (message.channels.includes("email") && !this.flag(NOTIFICATION_FLAGS.adminEmail)) return false;
-    return true;
+    return this.flagsOffState(message) === 0;
   }
   private eligibleForEmail(person: FakePerson, stream: UnsubscribeStream): boolean {
     const column = stream === "announcements" ? person.prefs.email_announcements : person.prefs.email_promotions;
@@ -514,6 +536,7 @@ export class FakeNotificationBackend implements ServiceRpcs {
         ) {
           throw refuse(rpc, "value_too_long");
         }
+        if (!isAllowedPushEndpoint(args.p_endpoint)) throw refuse(rpc, "host_not_allowed");
         const zone = args.p_timezone === undefined || args.p_timezone === null || args.p_timezone === "" ? limits.defaultTimezone : args.p_timezone;
         // A present value must be an IANA name; it is refused, never replaced.
         if (zone.length > limits.timezoneMaxLength || !isKnownTimeZone(zone)) throw fail("invalid_parameter", "22023", null, rpc);
@@ -536,8 +559,8 @@ export class FakeNotificationBackend implements ServiceRpcs {
         }
         if (existing) {
           // Someone else holds the endpoint: their row is kept, revoked (user) and made unusable, and the caller gets a new row (N1-R31 F5).
-          existing.revoked_at = now;
-          existing.revoke_reason = "user";
+          existing.revoked_at = existing.revoked_at ?? now;
+          existing.revoke_reason = existing.revoke_reason ?? "user";
           existing.endpoint = `https://revoked.invalid/${existing.id}`;
           existing.p256dh = "revoked";
           existing.auth = "revoked";
@@ -646,7 +669,8 @@ export class FakeNotificationBackend implements ServiceRpcs {
 
     const since = this.now().getTime() - DAY_MS;
     const started = this.messages.filter((m) => m.sent_started_at !== null && Date.parse(m.sent_started_at) > since);
-    if (started.filter((m) => m.created_by === args.p_actor).length >= NOTIFICATION_LIMITS.adminPerOperatorPerDay) {
+    const actorEmail = (this.admins.get(args.p_actor)?.email ?? "").toLowerCase();
+    if (started.filter((m) => m.created_by_email.toLowerCase() === actorEmail).length >= NOTIFICATION_LIMITS.adminPerOperatorPerDay) {
       throw refuse(rpc, "operator_daily_limit");
     }
     if (started.length >= NOTIFICATION_LIMITS.adminOverallPerDay) throw refuse(rpc, "overall_daily_limit");
@@ -785,10 +809,12 @@ export class FakeNotificationBackend implements ServiceRpcs {
     const rpc: RpcKey = "startAdminMessageSend";
     this.requirePermission(args.p_actor, "user_messaging", rpc);
     const message = this.message(args.p_message, rpc);
-    if (!this.sendFlagsOn(message)) {
-      // One stop event per message until something else has happened to it (N1-R31 F8): the latest event of this message is already a stop, so nothing is added.
+    const flagsOff = this.flagsOffState(message);
+    if (flagsOff > 0) {
+      // One stop event per message per set of flags that were off, until something else has happened to it (N1-R31 F8, N1B F8): the latest event of this message is already a stop with the
+      // same state, so nothing is added. An event from before N1B has no state and counts as different.
       const latest = [...this.events].reverse().find((e) => e.message_id === message.id);
-      if (latest?.event !== "flag_stopped") this.addEvent(message.id, "flag_stopped", {}, args.p_actor);
+      if (!(latest?.event === "flag_stopped" && latest.flag_state === flagsOff)) this.addEvent(message.id, "flag_stopped", {}, args.p_actor, flagsOff);
       return null;
     }
     const startable = message.status === "approved" || (message.status === "prepared" && !message.requires_approval);
@@ -796,7 +822,7 @@ export class FakeNotificationBackend implements ServiceRpcs {
     // The daily send limits count messages that have STARTED, so they are checked here too, by the message's creator and overall (N1-R31 F1).
     const since = this.now().getTime() - DAY_MS;
     const started = this.messages.filter((m) => m.sent_started_at !== null && Date.parse(m.sent_started_at) > since);
-    if (message.created_by !== null && started.filter((m) => m.created_by === message.created_by).length >= NOTIFICATION_LIMITS.adminPerOperatorPerDay) throw refuse(rpc, "operator_daily_limit");
+    if (started.filter((m) => m.created_by_email.toLowerCase() === message.created_by_email.toLowerCase()).length >= NOTIFICATION_LIMITS.adminPerOperatorPerDay) throw refuse(rpc, "operator_daily_limit");
     if (started.length >= NOTIFICATION_LIMITS.adminOverallPerDay) throw refuse(rpc, "overall_daily_limit");
     message.status = "sending";
     message.sent_started_at = this.now().toISOString();

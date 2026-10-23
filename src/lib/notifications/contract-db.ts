@@ -137,6 +137,7 @@ export const NOTIFICATION_REFUSAL_REASONS = [
   "not_found",
   "unknown_id",
   "not_https",
+  "host_not_allowed",
   "value_too_long",
   "device_limit",
   "setting_key_unknown",
