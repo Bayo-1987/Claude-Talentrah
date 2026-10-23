@@ -103,9 +103,8 @@ export async function runMentorshipSweep(): Promise<MentorshipSweepSummary> {
    * because nothing below depends on it.
    */
   try {
-    const { data: releasedCount, error: releaseError } = await supabase.rpc("release_stale_verification_claims", {
-      p_now: new Date().toISOString(),
-    });
+    // No arguments, on purpose: the function's own defaults are the database's clock and 72 hours, so a skewed clock on this machine can never move the cut-off.
+    const { data: releasedCount, error: releaseError } = await supabase.rpc("release_stale_verification_claims");
     if (releaseError) throw new Error(releaseError.message);
     summary.verificationClaimsReleased = releasedCount ?? 0;
     if (summary.verificationClaimsReleased > 0) {

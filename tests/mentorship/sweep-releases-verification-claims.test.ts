@@ -63,16 +63,12 @@ beforeEach(() => {
 });
 
 describe("the sweep releases stale review claims", () => {
-  it("calls release_stale_verification_claims once, with only the clock (the 72 hours lives in the database)", async () => {
-    const before = Date.now();
+  it("V4-N3: calls release_stale_verification_claims once, with NO arguments: the function's own default is the database's clock and 72 hours, so this machine's clock is never sent", async () => {
     await runMentorshipSweep();
     const calls = rpcCalls("release_stale_verification_claims");
     expect(calls).toHaveLength(1);
-    const args = calls[0].args as Record<string, unknown>;
-    expect(Object.keys(args)).toEqual(["p_now"]);
-    const sent = new Date(args.p_now as string).getTime();
-    expect(sent).toBeGreaterThanOrEqual(before);
-    expect(sent).toBeLessThanOrEqual(Date.now());
+    const args = calls[0].args as Record<string, unknown> | undefined;
+    expect(args === undefined || Object.keys(args).length === 0, `arguments were sent: ${JSON.stringify(args)}`).toBe(true);
   });
 
   it("reports the number the function returned", async () => {

@@ -56,6 +56,8 @@ interface RowOptions {
   claimedAt?: string | null;
   reviewerId?: string | null;
   payout?: number;
+  /** Any other column of the row, written as given (the whole-row checks fill the ones a release must leave alone). */
+  columns?: Record<string, unknown>;
 }
 async function insertRow(o: RowOptions): Promise<string> {
   const status = o.status ?? "claimed";
@@ -68,6 +70,7 @@ async function insertRow(o: RowOptions): Promise<string> {
       reviewer_id: o.reviewerId === undefined ? (status === "pending" ? null : reviewerAId) : o.reviewerId,
       claimed_at: o.claimedAt === undefined ? null : o.claimedAt,
       reviewer_payout_ngn: o.payout ?? 0,
+      ...(o.columns ?? {}),
     } as never)
     .select("id")
     .single();
@@ -148,6 +151,36 @@ describe("what a release does to the row", () => {
     expect(after.claimed_at).toBeNull();
     const untouched = (r: Record<string, unknown>) => Object.fromEntries(Object.entries(r).filter(([k]) => !["status", "reviewer_id", "claimed_at"].includes(k)));
     expect(untouched(after)).toEqual(untouched(before));
+  });
+
+  it("V4-N1: the WHOLE row differs from before only in status, reviewer and claim time: a row that carries a payout of 500 and notes keeps both, and so does every other column", async () => {
+    const full = {
+      ai_feedback: "kept feedback",
+      reviewer_notes: "kept reviewer notes",
+      reviewer_paid_at: at(-1 * HOUR),
+      reviewer_payout_reference: "kept-reference",
+      target_role: "Data Analyst",
+      target_industry: "Fintech",
+      requested_at: at(-200 * HOUR),
+    };
+    const id = await claimedAgo(STALE, { payout: 500, columns: full });
+    const before = await read(id);
+    expect(before.reviewer_payout_ngn, "the fixture must carry the payout the check is about").toBe(500);
+    expect(before.reviewer_notes).toBe("kept reviewer notes");
+    expect((await sweep()).data).toBe(1);
+    const after = await read(id);
+    // the whole row, every column the table has: nothing may differ from before except the three claim columns
+    expect(after).toEqual({ ...before, status: "pending", reviewer_id: null, claimed_at: null });
+    expect([after.reviewer_payout_ngn, after.reviewer_notes, after.reviewer_paid_at, after.reviewer_payout_reference]).toEqual([500, "kept reviewer notes", before.reviewer_paid_at, "kept-reference"]);
+  });
+
+  it("V4-N1: the same whole-row check on a row with no payout and no notes, and on two rows released in one call", async () => {
+    const plain = await claimedAgo(STALE);
+    const rich = await claimedAgo(STALE_B, { payout: 500, columns: { reviewer_notes: "n" } });
+    const [bPlain, bRich] = [await read(plain), await read(rich)];
+    expect((await sweep()).data).toBe(2);
+    expect(await read(plain)).toEqual({ ...bPlain, status: "pending", reviewer_id: null, claimed_at: null });
+    expect(await read(rich)).toEqual({ ...bRich, status: "pending", reviewer_id: null, claimed_at: null });
   });
 
   it("reaches the same row state as the reviewer releasing it themselves", async () => {
@@ -274,6 +307,18 @@ describe("the arguments", () => {
     expect(data).toBeNull();
     expect(error?.code).toBe("22023");
     expect((await read(id)).status).toBe("claimed");
+  });
+
+  it("V4-N2: a clock 2 minutes ahead of the database is refused (22023) and releases nothing, while one 59 seconds ahead is accepted", async () => {
+    const id = await claimedAgo(STALE);
+    const ahead = (ms: number) => admin.rpc("release_stale_verification_claims", { p_now: new Date(Date.now() + skewMs + ms).toISOString() });
+    const refused = await ahead(120_000);
+    expect(refused.data).toBeNull();
+    expect(refused.error?.code).toBe("22023");
+    expect((await read(id)).status, "a refused call must release nothing").toBe("claimed");
+    const accepted = await ahead(59_000);
+    expect(accepted.error, accepted.error?.message).toBeNull();
+    expect(typeof accepted.data).toBe("number");
   });
 
   it("refuses a null clock", async () => {
