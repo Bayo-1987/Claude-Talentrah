@@ -1,7 +1,8 @@
 -- Rollback of 0273 (N1B): restores the 0265 state exactly. Functions that 0273 replaced get their 0265 text back, the functions it added are dropped, and the privileges it narrowed are granted again.
 -- Every statement is "if exists" or idempotent, so the file runs cleanly where 0273 was never applied and can be run twice. Nothing of 0265 is dropped; no row is touched.
--- ORDER: run this file BEFORE supabase/rollbacks/0265_notifications_and_admin_messaging.rollback.sql. Run the other way round, 0265's rollback leaves behind the three functions 0273 added
--- (create_admin_message, record_admin_message_progress, finish_admin_message_send) and the flag_state column (the FIX review of N1B tested this); the two rollbacks are not independent.
+-- ORDER: run this file BEFORE supabase/rollbacks/0265_notifications_and_admin_messaging.rollback.sql. Measured on a local stack, both orders: run the other way round,
+-- 0265's rollback drops the seven tables and leaves the three functions 0273 added (create_admin_message, record_admin_message_progress, finish_admin_message_send) in place until this file is run;
+-- the flag_state column is not left behind (flag_state goes with admin_message_events). In either order nothing of them remains after both files.
 
 drop function if exists public.create_admin_message(uuid, text, text, text, text, text[], text, jsonb, text, boolean);
 drop function if exists public.record_admin_message_progress(uuid, integer, integer, integer);
