@@ -20,7 +20,15 @@ describe("the 0273 rollback says when it should be run, and says only what was m
     expect(head).toMatch(/in either order nothing of them remains after both files/i);
   });
   it("and that the flag_state column is not left behind: it goes with its table", () => {
-    expect(head).toMatch(/flag_state goes with admin_message_events/);
+    expect(head).toMatch(/the flag_state column is not left behind \(flag_state goes with admin_message_events\)/);
+  });
+  it("the three functions stay in place only until this file is run (not for good)", () => {
+    expect(head).toMatch(/in place until this file is run;/);
+  });
+  it("the reversed wordings are not there: a column that IS left behind, functions in place for good", () => {
+    expect(head).not.toMatch(/\bis left behind\b/);
+    expect(head).not.toMatch(/\bleft behind\b(?<!not left behind)/);
+    expect(head).not.toMatch(/in place for good/);
   });
   it("the false claim (a column left behind, on the strength of a review) is not there", () => {
     expect(head).not.toMatch(/and the flag_state column/);
