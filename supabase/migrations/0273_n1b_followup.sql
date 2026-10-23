@@ -431,6 +431,9 @@ begin
     raise exception 'operation refused' using errcode = 'P0001', hint = 'not_found';
   end if;
   select u.email into v_email from public.admin_users u where u.id = p_actor;
+  -- TIMING (FIX N8, accepted as immaterial): the flags are read here, BEFORE the per-message lock below, so a flag flipped between this read and the lock is recorded with the state read here. The
+  -- stop carries clock_timestamp() while every other event carries its transaction's start time, so an event written by a transaction that started earlier and commits later has an older time
+  -- than a stop recorded after it and does not re-arm that stop. Both only ever cost one missing or one extra audit row of a stop that is asked for again anyway; neither changes what is sent.
   -- Which flags are off, as a bitmask: master 1, messaging 2, promotions 4 (only for a promotion), e-mail 8 (only with the e-mail channel). Zero means every flag that matters is on.
   v_state := (case when coalesce((select f.enabled from public.feature_flags f where f.key = 'notifications_master'), false) then 0 else 1 end)
            + (case when coalesce((select f.enabled from public.feature_flags f where f.key = 'admin_messaging'), false) then 0 else 2 end)
