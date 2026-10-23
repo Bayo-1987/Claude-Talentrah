@@ -223,6 +223,20 @@ regexes = [
   '''^a card authorisation or renewal reference: it could be used to charge or identify the card$''',
   '''^a single-use or unsubscribe token: possessing it grants an action$''',
   '''^Card authorisations, renewal references, payment-provider references, confirmation and unsubscribe tokens are never included\.$''',
+
+  # tests/notifications/fake-n1-alignment.test.ts line 112, commit 72c7014bb3f288667f1af7a198850e9e72f2ca82, an intermediate commit of PR #979 (the notifications database work) — one exact
+  # test fixture string: the made-up word passed as the unsubscribe argument to prove the fake answers "matched = false" for a token it has never issued. A human-readable placeholder, not a
+  # credential: it belongs to no account, protects nothing and cannot be rotated. It matched this rule only because the argument is named p_token. The line is absent from the PR's tip, but the
+  # scan reads commits and history is not rewritten (ruling N1-R35), so the value is allowlisted instead. ANCHORED to exactly that value (^ and $, no wildcard); a value that differs by one
+  # character is still reported, and it does NOT relax the rule for anything else. tests/ci/gitleaks-pr979-intermediate-commits-allowlist.test.ts holds this.
+  '''^no-such-token$''',
+
+  # tests/supabase/migration-0265-functions-api.test.ts line 229, commit 03599a2cfd82aa0e180010b9d80f90d1da5e6697, an intermediate commit of PR #979 (the notifications database work) — one exact
+  # test fixture string: the made-up word spliced into an http:// push-endpoint URL to prove register_push_subscription refuses a non-https endpoint with "not_https" (the test checks the word is
+  # not echoed back). A human-readable placeholder, not a credential: it belongs to no account, protects nothing and cannot be rotated. It matched this rule only because the constant was named
+  # with the word secret. The line is absent from the PR's tip, but the scan reads commits and history is not rewritten (ruling N1-R35), so the value is allowlisted instead. ANCHORED to exactly
+  # that value (^ and $, no wildcard); a value that differs by one character is still reported, and it does NOT relax the rule for anything else. The same test file holds this.
+  '''^secret-endpoint-value$''',
 ]
 
 paths = [
