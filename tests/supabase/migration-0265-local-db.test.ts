@@ -240,7 +240,7 @@ describe("scratch databases: creation, sweep and removal on the local stack", ()
   });
 
   it("a script runs in the scratch database it was given, and a failing script reports its SQLSTATE", () => {
-    const name = newScratchName(2_000_000_003);
+    const name = newScratchName(process.pid);
     createN1Scratch(name, "create table t (id int);");
     try {
       const ok = runN1ScratchSql(name, "select current_database();");
@@ -255,7 +255,7 @@ describe("scratch databases: creation, sweep and removal on the local stack", ()
   });
 
   it("dropping a name that is not there is not an error", () => {
-    expect(() => dropN1Scratch(newScratchName(2_000_000_004))).not.toThrow();
+    expect(() => dropN1Scratch(newScratchName(process.pid))).not.toThrow();
   });
 });
 

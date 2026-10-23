@@ -10,12 +10,10 @@
  * Service set of the local stack: REDUCED (auth, db, kong, rest, storage).
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createAuthedTestUser, deleteTestUsers } from "../support/auth";
-import { localDbContainer } from "../support/local-psql";
-import { removeAuditRowsAsOwner, removeLedgerRowsAsOwner, requireN1Db, runN1Sql } from "./migration-0265-local-db";
+import { holdSession, removeAuditRowsAsOwner, removeLedgerRowsAsOwner, requireN1Db, runN1Sql } from "./migration-0265-local-db";
 
 const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -50,7 +48,7 @@ const settingsBefore: Record<string, number> = {};
 
 async function device(user: string): Promise<string> {
   const id = randomUUID();
-  const { error } = await svc.from("push_subscriptions").insert({ id, user_id: user, endpoint: `https://push.example.invalid/${id}`, p256dh: "k", auth: "a", ua_short: "Chrome", timezone: zoneOut });
+  const { error } = await svc.from("push_subscriptions").insert({ id, user_id: user, endpoint: `https://fcm.googleapis.com/fcm/send/${id}`, p256dh: "k", auth: "a", ua_short: "Chrome", timezone: zoneOut });
   if (error) throw new Error(`device fixture: ${error.code}`);
   fixtureDevices.push(id);
   return id;
@@ -220,7 +218,7 @@ describe("the ledger functions through the Data API (committed fixtures, cleaned
   });
 
   describe("register_push_subscription: the signed-in person's own call, over HTTP", () => {
-    const endpoint = (n: number | string) => `https://push.example.invalid/api-${randomUUID()}-${n}`;
+    const endpoint = (n: number | string) => `https://fcm.googleapis.com/fcm/send/api-${randomUUID()}-${n}`;
     const args = (over: Record<string, unknown> = {}) => ({ p_endpoint: endpoint("x"), p_p256dh: "k", p_auth: "a", p_ua: "Chrome on Android", ...over });
     it("an anonymous visitor and the service role are refused by the grant (42501), not by a check in the body", async () => {
       for (const client of [anon, svc]) {
@@ -243,7 +241,7 @@ describe("the ledger functions through the Data API (committed fixtures, cleaned
       const call = (over: Record<string, unknown>) => untyped(person.client).rpc("register_push_subscription", args(over));
       const marker = "endpoint-marker-value";
       const cases: Array<[Record<string, unknown>, string, string | null]> = [
-        [{ p_endpoint: `http://push.example.invalid/${marker}` }, "P0001", "not_https"],
+        [{ p_endpoint: `http://fcm.googleapis.com/${marker}` }, "P0001", "not_https"],
         [{ p_endpoint: `https://${"x".repeat(2049 - 8)}` }, "P0001", "value_too_long"],
         [{ p_ua: "u".repeat(41) }, "P0001", "value_too_long"],
         [{ p_timezone: "Mars/Olympus" }, "22023", null],
@@ -283,17 +281,14 @@ describe("the ledger functions through the Data API (committed fixtures, cleaned
   });
 
   describe("two sessions at once (N1-R31): the registration limit and the send limits hold across connections", () => {
-    const hold = (statements: string) =>
-      new Promise<void>((resolve) => execFile("docker", ["exec", "-i", localDbContainer(), "psql", "-U", "postgres", "-d", "postgres", "-X", "-c", statements], () => resolve()));
     it("a registration that waits on another session's open registration of the same person sees the tenth device and is refused (the per-person lock)", async () => {
       const person = await newPerson("n1-api-two-reg");
       for (let i = 0; i < 9; i++) await device(person.id);
-      const holder = hold(
-        `begin; set local role authenticated; select set_config('request.jwt.claims', '{"sub":"${person.id}","role":"authenticated"}', true); select public.register_push_subscription('https://push.example.invalid/hold-${randomUUID()}', 'k', 'a', 'Chrome', null); select pg_sleep(3); commit;`,
+      const held = await holdSession(
+        `begin; set local role authenticated; select set_config('request.jwt.claims', '{"sub":"${person.id}","role":"authenticated"}', true); select public.register_push_subscription('https://fcm.googleapis.com/fcm/send/hold-${randomUUID()}', 'k', 'a', 'Chrome', null);`,
       );
-      await new Promise((r) => setTimeout(r, 1200));
-      const second = await untyped(person.client).rpc("register_push_subscription", { p_endpoint: `https://push.example.invalid/second-${randomUUID()}`, p_p256dh: "k", p_auth: "a", p_ua: "Chrome" });
-      await holder;
+      const second = await untyped(person.client).rpc("register_push_subscription", { p_endpoint: `https://fcm.googleapis.com/fcm/send/second-${randomUUID()}`, p_p256dh: "k", p_auth: "a", p_ua: "Chrome" });
+      await held.done;
       expect([second.error?.code, second.error?.hint]).toEqual(["P0001", "device_limit"]);
       expect(sql(`select count(*) from public.push_subscriptions where user_id = '${person.id}' and revoked_at is null;`)).toBe("10");
     }, 60_000);
@@ -393,12 +388,9 @@ describe("the ledger functions through the Data API (committed fixtures, cleaned
     }, 60_000);
     it("a prepare that waits on another session's open prepare of the same draft ends as invalid_state, not as a duplicate-row error (the message row is locked)", async () => {
       const m = newMessage("draft");
-      const holder = new Promise<void>((resolve) =>
-        execFile("docker", ["exec", "-i", localDbContainer(), "psql", "-U", "postgres", "-d", "postgres", "-X", "-c", `begin; select public.prepare_admin_message('${m}', '${operator.id}', 10); select pg_sleep(3); commit;`], () => resolve()),
-      );
-      await new Promise((r) => setTimeout(r, 1200));
+      const held = await holdSession(`begin; select public.prepare_admin_message('${m}', '${operator.id}', 10);`);
       const second = await svc.rpc("prepare_admin_message", { p_message: m, p_actor: operator.id, p_max_audience: 10 });
-      await holder;
+      await held.done;
       expect([second.error?.code, second.error?.hint]).toEqual(["P0001", "invalid_state"]);
       expect(sql(`select count(*) from public.admin_message_recipients where message_id = '${m}';`)).toBe("1");
     }, 60_000);
@@ -420,12 +412,9 @@ describe("the ledger functions through the Data API (committed fixtures, cleaned
       }
       const first = newMessage("prepared");
       const second = newMessage("prepared");
-      const holder = new Promise<void>((resolve) =>
-        execFile("docker", ["exec", "-i", localDbContainer(), "psql", "-U", "postgres", "-d", "postgres", "-X", "-c", `begin; select public.start_admin_message_send('${first}', '${operator.id}'); select pg_sleep(3); commit;`], () => resolve()),
-      );
-      await new Promise((r) => setTimeout(r, 1200));
+      const held = await holdSession(`begin; select public.start_admin_message_send('${first}', '${operator.id}');`);
       const refused = await svc.rpc("start_admin_message_send", { p_message: second, p_actor: operator.id });
-      await holder;
+      await held.done;
       expect([refused.error?.code, refused.error?.hint]).toEqual(["P0001", "operator_daily_limit"]);
       expect(sql(`select status from public.admin_messages where id = '${second}';`)).toBe("prepared");
       expect(sql(`select status from public.admin_messages where id = '${first}';`)).toBe("sending");

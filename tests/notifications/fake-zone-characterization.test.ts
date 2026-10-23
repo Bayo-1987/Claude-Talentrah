@@ -75,7 +75,7 @@ describe("time-zone validity at registration", () => {
   const register = (timezone?: string | null) => {
     const fake = new FakeNotificationBackend(new Date("2026-10-26T12:00:00Z"));
     const user = fake.newId();
-    return { fake, call: fake.forCaller(user).registerPushSubscription({ p_endpoint: "https://push.example.invalid/x", p_p256dh: "k", p_auth: "a", p_ua: "Chrome", p_timezone: timezone }) };
+    return { fake, call: fake.forCaller(user).registerPushSubscription({ p_endpoint: "https://fcm.googleapis.com/fcm/send/x", p_p256dh: "k", p_auth: "a", p_ua: "Chrome", p_timezone: timezone }) };
   };
 
   it("an invalid name is refused with 22023 and nothing is stored", async () => {

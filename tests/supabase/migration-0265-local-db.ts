@@ -9,7 +9,8 @@
  *
  * Nothing here prints a key, a password or a connection string.
  */
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { haveLocalDb, localDbContainer, runSql, type SqlResult } from "../support/local-psql";
 
 export const N1_PORT_MIN = 55421;
@@ -238,4 +239,24 @@ export function removeLedgerRowsAsOwner(userIds: readonly string[], url: string 
   for (const id of userIds) if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) throw new LocalGuardError("an id is not a uuid");
   const r = run(`delete from public.notification_deliveries where user_id in (${userIds.map((u) => `'${u}'`).join(", ")});`);
   if (!r.ok) throw new Error(`removing ledger rows failed: ${r.stderr}`);
+}
+
+/**
+ * A SECOND database session for the two-connection race tests. It runs `statements` (for example `begin; select public.some_function(...);`), then sleeps inside the still-open transaction,
+ * then commits. It returns only when that session has been OBSERVED sleeping (pg_stat_activity shows wait_event PgSleep for its marker), so everything before the sleep has run and its locks
+ * are held: the caller can start its own competing call knowing the order. A fixed wait is not used (a slow machine makes one flaky). `done` resolves when the session has finished.
+ */
+export async function holdSession(statements: string, seconds = 4, readyTimeoutMs = 30_000): Promise<{ done: Promise<void> }> {
+  const marker = `n1hold_${randomUUID().replace(/-/g, "")}`;
+  const script = `${statements} select pg_sleep(${seconds}) /* ${marker} */; commit;`;
+  const done = new Promise<void>((resolve) =>
+    execFile("docker", ["exec", "-i", localDbContainer(), "psql", "-U", "postgres", "-d", "postgres", "-X", "-c", script], () => resolve()),
+  );
+  const until = Date.now() + readyTimeoutMs;
+  for (;;) {
+    const r = runN1Sql(`select count(*) from pg_stat_activity where wait_event = 'PgSleep' and query like '%${marker}%' and pid <> pg_backend_pid();`);
+    if (r.ok && Number(r.stdout.trim()) >= 1) return { done };
+    if (Date.now() > until) throw new Error("the second session never reached its sleep");
+    await new Promise((res) => setTimeout(res, 100));
+  }
 }

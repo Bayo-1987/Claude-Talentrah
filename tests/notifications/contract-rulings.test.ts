@@ -177,7 +177,7 @@ describe("M8: no row the fake returns or stores carries an address-like key beyo
     for (const id of people) {
       fake.addPerson({ id, unsubscribeToken: `t-${id}`, prefs: { push_enabled: true, email_promotions: true } });
       await fake.forCaller(id).registerPushSubscription({
-        p_endpoint: `https://push.example.invalid/${id}`, p_p256dh: "k", p_auth: "a", p_ua: "Chrome",
+        p_endpoint: `https://fcm.googleapis.com/fcm/send/${id}`, p_p256dh: "k", p_auth: "a", p_ua: "Chrome",
       });
     }
     const returned: unknown[] = [];

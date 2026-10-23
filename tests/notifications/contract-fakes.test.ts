@@ -309,7 +309,7 @@ describe("the mass-email cap and the monthly ceiling", () => {
 describe("push devices", () => {
   const register = (user: string, overrides: Partial<Parameters<ReturnType<FakeNotificationBackend["forCaller"]>["registerPushSubscription"]>[0]> = {}) =>
     fake.forCaller(user).registerPushSubscription({
-      p_endpoint: `https://push.example.invalid/${fake.newId()}`,
+      p_endpoint: `https://fcm.googleapis.com/fcm/send/${fake.newId()}`,
       p_p256dh: "k",
       p_auth: "a",
       p_ua: "Chrome on Android",
@@ -318,8 +318,8 @@ describe("push devices", () => {
 
   it("rejects a non-https endpoint and an oversize one", async () => {
     const user = fake.newId();
-    expect((await refusalOf(register(user, { p_endpoint: "http://push.example.invalid/x" }))).reason).toBe("not_https");
-    expect((await refusalOf(register(user, { p_endpoint: `https://push.example.invalid/${"x".repeat(3000)}` }))).reason).toBe("value_too_long");
+    expect((await refusalOf(register(user, { p_endpoint: "http://fcm.googleapis.com/x" }))).reason).toBe("not_https");
+    expect((await refusalOf(register(user, { p_endpoint: `https://fcm.googleapis.com/fcm/send/${"x".repeat(3000)}` }))).reason).toBe("value_too_long");
     expect((await refusalOf(register(user, { p_ua: "x".repeat(41) }))).reason).toBe("value_too_long");
   });
 
@@ -347,7 +347,7 @@ describe("push devices", () => {
   it("registering an existing endpoint as a different person takes it from the previous owner", async () => {
     const first = fake.newId();
     const second = fake.newId();
-    const endpoint = "https://push.example.invalid/shared";
+    const endpoint = "https://fcm.googleapis.com/fcm/send/shared";
     await register(first, { p_endpoint: endpoint });
     await register(second, { p_endpoint: endpoint });
     expect(fake.devices.filter((d) => d.endpoint === endpoint)).toHaveLength(1);
@@ -629,7 +629,7 @@ describe("admin messaging", () => {
 
 describe("the push sender fake", () => {
   const payload = { v: 1 as const, kind: "match_alert" as const, title: "t", body: "b", url: "/jobs", tag: "x", badge: 1 };
-  const target = { deviceId: "device-1", endpoint: "https://push.example.invalid/SECRET-ENDPOINT", p256dh: "SECRET-KEY", auth: "SECRET-AUTH" };
+  const target = { deviceId: "device-1", endpoint: "https://fcm.googleapis.com/fcm/send/SECRET-ENDPOINT", p256dh: "SECRET-KEY", auth: "SECRET-AUTH" };
 
   it("records what it sent, by device, and never stores the endpoint or keys", async () => {
     const sender = new FakePushSender();
@@ -738,7 +738,7 @@ describe("decision 4: releasing an unknown id", () => {
 describe("decision 6: over-long values are refused, never truncated", () => {
   const register = (overrides: Record<string, string>) =>
     fake.forCaller(fake.newId()).registerPushSubscription({
-      p_endpoint: "https://push.example.invalid/x", p_p256dh: "k", p_auth: "a", p_ua: "Chrome", ...overrides,
+      p_endpoint: "https://fcm.googleapis.com/fcm/send/x", p_p256dh: "k", p_auth: "a", p_ua: "Chrome", ...overrides,
     });
 
   it("p256dh and auth over 256, a time zone over 64 and a ua over 40 are refused; the limits themselves are accepted", async () => {
@@ -756,7 +756,7 @@ describe("decision 7: one row per endpoint, updated in place", () => {
   it("A registers, B registers the same endpoint: one row, the same row, A sees nothing and cannot delete it", async () => {
     const a = fake.newId();
     const b = fake.newId();
-    const endpoint = "https://push.example.invalid/shared";
+    const endpoint = "https://fcm.googleapis.com/fcm/send/shared";
     const registerFor = (user: string, keys: string) =>
       fake.forCaller(user).registerPushSubscription({ p_endpoint: endpoint, p_p256dh: keys, p_auth: keys, p_ua: "Chrome" });
 

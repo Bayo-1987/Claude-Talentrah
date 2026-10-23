@@ -229,7 +229,7 @@ export class FakeNotificationBackend implements ServiceRpcs {
     const row: PushSubscriptionRow = {
       id: this.newId(),
       user_id: input.userId,
-      endpoint: input.endpoint ?? `https://push.example.invalid/${this.counter}`,
+      endpoint: input.endpoint ?? `https://fcm.googleapis.com/fcm/send/${this.counter}`,
       p256dh: "fake-p256dh",
       auth: "fake-auth",
       ua_short: "Chrome on Android",

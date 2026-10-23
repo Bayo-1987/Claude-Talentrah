@@ -164,7 +164,7 @@ export const ZONE_IN = "current_setting('n1.zone_in')";
 export const ZONE_OUT = "current_setting('n1.zone_out')";
 /** A device for `user` in the given zone expression (a SQL expression, for example ZONE_OUT, or a quoted literal). */
 export const deviceZoneSql = (id: string, user: string, zoneExpr: string, extra = "") =>
-  `insert into public.push_subscriptions (id, user_id, endpoint, p256dh, auth, ua_short, timezone${extra ? ", " + extra.split("=")[0] : ""}) values ('${id}', '${user}', 'https://push.example.invalid/${id}', 'k', 'a', 'Chrome', ${zoneExpr}${extra ? ", " + extra.split("=")[1] : ""});`;
+  `insert into public.push_subscriptions (id, user_id, endpoint, p256dh, auth, ua_short, timezone${extra ? ", " + extra.split("=")[0] : ""}) values ('${id}', '${user}', 'https://fcm.googleapis.com/fcm/send/${id}', 'k', 'a', 'Chrome', ${zoneExpr}${extra ? ", " + extra.split("=")[1] : ""});`;
 /** A claim result as one token: id|null, then the refusal or a dash. The id itself is random and is never printed. */
 export const claimTo = (name: string, args: string) =>
   `select 'R|${name}|' || (select case when c.id is null then 'null' else 'id' end || '/' || coalesce(c.refused, '-') from public.claim_notification(${args}) c);`;
@@ -173,7 +173,7 @@ export const claimTo = (name: string, args: string) =>
 export const draftSql = (id = M1) =>
   `insert into public.admin_messages (id, created_by, created_by_email, kind, title, body, channels, segment_key) values ('${id}', '${A1}', 'a1@example.test', 'service_announcement', 'Title', 'Body', array['inapp'], 'everyone');`;
 /** A valid device for U1. */
-export const deviceSql = (id = D1, user = U1, endpoint = `https://push.example.invalid/${id}`) =>
+export const deviceSql = (id = D1, user = U1, endpoint = `https://fcm.googleapis.com/fcm/send/${id}`) =>
   `insert into public.push_subscriptions (id, user_id, endpoint, p256dh, auth, ua_short) values ('${id}', '${user}', '${endpoint}', 'k', 'a', 'Chrome on Android');`;
 
 /**
