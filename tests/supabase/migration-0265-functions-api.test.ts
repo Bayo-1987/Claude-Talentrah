@@ -327,6 +327,23 @@ describe("the ledger functions through the Data API (committed fixtures, cleaned
       expect(sql(`select user_id from public.push_subscriptions where endpoint = '${stored}' and revoked_at is null;`)).toBe(second.id);
       expect(sql(`select revoke_reason || '/' || (endpoint like 'https://revoked.invalid/%')::text from public.push_subscriptions where user_id = '${first.id}';`)).toBe("user/true");
     }, 60_000);
+    // N1B-NOTES-1 F2: the take-over lookup takes a row lock (`for update`), so it waits for a writer of that row and then reads the row AS COMMITTED. A plain select would act on the old version.
+    it("a take-over waits on a row lock held on the existing device and then acts on the row as committed (the lookup's for update)", async () => {
+      const first = await newPerson("n1-api-lock-a");
+      const second = await newPerson("n1-api-lock-b");
+      const id = await device(first.id);
+      const stored = sql(`select endpoint from public.push_subscriptions where id = '${id}';`);
+      // the holder, as the table's owner and outside any registration (so it holds no advisory lock), takes the row lock, hands the device to the SECOND person and does not commit yet
+      const held = await holdSession(`begin; select 1 from public.push_subscriptions where id = '${id}' for update; update public.push_subscriptions set user_id = '${second.id}' where id = '${id}';`);
+      const other = stored.replace("fcm.googleapis.com", "FCM.GoogleAPIs.com");
+      const registered = await untyped(second.client).rpc("register_push_subscription", { p_endpoint: other, p_p256dh: "k2", p_auth: "a2", p_ua: "Chrome" });
+      await held.done;
+      expect(registered.error).toBeNull();
+      // as committed, the device is already the second person's own: refreshed in place, the same row, not revoked, no tombstone, no second row
+      expect(registered.data).toBe(id);
+      expect(sql(`select count(*) from public.push_subscriptions where user_id = '${second.id}';`)).toBe("1");
+      expect(sql(`select (revoked_at is null)::text || '/' || (endpoint = '${stored}')::text || '/' || p256dh from public.push_subscriptions where id = '${id}';`)).toBe("true/true/k2");
+    }, 60_000);
   });
 
   describe("the admin functions over HTTP: errcodes, hints, generic messages and a double start", () => {
