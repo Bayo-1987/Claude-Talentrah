@@ -120,7 +120,7 @@ export const EXPORT_MANIFEST: readonly ExportTable[] = [
     owner: ["user_id"],
     orderBy: "user_id",
     include:
-      "auto_apply_digest_last_sent_at created_at digest_last_sent_at employer_resume_view job_match_digest new_applicant_notice proactive_match_alert scholarship_deadline_alert updated_at user_id win_back_email win_back_last_sent_at",
+      "auto_apply_digest_last_sent_at created_at digest_last_sent_at email_announcements email_promotions employer_resume_view job_match_digest new_applicant_notice proactive_match_alert push_application_viewed push_enabled push_match_alert push_new_applicant push_promotions scholarship_deadline_alert updated_at user_id win_back_email win_back_last_sent_at",
     never: { unsubscribe_token: TOKEN },
   }),
   table("farah_messages", { owner: ["user_id"], include: "content context created_at id role user_id" }),
@@ -244,6 +244,9 @@ export const EXCLUDED_TABLES: Record<string, string> = {
   organizations: "an organisation, not the person; the person is only its creator or the admin who confirmed it",
   scholarships: "a catalogue entry; the person is only the admin who moderated it",
   talent_directory_waitlist: "an organisation's waitlist entry; the person is only who joined it",
+  admin_message_recipients: "an operator's record of who a message was prepared for (0265); the person is only a recipient; export decision tracked in DATA-EXPORT-NOTIF-1",
+  notification_deliveries: "delivery bookkeeping; export decision tracked in DATA-EXPORT-NOTIF-1",
+  push_subscriptions: "the person's browser push devices (0265): the endpoint and keys are credentials and are never exported; export decision tracked in DATA-EXPORT-NOTIF-1",
   test_user_pool: "test infrastructure, absent from a real account",
   blog_posts: "a post's author is staff",
   "auth.*": "the auth schema: sessions, identities and factors are not exported",

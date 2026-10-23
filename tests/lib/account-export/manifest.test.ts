@@ -46,7 +46,8 @@ const CONTACT_NAME = /(email|phone|whatsapp|telegram|address|handle|linkedin|con
 /** The only columns that hold a contact detail of the person THEMSELVES. */
 const OWN_CONTACT = ["admin_users.email", "profiles.email"];
 /** Columns whose NAME contains "email" but that hold a setting, not an address. */
-const NOT_A_CONTACT = ["email_preferences.win_back_email"];
+// preference switches (booleans) whose names contain "email", not addresses
+const NOT_A_CONTACT = ["email_preferences.win_back_email", "email_preferences.email_promotions", "email_preferences.email_announcements"];
 
 describe("every column is classified, against the generated types", () => {
   it.each(EXPORT_MANIFEST.map((t) => t.table))("%s: the manifest and the types name the same columns", (table) => {
@@ -141,5 +142,16 @@ describe("contact details", () => {
   it("secrets and tokens are never exported, by name", () => {
     const secret = /(authorization_code|recipient_code|unsubscribe_token|token_hash|pending_renewal_reference|transfer_code|pending_transfer_reference)$/;
     for (const { table, name, c } of all.filter(({ name }) => secret.test(name))) expect(c.kind, `${table}.${name}`).toBe("never");
+  });
+});
+
+describe("the notification tables (N1-R29 Q1): excluded on purpose, with a reason, until the export decision is made", () => {
+  it.each(["admin_message_recipients", "notification_deliveries", "push_subscriptions"])("%s is excluded with a stated reason and is not exported", (table) => {
+    expect(EXCLUDED_TABLES[table], `${table} must be an entry of EXCLUDED_TABLES`).toBeTruthy();
+    expect(EXPORT_MANIFEST.some((t) => t.table === table)).toBe(false);
+  });
+  it("the delivery ledger's reason reads exactly as ruled, and the push devices' reason says the keys are credentials", () => {
+    expect(EXCLUDED_TABLES.notification_deliveries).toBe("delivery bookkeeping; export decision tracked in DATA-EXPORT-NOTIF-1");
+    expect(EXCLUDED_TABLES.push_subscriptions).toMatch(/credential/);
   });
 });

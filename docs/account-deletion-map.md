@@ -96,6 +96,9 @@ handed over.
 | `user_notifications.user_id` | profiles | CASCADE | delete | the person's in-app notifications |
 | `user_passes.user_id` | profiles | SET NULL | anonymise | tax and audit record (0209); renewal cancelled at confirm |
 | `user_template_unlocks.user_id` | auth.users | CASCADE | delete | the person's unlocked resume templates |
+| `admin_message_recipients.user_id` | profiles | CASCADE | delete | the person's rows as a recipient of an operator message (0265); the message and its audit trail stay |
+| `notification_deliveries.user_id` | profiles | CASCADE | delete | the person's notification claim ledger (0265) |
+| `push_subscriptions.user_id` | profiles | CASCADE | delete | the person's browser push devices (0265); their claims go with the person, or lose the device when only a device is removed |
 
 ## Deletion-lifecycle emails
 

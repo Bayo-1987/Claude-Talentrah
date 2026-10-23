@@ -59,6 +59,11 @@ const CASES: Record<RpcKey, { call: (c: db.NotificationClient) => Promise<unknow
     answer: null,
   },
   unreadNotificationCount: { args: { p_user: ID }, call: (c) => db.unreadNotificationCount(c, { p_user: ID }), answer: 4 },
+  pruneNotificationDeliveries: {
+    args: { p_older_than_days: 30 },
+    call: (c) => db.pruneNotificationDeliveries(c, { p_older_than_days: 30 }),
+    answer: 12,
+  },
   registerPushSubscription: {
     args: { p_endpoint: "https://push.example.invalid/x", p_p256dh: "k", p_auth: "a", p_ua: "Chrome" },
     call: (c) => db.registerPushSubscription(c, { p_endpoint: "https://push.example.invalid/x", p_p256dh: "k", p_auth: "a", p_ua: "Chrome" }),

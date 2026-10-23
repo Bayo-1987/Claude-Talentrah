@@ -103,6 +103,10 @@ describe("the ledger", () => {
     expect(info.code).toBe("permission_denied");
     expect(fake.events).toHaveLength(0);
 
+    // a fresh e-mail claim cannot be resolved by hand (a send may be in progress); an hour later it is stale
+    expect((await refusalOf(fake.resolveStaleClaim({ p_id: row.id!, p_actor: admin, p_resolution: "release_for_retry" }))).reason).toBe("invalid_state");
+    expect(fake.events).toHaveLength(0);
+    fake.advance(HOUR);
     await fake.resolveStaleClaim({ p_id: row.id!, p_actor: admin, p_resolution: "release_for_retry" });
     expect(fake.events).toHaveLength(1);
     expect(fake.events[0]).toMatchObject({ event: "claim_resolved", detail: { resolution: "release_for_retry" }, actor_email: "ops@example.test" });
@@ -470,7 +474,8 @@ describe("admin messaging", () => {
     fake.removeFlag(NOTIFICATION_FLAGS.adminMessaging);
     expect(await fake.startAdminMessageSend({ p_message: message.id, p_actor: sender })).toBeNull();
     expect(message.status).toBe("prepared");
-    expect(fake.events.filter((e) => e.event === "flag_stopped")).toHaveLength(2);
+    // one stop is recorded for the message, not one per call (N1-R31 F8)
+    expect(fake.events.filter((e) => e.event === "flag_stopped")).toHaveLength(1);
   });
 
   it("the stored recipient count equals the number of recipient rows queued", async () => {
@@ -761,16 +766,16 @@ describe("decision 7: one row per endpoint, updated in place", () => {
     fake.advance(HOUR);
     const idB = await registerFor(b, "keyB");
 
-    expect(fake.devices).toHaveLength(1);
-    expect(idB).toBe(idA); // updated in place, not deleted and recreated
-    expect(fake.devices[0]).toMatchObject({
-      id: idA, user_id: b, p256dh: "keyB", auth: "keyB", revoked_at: null, revoke_reason: null,
-      last_seen_at: fake.now().toISOString(),
-    });
-    expect(fake.listDevices(a)).toEqual([]);
-    expect(fake.removeDevice(a, idA)).toBe(0);
-    expect(fake.devices).toHaveLength(1);
-    expect(fake.listDevices(b).map((d) => d.id)).toEqual([idA]);
+    // N1-R31 F5: the endpoint goes to B as a NEW row; A's row is kept, revoked (user), its endpoint and keys made unusable
+    expect(fake.devices).toHaveLength(2);
+    expect(idB).not.toBe(idA);
+    expect(fake.devices.find((d) => d.id === idA)).toMatchObject({ user_id: a, revoke_reason: "user", p256dh: "revoked", auth: "revoked" });
+    expect(fake.devices.find((d) => d.id === idA)!.endpoint).not.toBe(endpoint);
+    expect(fake.devices.find((d) => d.id === idB)).toMatchObject({ user_id: b, endpoint, p256dh: "keyB", auth: "keyB", revoked_at: null, revoke_reason: null });
+    expect(fake.listDevices(a).map((d) => d.id)).toEqual([idA]); // A still sees their own (revoked) row
+    expect(fake.removeDevice(b, idA)).toBe(0); // B cannot touch it
+    expect(fake.removeDevice(a, idA)).toBe(1); // A can delete it
+    expect(fake.listDevices(b).map((d) => d.id)).toEqual([idB]);
     expect(Object.keys(fake.listDevices(b)[0]).sort()).toEqual(["created_at", "id", "last_seen_at", "revoked_at", "ua_short"]);
   });
 });

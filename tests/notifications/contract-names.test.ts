@@ -23,7 +23,7 @@ const digest = (map: Readonly<Record<string, string>>) =>
     .digest("hex");
 
 const TABLES_SHA256 = "164285951b91046aa5edac205a049910d49e6e86f921505a87eec553471e4760";
-const RPCS_SHA256 = "3100ea2931057530caa7d93f3242102c20252bbec3bd69c52773caee485b8982";
+const RPCS_SHA256 = "6b0ebbe423446fc48a7132c8dec8a72ce0e677c6ee1d920d7da198358380de46";
 
 describe("notification object names", () => {
   it("the table names are exactly the reviewed set (7 tables)", () => {
@@ -31,8 +31,8 @@ describe("notification object names", () => {
     expect(digest(NOTIFICATION_TABLES)).toBe(TABLES_SHA256);
   });
 
-  it("the function names are exactly the reviewed set (20 functions)", () => {
-    expect(Object.keys(NOTIFICATION_RPCS)).toHaveLength(20);
+  it("the function names are exactly the reviewed set (21 functions: the 20 of the contract and the retention function)", () => {
+    expect(Object.keys(NOTIFICATION_RPCS)).toHaveLength(21);
     expect(digest(NOTIFICATION_RPCS)).toBe(RPCS_SHA256);
   });
 

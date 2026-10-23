@@ -23,10 +23,10 @@
  *
  * CONTRACT NOTES (Reviewer decisions of 22 Oct 2026; they win over the prompt)
  *
- *  1. The prune function is NOT in this contract. The database PR adds it (one
- *     integer argument, default 30 days, returns the number of rows deleted,
- *     service role only) together with its accessor and fake. That is the one
- *     recorded exception to "only a contract-change PR changes the contract".
+ *  1. The prune function was added by the database PR, as this note said it
+ *     would be (one integer argument, default 30 days, returns the number of
+ *     rows deleted, service role only), together with its accessor and fake. That
+ *     is the one recorded exception to "only a contract-change PR changes the contract".
  *  2. The claim function returns ONE row, `{ id, refused }`, and EXACTLY ONE of
  *     the two is non-null. Refusals are checked in this fixed order and the
  *     first one that applies is reported:
@@ -190,6 +190,12 @@ export const ADMIN_MESSAGE_EVENT_KINDS = [
   "resumed",
 ] as const;
 export type AdminMessageEventKind = (typeof ADMIN_MESSAGE_EVENT_KINDS)[number];
+
+/**
+ * The youngest an open e-mail claim may be for a person to resolve it by hand (N1-R34). The sweep's list keeps its age parameter, chosen by the caller; the resolve call refuses a
+ * claim younger than this whatever the caller passes. The SQL holds the same figure as a literal, and a test reads the migration text and asserts it equals this constant.
+ */
+export const STALE_CLAIM_MIN_AGE_MINUTES = 30;
 
 export const STALE_CLAIM_RESOLUTIONS = ["mark_sent", "release_for_retry"] as const;
 export type StaleClaimResolution = (typeof STALE_CLAIM_RESOLUTIONS)[number];
@@ -449,6 +455,8 @@ export type StaleClaimRow = {
 
 export type ResolveStaleClaimArgs = { p_id: string; p_actor: string; p_resolution: StaleClaimResolution };
 export type UnreadCountArgs = { p_user: string };
+/** The retention function: one integer argument, default 30 days, returns how many rows it deleted. Service role only. */
+export type PruneNotificationDeliveriesArgs = { p_older_than_days?: number };
 
 /** Caller is identified by the session (`auth.uid()`), so there is no user argument. */
 export type RegisterPushSubscriptionArgs = {
@@ -482,6 +490,7 @@ export interface RpcContract {
   staleNotificationClaims: { args: StaleClaimsArgs; result: StaleClaimRow[] };
   resolveStaleClaim: { args: ResolveStaleClaimArgs; result: void };
   unreadNotificationCount: { args: UnreadCountArgs; result: number };
+  pruneNotificationDeliveries: { args: PruneNotificationDeliveriesArgs; result: number };
   registerPushSubscription: { args: RegisterPushSubscriptionArgs; result: string };
   emailUnsubscribeStream: { args: EmailUnsubscribeStreamArgs; result: EmailUnsubscribeStreamResult };
   resolveAdminSegment: { args: ResolveAdminSegmentArgs; result: string[] };

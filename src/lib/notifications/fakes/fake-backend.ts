@@ -19,6 +19,8 @@ import {
   NOTIFICATION_LIMITS,
   NOTIFICATION_SETTING_KEYS,
   PUSH_RELEASE_REASONS,
+  STALE_CLAIM_MIN_AGE_MINUTES,
+  STALE_CLAIM_RESOLUTIONS,
   type AdminMessageEventDetail,
   type AdminMessageEventKind,
   type AdminMessageEventRow,
@@ -50,6 +52,7 @@ import {
 import { hourInZone, isKnownTimeZone } from "@/lib/format/datetime";
 import {
   NOTIFICATION_RPCS,
+  NOTIFICATION_TABLES,
   NotificationDbError,
   type NotificationRpcName,
 } from "../contract-db";
@@ -115,6 +118,19 @@ function isQuietHour(at: Date, timeZone: string): boolean {
   const hour = hourInZone(timeZone, at);
   return hour >= NOTIFICATION_LIMITS.quietHoursStart || hour < NOTIFICATION_LIMITS.quietHoursEnd;
 }
+
+/**
+ * The rule of the database CHECK on an admin message's link (N1-R29 Q2): a same-origin path. One slash first and not two, at most 200 characters, and no backslash, whitespace or control
+ * character. "Whitespace" is exactly what Postgres refuses: every JavaScript whitespace character except U+FEFF, which Postgres accepts. tests/support/n1-link-path-cases.ts holds the cases both sides run.
+ */
+const LINK_REFUSED = "\\u0000-\\u001f\\u007f-\\u009f \\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\\\";
+const LINK_PATH = new RegExp(`^/([^/${LINK_REFUSED}][^${LINK_REFUSED}]*)?$`);
+export function isSameOriginPath(path: string): boolean {
+  return path.length <= 200 && LINK_PATH.test(path);
+}
+
+/** The age after which an open e-mail claim may be resolved by hand: the contract's constant (N1-R34); the database holds the same figure as a literal. */
+const STALE_CLAIM_AGE_MS = STALE_CLAIM_MIN_AGE_MINUTES * 60 * 1000;
 
 export class FakeNotificationBackend implements ServiceRpcs {
   deliveries: NotificationDeliveryRow[] = [];
@@ -228,14 +244,20 @@ export class FakeNotificationBackend implements ServiceRpcs {
     requiresApproval?: boolean;
     title?: string;
     body?: string;
+    linkPath?: string | null;
   }): AdminMessageRow {
     const admin = this.admins.get(input.createdBy);
+    const linkPath = input.linkPath ?? null;
+    if (linkPath !== null && !isSameOriginPath(linkPath)) {
+      // The database refuses it with a CHECK violation (SQLSTATE 23514); there is no contract code for that, so it is "unknown", with the table named.
+      throw new NotificationDbError({ code: "unknown", sqlstate: "23514", reason: null, rpc: null, table: NOTIFICATION_TABLES.adminMessages });
+    }
     const row: AdminMessageRow = {
       id: this.newId(),
       kind: input.kind ?? "service_announcement",
       title: input.title ?? "Title",
       body: input.body ?? "Body",
-      link_path: null,
+      link_path: linkPath,
       channels: [...(input.channels ?? ["inapp"])],
       segment_key: input.segmentKey ?? "everyone",
       segment_params: input.segmentParams ?? {},
@@ -313,7 +335,8 @@ export class FakeNotificationBackend implements ServiceRpcs {
     }
     const windowMs = parseInterval(args.p_window, DAY_MS, rpc);
     const now = this.now();
-    const device = args.p_device ?? null;
+    // A device belongs to a push claim only: any other channel ignores it and stores none (N1-R29).
+    const device = args.p_channel === "push" ? (args.p_device ?? null) : null;
     const refused = (code: ClaimRefusal): ClaimNotificationResult => ({ id: null, refused: code });
     const open = (row: NotificationDeliveryRow) => row.released_at === null;
 
@@ -409,12 +432,36 @@ export class FakeNotificationBackend implements ServiceRpcs {
   async resolveStaleClaim(args: RpcContract["resolveStaleClaim"]["args"]): Promise<void> {
     const rpc: RpcKey = "resolveStaleClaim";
     this.requirePermission(args.p_actor, "user_messaging", rpc);
+    // An unknown resolution is a caller error (22023), checked after the permission and before the lookup (N1-R29).
+    if (!(STALE_CLAIM_RESOLUTIONS as readonly string[]).includes(args.p_resolution)) throw fail("invalid_parameter", "22023", null, rpc);
     const row = this.deliveries.find((d) => d.id === args.p_id);
     if (!row) throw refuse(rpc, "not_found");
     if (row.sent_at !== null || row.released_at !== null) throw refuse(rpc, "invalid_state");
+    // Only an e-mail claim open longer than the stale age can be resolved by hand (N1-R31 F6).
+    if (row.channel !== "email" || this.now().getTime() - Date.parse(row.claimed_at) < STALE_CLAIM_AGE_MS) throw refuse(rpc, "invalid_state");
     if (args.p_resolution === "mark_sent") row.sent_at = this.now().toISOString();
     else row.released_at = this.now().toISOString();
     this.addEvent(row.kind === "admin_message" ? row.subject_id : null, "claim_resolved", { resolution: args.p_resolution }, args.p_actor);
+  }
+
+  /**
+   * Retention. Removes finished (sent or released), non-email claims that are strictly older than the limit AND older than the start of the current UTC calendar month, so
+   * the monthly email ceiling can never be undercounted. Open claims and email claims are never removed.
+   */
+  async pruneNotificationDeliveries(args: RpcContract["pruneNotificationDeliveries"]["args"]): Promise<number> {
+    const rpc: RpcKey = "pruneNotificationDeliveries";
+    const days = args.p_older_than_days === undefined ? 30 : args.p_older_than_days;
+    if (days === null || !Number.isInteger(days) || days < 1 || days > 36_500) throw fail("invalid_parameter", "22023", null, rpc);
+    const now = this.now();
+    const cutoff = now.getTime() - days * DAY_MS;
+    const monthStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
+    const before = this.deliveries.length;
+    this.deliveries = this.deliveries.filter((row) => {
+      const claimed = Date.parse(row.claimed_at);
+      const finished = row.sent_at !== null || row.released_at !== null;
+      return !(row.channel !== "email" && finished && claimed < cutoff && claimed < monthStart);
+    });
+    return before - this.deliveries.length;
   }
 
   async unreadNotificationCount(args: RpcContract["unreadNotificationCount"]["args"]): Promise<number> {
@@ -424,6 +471,8 @@ export class FakeNotificationBackend implements ServiceRpcs {
   /* ---------------- preferences ---------------- */
 
   async emailUnsubscribeStream(args: RpcContract["emailUnsubscribeStream"]["args"]) {
+    // The database checks the stream first: an unknown or missing stream is refused whether or not the token matches.
+    if (args.p_stream !== "announcements" && args.p_stream !== "promotions") throw fail("invalid_parameter", "22023", null, "emailUnsubscribeStream");
     const person = [...this.people.values()].find((p) => p.unsubscribeToken !== null && p.unsubscribeToken === args.p_token);
     if (!person) return { matched: false };
     const subscribed = args.p_subscribed ?? false;
@@ -440,6 +489,8 @@ export class FakeNotificationBackend implements ServiceRpcs {
       registerPushSubscription: async (args) => {
         const rpc: RpcKey = "registerPushSubscription";
         const limits = NOTIFICATION_LIMITS;
+        // The function is not strict: a missing endpoint, key, secret or browser is 22023, before any other check.
+        if (args.p_endpoint == null || args.p_p256dh == null || args.p_auth == null || args.p_ua == null) throw fail("invalid_parameter", "22023", null, rpc);
         if (!args.p_endpoint.startsWith("https://")) throw refuse(rpc, "not_https");
         if (
           args.p_endpoint.length > limits.endpointMaxLength ||
@@ -458,9 +509,8 @@ export class FakeNotificationBackend implements ServiceRpcs {
         const activeOthers = this.devices.filter((d) => d.user_id === userId && d.revoked_at === null && d !== existing);
         if (activeOthers.length >= limits.maxActiveDevices) throw refuse(rpc, "device_limit");
 
-        if (existing) {
-          // Re-bound to the caller: the previous owner no longer holds it.
-          existing.user_id = userId;
+        if (existing && existing.user_id === userId) {
+          // The caller's own device registering again: refreshed in place and revived.
           existing.p256dh = args.p_p256dh;
           existing.auth = args.p_auth;
           existing.ua_short = args.p_ua;
@@ -469,6 +519,14 @@ export class FakeNotificationBackend implements ServiceRpcs {
           existing.revoked_at = null;
           existing.revoke_reason = null;
           return existing.id;
+        }
+        if (existing) {
+          // Someone else holds the endpoint: their row is kept, revoked (user) and made unusable, and the caller gets a new row (N1-R31 F5).
+          existing.revoked_at = now;
+          existing.revoke_reason = "user";
+          existing.endpoint = `https://revoked.invalid/${existing.id}`;
+          existing.p256dh = "revoked";
+          existing.auth = "revoked";
         }
         const row = this.addDevice({ userId, endpoint: args.p_endpoint, timezone: zone });
         row.p256dh = args.p_p256dh;
@@ -528,6 +586,9 @@ export class FakeNotificationBackend implements ServiceRpcs {
     if (Object.keys(params).some((key) => key !== "days" && key !== "since" && key !== "country")) {
       throw fail("invalid_parameter", "22023", null, rpc);
     }
+    // The parameters of a segment are checked whatever the audience is (the database checks them before it reads a single row): a window that is not 30, 60 or 90, or a date that does not parse, is 22023 even when nobody matches.
+    if (args.p_key === "inactive_seekers" && params.days !== 30 && params.days !== 60 && params.days !== 90) throw fail("invalid_parameter", "22023", null, rpc);
+    if (args.p_key === "signed_up_since" && (!params.since || Number.isNaN(Date.parse(params.since)))) throw fail("invalid_parameter", "22023", null, rpc);
     const now = this.now().getTime();
     const matches = [...this.people.values()].filter((person) => {
       if (person.deletionRequested || person.isQa) return false; // every segment
@@ -608,6 +669,8 @@ export class FakeNotificationBackend implements ServiceRpcs {
       });
     }
     message.audience_count = this.recipients.filter((r) => r.message_id === message.id).length;
+    // A promotion, or more than 100 recipients, always needs approval; a flag already set is never lowered (N1-R30).
+    message.requires_approval = message.requires_approval || message.kind === "promotion" || message.audience_count > 100;
     message.status = "prepared";
     this.addEvent(message.id, "prepared", {}, args.p_actor);
     return message.audience_count;
@@ -652,11 +715,18 @@ export class FakeNotificationBackend implements ServiceRpcs {
     this.requirePermission(args.p_actor, "user_messaging", rpc);
     const message = this.message(args.p_message, rpc);
     if (!this.sendFlagsOn(message)) {
-      this.addEvent(message.id, "flag_stopped", {}, args.p_actor);
+      // One stop event per message until something else has happened to it (N1-R31 F8): the latest event of this message is already a stop, so nothing is added.
+      const latest = [...this.events].reverse().find((e) => e.message_id === message.id);
+      if (latest?.event !== "flag_stopped") this.addEvent(message.id, "flag_stopped", {}, args.p_actor);
       return null;
     }
     const startable = message.status === "approved" || (message.status === "prepared" && !message.requires_approval);
     if (!startable) return null; // a repeat or a double start sends nothing extra
+    // The daily send limits count messages that have STARTED, so they are checked here too, by the message's creator and overall (N1-R31 F1).
+    const since = this.now().getTime() - DAY_MS;
+    const started = this.messages.filter((m) => m.sent_started_at !== null && Date.parse(m.sent_started_at) > since);
+    if (message.created_by !== null && started.filter((m) => m.created_by === message.created_by).length >= NOTIFICATION_LIMITS.adminPerOperatorPerDay) throw refuse(rpc, "operator_daily_limit");
+    if (started.length >= NOTIFICATION_LIMITS.adminOverallPerDay) throw refuse(rpc, "overall_daily_limit");
     message.status = "sending";
     message.sent_started_at = this.now().toISOString();
     this.addEvent(message.id, "send_started", {}, args.p_actor);
