@@ -257,6 +257,7 @@ declare
   v_user uuid := auth.uid();
   v_zone text;
   v_host text;
+  v_endpoint text;
   v_id uuid;
   v_old_id uuid;
   v_old_user uuid;
@@ -277,6 +278,9 @@ begin
   -- the host is the text after https:// up to the first / ? or #, lower-cased, letters digits dots and hyphens only (so no user info, no port, no percent-escape, no bracket, no trailing dot), and then
   -- either one of the exact hosts or a name under one of the suffixes. The list is PUSH_ENDPOINT_HOSTS in the contract; a test keeps the two equal.
   v_host := pg_catalog.lower(substring(p_endpoint from '^https://([^/?#]*)'));
+  -- The endpoint is stored with its host lower-cased (the host is ASCII by the rule below, so the lengths are equal) and the rest as typed: two spellings of one host are one endpoint, for the
+  -- unique key, the take-over lookup, the endpoint lock and the device count alike.
+  v_endpoint := 'https://' || v_host || substring(p_endpoint from 9 + char_length(v_host));
   if p_endpoint ~ '[[:space:][:cntrl:]\\]'
      or v_host is null or v_host !~ '^[a-z0-9.-]+$'
      or not (v_host = any (array['fcm.googleapis.com', 'updates.push.services.mozilla.com'])
@@ -289,13 +293,13 @@ begin
   end if;
 
   perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_user::text, 1));
-  if (select count(*) from public.push_subscriptions d where d.user_id = v_user and d.revoked_at is null and d.endpoint <> p_endpoint) >= 10 then
+  if (select count(*) from public.push_subscriptions d where d.user_id = v_user and d.revoked_at is null and d.endpoint <> v_endpoint) >= 10 then
     raise exception 'operation refused' using errcode = 'P0001', hint = 'device_limit';
   end if;
 
   -- One writer per endpoint at a time, so two people registering the same endpoint cannot race into the unique key.
-  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_endpoint, 2));
-  select d.id, d.user_id into v_old_id, v_old_user from public.push_subscriptions d where d.endpoint = p_endpoint for update;
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_endpoint, 2));
+  select d.id, d.user_id into v_old_id, v_old_user from public.push_subscriptions d where d.endpoint = v_endpoint for update;
   if found and v_old_user = v_user then
     -- the caller's own device registering again: refreshed in place, and revived if it had been revoked
     update public.push_subscriptions d
@@ -311,7 +315,7 @@ begin
      where d.id = v_old_id;
   end if;
   insert into public.push_subscriptions (user_id, endpoint, p256dh, auth, ua_short, timezone)
-  values (v_user, p_endpoint, p_p256dh, p_auth, p_ua, v_zone)
+  values (v_user, v_endpoint, p_p256dh, p_auth, p_ua, v_zone)
   returning id into v_id;
   return v_id;
 end

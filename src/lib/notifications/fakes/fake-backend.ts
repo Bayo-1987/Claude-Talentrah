@@ -135,6 +135,11 @@ export function isSameOriginPath(path: string): boolean {
  * The same host rule as the device registration in the database (N1B F4): no whitespace, control character or backslash anywhere; the host is the text after https:// up to the first / ? or #, lower-cased,
  * made of letters, digits, dots and hyphens only and not ending in a dot; then an exact host or a name under a suffix.
  */
+/** The endpoint as stored: the host lower-cased, everything else as typed (the host is ASCII by the rule above). Two spellings of one host are one endpoint. */
+export function normalisePushEndpoint(endpoint: string): string {
+  const host = /^https:\/\/([^/?#]*)/.exec(endpoint)![1];
+  return `https://${host.toLowerCase()}${endpoint.slice(8 + host.length)}`;
+}
 export function isAllowedPushEndpoint(endpoint: string): boolean {
   if (/[\s\u0000-\u001f\u007f\\]/.test(endpoint)) return false;
   const match = /^https:\/\/([^/?#]*)/.exec(endpoint);
@@ -542,7 +547,8 @@ export class FakeNotificationBackend implements ServiceRpcs {
         if (zone.length > limits.timezoneMaxLength || !isKnownTimeZone(zone)) throw fail("invalid_parameter", "22023", null, rpc);
 
         const now = this.now().toISOString();
-        const existing = this.devices.find((d) => d.endpoint === args.p_endpoint);
+        const endpoint = normalisePushEndpoint(args.p_endpoint);
+        const existing = this.devices.find((d) => d.endpoint === endpoint);
         const activeOthers = this.devices.filter((d) => d.user_id === userId && d.revoked_at === null && d !== existing);
         if (activeOthers.length >= limits.maxActiveDevices) throw refuse(rpc, "device_limit");
 
@@ -565,7 +571,7 @@ export class FakeNotificationBackend implements ServiceRpcs {
           existing.p256dh = "revoked";
           existing.auth = "revoked";
         }
-        const row = this.addDevice({ userId, endpoint: args.p_endpoint, timezone: zone });
+        const row = this.addDevice({ userId, endpoint, timezone: zone });
         row.p256dh = args.p_p256dh;
         row.auth = args.p_auth;
         row.ua_short = args.p_ua;
