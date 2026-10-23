@@ -327,14 +327,15 @@ describe("the ledger functions through the Data API (committed fixtures, cleaned
       expect(sql(`select user_id from public.push_subscriptions where endpoint = '${stored}' and revoked_at is null;`)).toBe(second.id);
       expect(sql(`select revoke_reason || '/' || (endpoint like 'https://revoked.invalid/%')::text from public.push_subscriptions where user_id = '${first.id}';`)).toBe("user/true");
     }, 60_000);
-    // N1B-NOTES-1 F2: the take-over lookup takes a row lock (`for update`), so it waits for a writer of that row and then reads the row AS COMMITTED. A plain select would act on the old version.
-    it("a take-over waits on a row lock held on the existing device and then acts on the row as committed (the lookup's for update)", async () => {
+    // N1B-NOTES-1 F2 / N1B-NOTES-2 N-1: the take-over lookup takes a row lock that conflicts with an ordinary writer of the row, so it waits for that writer and then reads the row AS COMMITTED. A plain select
+    // would act on the old version, and a weaker lock (for key share) does not conflict with an ordinary update. The holder therefore does a PLAIN update and takes no explicit lock.
+    it("a take-over waits for an ordinary update of the existing device row and then acts on the row as committed (the lookup's for update)", async () => {
       const first = await newPerson("n1-api-lock-a");
       const second = await newPerson("n1-api-lock-b");
       const id = await device(first.id);
       const stored = sql(`select endpoint from public.push_subscriptions where id = '${id}';`);
-      // the holder, as the table's owner and outside any registration (so it holds no advisory lock), takes the row lock, hands the device to the SECOND person and does not commit yet
-      const held = await holdSession(`begin; select 1 from public.push_subscriptions where id = '${id}' for update; update public.push_subscriptions set user_id = '${second.id}' where id = '${id}';`);
+      // the holder, as the table's owner and outside any registration (so it holds no advisory lock), hands the device to the SECOND person with a plain update and does not commit yet
+      const held = await holdSession(`begin; update public.push_subscriptions set user_id = '${second.id}' where endpoint = '${stored}';`);
       const other = stored.replace("fcm.googleapis.com", "FCM.GoogleAPIs.com");
       const registered = await untyped(second.client).rpc("register_push_subscription", { p_endpoint: other, p_p256dh: "k2", p_auth: "a2", p_ua: "Chrome" });
       await held.done;
