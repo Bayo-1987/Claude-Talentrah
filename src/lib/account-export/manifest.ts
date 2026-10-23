@@ -247,6 +247,7 @@ export const EXCLUDED_TABLES: Record<string, string> = {
   admin_message_recipients: "an operator's record of who a message was prepared for (0265); the person is only a recipient; export decision tracked in DATA-EXPORT-NOTIF-1",
   notification_deliveries: "delivery bookkeeping; export decision tracked in DATA-EXPORT-NOTIF-1",
   push_subscriptions: "the person's browser push devices (0265): the endpoint and keys are credentials and are never exported; export decision tracked in DATA-EXPORT-NOTIF-1",
+  verification_marks: "the person's dated verification marks (0266): written only by the server, readable by the person under the owner policy meanwhile; whether the export carries them is not decided here and is tracked in DATA-EXPORT-MARKS-1",
   test_user_pool: "test infrastructure, absent from a real account",
   blog_posts: "a post's author is staff",
   "auth.*": "the auth schema: sessions, identities and factors are not exported",

@@ -14,7 +14,7 @@
  */
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { haveLocalDb, runSql } from "../support/local-psql";
 
 const ROOT = join(__dirname, "../..");
@@ -82,8 +82,13 @@ describe.skipIf(!haveLocalDb())("the rollback, proved on the catalog (one transa
     `select 'R|resolve_differs|' || (select count(*) from (select line from snap where label='A' and line like 'FUNCTIONS|resolve_talent_verification(%' except select line from snap where label='B') d);`,
     "rollback;",
   ].join("\n");
-  const out = runSql(script);
-  const res = Object.fromEntries(out.stdout.split("\n").filter((l) => l.startsWith("R|")).map((l) => l.split("|").slice(1) as [string, string]));
+  let out: ReturnType<typeof runSql>;
+  let res: Record<string, string> = {};
+  // run in beforeAll, not while the file is collected: collecting must not need a database (skipIf still runs the describe callback)
+  beforeAll(() => {
+    out = runSql(script);
+    res = Object.fromEntries(out.stdout.split("\n").filter((l) => l.startsWith("R|")).map((l) => l.split("|").slice(1) as [string, string]));
+  });
 
   it("the script runs", () => {
     expect(out.ok, out.stderr).toBe(true);
