@@ -11,7 +11,16 @@
  */
 import { execFile, execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { vi } from "vitest";
 import { haveLocalDb, localDbContainer, runSql, type SqlResult } from "../support/local-psql";
+
+/*
+ * TIMEOUT CEILING for every file that uses the local database (FIX N6). These tests start docker commands, one after another and synchronously (a scratch database is created, swept and dropped
+ * by `docker exec`), and under a heavily loaded machine one such test took 24.8 s against the suite's 20 s ceiling and failed with a bare "timed out". The ceiling is raised for the files
+ * that import this module, and nothing else: no wait is lengthened, no sleep is added; a test that finishes in 3 s still takes 3 s.
+ */
+export const N1_TIMEOUT_MS = 120_000;
+vi.setConfig({ testTimeout: N1_TIMEOUT_MS, hookTimeout: N1_TIMEOUT_MS });
 
 export const N1_PORT_MIN = 55421;
 export const N1_PORT_MAX = 55429;

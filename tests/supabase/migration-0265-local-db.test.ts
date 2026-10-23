@@ -20,7 +20,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import {
-  LocalGuardError, assertLocalGuard, createN1Scratch, dropN1Scratch, haveN1Db, listN1Scratch, localServiceSet, newScratchName, removeAuditRowsAsOwner, removeLedgerRowsAsOwner, requireN1Db, runN1ScratchSql, sweepStaleN1Scratch,
+  LocalGuardError, N1_TIMEOUT_MS, assertLocalGuard, createN1Scratch, dropN1Scratch, haveN1Db, listN1Scratch, localServiceSet, newScratchName, removeAuditRowsAsOwner, removeLedgerRowsAsOwner, requireN1Db, runN1ScratchSql, sweepStaleN1Scratch,
 } from "./migration-0265-local-db";
 
 const ROOT = join(__dirname, "../..");
@@ -323,5 +323,18 @@ describe("removeLedgerRowsAsOwner: the only place that deletes ledger rows by ta
     expect(() => removeLedgerRowsAsOwner(["x'; drop table t; --"], "http://127.0.0.1:55421", spy)).toThrow(/uuid/);
     removeLedgerRowsAsOwner([], "http://127.0.0.1:55421", spy);
     expect(calls).toEqual([]);
+  });
+});
+
+describe("the timeout ceiling of the database test files (FIX N6)", () => {
+  it("the local-db helper, which every database test file imports, sets the test and hook ceilings to N1_TIMEOUT_MS (read from its source: vitest has no getter for the live value)", () => {
+    const source = readFileSync(join(__dirname, "migration-0265-local-db.ts"), "utf8");
+    expect(N1_TIMEOUT_MS).toBe(120_000);
+    expect(source).toContain("vi.setConfig({ testTimeout: N1_TIMEOUT_MS, hookTimeout: N1_TIMEOUT_MS });");
+    // and every database test file reaches it: each imports the helper or the support module that imports it
+    const files = readdirSync(__dirname).filter((f) => /^migration-0(264|265|273)-.*\.test\.ts$/.test(f) && f !== "migration-0273-c-rollback-order.test.ts");
+    const missing = files.filter((f) => !/migration-0265-(local-db|support)"/.test(readFileSync(join(__dirname, f), "utf8")));
+    expect(files.length).toBeGreaterThanOrEqual(15);
+    expect(missing).toEqual([]);
   });
 });
