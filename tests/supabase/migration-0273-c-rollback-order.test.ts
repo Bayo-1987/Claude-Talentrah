@@ -1,10 +1,10 @@
 /**
  * N1B FIX finding N3 (corrected by N1B-NOTES-1 F3): the rollback of 0273 should run BEFORE the rollback of 0265. What was MEASURED on a real local stack, in scratch databases, both orders:
- *   0273's rollback first, then 0265's: after the first the seven tables and the six 0265 functions I looked at are still there and the three functions 0273 added are gone; after the second nothing remains.
+ *   0273's rollback first, then 0265's: after the first the seven tables and the six 0265 functions that were counted are still there and the three functions 0273 added are gone; after the second nothing remains.
  *   0265's rollback first, then 0273's: after the first the seven tables are gone (flag_state goes with admin_message_events) and the three functions 0273 added are STILL THERE; after the second nothing remains.
  * So the order changes what is left between the two steps, not the end. The first lines of the rollback file say exactly that, and this test keeps them true. It reads the file only (no database).
  */
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -38,5 +38,23 @@ describe("the 0273 rollback says when it should be run, and says only what was m
   it("the first comment line is the title; the statements begin after the comment block", () => {
     expect(text.startsWith("-- Rollback of 0273 (N1B)")).toBe(true);
     expect(/^(drop|do|alter|revoke|grant|create)\b/m.test(text)).toBe(true);
+  });
+});
+
+describe("the comments of the N1B tests are written in the third person", () => {
+  it("no comment line in migration-0273-*.test.ts or fake-n1b-*.test.ts uses I, my or me", () => {
+    const dirs = [["tests/supabase", /^migration-0273-.*\.test\.ts$/], ["tests/notifications", /^fake-n1b-.*\.test\.ts$/]] as const;
+    const hits: string[] = [];
+    let files = 0;
+    for (const [dir, pattern] of dirs) {
+      for (const name of readdirSync(join(process.cwd(), dir)).filter((f) => pattern.test(f))) {
+        files++;
+        readFileSync(join(process.cwd(), dir, name), "utf8").split("\n").forEach((line, i) => {
+          if (/^\s*(\/\/|\/\*|\*)/.test(line) && /\b(I|[Mm]y|[Mm]e)\b/.test(line.replace(/\b(I|[Mm]y|[Mm]e)\b(?=\s*[=:,)\]])/g, ""))) hits.push(`${dir}/${name}:${i + 1}`);
+        });
+      }
+    }
+    expect(files).toBeGreaterThanOrEqual(10);
+    expect(hits).toEqual([]);
   });
 });
