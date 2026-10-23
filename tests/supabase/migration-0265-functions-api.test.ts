@@ -131,14 +131,14 @@ describe("the ledger functions through the Data API (committed fixtures, cleaned
     it("the message is one of three generic texts and never carries an argument value", async () => {
       const subject = randomUUID();
       const errors = [
-        (await svc.rpc("release_notification", { p_id: subject, p_reason: "secret-reason-value" })).error,
+        (await svc.rpc("release_notification", { p_id: subject, p_reason: "leaky-reason-value" })).error,
         (await claim(svc, { p_user: userA.id, p_kind: "leaky-kind-value", p_subject: subject, p_channel: "inapp" })).error,
         (await svc.rpc("resolve_stale_claim", { p_id: subject, p_actor: userA.id, p_resolution: "mark_sent" })).error,
       ];
       for (const e of errors) {
         expect(e).toBeTruthy();
         expect(GENERIC.has(e!.message), e!.message).toBe(true);
-        expect(`${e!.message} ${e!.details ?? ""}`).not.toMatch(new RegExp(`${subject}|secret-reason-value|leaky-kind-value|${userA.id}`));
+        expect(`${e!.message} ${e!.details ?? ""}`).not.toMatch(new RegExp(`${subject}|leaky-reason-value|leaky-kind-value|${userA.id}`));
       }
     });
   });
