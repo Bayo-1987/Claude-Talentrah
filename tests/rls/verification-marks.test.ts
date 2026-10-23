@@ -1,5 +1,5 @@
 /**
- * VERIFY-1 marks foundation (migration 0241). DATABASE-BACKED, CI ONLY (needs minted sessions and the migrated schema). Written before the migration and red without it (there is no verification_marks table
+ * VERIFY-1 marks foundation (migration 0266). DATABASE-BACKED, CI ONLY (needs minted sessions and the migrated schema). Written before the migration and red without it (there is no verification_marks table
  * and no employer_visible_marks / applicant_visible_marks function). The same cases, plus the backfill parity and ten mutants of the migration, were also run against a local copy of the real schema
  * (reports/S3-21/raw/0241/standin-proof.out), because the backfill happens once, at apply time, and a CI database has nothing to backfill; the migration's own self-check holds parity at apply time.
  *

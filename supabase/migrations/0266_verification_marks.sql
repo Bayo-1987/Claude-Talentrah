@@ -1,4 +1,4 @@
--- 0241: the marks foundation: one table of dated, expiring verification marks, the functions that write and read them, and the backfill of today's "Resume reviewed".
+-- 0266: the marks foundation: one table of dated, expiring verification marks, the functions that write and read them, and the backfill of today's "Resume reviewed".
 --
 -- WHAT. VERIFY-1 (owner direction, 8 Oct 2026): a candidate earns SEPARATE, DATED marks (Resume reviewed, later Skills check, Reference confirmed, Mentor interview, Communication check), each names its
 -- field where it has one, each expires 12 months after it was earned, employers see only marks that are earned and live, and there is NO overall score. Today "verified" is three columns on profiles; this adds the
@@ -24,7 +24,7 @@
 -- LIMITS, SAID PLAINLY. The resume hash is taken when the review is decided. A candidate who edits the resume between the reviewer opening it and the decision gets a hash of the newer text, so the "changed" flag would not fire for
 -- that one edit; a re-review is the remedy. The flag compares the hash with the CURRENT base resume only.
 --
--- ORDER. Additive in effect (a new table, new functions, one function body replaced with an identical-plus-one-call body). Apply BEFORE merging. The undo is supabase/rollbacks/0241_verification_marks.rollback.sql.
+-- ORDER. Additive in effect (a new table, new functions, one function body replaced with an identical-plus-one-call body). Apply BEFORE merging. The undo is supabase/rollbacks/0266_verification_marks.rollback.sql.
 
 -- ── the pure pieces ────────────────────────────────────────────────────────
 create or replace function public.verification_mark_is_live(p_expires_at timestamptz, p_now timestamptz)
@@ -66,7 +66,7 @@ create table public.verification_marks (
 create index verification_marks_user_idx on public.verification_marks (user_id, mark_type, field, earned_at desc);
 
 comment on table public.verification_marks is
-  'Dated, expiring verification marks (0241). One row per earned mark; expires_at is always earned_at + 12 months; no column can hold a score. Written only by award_verification_mark (service role); employers read only through employer_visible_marks / applicant_visible_marks; the owner may read their own rows (columns listed in the grant).';
+  'Dated, expiring verification marks (0266). One row per earned mark; expires_at is always earned_at + 12 months; no column can hold a score. Written only by award_verification_mark (service role); employers read only through employer_visible_marks / applicant_visible_marks; the owner may read their own rows (columns listed in the grant).';
 
 alter table public.verification_marks enable row level security;
 create policy verification_marks_owner_select on public.verification_marks for select to authenticated using (user_id = (select auth.uid()));
@@ -283,7 +283,7 @@ begin
   select count(*), count(*) filter (where p.talent_verified_at is null) into v_verified, v_no_date
     from public.profiles p where p.talent_verification_status = 'verified';
   if v_no_date > 0 then
-    raise exception '0241: % verified profile(s) have no talent_verified_at; the backfill will not guess a date', v_no_date;
+    raise exception '0266: % verified profile(s) have no talent_verified_at; the backfill will not guess a date', v_no_date;
   end if;
 
   insert into public.verification_marks (user_id, mark_type, review_type, earned_at, expires_at, source_id)
@@ -301,7 +301,7 @@ begin
   get diagnostics v_inserted = row_count;
 
   if v_inserted <> v_verified then
-    raise exception '0241: backfilled % mark(s) for % verified profile(s)', v_inserted, v_verified;
+    raise exception '0266: backfilled % mark(s) for % verified profile(s)', v_inserted, v_verified;
   end if;
 end
 $backfill$;
@@ -316,52 +316,52 @@ begin
   -- no column can hold a score
   select count(*) into v_bad from information_schema.columns
    where table_schema = 'public' and table_name = 'verification_marks' and column_name ~* '(score|percent|pct|rating|points|grade)';
-  if v_bad <> 0 then raise exception '0241 self-check: verification_marks has a score-like column'; end if;
-  if not (select relrowsecurity from pg_catalog.pg_class where oid = v_table) then raise exception '0241 self-check: RLS is off on verification_marks'; end if;
-  if (select count(*) from pg_catalog.pg_policy where polrelid = v_table) <> 1 then raise exception '0241 self-check: verification_marks must have exactly one policy (the owner select)'; end if;
+  if v_bad <> 0 then raise exception '0266 self-check: verification_marks has a score-like column'; end if;
+  if not (select relrowsecurity from pg_catalog.pg_class where oid = v_table) then raise exception '0266 self-check: RLS is off on verification_marks'; end if;
+  if (select count(*) from pg_catalog.pg_policy where polrelid = v_table) <> 1 then raise exception '0266 self-check: verification_marks must have exactly one policy (the owner select)'; end if;
   -- anon holds nothing; authenticated holds no write and no read of the columns that are not listed
-  if pg_catalog.has_table_privilege('anon', v_table, 'select, insert, update, delete, truncate, references, trigger') then raise exception '0241 self-check: anon holds a privilege on verification_marks'; end if;
-  if pg_catalog.has_table_privilege('authenticated', v_table, 'insert, update, delete, truncate, references, trigger') then raise exception '0241 self-check: authenticated holds a write or DDL privilege on verification_marks'; end if;
+  if pg_catalog.has_table_privilege('anon', v_table, 'select, insert, update, delete, truncate, references, trigger') then raise exception '0266 self-check: anon holds a privilege on verification_marks'; end if;
+  if pg_catalog.has_table_privilege('authenticated', v_table, 'insert, update, delete, truncate, references, trigger') then raise exception '0266 self-check: authenticated holds a write or DDL privilege on verification_marks'; end if;
   if exists (select 1 from information_schema.columns c where c.table_schema = 'public' and c.table_name = 'verification_marks' and c.column_name in ('resume_hash', 'source_id', 'detail', 'created_at')
              and pg_catalog.has_column_privilege('authenticated', v_table, c.column_name, 'select')) then
-    raise exception '0241 self-check: authenticated can read a column that is not in the owner grant';
+    raise exception '0266 self-check: authenticated can read a column that is not in the owner grant';
   end if;
   if exists (select 1 from information_schema.columns c where c.table_schema = 'public' and c.table_name = 'verification_marks' and c.column_name in ('resume_hash', 'source_id', 'detail', 'created_at')
              and pg_catalog.has_column_privilege('anon', v_table, c.column_name, 'select')) then
-    raise exception '0241 self-check: anon can read a column of verification_marks';
+    raise exception '0266 self-check: anon can read a column of verification_marks';
   end if;
   if exists (select 1 from pg_catalog.pg_class c, pg_catalog.aclexplode(coalesce(c.relacl, pg_catalog.acldefault('r', c.relowner))) a
-              where c.oid = v_table and a.grantee = 0) then raise exception '0241 self-check: PUBLIC holds a privilege on verification_marks'; end if;
+              where c.oid = v_table and a.grantee = 0) then raise exception '0266 self-check: PUBLIC holds a privilege on verification_marks'; end if;
   -- the functions
   foreach v_fn in array array['public.verification_mark_is_live(timestamptz, timestamptz)', 'public.resume_content_hash(uuid)', 'public.award_verification_mark(uuid, text, text, text, text, uuid, text, timestamptz)', 'public.resolve_talent_verification(uuid, uuid, boolean, integer, text, uuid, text)'] loop
     if pg_catalog.has_function_privilege('anon', v_fn, 'execute') or pg_catalog.has_function_privilege('authenticated', v_fn, 'execute') or not pg_catalog.has_function_privilege('service_role', v_fn, 'execute') then
-      raise exception '0241 self-check: % must be executable by service_role only', v_fn;
+      raise exception '0266 self-check: % must be executable by service_role only', v_fn;
     end if;
   end loop;
   foreach v_fn in array array['public.employer_visible_marks(uuid[])', 'public.applicant_visible_marks(uuid)'] loop
     if pg_catalog.has_function_privilege('anon', v_fn, 'execute') or not pg_catalog.has_function_privilege('authenticated', v_fn, 'execute') then
-      raise exception '0241 self-check: % must be executable by authenticated and not by anon', v_fn;
+      raise exception '0266 self-check: % must be executable by authenticated and not by anon', v_fn;
     end if;
     if exists (select 1 from pg_catalog.pg_proc p, pg_catalog.aclexplode(coalesce(p.proacl, pg_catalog.acldefault('f', p.proowner))) a where p.oid = v_fn::regprocedure and a.grantee = 0 and a.privilege_type = 'EXECUTE') then
-      raise exception '0241 self-check: PUBLIC can execute %', v_fn;
+      raise exception '0266 self-check: PUBLIC can execute %', v_fn;
     end if;
   end loop;
   -- backfill parity: every verified profile has exactly one resume_reviewed mark with the date and review type the badge shows today, and no other profile has one
   if exists (select 1 from public.profiles p where p.talent_verification_status = 'verified'
               and (select count(*) from public.verification_marks m where m.user_id = p.id and m.mark_type = 'resume_reviewed') <> 1) then
-    raise exception '0241 self-check: a verified profile does not have exactly one resume_reviewed mark';
+    raise exception '0266 self-check: a verified profile does not have exactly one resume_reviewed mark';
   end if;
   if exists (select 1 from public.verification_marks m join public.profiles p on p.id = m.user_id where m.mark_type = 'resume_reviewed' and p.talent_verification_status <> 'verified') then
-    raise exception '0241 self-check: a profile that is not verified has a resume_reviewed mark';
+    raise exception '0266 self-check: a profile that is not verified has a resume_reviewed mark';
   end if;
   if exists (select 1 from public.verification_marks m join public.profiles p on p.id = m.user_id
               where m.mark_type = 'resume_reviewed' and m.earned_at is distinct from p.talent_verified_at) then
-    raise exception '0241 self-check: a backfilled mark date differs from profiles.talent_verified_at';
+    raise exception '0266 self-check: a backfilled mark date differs from profiles.talent_verified_at';
   end if;
   if exists (select 1 from public.verification_marks m
               where m.mark_type = 'resume_reviewed'
                 and m.review_type is distinct from (select t.review_type from public.talent_verifications t where t.user_id = m.user_id and t.status = 'verified' order by t.decided_at desc nulls last, t.requested_at desc limit 1)) then
-    raise exception '0241 self-check: a backfilled review type differs from the latest verified attempt';
+    raise exception '0266 self-check: a backfilled review type differs from the latest verified attempt';
   end if;
 end
 $check$;

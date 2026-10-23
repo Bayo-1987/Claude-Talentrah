@@ -1,5 +1,5 @@
--- ROLLBACK for 0241 (verification_marks). Not a migration: the exact undo, kept beside the file it undoes. Run as `postgres` in ONE transaction (it is written to be). To keep the schema ledger honest, record it as a NEW
--- migration row (do not delete 0241's row). `supabase/rollbacks/` is outside supabase/migrations, so neither the migration-numbering check nor `supabase db push` ever sees it.
+-- ROLLBACK for 0266 (verification_marks). Not a migration: the exact undo, kept beside the file it undoes. Run as `postgres` in ONE transaction (it is written to be). To keep the schema ledger honest, record it as a NEW
+-- migration row (do not delete 0266's row). `supabase/rollbacks/` is outside supabase/migrations, so neither the migration-numbering check nor `supabase db push` ever sees it.
 --
 -- REFUSES (and changes nothing) if any mark other than resume_reviewed exists: a later mark type (skills check, reference, ...) must never be dropped silently. In that case this is a different, manual decision.
 -- WHAT IT DOES: restores resolve_talent_verification to its 0142 definition (so a passed review stops writing a mark), then drops the two read functions, the writer, the hash function, the table (its policy goes with it) and the
@@ -10,7 +10,7 @@ begin;
 do $guard$
 begin
   if exists (select 1 from public.verification_marks where mark_type <> 'resume_reviewed') then
-    raise exception '0241 rollback refused: verification_marks holds marks other than resume_reviewed; do not drop them silently';
+    raise exception '0266 rollback refused: verification_marks holds marks other than resume_reviewed; do not drop them silently';
   end if;
 end
 $guard$;

@@ -1,5 +1,5 @@
 /**
- * Migration 0241 (the marks foundation): its SHAPE, read from the files (no database). The behaviour is in tests/rls/verification-marks.test.ts (CI) and was proven with ten mutants on a copy of the real schema.
+ * Migration 0266 (the marks foundation): its SHAPE, read from the files (no database). The behaviour is in tests/rls/verification-marks.test.ts (CI) and was proven with ten mutants on a copy of the real schema.
  * This file pins what a behavioural test would only notice after somebody was hurt: no score-like column, one writer, the employer reads state their gates themselves, the grants are by column, and the rollback refuses to
  * drop a later mark type.
  */
@@ -7,8 +7,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const MIGRATION = join(__dirname, "../../supabase/migrations/0241_verification_marks.sql");
-const ROLLBACK = join(__dirname, "../../supabase/rollbacks/0241_verification_marks.rollback.sql");
+const MIGRATION = join(__dirname, "../../supabase/migrations/0266_verification_marks.sql");
+const ROLLBACK = join(__dirname, "../../supabase/rollbacks/0266_verification_marks.rollback.sql");
 const strip = (t: string) => t.split("\n").filter((l) => !l.trim().startsWith("--")).join("\n");
 const raw = existsSync(MIGRATION) ? readFileSync(MIGRATION, "utf8") : "";
 const rawRollback = existsSync(ROLLBACK) ? readFileSync(ROLLBACK, "utf8") : "";
@@ -16,7 +16,7 @@ const code = strip(raw);
 const flat = code.replace(/\s+/g, " ").toLowerCase();
 const rollback = strip(rawRollback).replace(/\s+/g, " ").toLowerCase();
 
-describe("0241: the files", () => {
+describe("0266: the files", () => {
   it("exist under the registered number", () => {
     expect(existsSync(MIGRATION)).toBe(true);
     expect(existsSync(ROLLBACK)).toBe(true);
@@ -24,7 +24,7 @@ describe("0241: the files", () => {
   });
 });
 
-describe("0241: the table", () => {
+describe("0266: the table", () => {
   const table = flat.slice(flat.indexOf("create table public.verification_marks"), flat.indexOf("create index verification_marks_user_idx"));
   it("has no column that can hold a score", () => {
     expect(table.length).toBeGreaterThan(200);
@@ -48,7 +48,7 @@ describe("0241: the table", () => {
   });
 });
 
-describe("0241: the functions", () => {
+describe("0266: the functions", () => {
   it("has ONE writer, executable by service_role only, and resolve_talent_verification calls it only when the review passed", () => {
     expect(flat).toMatch(/grant execute on function public\.award_verification_mark\([^)]*\) to service_role;/);
     expect(flat).not.toMatch(/grant execute on function public\.award_verification_mark\([^)]*\) to [a-z_, ]*(authenticated|anon|public)/);
@@ -81,7 +81,7 @@ describe("0241: the functions", () => {
   });
 });
 
-describe("0241: the backfill and the self-check", () => {
+describe("0266: the backfill and the self-check", () => {
   it("takes the date from the profile and refuses to guess a missing one", () => {
     expect(flat).toContain("p.talent_verified_at");
     expect(flat).toContain("will not guess a date");
@@ -92,7 +92,7 @@ describe("0241: the backfill and the self-check", () => {
   });
 });
 
-describe("0241: the rollback", () => {
+describe("0266: the rollback", () => {
   it("refuses when a later mark type exists, restores the 0142 resolve function, and drops the functions before the table they read", () => {
     expect(rollback).toContain("mark_type <> 'resume_reviewed'");
     expect(rollback).toContain("raise exception");
