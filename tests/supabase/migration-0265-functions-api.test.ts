@@ -308,6 +308,25 @@ describe("the ledger functions through the Data API (committed fixtures, cleaned
       expect(sql(`select user_id from public.push_subscriptions where endpoint = '${shared}' and revoked_at is null;`)).toBe(second.id);
       expect(sql(`select revoke_reason || '/' || (endpoint like 'https://revoked.invalid/%')::text from public.push_subscriptions where user_id = '${first.id}';`)).toBe("user/true");
     }, 60_000);
+    // N1B-LOCKKEY-1: the lock is keyed on the endpoint as STORED (host lower-cased), so two spellings of one host serialise. Keyed on the typed text, the two sessions would not wait for each other.
+    it.each([
+      ["FCM.GoogleAPIs.com", "fcm.googleapis.com"],
+      ["fcm.googleapis.com", "Fcm.GOOGLEAPIS.com"],
+    ])("two spellings of one host (%s held, %s second) serialise on the endpoint lock: the second takes the device over, one live row, no duplicate-key error", async (heldHost, secondHost) => {
+      const first = await newPerson("n1-api-ep-case-a");
+      const second = await newPerson("n1-api-ep-case-b");
+      const path = `/fcm/send/case-${randomUUID()}`;
+      const stored = `https://fcm.googleapis.com${path}`;
+      const held = await holdSession(
+        `begin; set local role authenticated; select set_config('request.jwt.claims', '{"sub":"${first.id}","role":"authenticated"}', true); select public.register_push_subscription('https://${heldHost}${path}', 'k', 'a', 'Chrome', null);`,
+      );
+      const taken = await untyped(second.client).rpc("register_push_subscription", { p_endpoint: `https://${secondHost}${path}`, p_p256dh: "k2", p_auth: "a2", p_ua: "Chrome" });
+      await held.done;
+      expect([taken.error?.code ?? null, taken.error?.message ?? null]).toEqual([null, null]);
+      expect(sql(`select count(*) from public.push_subscriptions where endpoint = '${stored}';`)).toBe("1");
+      expect(sql(`select user_id from public.push_subscriptions where endpoint = '${stored}' and revoked_at is null;`)).toBe(second.id);
+      expect(sql(`select revoke_reason || '/' || (endpoint like 'https://revoked.invalid/%')::text from public.push_subscriptions where user_id = '${first.id}';`)).toBe("user/true");
+    }, 60_000);
   });
 
   describe("the admin functions over HTTP: errcodes, hints, generic messages and a double start", () => {
