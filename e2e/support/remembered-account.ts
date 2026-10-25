@@ -74,7 +74,7 @@ export async function signInThroughForm(page: Page, email: string, password: str
 }
 
 /** Retries the click until the app is interactive; the trigger is server-rendered and clickable before its handler exists. */
-async function openMenu(page: Page, name: string) {
+export async function openMenu(page: Page, name: string) {
   await expect(async () => {
     await page.getByRole("button", { name }).click();
     await expect(page.getByRole("menu")).toBeVisible({ timeout: 1000 });
