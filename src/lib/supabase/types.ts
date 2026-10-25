@@ -5545,6 +5545,10 @@ export type Database = {
         Args: { p_id: string; p_reason: string }
         Returns: undefined
       }
+      release_stale_verification_claims: {
+        Args: { p_now?: string; p_older_than?: string }
+        Returns: number
+      }
       release_talent_verification_claim: {
         Args: { p_user_id: string; p_verification_id: string }
         Returns: undefined
