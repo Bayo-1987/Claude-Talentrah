@@ -82,26 +82,14 @@ export interface FilterBarProps {
    */
   posted?: JobDateFilter;
   /**
-   * The EFFECTIVE country in play, whether from an explicit `?country=`
-   * param or defaulted from the signed-in user's profile.country
-   * (jobs/page.tsx computes both into one value before this ever sees it).
-   * `undefined` covers two different cases this component cannot tell apart
-   * on its own — see `countryApplicable` below for why that distinction
-   * still matters. Single-value: two countries has no coherent default.
+   * The country the person chose (the URL's `?country=`), or undefined for every country. Nothing defaults it: not the profile, not a cookie. Single-value: two
+   * countries has no coherent meaning.
    */
   country?: TrackedCountry;
   /**
-   * True whenever country is a real concept for this user in this render —
-   * jobs/page.tsx's countryState is "kept" or "cleared", not "none". `country`
-   * alone can't carry this: it's ALSO undefined right after an explicit
-   * clear, which looks identical to "no profile default exists at all"
-   * unless this is passed separately. The distinction matters for "Clear
-   * filters": it must keep re-asserting `country=all` for a user who already
-   * cleared it, or clicking Clear filters to drop an unrelated filter would
-   * silently let the country default reassert itself — exactly the
-   * invisible-behaviour this feature exists to rule out.
+   * An OPTIONAL suggestion, never applied: the profile's country, offered as a "Show roles in <country>" link while no country is chosen.
    */
-  countryApplicable?: boolean;
+  suggestedCountry?: TrackedCountry;
   /**
    * Per-tracked-country counts, computed by jobs/page.tsx against the board
    * as it stands under every OTHER active filter — work type, seniority,
@@ -110,7 +98,7 @@ export interface FilterBarProps {
    * (which keeps every other filter active) actually keeps.
    */
   countryCounts?: Record<TrackedCountry, number>;
-  /** The "Every country" row's own count — the same board, no country restriction at all. */
+  /** The "All countries" row's own count — the same board, no country restriction at all. */
   everyCountryCount?: number;
 }
 
@@ -130,7 +118,7 @@ export function FilterBar({
   seniorities = [],
   posted,
   country: countryProp,
-  countryApplicable: countryApplicableProp = false,
+  suggestedCountry,
   countryCounts,
   everyCountryCount,
   searchIndex = [],
@@ -142,7 +130,6 @@ export function FilterBar({
    */
   const onSaved = tab === "saved";
   const country = onSaved ? undefined : countryProp;
-  const countryApplicable = onSaved ? false : countryApplicableProp;
   const workTypeParam = workTypes.length ? workTypes.join(",") : undefined;
   const seniorityParam = seniorities.length ? seniorities.join(",") : undefined;
   const base = { tab, workType: workTypeParam, seniority: seniorityParam, q, posted, country };
@@ -158,21 +145,19 @@ export function FilterBar({
    * employer-masthead.tsx already uses for its own responsive nav, so this
    * isn't a new kind of duplication in this codebase.
    */
-  const countryItems: FilterMenuItem[] = TRACKED_COUNTRIES.map((c) => ({
-    href: buildHref(base, { country: country === c ? "all" : c }),
-    label: c,
-    selected: country === c,
-    count: countryCounts?.[c],
-  }));
-  const countrySentinel: FilterMenuItem = {
-    href: buildHref(base, { country: "all" }),
-    label: "Every country",
-    selected: !country,
-    count: everyCountryCount,
-  };
-  // The button's own face always shows the live value — the default is
-  // visible and reversible, never invisible behaviour.
-  const countryFace = country ?? "Every country";
+  // "All countries" first (selected while none is chosen), then the countries. A link to it carries NO country param: absent means all, so there is nothing to
+  // re-add and nothing for a later link to forget. Choosing the chosen country again toggles it off the same way.
+  const countryItems: FilterMenuItem[] = [
+    { href: buildHref(base, { country: undefined }), label: "All countries", selected: !country, count: everyCountryCount },
+    ...TRACKED_COUNTRIES.map((c) => ({
+      href: buildHref(base, { country: country === c ? undefined : c }),
+      label: c,
+      selected: country === c,
+      count: countryCounts?.[c],
+    })),
+  ];
+  // The button's own face always shows the live value.
+  const countryFace = country ?? "All countries";
 
   const workTypeItems: FilterMenuItem[] = WORK_TYPES.map((wt) => ({
     href: buildHref(base, { workType: toggled(workTypes, wt).join(",") || undefined }),
@@ -243,10 +228,8 @@ export function FilterBar({
               seniority: undefined,
               q: undefined,
               posted: undefined,
-              // Only when country is actually a concept for this user —
-              // see countryApplicable's own doc comment for why this can't
-              // just check `country` itself.
-              country: countryApplicable ? "all" : undefined,
+              // Clear filters clears the country too: no country param means every country.
+              country: undefined,
             })}
             className="flex min-h-[42px] items-center px-3.5 text-[12.5px] font-semibold text-ink-soft no-underline transition-colors hover:text-rust"
           >
@@ -280,6 +263,17 @@ export function FilterBar({
         the plain facet words next to it — which is the one thing this line
         exists to fix that nothing else on the page ever showed.
       */}
+      {/* An optional suggestion, never applied by itself: the person's own country, one click away while no country is chosen. */}
+      {!country && !onSaved && suggestedCountry && (
+        <Link
+          href={buildHref(base, { country: suggestedCountry })}
+          data-testid="country-suggestion"
+          className="inline-flex min-h-10 w-fit items-center text-[12.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+        >
+          Show roles in {suggestedCountry}
+        </Link>
+      )}
+
       {anyApplied && (
         <div
           data-testid="active-filter-summary"
@@ -320,7 +314,7 @@ export function FilterBar({
           {country && (
             <FilterChip
               label={country}
-              removeHref={buildHref(base, { country: countryApplicable ? "all" : undefined })}
+              removeHref={buildHref(base, { country: undefined })}
             />
           )}
         </div>
@@ -372,7 +366,6 @@ export function FilterBar({
           <FilterMenu
             faceLabel={countryFace}
             items={countryItems}
-            sentinel={countrySentinel}
             testId="filter-menu-country-desktop"
           />
         )}
@@ -431,7 +424,6 @@ export function FilterBar({
           <FilterMenu
             faceLabel={countryFace}
             items={countryItems}
-            sentinel={countrySentinel}
             testId="filter-menu-country-mobile"
           />
         )}

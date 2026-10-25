@@ -95,7 +95,7 @@ test.describe("country-defaulted feed (Stage 12)", () => {
       await fixtureJob(orgId, dakarTitle, "Dakar, Senegal");
       await fixtureJob(orgId, nairobiTitle, "Nairobi, Kenya");
 
-      await authedPage.goto(`/jobs?q=${uniqueTerm}`);
+      await authedPage.goto(`/jobs?q=${uniqueTerm}&country=Nigeria`);
 
       await expect(
         authedPage.getByText("No jobs in Nigeria or remote match these filters", { exact: false }),
@@ -110,7 +110,7 @@ test.describe("country-defaulted feed (Stage 12)", () => {
   );
 
   test(
-    "the country chip reads 'Nigeria + Remote', composes with another filter, includes a " +
+    "a chosen country chip reads 'Nigeria + Remote', composes with another filter, includes a " +
       "non-Nigeria remote posting, excludes a non-Nigeria non-remote one, and clears cleanly",
     async ({ authedPage, testUser }) => {
       await admin.from("profiles").update({ country: "Nigeria" }).eq("id", testUser.id);
@@ -139,7 +139,7 @@ test.describe("country-defaulted feed (Stage 12)", () => {
       const onsiteElsewhereTitle = `Onsite elsewhere ${uniqueTerm}`;
       await fixtureJob(orgId, onsiteElsewhereTitle, "Dakar, Senegal", { seniority: "senior" });
 
-      await authedPage.goto(`/jobs?q=${uniqueTerm}&seniority=senior`);
+      await authedPage.goto(`/jobs?q=${uniqueTerm}&seniority=senior&country=Nigeria`);
 
       /*
        * No more applied-filter chips (removed in the filter-row redesign) —
@@ -165,16 +165,38 @@ test.describe("country-defaulted feed (Stage 12)", () => {
         "a non-Nigeria, non-remote posting must still be excluded — the filter must not be a no-op",
       ).toHaveCount(0);
 
-      // Clearing ONLY the country (via the menu's "Every country" row):
-      // Seniority survives, the excluded onsite-elsewhere fixture reappears.
+      // Clearing ONLY the country (via the menu's "All countries" row, which is first): the URL carries no country at all, Seniority survives, the excluded
+      // onsite-elsewhere fixture reappears.
       await countryButton.click();
-      await authedPage.getByRole("link", { name: /Every country/ }).click();
-      await authedPage.waitForURL(/country=all/);
+      await authedPage.getByRole("link", { name: /All countries/ }).first().click();
+      await authedPage.waitForURL((url) => !url.searchParams.has("country") && url.searchParams.get("seniority") === "senior");
       await expect(authedPage.getByText(onsiteElsewhereTitle)).toBeVisible();
       await expect(
         authedPage.getByRole("link", { name: "Senior", exact: true }),
         "clearing the country filter must not also clear Seniority",
       ).toHaveClass(/text-rust/);
+    },
+  );
+
+  test(
+    "a profile country applies NO filter: with Nigeria on the profile and no country in the URL, the feed is all countries, and a Nigeria suggestion is only a link",
+    async ({ authedPage, testUser }) => {
+      await admin.from("profiles").update({ country: "Nigeria" }).eq("id", testUser.id);
+      const orgId = await fixtureOrg(testUser.id);
+      const uniqueTerm = `e2enodefault${randomUUID().slice(0, 8)}`;
+      const dakarTitle = `Onsite role ${uniqueTerm} in Dakar`;
+      for (let i = 0; i < 5; i++) await fixtureJob(orgId, `NG onsite role ${uniqueTerm} ${i}`, "Lagos, Nigeria");
+      await fixtureJob(orgId, dakarTitle, "Dakar, Senegal");
+
+      await authedPage.goto(`/jobs?q=${uniqueTerm}`);
+      await expect(authedPage.getByText(dakarTitle), "no country is applied, so the non-Nigeria onsite posting is in the feed").toBeVisible();
+      await expect(authedPage.locator("summary", { hasText: "All countries" }).first()).toBeVisible();
+      await expect(authedPage.getByText("Showing roles in Nigeria")).toHaveCount(0);
+      // The tab links keep a chosen country and add none when none is chosen.
+      await expect(authedPage.getByRole("link", { name: "Most Recent" })).toHaveAttribute("href", "/jobs?tab=recent");
+      await authedPage.getByTestId("country-suggestion").click();
+      await authedPage.waitForURL(/country=Nigeria/);
+      await expect(authedPage.getByRole("link", { name: "Most Recent" })).toHaveAttribute("href", "/jobs?tab=recent&country=Nigeria");
     },
   );
 

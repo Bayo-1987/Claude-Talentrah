@@ -31,7 +31,6 @@ import {
   applyInAppAction,
   markAppliedExternallyAction,
 } from "@/lib/applications/actions";
-import { defaultCountryForProfile } from "@/lib/jobs/country";
 import { logCountryDefaultEvent, type CountryState } from "@/lib/jobs/country-events";
 import { bannerIsEligibleToRender, bannerPublicUrl } from "@/lib/employer/banner";
 import { isLinkOutPosting, provenanceLabel } from "@/lib/jobs/link-out";
@@ -273,22 +272,10 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
   if (!job) notFound();
 
   /*
-   * Stage 12 instrumentation, approximated (see 0091's migration comment):
-   * this page has no `?country=` param of its own — a feed card's title link
-   * carries no query string — so this can only reflect the user's PROFILE
-   * default, never an explicit per-request override or an explicit clear.
-   * "kept"/"none" are the only two states reachable from here; "cleared" is
-   * a feed-only state. logCountryDefaultEvent swallows its own failures, so
-   * this can't turn a broken log into a broken page — not awaited into the
-   * render path for the same reason recordPromotedImpressions on the feed
-   * is awaited but never allowed to throw past it, except here there's
-   * nothing downstream depending on it finishing first.
+   * Stage 12 instrumentation. This page carries no `?country=` of its own (a feed card's title link has no query string) and no country is ever applied by default,
+   * so there is no country in play here: "none".
    */
-  const detailCountryState: CountryState = user
-    ? defaultCountryForProfile(session!.profile.country)
-      ? "kept"
-      : "none"
-    : "none";
+  const detailCountryState: CountryState = "none";
   // Neither depends on the other — the log write only needs `user`/`job.id`
   // already resolved above, and the landing-link lookup only needs
   // `supabase`/`job` — so they run together instead of one after the other.
