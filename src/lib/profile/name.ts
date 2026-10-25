@@ -103,6 +103,18 @@ export function fullVisibleName(
 }
 
 /**
+ * The initials for a control that has to show SOMETHING for the signed-in person (the employer header's account button when there is no organisation badge): their name's initials, else
+ * the first letter of their email, else "". nameInitials stays name-only on purpose: the seeker header renders its own (possibly empty) value and is not changed.
+ */
+export function accountInitials(
+  first: string | null | undefined,
+  last: string | null | undefined,
+  email: string | null | undefined,
+): string {
+  return nameInitials(first, last) || (email ?? "").trim().charAt(0).toUpperCase();
+}
+
+/**
  * Up to two uppercase initials, or "" when there is no visible name.
  *
  * Uppercased here rather than by the caller: the source is whatever the user

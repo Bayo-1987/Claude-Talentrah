@@ -1,6 +1,7 @@
 import { getOptionalUser } from "@/lib/auth/require-user";
 import { getEmployerContext } from "@/lib/employer/membership";
 import { orgInitials as orgInitialsOf } from "@/lib/employer/org-initials";
+import { accountInitials, fullVisibleName } from "@/lib/profile/name";
 import { EmployerMasthead } from "@/components/employer/employer-masthead";
 import { EmployerInstallStrip } from "@/components/employer/employer-install-strip";
 
@@ -43,7 +44,13 @@ export default async function EmployerLayout({ children }: { children: React.Rea
 
   return (
     <div className="min-h-screen">
-      <EmployerMasthead orgInitials={orgInitials} orgName={orgName} />
+      <EmployerMasthead
+        orgInitials={orgInitials}
+        orgName={orgName}
+        email={session.profile.email}
+        displayName={fullVisibleName(session.profile.first_name, session.profile.last_name)}
+        userInitials={accountInitials(session.profile.first_name, session.profile.last_name, session.profile.email)}
+      />
       {/* print: the applicant resume page prints through here, and its own margin is ResumePrintSurface's. */}
       <div className="mx-auto w-full max-w-[1120px] px-10 py-8 print:max-w-none print:p-0">{children}</div>
       {/* The install-to-home-screen strip, as in the seeker shell: signed-in branch only (never the signed-out return above, so not the public /employer page), a fixed bar
