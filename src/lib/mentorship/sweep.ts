@@ -17,6 +17,8 @@ export interface MentorshipSweepSummary {
   ok: boolean;
   /** Unpaid bookings expired (their slot started without payment) and their slots released, this run (0203). */
   expired: number;
+  /** Human resume reviews whose claim was older than 72 hours and went back to the pool this run (0267). */
+  verificationClaimsReleased: number;
   considered: number;
   cancelled: number;
   refunded: number;
@@ -62,6 +64,7 @@ export async function runMentorshipSweep(): Promise<MentorshipSweepSummary> {
   const summary: MentorshipSweepSummary = {
     ok: true,
     expired: 0,
+    verificationClaimsReleased: 0,
     considered: 0,
     cancelled: 0,
     refunded: 0,
@@ -92,6 +95,28 @@ export async function runMentorshipSweep(): Promise<MentorshipSweepSummary> {
   } else {
     summary.expired = expiredRows?.length ?? 0;
   }
+
+  /*
+   * A human resume review a mentor claimed and did not decide within 72 hours goes back to the pool (0267). The release is one conditional
+   * UPDATE inside the function, which owns the 72 hours; this only decides WHEN it runs and what is reported, so there is no read-then-write here.
+   * It rides this existing daily run (no new cron), so a missed run only delays the release. A failure is reported and the no-show work below still runs,
+   * because nothing below depends on it.
+   */
+  try {
+    // No arguments, on purpose: the function's own defaults are the database's clock and 72 hours, so a skewed clock on this machine can never move the cut-off.
+    const { data: releasedCount, error: releaseError } = await supabase.rpc("release_stale_verification_claims");
+    if (releaseError) throw new Error(releaseError.message);
+    summary.verificationClaimsReleased = releasedCount ?? 0;
+    if (summary.verificationClaimsReleased > 0) {
+      console.log(`[mentorship-sweep] released ${summary.verificationClaimsReleased} stale verification claim(s) back to the pool`);
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[mentorship-sweep] release_stale_verification_claims failed: ${message}`);
+    summary.ok = false;
+    summary.errors.push({ sessionId: "release_stale_verification_claims", message });
+  }
+
   const deadline = new Date(Date.now() + CONFIRMATION_DEADLINE_HOURS * 60 * 60 * 1000).toISOString();
 
   const { data: overdue, error } = await supabase
