@@ -69,6 +69,13 @@ async function shot(locator: Locator, name: string) {
   await locator.screenshot({ path: join(SHOT_DIR, `${name}.png`) });
 }
 
+/** What the reader's screen shows right now (the viewport, not the whole page): the narrow-screen evidence. */
+async function shotViewport(page: Page, name: string) {
+  if (!SHOT_DIR) return;
+  mkdirSync(SHOT_DIR, { recursive: true });
+  await page.screenshot({ path: join(SHOT_DIR, `${name}.png`) });
+}
+
 async function cardTitle(card: Locator) {
   return (await card.locator("h3 a").first().innerText()).trim();
 }
@@ -262,7 +269,7 @@ test.describe("Ask Farah on a job makes the panel visibly respond", () => {
     const title = await cardTitle(card);
     await card.scrollIntoViewIfNeeded();
     expect(await panel.evaluate((el) => el.getBoundingClientRect().top < window.innerHeight), "the panel starts below the fold on a phone").toBe(false);
-    await shot(page.locator("body"), "narrow-1-before-click");
+    await shotViewport(page, "narrow-1-before-click");
     await card.getByRole("button", { name: "Ask Farah" }).click();
     const block = panel.getByTestId("job-seed-block");
     await expect(block).toBeVisible();
@@ -284,6 +291,7 @@ test.describe("Ask Farah on a job makes the panel visibly respond", () => {
     await expect(block.getByTestId("job-context-chip")).toContainText(title);
     await expect(block.getByRole("button", { name: "Why is this a good fit for me?" })).toBeFocused();
     expect(chatRequests).toHaveLength(0);
-    await shot(page.locator("body"), "narrow-2-after-click");
+    await page.waitForTimeout(600); // let the smooth scroll settle before the picture
+    await shotViewport(page, "narrow-2-after-click");
   });
 });

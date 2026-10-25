@@ -92,7 +92,7 @@ test.describe("switching which job the docked panel is seeded for", () => {
     // ── First click, into a pristine panel — the empty-state path, must
     // still work exactly as before this fix. ──────────────────────────────
     await cardA.getByRole("button", { name: "Ask Farah" }).click();
-    await expect(panel.getByText(titleA)).toBeVisible();
+    await expect(panel.getByTestId("job-context-chip")).toContainText(titleA);
     await expect(dividers).toHaveCount(0); // no earlier job to switch away from yet
     const askFitButton = panel.getByRole("button", { name: "Why is this a good fit for me?" });
     await expect(askFitButton).toBeVisible();
@@ -199,7 +199,7 @@ test.describe("switching which job the docked panel is seeded for", () => {
     // Seed and answer job A from the CARD — the pre-existing, already-covered
     // entry point — to get a real conversation in progress.
     await cardA.getByRole("button", { name: "Ask Farah" }).click();
-    await expect(panel.getByText(titleA)).toBeVisible();
+    await expect(panel.getByTestId("job-context-chip")).toContainText(titleA);
     await panel.getByRole("button", { name: "Why is this a good fit for me?" }).click();
     await waitForReplyToFinish(page);
     await expect(timelineMessages).toHaveCount(2);
