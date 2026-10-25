@@ -272,10 +272,12 @@ describe("the preview job's budgets: the same three thresholds, and no SEO asser
   it("asserts nothing else: no SEO category, and no other assertion that a preview cannot meet", () => {
     expect(Object.keys(previewConfig?.ci.assert.assertions ?? {}).sort()).toEqual(["categories:accessibility", "categories:best-practices", "categories:performance"]);
   });
-  it("collects and uploads exactly as the production file does (only the assertions differ)", () => {
-    const full = config.ci as unknown as { collect?: unknown; upload?: unknown };
+  it("collects exactly as the production file does (only the assertions and the upload differ)", () => {
+    const full = config.ci as unknown as { collect?: unknown };
     expect(previewConfig?.ci.collect).toEqual(full.collect);
-    expect(previewConfig?.ci.upload).toEqual(full.upload);
+  });
+  it("uploads only to the runner's disk: the preview run carries the bypass header, which Lighthouse stores in every report (see tests/ci/lighthouse-no-public-header.test.ts)", () => {
+    expect(previewConfig?.ci.upload).toEqual({ target: "filesystem", outputDir: ".lighthouseci/reports" });
   });
   it("the PR job passes the preview file to lhci", () => {
     expect(workflow).toMatch(/autorun[\s\S]*--config=\.lighthouserc\.preview\.json/);
