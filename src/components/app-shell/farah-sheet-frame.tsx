@@ -49,7 +49,7 @@ export function FarahSheetFrame({ open, onClose, frameRef, scrimRef, onScrimTap,
         className={[
           "bg-paper-alt min-[760px]:border-l min-[760px]:border-l-line print:hidden",
           "max-[759px]:fixed max-[759px]:inset-x-0 max-[759px]:bottom-0 max-[759px]:z-[40] max-[759px]:flex max-[759px]:max-h-[85dvh] max-[759px]:flex-col",
-          "max-[759px]:overflow-y-auto max-[759px]:overscroll-contain max-[759px]:pb-[env(safe-area-inset-bottom)] max-[759px]:transition-transform max-[759px]:duration-200 motion-reduce:transition-none",
+          "max-[759px]:overflow-y-auto max-[759px]:overscroll-contain max-[759px]:pb-[env(safe-area-inset-bottom)] max-[759px]:motion-safe:transition-transform max-[759px]:motion-safe:duration-200",
           "data-[sheet=closed]:max-[759px]:invisible data-[sheet=closed]:max-[759px]:translate-y-full",
           "focus:outline-none",
         ].join(" ")}

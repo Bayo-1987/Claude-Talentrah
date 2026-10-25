@@ -120,34 +120,42 @@ test.describe("the shell on a phone", () => {
       await expect(page.getByRole("menu").first()).toBeHidden();
     });
 
-    test(`at ${width}px the Farah panel stacks under the feed`, async ({ page }) => {
+    test(`at ${width}px the Farah panel is the closed bottom sheet, out of the page flow`, async ({ page }) => {
+      /*
+       * LAUNCHER PLAN PR-2. Below 760px the panel no longer stacks under the feed: it is the ONE mounted panel re-presented as a fixed bottom sheet that is invisible until the
+       * launcher opens it (so the page is no longer a feed with a panel several screens down). It must still be mounted (the conversation lives in it), must not be beside or under
+       * the feed, and must not be reachable while closed.
+       */
       await page.setViewportSize({ width, height: 844 });
       await login(page);
 
-      const stacked = await page.evaluate(() => {
-        const col = document.querySelector('[data-testid="content-column"]') as HTMLElement;
+      const m = await page.evaluate(() => {
+        const sheet = document.querySelector('[data-testid="farah-sheet"]') as HTMLElement;
         const panel = document.querySelector('[data-testid="farah-panel"]') as HTMLElement;
-        const p = panel.getBoundingClientRect();
         return {
-          below: p.top >= col.getBoundingClientRect().bottom - 2,
-          width: Math.round(p.width),
-          clientW: document.documentElement.clientWidth,
-          sticky: getComputedStyle(panel).position,
+          panelInSheet: sheet.contains(panel),
+          sheetPosition: getComputedStyle(sheet).position,
+          sheetVisibility: getComputedStyle(sheet).visibility,
+          panelIsSticky: getComputedStyle(panel).position === "sticky",
+          sheetState: sheet.getAttribute("data-sheet"),
         };
       });
 
-      expect(stacked.below, "the panel must sit under the feed, not beside it").toBe(true);
-      expect(stacked.width).toBe(stacked.clientW);
-      // sticky here would pin the panel over the cards it now sits beneath.
-      expect(stacked.sticky).not.toBe("sticky");
+      expect(m.panelInSheet, "the panel is mounted, inside the sheet").toBe(true);
+      expect(m.sheetPosition).toBe("fixed");
+      expect(m.sheetVisibility, "closed means out of the tab order and the accessibility tree").toBe("hidden");
+      expect(m.sheetState).toBe("closed");
+      // sticky here would pin the panel over the cards.
+      expect(m.panelIsSticky).toBe(false);
+      await expect(page.getByTestId("farah-launcher")).toBeVisible();
     });
   }
 
   test("the SHELL breakpoint flips exactly at 760, not near it", async ({ page }) => {
     /*
      * 760 IS NO LONGER THE NAV'S BREAKPOINT, and this test used to assert that
-     * it was. It governs the shell: below it the Farah panel stacks under the
-     * feed and the mobile tab appears; at and above it the panel sits beside
+     * it was. It governs the shell: below it the Farah panel is a bottom sheet
+     * behind a launcher (it used to stack under the feed, with a bar); at and above it the panel sits beside
      * the content.
      *
      * The horizontal nav moved to `xl` because it never actually fit at 760 —
@@ -160,13 +168,13 @@ test.describe("the shell on a phone", () => {
     await page.setViewportSize({ width: 759, height: 844 });
     await login(page);
 
-    const stackedBelow = await page.evaluate(() => {
-      const col = document.querySelector('[data-testid="content-column"]')!.getBoundingClientRect();
-      const panel = document.querySelector('[data-testid="farah-panel"]')!.getBoundingClientRect();
-      return panel.top >= col.bottom - 2;
+    // At 759 the panel is the closed sheet (fixed, hidden) and the launcher is showing (launcher plan PR-2: this used to be "stacks under the feed" and "the mobile tab is visible").
+    const sheetAt759 = await page.evaluate(() => {
+      const sheet = document.querySelector('[data-testid="farah-sheet"]') as HTMLElement;
+      return { position: getComputedStyle(sheet).position, visibility: getComputedStyle(sheet).visibility };
     });
-    expect(stackedBelow, "at 759 the panel should stack under the feed").toBe(true);
-    await expect(page.getByTestId("farah-mobile-tab")).toBeVisible();
+    expect(sheetAt759, "at 759 the panel should be the closed sheet").toEqual({ position: "fixed", visibility: "hidden" });
+    await expect(page.getByTestId("farah-launcher")).toBeVisible();
 
     await page.setViewportSize({ width: 760, height: 844 });
     await page.waitForTimeout(150);
@@ -177,7 +185,7 @@ test.describe("the shell on a phone", () => {
       return panel.top < col.bottom;
     });
     expect(sideBySideAt760, "at 760 the panel should sit beside the feed").toBe(true);
-    await expect(page.getByTestId("farah-mobile-tab")).toBeHidden();
+    await expect(page.getByTestId("farah-launcher")).toBeHidden();
 
     // …and the nav is still behind the disclosure here, which is the change.
     await expect(page.getByRole("button", { name: "Main menu" })).toBeVisible();

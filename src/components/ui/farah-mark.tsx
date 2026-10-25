@@ -100,6 +100,7 @@ export function FarahMark({
       {mark}
       <span
         aria-hidden="true"
+        data-testid="farah-unread-dot"
         className="absolute top-0 right-0 h-2 w-2 rounded-full bg-rust"
       />
     </span>

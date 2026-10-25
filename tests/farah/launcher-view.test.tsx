@@ -49,6 +49,13 @@ describe("the collapsed launcher", () => {
     expect(render({ open: true })).toContain('aria-expanded="true"');
   });
 
+  it("has exactly one position class: `fixed` (a `relative` beside it silently wins and leaves the button in the page flow; found by the browser spec)", () => {
+    for (const html of [render(), render({ expanded: true })]) {
+      const classes = /^<button[^>]*class="([^"]*)"/.exec(html)![1].split(/\s+/);
+      expect(classes.filter((c) => /^(fixed|absolute|relative|sticky|static)$/.test(c))).toEqual(["fixed"]);
+    }
+  });
+
   it("has a visible keyboard focus ring and respects reduced motion", () => {
     expect(html).toContain("focus-visible:outline");
     expect(html).toContain("motion-reduce:transition-none");

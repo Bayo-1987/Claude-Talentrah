@@ -72,8 +72,9 @@ describe("the open sheet", () => {
     expect(html).toContain("overflow-y-auto");
   });
 
-  it("slides only if motion is allowed", () => {
-    expect(html).toContain("motion-reduce:transition-none");
+  it("slides only if motion is allowed: the transition is a motion-safe rule, not a base rule with a motion-reduce override (the override LOST to the phone-only rule in the browser)", () => {
+    expect(html).toContain("max-[759px]:motion-safe:transition-transform");
+    expect(html).not.toMatch(/(?<!motion-safe:)transition-transform/);
   });
 });
 

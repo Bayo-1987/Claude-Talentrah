@@ -52,7 +52,7 @@ export function FarahLauncherView({ expanded, concealed, open, hasUnreadNotifica
         "transition-[width,padding] duration-200 hover:border-rust hover:text-rust motion-reduce:transition-none",
         "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rust",
         "min-[760px]:hidden print:hidden",
-        expanded ? "gap-2.5 px-5 font-body text-[14px] font-semibold" : "relative w-14",
+        expanded ? "gap-2.5 px-5 font-body text-[14px] font-semibold" : "w-14",
         concealed ? "pointer-events-none invisible" : "",
       ].join(" ")}
     >
