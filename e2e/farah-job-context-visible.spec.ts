@@ -2,6 +2,7 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { clearDemoFarahThread } from "./fixtures/farah-thread";
+import { waitForWorkerControl } from "./support/pwa";
 
 /**
  * FARAH-JOB-CTX-1. Clicking "Ask Farah" on a job card hands that job to the docked Farah panel. The owner's report: the options appeared but the panel showed no visible change: the older conversation stayed on screen,
@@ -124,6 +125,14 @@ async function expectAllOptionsSeen(block: Locator, timeout = 5_000) {
       expect(r.bottomGap, `option ${i + 1} runs past the bottom of the visible part of the scroller`).toBeGreaterThanOrEqual(-1);
     }
   }).toPass({ timeout });
+}
+
+/** Dispatches a beforeinstallprompt-shaped event (Chromium never offers one in automation), as e2e/pwa-install-strip.spec.ts does. */
+async function firePrompt(page: Page) {
+  await page.evaluate(() => {
+    const ev = Object.assign(new Event("beforeinstallprompt", { cancelable: true }), { prompt: () => Promise.resolve(), userChoice: Promise.resolve({ outcome: "accepted" as const }) });
+    window.dispatchEvent(ev);
+  });
 }
 
 const liveRegion = (panel: Locator) => panel.locator('p[role="status"][aria-live="polite"]');
@@ -303,8 +312,8 @@ test.describe("Ask Farah on a job makes the panel visibly respond", () => {
     await card.scrollIntoViewIfNeeded();
     await card.getByRole("button", { name: "Ask Farah" }).click();
     await expect(panel.getByTestId("job-seed-block")).toBeVisible();
-    await expect(hint).toHaveCount(0);
-    // nothing covers the options: with the hint gone, no option is under a fixed card
+    await expect(hint).toBeHidden();
+    // nothing covers the options: with the hint out of sight, no option is under a fixed card
     await expect(async () => {
       const covered = await page.evaluate(() => [...document.querySelectorAll("[data-job-option]")].some((el) => {
         const r = el.getBoundingClientRect();
@@ -318,6 +327,54 @@ test.describe("Ask Farah on a job makes the panel visibly respond", () => {
     await page.reload();
     await expect(page.getByTestId("farah-first-visit-hint")).toBeVisible();
   });
+
+  for (const [w, h] of [[390, 844], [390, 667]] as const) {
+    test(`phone ${w}x${h}: the hint stepping aside does NOT release the install strip, so nothing fixed covers a job option`, async ({ page }) => {
+      await page.setViewportSize({ width: w, height: h });
+      await page.addInitScript(() => localStorage.setItem("talentrah-cookie-consent", "accepted"));
+      const chatRequests = await arrange(page, { thread: true });
+      await login(page);
+      const panel = page.getByTestId("farah-panel");
+      await expect(panel.getByTestId("farah-message")).toHaveCount(10);
+      await waitForWorkerControl(page);
+      const strip = page.getByTestId("install-strip");
+      await expect(page.getByTestId("farah-first-visit-hint")).toBeVisible();
+      await firePrompt(page);
+      await page.waitForTimeout(700);
+      await expect(strip, "while the hint is on screen the strip waits (existing rule)").toHaveCount(0);
+
+      const card = page.getByTestId("job-card").first();
+      await card.scrollIntoViewIfNeeded();
+      await card.getByRole("button", { name: "Ask Farah" }).click();
+      await expect(page.getByTestId("farah-first-visit-hint")).toBeHidden();
+      const block = panel.getByTestId("job-seed-block");
+      await expect(block).toBeVisible();
+      await expectSeen(block);
+      // the strip's own rule (src/lib/pwa/install-state.ts) is "the hint is in the page": the hint stepped aside for the job, it did not leave, so the strip keeps waiting until the hint is dismissed
+      await page.waitForTimeout(1200);
+      await expect(strip, "the hint going out of sight must not release the install strip over the job options").toHaveCount(0);
+      // and nothing fixed sits over an option: each option is inside the viewport and is the topmost thing at its centre
+      const state = await page.evaluate(() =>
+        [...document.querySelectorAll("[data-job-option]")].map((el) => {
+          const r = el.getBoundingClientRect();
+          const top = document.elementFromPoint(r.left + r.width / 2, Math.min(Math.max(r.top + r.height / 2, 0), window.innerHeight - 1));
+          return { label: (el as HTMLElement).innerText.slice(0, 20), inViewport: r.top >= 0 && r.bottom <= window.innerHeight, coveredBy: top && !el.contains(top) ? ((top.closest("[data-testid]") as HTMLElement | null)?.dataset.testid ?? top.tagName) : null };
+        }),
+      );
+      expect(state).toHaveLength(4);
+      for (const o of state) {
+        expect(o.inViewport, `${o.label} is outside the viewport`).toBe(true);
+        expect(o.coveredBy, `${o.label} is covered by ${o.coveredBy}`).toBeNull();
+      }
+      expect(chatRequests).toHaveLength(0);
+      // dismissing the hint properly (its own button) still lets the strip come, as before
+      await page.reload();
+      await expect(page.getByTestId("farah-first-visit-hint")).toBeVisible();
+      await page.getByRole("button", { name: "Got it" }).click();
+      await firePrompt(page);
+      await expect(strip).toBeVisible();
+    });
+  }
 
   test("on a narrow screen the stacked panel is brought into view and the new block is on screen", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });

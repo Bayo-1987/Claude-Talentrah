@@ -67,9 +67,11 @@ export function FarahFirstVisitHint() {
   const [gone, setGone] = useState(false);
   const [, startTransition] = useTransition();
 
-  // Someone who has just handed a job to Farah has found her, which is all this hint is for, and on a phone it sat over the lower part of the panel where the job's options are. Hidden for this page view
-  // only: nothing is written to the profile, so it comes back on the next load until it is dismissed with its own buttons.
-  useEffect(() => onFarahJobSeed(() => setGone(true)), []);
+  // Someone who has just handed a job to Farah has found her, which is all this hint is for, and on a phone it sat over the lower part of the panel where the job's options are. So the card steps out of sight for this
+  // page view. It stays IN the page (hidden, not removed) on purpose: the install strip's rule is "the hint is in the page" (src/lib/pwa/install-state.ts), so removing it would release the strip, which is fixed above
+  // the Farah tab and covered the last job option on a 667px-high phone. Nothing is written to the profile: it comes back on the next load until it is dismissed with its own buttons.
+  const [aside, setAside] = useState(false);
+  useEffect(() => onFarahJobSeed(() => setAside(true)), []);
 
   function dismiss() {
     setGone(true);
@@ -109,6 +111,7 @@ export function FarahFirstVisitHint() {
     <div
       ref={cardRef}
       data-testid={FARAH_FIRST_VISIT_HINT_TEST_ID}
+      hidden={aside}
       /*
        * role="status" rather than a dialog. It is not modal, it traps nothing,
        * and it does not need to be acknowledged before the app is usable — a

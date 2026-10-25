@@ -13,7 +13,12 @@ const code = hint.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/[^\n]*/g
 describe("the first-visit hint and a job arriving", () => {
   it("hides itself when a job is handed to Farah, by the same event the panel listens to", () => {
     expect(code).toContain('import { onFarahJobSeed } from "@/lib/farah/job-seed";');
-    expect(code).toMatch(/useEffect\(\(\) => onFarahJobSeed\(\(\) => setGone\(true\)\), \[\]\);/);
+    expect(code).toMatch(/useEffect\(\(\) => onFarahJobSeed\(\(\) => setAside\(true\)\), \[\]\);/);
+  });
+  it("steps aside by hiding the card with the hidden attribute and KEEPS it in the page, because the install strip's rule is 'the hint is in the page' (src/lib/pwa/install-state.ts): removing it would release the strip over the job options on a short phone", () => {
+    expect(code).toMatch(/hidden=\{aside\}/);
+    expect(code).toMatch(/if \(gone\) return null;/);
+    expect(code).not.toMatch(/if \(aside\) return null;/);
   });
   it("only hides: it does not dismiss for good (no server action in that path), and the hint's own buttons still do", () => {
     const at = code.indexOf("onFarahJobSeed(() =>");
