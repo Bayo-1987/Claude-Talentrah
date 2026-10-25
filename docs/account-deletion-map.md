@@ -92,6 +92,7 @@ handed over.
 | `talent_directory_waitlist.joined_by` | profiles | SET NULL | detach | who joined an organisation to the waitlist |
 | `talent_portfolio_items.user_id` | profiles | CASCADE | delete | work samples |
 | `talent_verifications.user_id` | profiles | CASCADE | delete | skills verification records |
+| `verification_marks.user_id` | profiles | CASCADE | delete | dated verification marks (resume reviewed, later skills check, references) |
 | `test_user_pool.user_id` | auth.users | CASCADE | internal | test infrastructure (0188); absent from a real account |
 | `user_notifications.user_id` | profiles | CASCADE | delete | the person's in-app notifications |
 | `user_passes.user_id` | profiles | SET NULL | anonymise | tax and audit record (0209); renewal cancelled at confirm |
