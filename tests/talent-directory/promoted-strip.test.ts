@@ -272,6 +272,52 @@ describe("the search: two labelled sections, in one result", () => {
     expect(rows.length).toBeLessThanOrEqual(5);
   });
 
+  it("a boost cannot change WHICH organic candidates land on a page: read page after page with more organic candidates than the limit, no boosted candidate with old marks takes a seat from a newer unboosted one", async () => {
+    // The full list (limit 50) hides this case: there the page holds everybody and only the ORDER inside it shows. Here every page is cut, so the ORDER BY that picks the page decides who is on page 1, 2 and 3.
+    // The fixture: A, B, C, D and X1 are unboosted (X1: its boost expired) with marks or review dates of 1 to 10 days; the boosted P1..P5 have marks 200 days old, and at least two of them are not in the 3-seat strip.
+    const UNBOOSTED = [...ORGANIC_NAMES, "X1"];
+    const NEWER_THAN = (b: string) => UNBOOSTED.filter((u) => key[u] > key[b]);
+    const read = async (limit: number) => {
+      const pagesSeen: string[][] = [];
+      for (let offset = 0; offset < 2000; offset += limit) {
+        const { data, error } = await employer.client.rpc("talent_directory_search", { p_remote_ready: true, p_limit: limit, p_offset: offset });
+        if (error) throw new Error(error.message);
+        const organic = ((data ?? []) as Row[]).filter((r) => r.section === "organic");
+        pagesSeen.push(organic.map((r) => nameOf(r.user_id) ?? "?"));
+        if (organic.length < limit) break;
+      }
+      return pagesSeen;
+    };
+    // The rule, per page: when a boosted fixture candidate is on a page, every unboosted fixture candidate with a newer mark has been seen already, on an earlier page or earlier on this one.
+    const violations = (pagesSeen: string[][]) => {
+      const out: string[] = [];
+      const seen = new Set<string>();
+      pagesSeen.forEach((page, p) => {
+        for (const n of page) {
+          if (BOOSTED_NAMES.includes(n)) for (const u of NEWER_THAN(n)) if (!seen.has(u)) out.push(`page ${p + 1}: ${n} (marks 200 days old) is here but ${u} (newer) is not on this or an earlier page: ${pagesSeen.map((x) => x.join(",")).join(" | ")}`);
+          seen.add(n);
+        }
+      });
+      return out;
+    };
+    for (const limit of [2, 3]) {
+      let last: string[] = [];
+      let pagesSeen: string[][] = [];
+      // Other files plant candidates on the same database: a row that appears or goes between two page calls shifts the pages. Only a rule broken on every one of three reads fails the case (a broken ORDER BY breaks it on every read).
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        pagesSeen = await read(limit);
+        last = violations(pagesSeen);
+        if (last.length === 0) break;
+      }
+      const flat = pagesSeen.flat();
+      // not vacuous: the pages are cut (a third page exists, so pages 1 and 2 are full), every unboosted fixture candidate and at least two boosted ones are read, and the boosted ones come after the unboosted ones
+      expect(pagesSeen.length, `limit ${limit}: the list must run to a third page, so that page 1 and page 2 are full and cut`).toBeGreaterThanOrEqual(3);
+      expect(flat, `limit ${limit}`).toEqual(expect.arrayContaining(UNBOOSTED));
+      expect(flat.filter((n) => BOOSTED_NAMES.includes(n)).length, `limit ${limit}: boosted candidates outside the strip`).toBeGreaterThanOrEqual(2);
+      expect(last, `limit ${limit}`).toEqual([]);
+    }
+  });
+
   it("looks up one candidate with the section that candidate holds now; a boosted candidate outside the directory returns nothing", async () => {
     const { all } = await pages(employer.client, 50);
     for (const n of ["A", "P1", "P2", "P3", "P4", "P5"]) {
