@@ -92,7 +92,7 @@ test.describe("switching which job the docked panel is seeded for", () => {
     // ── First click, into a pristine panel — the empty-state path, must
     // still work exactly as before this fix. ──────────────────────────────
     await cardA.getByRole("button", { name: "Ask Farah" }).click();
-    await expect(panel.getByText(titleA)).toBeVisible();
+    await expect(panel.getByTestId("job-context-chip")).toContainText(titleA);
     await expect(dividers).toHaveCount(0); // no earlier job to switch away from yet
     const askFitButton = panel.getByRole("button", { name: "Why is this a good fit for me?" });
     await expect(askFitButton).toBeVisible();
@@ -115,7 +115,7 @@ test.describe("switching which job the docked panel is seeded for", () => {
     // The switch is now visibly marked, naming the new job — and the first
     // conversation is untouched: same two turns, still there, still first.
     await expect(dividers).toHaveCount(1);
-    await expect(dividers.first()).toContainText(`Now looking at: ${titleB}`);
+    await expect(dividers.first()).toContainText(`Asking about: ${titleB}`);
     await expect(timelineMessages).toHaveCount(2);
     expect(await timelineMessages.nth(1).innerText()).toBe(farahReplyToA);
 
@@ -199,7 +199,7 @@ test.describe("switching which job the docked panel is seeded for", () => {
     // Seed and answer job A from the CARD — the pre-existing, already-covered
     // entry point — to get a real conversation in progress.
     await cardA.getByRole("button", { name: "Ask Farah" }).click();
-    await expect(panel.getByText(titleA)).toBeVisible();
+    await expect(panel.getByTestId("job-context-chip")).toContainText(titleA);
     await panel.getByRole("button", { name: "Why is this a good fit for me?" }).click();
     await waitForReplyToFinish(page);
     await expect(timelineMessages).toHaveCount(2);
@@ -229,7 +229,7 @@ test.describe("switching which job the docked panel is seeded for", () => {
     // Same switch behaviour the card-to-card test pins — divider naming the
     // new job, job A's turns untouched, a fresh starter for job B.
     await expect(dividers).toHaveCount(1);
-    await expect(dividers.first()).toContainText(`Now looking at: ${titleB}`);
+    await expect(dividers.first()).toContainText(`Asking about: ${titleB}`);
     await expect(timelineMessages).toHaveCount(2);
     expect(await timelineMessages.nth(1).innerText()).toBe(farahReplyToA);
 
