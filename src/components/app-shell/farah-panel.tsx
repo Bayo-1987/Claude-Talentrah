@@ -665,7 +665,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
       */}
       <FarahAllowanceNote freeRemaining={freeRemaining} nextFreeMessageAt={mounted ? nextFreeMessageAt : null} />
 
-      <div ref={scrollRef} className="flex max-h-80 flex-col gap-3 overflow-y-auto">
+      <div ref={scrollRef} data-testid="farah-panel-scroller" className="flex max-h-80 flex-col gap-3 overflow-y-auto">
         {messages.length === 0 ? (
           jobSeed ? (
             /*

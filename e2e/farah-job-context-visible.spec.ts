@@ -54,7 +54,7 @@ async function arrange(page: Page, opts: { thread: boolean }) {
     const original = Element.prototype.scrollTo;
     Element.prototype.scrollTo = function (this: Element, ...args: unknown[]) {
       const opts = args[0] as ScrollToOptions | undefined;
-      w.__scrolls.push({ target: this.className.includes("overflow-y-auto") ? "scroller" : this.tagName, behavior: typeof opts === "object" ? opts.behavior : undefined });
+      w.__scrolls.push({ target: (this as HTMLElement).dataset?.testid === "farah-panel-scroller" ? "scroller" : this.tagName, behavior: typeof opts === "object" ? opts.behavior : undefined });
       return (original as (...a: unknown[]) => void).apply(this, args);
     } as typeof Element.prototype.scrollTo;
   });
@@ -218,7 +218,7 @@ test.describe("Ask Farah on a job makes the panel visibly respond", () => {
     const block = panel.getByTestId("job-seed-block");
     await expect(block).toBeVisible();
     // the reader scrolls the panel's conversation back to the top and the focus goes elsewhere
-    await panel.locator("div.overflow-y-auto").first().evaluate((el) => (el.scrollTop = 0));
+    await panel.getByTestId("farah-panel-scroller").evaluate((el) => (el.scrollTop = 0));
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     await expect(async () => {
       const g = await seenInScroller(block);
