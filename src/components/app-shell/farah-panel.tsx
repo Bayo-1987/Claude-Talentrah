@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type Ref } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { EyebrowLabel, FarahMark } from "@/components/ui";
@@ -23,6 +23,7 @@ import {
   type FarahJobSeed,
 } from "@/lib/farah/job-seed";
 import { shouldAutoRestoreHistory } from "@/lib/farah/history-restore";
+import { jobSeedAnnouncement, prefersReducedMotion, revealJobBlock } from "@/lib/farah/job-seed-arrival";
 
 export interface FarahMessage {
   id: string;
@@ -79,6 +80,7 @@ function JobSeedActions({
         <button
           key={`${keyPrefix}-${starter.label}`}
           type="button"
+          data-job-option
           disabled={pending}
           onClick={() => onStarter(starter.label, starter.key, seed.jobId)}
           className="flex min-h-10 items-center py-1 text-left font-body text-[13.5px] font-semibold text-ink underline underline-offset-2 hover:text-rust disabled:cursor-not-allowed disabled:opacity-50"
@@ -87,12 +89,14 @@ function JobSeedActions({
         </button>
       ))}
       <Link
+        data-job-option
         href={tailorHref(seed.jobId)}
         className="flex min-h-10 items-center py-1 font-body text-[13.5px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
       >
         Tailor my resume for this job →
       </Link>
       <Link
+        data-job-option
         href={coverLetterHref(seed.jobId)}
         className="flex min-h-10 items-center py-1 font-body text-[13.5px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
       >
@@ -103,32 +107,56 @@ function JobSeedActions({
 }
 
 /**
- * The divider a later "Ask Farah" click inserts into an already-open
- * conversation — see `jobSeedMarkers` on `FarahPanel` for why this exists.
- * The eyebrow label is the disambiguation itself: whatever's above it is a
- * previous job, whatever's below (including these actions) is this one.
+ * The block a job arrives in: ONE component for both arrival paths (the pristine panel, where the job replaces the greeting, and a conversation already under way, where it is added at the end under a divider),
+ * so the two cannot drift apart. Top to bottom:
+ *   - the divider ("Asking about: <title>"), only when there is an older conversation above it: whatever is above it is a previous job or chat, whatever is below (including these options) is this one;
+ *   - the CONTEXT CHIP: the job's title and company, so the reader sees which job Farah has;
+ *   - a visible label for the options, and (in a pristine panel only, where it replaces the greeting) the opener sentence the panel already used;
+ *   - the options (labelled group), wording unchanged.
+ * The block can take focus itself (tabindex -1) as the fallback when every option is disabled; see revealJobBlock.
  */
-function JobSeedMarker({
+export function JobSeedBlock({
   seed,
   pending,
   onStarter,
-  markerId,
+  blockId,
+  withDivider,
+  blockRef,
 }: {
   seed: FarahJobSeed;
   pending: boolean;
   onStarter: (label: string, quickAction: string, jobId: string) => void;
-  markerId: string;
+  blockId: string;
+  withDivider: boolean;
+  blockRef?: Ref<HTMLElement>;
 }) {
+  const labelId = `job-seed-label-${blockId}`;
+  const openerId = `job-seed-opener-${blockId}`;
   return (
-    <div data-testid="job-seed-divider" className="flex flex-col gap-3 border-t border-dashed border-line pt-4">
-      <EyebrowLabel size="sm">
-        Now looking at: {seed.jobTitle} at {seed.companyName}
-      </EyebrowLabel>
-      <p className="font-display text-[14.5px] italic leading-relaxed text-ink-soft">
-        {jobSeedOpener(seed)}
+    <section ref={blockRef} tabIndex={-1} data-testid="job-seed-block" className="flex flex-col gap-3 outline-none">
+      {withDivider && (
+        <div data-testid="job-seed-divider" className="border-t border-dashed border-line pt-4">
+          <EyebrowLabel size="sm">{`Asking about: ${seed.jobTitle}`}</EyebrowLabel>
+        </div>
+      )}
+      <p data-testid="job-context-chip" className="flex flex-col border-[1.5px] border-ink bg-card px-3 py-2 font-body">
+        <span className="sr-only">Job Farah has: </span>
+        <span className="text-[13.5px] font-semibold text-ink">{seed.jobTitle}</span>
+        <span className="text-[12.5px] text-ink-soft">{seed.companyName}</span>
       </p>
-      <JobSeedActions seed={seed} pending={pending} onStarter={onStarter} keyPrefix={markerId} />
-    </div>
+      <EyebrowLabel size="sm" id={labelId}>
+        Choose what to do with this job
+      </EyebrowLabel>
+      {!withDivider && (
+        // The opener replaces the greeting in a pristine panel. Under a divider it is left out: the divider, the chip and the label already say it, and it would push the options below the fold of the scroller.
+        <p id={openerId} className="font-display text-[14.5px] italic leading-relaxed text-ink-soft">
+          {jobSeedOpener(seed)}
+        </p>
+      )}
+      <div role="group" aria-labelledby={labelId} aria-describedby={withDivider ? undefined : openerId}>
+        <JobSeedActions seed={seed} pending={pending} onStarter={onStarter} keyPrefix={blockId} />
+      </div>
+    </section>
   );
 }
 
@@ -222,27 +250,52 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
   const [jobSeedMarkers, setJobSeedMarkers] = useState<
     Array<{ id: string; seed: FarahJobSeed; insertAt: number }>
   >([]);
+  /*
+   * FARAH-JOB-CTX-1. One entry per "Ask Farah" arrival, the same job again included (a new object each time, so the effect below runs each time). The newest block is the one to bring into view, and
+   * `latestBlockRef` points at it: the pristine block, or the last divider's block. Nothing here sends anything.
+   */
+  const [seedArrival, setSeedArrival] = useState<{ seed: FarahJobSeed } | null>(null);
+  const latestBlockRef = useRef<HTMLElement>(null);
   const messagesRef = useRef<FarahMessage[]>(messages);
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
-  useEffect(
-    () =>
-      onFarahJobSeed((seed) => {
-        setJobSeed(seed);
-        const currentLength = messagesRef.current.length;
-        // A pristine panel: the empty-state branch below already shows this
-        // seed directly, no divider needed — that view *is* the reveal.
-        if (currentLength === 0) return;
-        setJobSeedMarkers((prev) => {
-          // The same job clicked again mid-conversation — nothing changed,
-          // don't stack a redundant divider.
-          if (prev.length > 0 && prev[prev.length - 1].seed.jobId === seed.jobId) return prev;
-          return [...prev, { id: crypto.randomUUID(), seed, insertAt: currentLength }];
-        });
-      }),
-    [],
-  );
+  const announceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    const unsubscribe = onFarahJobSeed((seed) => {
+      setJobSeed(seed);
+      // Clear first and say it a moment later, so the same words twice in a row are announced twice (a live region only speaks when its text changes).
+      setAnnouncement("");
+      if (announceTimer.current) clearTimeout(announceTimer.current);
+      announceTimer.current = setTimeout(() => setAnnouncement(jobSeedAnnouncement(seed)), 120);
+      setSeedArrival({ seed });
+      const currentLength = messagesRef.current.length;
+      // A pristine panel: the empty-state branch below already shows this
+      // seed directly, no divider needed — that view *is* the reveal.
+      if (currentLength === 0) return;
+      setJobSeedMarkers((prev) => {
+        // The same job clicked again with nothing said since its divider:
+        // don't stack a redundant one. Once the conversation has moved on
+        // (a message came after it) the job gets a fresh divider at the end,
+        // where the reader is.
+        const last = prev[prev.length - 1];
+        if (last && last.seed.jobId === seed.jobId && last.insertAt === currentLength) return prev;
+        return [...prev, { id: crypto.randomUUID(), seed, insertAt: currentLength }];
+      });
+    });
+    return () => {
+      unsubscribe();
+      if (announceTimer.current) clearTimeout(announceTimer.current);
+    };
+  }, []);
+  /*
+   * The reader must SEE that the job arrived. After the new block has rendered: scroll it into view (the panel's scroller only follows new messages, so the block used to sit below its fold), put
+   * keyboard focus on its first option; the handler above says so in the polite live region. Every arrival, the same job again included. Sends nothing: the job reaches Farah only when the reader picks an option.
+   */
+  useEffect(() => {
+    if (!seedArrival) return;
+    revealJobBlock(latestBlockRef.current, prefersReducedMotion());
+  }, [seedArrival]);
   /*
    * The gate's own indicator (0123) — `undefined` until the history fetch below
    * resolves, then a number, or `null` for a Pass holder (the route itself omits it
@@ -624,9 +677,6 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
               greeting it replaces here (same reasoning, same free status).
             */
             <>
-              <p className="font-display text-[14.5px] italic leading-relaxed text-ink-soft">
-                {jobSeedOpener(jobSeed)}
-              </p>
               {/*
                 Real generation, unchanged — same /tailor flow and same
                 credit gate the job card's old Land group already pointed
@@ -634,11 +684,13 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
                 fourth Orion-style slot is this rather than a fabricated
                 "Connections" feature Talentrah doesn't have.
               */}
-              <JobSeedActions
+              <JobSeedBlock
                 seed={jobSeed}
                 pending={pending || allowanceLoading}
                 onStarter={(label, quickAction, jobId) => sendOrPrefill(label, quickAction, jobId)}
-                keyPrefix="empty-state"
+                blockId="empty-state"
+                withDivider={false}
+                blockRef={latestBlockRef}
               />
             </>
           ) : (
@@ -694,12 +746,14 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
                 {jobSeedMarkers
                   .filter((marker) => marker.insertAt === i)
                   .map((marker) => (
-                    <JobSeedMarker
+                    <JobSeedBlock
                       key={marker.id}
-                      markerId={marker.id}
+                      blockId={marker.id}
                       seed={marker.seed}
                       pending={pending || allowanceLoading}
                       onStarter={(label, quickAction, jobId) => sendOrPrefill(label, quickAction, jobId)}
+                      withDivider
+                      blockRef={marker.id === jobSeedMarkers[jobSeedMarkers.length - 1]?.id ? latestBlockRef : undefined}
                     />
                   ))}
                 {m.role === "farah" ? (
@@ -718,12 +772,14 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
             {jobSeedMarkers
               .filter((marker) => marker.insertAt === messages.length)
               .map((marker) => (
-                <JobSeedMarker
+                <JobSeedBlock
                   key={marker.id}
-                  markerId={marker.id}
+                  blockId={marker.id}
                   seed={marker.seed}
                   pending={pending || allowanceLoading}
                   onStarter={(label, quickAction, jobId) => sendOrPrefill(label, quickAction, jobId)}
+                  withDivider
+                  blockRef={marker.id === jobSeedMarkers[jobSeedMarkers.length - 1]?.id ? latestBlockRef : undefined}
                 />
               ))}
           </>

@@ -115,7 +115,7 @@ test.describe("switching which job the docked panel is seeded for", () => {
     // The switch is now visibly marked, naming the new job — and the first
     // conversation is untouched: same two turns, still there, still first.
     await expect(dividers).toHaveCount(1);
-    await expect(dividers.first()).toContainText(`Now looking at: ${titleB}`);
+    await expect(dividers.first()).toContainText(`Asking about: ${titleB}`);
     await expect(timelineMessages).toHaveCount(2);
     expect(await timelineMessages.nth(1).innerText()).toBe(farahReplyToA);
 
@@ -229,7 +229,7 @@ test.describe("switching which job the docked panel is seeded for", () => {
     // Same switch behaviour the card-to-card test pins — divider naming the
     // new job, job A's turns untouched, a fresh starter for job B.
     await expect(dividers).toHaveCount(1);
-    await expect(dividers.first()).toContainText(`Now looking at: ${titleB}`);
+    await expect(dividers.first()).toContainText(`Asking about: ${titleB}`);
     await expect(timelineMessages).toHaveCount(2);
     expect(await timelineMessages.nth(1).innerText()).toBe(farahReplyToA);
 
