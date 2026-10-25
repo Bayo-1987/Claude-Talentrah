@@ -190,7 +190,8 @@ test.describe("country-defaulted feed (Stage 12)", () => {
 
       await authedPage.goto(`/jobs?q=${uniqueTerm}`);
       await expect(authedPage.getByText(dakarTitle), "no country is applied, so the non-Nigeria onsite posting is in the feed").toBeVisible();
-      await expect(authedPage.locator("summary", { hasText: "All countries" }).first()).toBeVisible();
+      // the country menu renders twice (desktop row and mobile row, one hidden by CSS): look at the one that is showing
+      await expect(authedPage.locator("summary:visible", { hasText: "All countries" }).first()).toBeVisible();
       await expect(authedPage.getByText("Showing roles in Nigeria")).toHaveCount(0);
       // The tab links keep a chosen country and add none when none is chosen.
       await expect(authedPage.getByRole("link", { name: "Most Recent" })).toHaveAttribute("href", "/jobs?tab=recent");
