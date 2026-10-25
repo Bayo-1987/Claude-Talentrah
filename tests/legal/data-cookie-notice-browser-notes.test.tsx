@@ -1,7 +1,7 @@
 /**
- * The Data & Cookie Notice must tell a person about the two small notes the app saves in their own browser: the one that remembers Farah has been opened once (the launcher's first-visit
- * pill, src/lib/farah/launcher-seen.ts) and the one that remembers their cookie-banner choice (src/components/legal/cookie-consent-script.ts). The page names each by its storage key, taken
- * from the code that owns it, so renaming a key without updating the notice fails here.
+ * The Data & Cookie Notice must tell a person about the small notes the app saves in their own browser. This file pins the wording for the Farah launcher's note (src/lib/farah/launcher-seen.ts),
+ * the cookie-banner choice (src/components/legal/cookie-consent-script.ts) and the remembered sign-in email (src/lib/auth/remembered-email.ts), naming each by the key the owning code spells.
+ * That EVERY storage key in src is named is a separate guard, tests/legal/client-storage-keys-in-notice.test.tsx. The intro carries no count ("two"), which can go stale.
  */
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -17,19 +17,29 @@ describe("the Data & Cookie Notice and the notes saved in the browser", () => {
     expect(text()).toContain(COOKIE_CONSENT_STORAGE_KEY);
   });
 
-  it("says in plain words that they are saved in the browser, on the device only, and why", () => {
+  it("says in plain words that the notes are in the browser, on the device only, and what each remembers", () => {
     const t = text();
     expect(t).toContain("saved in your browser");
-    expect(t).toMatch(/on your device only|only on your device/);
-    expect(t).toMatch(/opened Farah/);
-    expect(t).toMatch(/cookie banner/);
+    expect(t).toContain("on your device only");
+    expect(t).toMatch(/opened Farah once/);
+    expect(t).toMatch(/answer to the cookie banner/);
+    expect(t).toMatch(/email address you last signed in with/);
   });
 
-  it("is one sentence under its own heading", () => {
+  it("says the remembered sign-in email stays on this device, and how to clear it", () => {
     const html = renderToStaticMarkup(<DataCookieNoticePage />);
-    const section = /<h2[^>]*>Notes saved in your browser<\/h2>\s*<p>([\s\S]*?)<\/p>/.exec(html);
-    expect(section, "the heading and its paragraph").not.toBeNull();
-    const sentence = section![1].replace(/<[^>]+>/g, "").trim();
-    expect(sentence.match(/[.!?](\s|$)/g)).toHaveLength(1);
+    const item = /<li>\s*<strong>talentrah\.lastEmail<\/strong>([\s\S]*?)<\/li>/.exec(html);
+    expect(item, "the remembered email has its own list item").not.toBeNull();
+    const t = item![1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+    expect(t).toContain("It stays on this device");
+    expect(t).toMatch(/Use another account/);
+  });
+
+  it("puts a number nowhere in the section's intro (a count would go stale), and lists each key in a bold name", () => {
+    const html = renderToStaticMarkup(<DataCookieNoticePage />);
+    const intro = /<h2[^>]*>Notes saved in your browser<\/h2>\s*<p>([\s\S]*?)<\/p>/.exec(html);
+    expect(intro, "the heading and its intro paragraph").not.toBeNull();
+    expect(intro![1].replace(/<[^>]+>/g, "")).not.toMatch(/\b(one|two|three|four|five|six|seven|\d+)\b\s+(small\s+)?(notes|keys|items)/i);
+    for (const key of [FARAH_LAUNCHER_KEY, COOKIE_CONSENT_STORAGE_KEY]) expect(html).toContain(`<strong>${key}</strong>`);
   });
 });
