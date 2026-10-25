@@ -12,11 +12,13 @@
  * the one dispatch helper reads them from the accessor module's constants.
  */
 import {
+  ADMIN_MESSAGE_KINDS,
   ADMIN_SEGMENT_KEYS,
   NOTIFICATION_CHANNELS,
   NOTIFICATION_FLAGS,
   NOTIFICATION_KINDS,
   NOTIFICATION_LIMITS,
+  PUSH_ENDPOINT_HOSTS,
   NOTIFICATION_SETTING_KEYS,
   PUSH_RELEASE_REASONS,
   STALE_CLAIM_MIN_AGE_MINUTES,
@@ -129,6 +131,43 @@ export function isSameOriginPath(path: string): boolean {
   return path.length <= 200 && LINK_PATH.test(path);
 }
 
+/**
+ * The endpoint as stored: the host lower-cased, everything else as typed (the host is ASCII by the rule below). Two spellings of one host are one endpoint. Total: an input that is not an
+ * https endpoint is returned unchanged (the caller has refused it already; this function does not decide that).
+ */
+export function normalisePushEndpoint(endpoint: string): string {
+  const match = /^https:\/\/([^/?#]*)/.exec(endpoint);
+  if (!match) return endpoint;
+  const host = match[1];
+  return `https://${host.toLowerCase()}${endpoint.slice(8 + host.length)}`;
+}
+
+/**
+ * The same host rule as the device registration in the database (N1B F4): no whitespace, control character or backslash anywhere; the host is the text after https:// up to the first / ? or #, lower-cased,
+ * made of letters, digits, dots and hyphens only and not ending in a dot; then an exact host or a name under a suffix.
+ */
+export function isAllowedPushEndpoint(endpoint: string): boolean {
+  if (/[\s\u0000-\u001f\u007f\\]/.test(endpoint)) return false;
+  const match = /^https:\/\/([^/?#]*)/.exec(endpoint);
+  if (!match) return false;
+  const host = match[1].toLowerCase();
+  if (!/^[a-z0-9.-]+$/.test(host)) return false;
+  return (PUSH_ENDPOINT_HOSTS.exact as readonly string[]).includes(host) || PUSH_ENDPOINT_HOSTS.suffixes.some((suffix) => host.endsWith(`.${suffix}`));
+}
+
+/**
+ * A `since` value is a JSON string of the form YYYY-MM-DD that is a real calendar date (the database casts the text to a date and answers 22023 otherwise). Nothing looser is accepted: no
+ * time, no other layout, no padding, no number.
+ */
+export function isCalendarDate(value: unknown): value is string {
+  if (typeof value !== "string" || !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(value)) return false;
+  const [y, m, d] = value.split("-").map(Number);
+  if (y < 1) return false;
+  const at = new Date(Date.UTC(y, m - 1, d));
+  at.setUTCFullYear(y); // years 0 to 99 are read as 1900 to 1999 by Date.UTC
+  return at.getUTCFullYear() === y && at.getUTCMonth() === m - 1 && at.getUTCDate() === d;
+}
+
 /** The age after which an open e-mail claim may be resolved by hand: the contract's constant (N1-R34); the database holds the same figure as a literal. */
 const STALE_CLAIM_AGE_MS = STALE_CLAIM_MIN_AGE_MINUTES * 60 * 1000;
 
@@ -215,7 +254,7 @@ export class FakeNotificationBackend implements ServiceRpcs {
     const row: PushSubscriptionRow = {
       id: this.newId(),
       user_id: input.userId,
-      endpoint: input.endpoint ?? `https://push.example.invalid/${this.counter}`,
+      endpoint: input.endpoint ?? `https://fcm.googleapis.com/fcm/send/${this.counter}`,
       p256dh: "fake-p256dh",
       auth: "fake-auth",
       ua_short: "Chrome on Android",
@@ -301,6 +340,7 @@ export class FakeNotificationBackend implements ServiceRpcs {
     event: AdminMessageEventKind,
     detail: AdminMessageEventDetail,
     actor: string | null,
+    flagState: number | null = null,
   ): void {
     this.events.push({
       id: this.newId(),
@@ -310,16 +350,23 @@ export class FakeNotificationBackend implements ServiceRpcs {
       actor_admin_id: actor,
       actor_email: actor ? (this.admins.get(actor)?.email ?? null) : null,
       at: this.now().toISOString(),
+      flag_state: flagState,
     });
   }
   private settingValue(key: NotificationSettingKey): number {
     return this.settings.find((row) => row.key === key)?.int_value ?? 0; // missing means 0
   }
+  /** The flags that are off AND matter for this message, as a bitmask: master 1, messaging 2, promotions 4 (promotion only), e-mail 8 (e-mail channel only). Zero: every flag that matters is on. */
+  private flagsOffState(message: AdminMessageRow): number {
+    return (
+      (this.flag(NOTIFICATION_FLAGS.master) ? 0 : 1) +
+      (this.flag(NOTIFICATION_FLAGS.adminMessaging) ? 0 : 2) +
+      (message.kind !== "promotion" || this.flag(NOTIFICATION_FLAGS.adminPromotions) ? 0 : 4) +
+      (!message.channels.includes("email") || this.flag(NOTIFICATION_FLAGS.adminEmail) ? 0 : 8)
+    );
+  }
   private sendFlagsOn(message: AdminMessageRow): boolean {
-    if (!this.flag(NOTIFICATION_FLAGS.master) || !this.flag(NOTIFICATION_FLAGS.adminMessaging)) return false;
-    if (message.kind === "promotion" && !this.flag(NOTIFICATION_FLAGS.adminPromotions)) return false;
-    if (message.channels.includes("email") && !this.flag(NOTIFICATION_FLAGS.adminEmail)) return false;
-    return true;
+    return this.flagsOffState(message) === 0;
   }
   private eligibleForEmail(person: FakePerson, stream: UnsubscribeStream): boolean {
     const column = stream === "announcements" ? person.prefs.email_announcements : person.prefs.email_promotions;
@@ -500,12 +547,14 @@ export class FakeNotificationBackend implements ServiceRpcs {
         ) {
           throw refuse(rpc, "value_too_long");
         }
+        if (!isAllowedPushEndpoint(args.p_endpoint)) throw refuse(rpc, "host_not_allowed");
         const zone = args.p_timezone === undefined || args.p_timezone === null || args.p_timezone === "" ? limits.defaultTimezone : args.p_timezone;
         // A present value must be an IANA name; it is refused, never replaced.
         if (zone.length > limits.timezoneMaxLength || !isKnownTimeZone(zone)) throw fail("invalid_parameter", "22023", null, rpc);
 
         const now = this.now().toISOString();
-        const existing = this.devices.find((d) => d.endpoint === args.p_endpoint);
+        const endpoint = normalisePushEndpoint(args.p_endpoint);
+        const existing = this.devices.find((d) => d.endpoint === endpoint);
         const activeOthers = this.devices.filter((d) => d.user_id === userId && d.revoked_at === null && d !== existing);
         if (activeOthers.length >= limits.maxActiveDevices) throw refuse(rpc, "device_limit");
 
@@ -522,13 +571,13 @@ export class FakeNotificationBackend implements ServiceRpcs {
         }
         if (existing) {
           // Someone else holds the endpoint: their row is kept, revoked (user) and made unusable, and the caller gets a new row (N1-R31 F5).
-          existing.revoked_at = now;
-          existing.revoke_reason = "user";
+          existing.revoked_at = existing.revoked_at ?? now;
+          existing.revoke_reason = existing.revoke_reason ?? "user";
           existing.endpoint = `https://revoked.invalid/${existing.id}`;
           existing.p256dh = "revoked";
           existing.auth = "revoked";
         }
-        const row = this.addDevice({ userId, endpoint: args.p_endpoint, timezone: zone });
+        const row = this.addDevice({ userId, endpoint, timezone: zone });
         row.p256dh = args.p_p256dh;
         row.auth = args.p_auth;
         row.ua_short = args.p_ua;
@@ -588,7 +637,7 @@ export class FakeNotificationBackend implements ServiceRpcs {
     }
     // The parameters of a segment are checked whatever the audience is (the database checks them before it reads a single row): a window that is not 30, 60 or 90, or a date that does not parse, is 22023 even when nobody matches.
     if (args.p_key === "inactive_seekers" && params.days !== 30 && params.days !== 60 && params.days !== 90) throw fail("invalid_parameter", "22023", null, rpc);
-    if (args.p_key === "signed_up_since" && (!params.since || Number.isNaN(Date.parse(params.since)))) throw fail("invalid_parameter", "22023", null, rpc);
+    if (args.p_key === "signed_up_since" && !isCalendarDate(params.since)) throw fail("invalid_parameter", "22023", null, rpc);
     const now = this.now().getTime();
     const matches = [...this.people.values()].filter((person) => {
       if (person.deletionRequested || person.isQa) return false; // every segment
@@ -607,7 +656,7 @@ export class FakeNotificationBackend implements ServiceRpcs {
           return person.role === "seeker" && person.lastActiveAt !== null && now - Date.parse(person.lastActiveAt) > days * DAY_MS;
         }
         case "signed_up_since": {
-          if (!params.since || Number.isNaN(Date.parse(params.since))) throw fail("invalid_parameter", "22023", null, rpc);
+          if (!isCalendarDate(params.since)) throw fail("invalid_parameter", "22023", null, rpc);
           return Date.parse(person.createdAt) >= Date.parse(params.since);
         }
         case "country": {
@@ -632,7 +681,8 @@ export class FakeNotificationBackend implements ServiceRpcs {
 
     const since = this.now().getTime() - DAY_MS;
     const started = this.messages.filter((m) => m.sent_started_at !== null && Date.parse(m.sent_started_at) > since);
-    if (started.filter((m) => m.created_by === args.p_actor).length >= NOTIFICATION_LIMITS.adminPerOperatorPerDay) {
+    const actorEmail = (this.admins.get(args.p_actor)?.email ?? "").toLowerCase();
+    if (started.filter((m) => m.created_by_email.toLowerCase() === actorEmail).length >= NOTIFICATION_LIMITS.adminPerOperatorPerDay) {
       throw refuse(rpc, "operator_daily_limit");
     }
     if (started.length >= NOTIFICATION_LIMITS.adminOverallPerDay) throw refuse(rpc, "overall_daily_limit");
@@ -690,13 +740,70 @@ export class FakeNotificationBackend implements ServiceRpcs {
     const admin = this.requirePermission(args.p_actor, "user_messaging", rpc);
     const message = this.message(args.p_message, rpc);
     if (message.status !== "submitted") throw refuse(rpc, "invalid_state");
-    if (message.created_by === args.p_actor) throw refuse(rpc, "self_approval");
+    // Independence (N1B-R1): not the creator on the row, not the actor of the `created` event; a message with neither a creator nor a `created` event cannot be approved. The preparer and the
+    // submitter are not excluded.
+    const created = this.events.filter((e) => e.message_id === message.id && e.event === "created");
+    if (message.created_by === args.p_actor || created.some((e) => e.actor_admin_id === args.p_actor) || (message.created_by === null && created.length === 0)) {
+      throw refuse(rpc, "self_approval");
+    }
     if (args.p_kind_confirmed !== message.kind) throw refuse(rpc, "kind_not_confirmed");
     message.status = "approved";
     message.approved_by = args.p_actor;
     message.approved_by_email = admin.email;
     message.kind_confirmed_by_approver = args.p_kind_confirmed;
     this.addEvent(message.id, "approved", { kind_confirmed: args.p_kind_confirmed }, args.p_actor);
+  }
+
+  /** N1B (0273). The only way the database makes a message: the creator is the caller, a bad value is 22023 and the error carries none of the values. */
+  async createAdminMessage(args: RpcContract["createAdminMessage"]["args"]): Promise<string> {
+    const rpc: RpcKey = "createAdminMessage";
+    const admin = this.requirePermission(args.p_actor, "user_messaging", rpc);
+    const bad = () => fail("invalid_parameter", "22023", null, rpc);
+    if (args.p_requires_approval === null) throw bad();
+    const channels = args.p_channels ?? [];
+    if (!ADMIN_MESSAGE_KINDS.includes(args.p_kind)) throw bad();
+    if (typeof args.p_title !== "string" || args.p_title.length < 1 || args.p_title.length > NOTIFICATION_LIMITS.titleMaxLength) throw bad();
+    if (typeof args.p_body !== "string" || args.p_body.length < 1 || args.p_body.length > NOTIFICATION_LIMITS.bodyMaxLength) throw bad();
+    if (channels.length < 1 || channels.some((c) => !NOTIFICATION_CHANNELS.includes(c))) throw bad();
+    if (!ADMIN_SEGMENT_KEYS.includes(args.p_segment_key)) throw bad();
+    if (args.p_link_path !== null && args.p_link_path !== undefined && !isSameOriginPath(args.p_link_path)) throw bad();
+    const row = this.addDraftMessage({
+      createdBy: args.p_actor,
+      kind: args.p_kind,
+      title: args.p_title,
+      body: args.p_body,
+      linkPath: args.p_link_path ?? null,
+      channels,
+      segmentKey: args.p_segment_key,
+      segmentParams: args.p_segment_params ?? {},
+      consentLine: args.p_consent_line ?? null,
+      requiresApproval: args.p_requires_approval ?? true,
+    });
+    row.created_by_email = admin.email; // addDraftMessage already wrote the `created` event for this actor
+    return row.id;
+  }
+
+  /** N1B (0273), provisional: add to the counters of a message being sent (or paused); never subtract, never pass the audience times the channels. */
+  async recordAdminMessageProgress(args: RpcContract["recordAdminMessageProgress"]["args"]): Promise<void> {
+    const rpc: RpcKey = "recordAdminMessageProgress";
+    const values = [args.p_sent, args.p_failed, args.p_skipped];
+    if (values.some((v) => v === null || v === undefined || !Number.isInteger(v) || v < 0)) throw fail("invalid_parameter", "22023", null, rpc);
+    const message = this.message(args.p_message, rpc);
+    if (message.status !== "sending" && message.status !== "paused_email_cap" && message.status !== "paused_email_ceiling") throw refuse(rpc, "invalid_state");
+    const cap = message.audience_count * message.channels.length;
+    if (message.sent_count + args.p_sent > cap || message.failed_count + args.p_failed > cap || message.skipped_count + args.p_skipped > cap) throw fail("invalid_parameter", "22023", null, rpc);
+    message.sent_count += args.p_sent;
+    message.failed_count += args.p_failed;
+    message.skipped_count += args.p_skipped;
+  }
+
+  /** N1B (0273): the end of a send, sending to sent, with a send_finished event that has no actor. */
+  async finishAdminMessageSend(args: RpcContract["finishAdminMessageSend"]["args"]): Promise<void> {
+    const rpc: RpcKey = "finishAdminMessageSend";
+    const message = this.message(args.p_message, rpc);
+    if (message.status !== "sending") throw refuse(rpc, "invalid_state");
+    message.status = "sent";
+    this.addEvent(message.id, "send_finished", {}, null);
   }
 
   async cancelAdminMessage(args: RpcContract["cancelAdminMessage"]["args"]): Promise<void> {
@@ -714,10 +821,12 @@ export class FakeNotificationBackend implements ServiceRpcs {
     const rpc: RpcKey = "startAdminMessageSend";
     this.requirePermission(args.p_actor, "user_messaging", rpc);
     const message = this.message(args.p_message, rpc);
-    if (!this.sendFlagsOn(message)) {
-      // One stop event per message until something else has happened to it (N1-R31 F8): the latest event of this message is already a stop, so nothing is added.
+    const flagsOff = this.flagsOffState(message);
+    if (flagsOff > 0) {
+      // One stop event per message per set of flags that were off, until something else has happened to it (N1-R31 F8, N1B F8): the latest event of this message is already a stop with the
+      // same state, so nothing is added. An event from before N1B has no state and counts as different.
       const latest = [...this.events].reverse().find((e) => e.message_id === message.id);
-      if (latest?.event !== "flag_stopped") this.addEvent(message.id, "flag_stopped", {}, args.p_actor);
+      if (!(latest?.event === "flag_stopped" && latest.flag_state === flagsOff)) this.addEvent(message.id, "flag_stopped", {}, args.p_actor, flagsOff);
       return null;
     }
     const startable = message.status === "approved" || (message.status === "prepared" && !message.requires_approval);
@@ -725,7 +834,7 @@ export class FakeNotificationBackend implements ServiceRpcs {
     // The daily send limits count messages that have STARTED, so they are checked here too, by the message's creator and overall (N1-R31 F1).
     const since = this.now().getTime() - DAY_MS;
     const started = this.messages.filter((m) => m.sent_started_at !== null && Date.parse(m.sent_started_at) > since);
-    if (message.created_by !== null && started.filter((m) => m.created_by === message.created_by).length >= NOTIFICATION_LIMITS.adminPerOperatorPerDay) throw refuse(rpc, "operator_daily_limit");
+    if (started.filter((m) => m.created_by_email.toLowerCase() === message.created_by_email.toLowerCase()).length >= NOTIFICATION_LIMITS.adminPerOperatorPerDay) throw refuse(rpc, "operator_daily_limit");
     if (started.length >= NOTIFICATION_LIMITS.adminOverallPerDay) throw refuse(rpc, "overall_daily_limit");
     message.status = "sending";
     message.sent_started_at = this.now().toISOString();

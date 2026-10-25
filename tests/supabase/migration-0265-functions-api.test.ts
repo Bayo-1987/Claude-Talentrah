@@ -10,12 +10,10 @@
  * Service set of the local stack: REDUCED (auth, db, kong, rest, storage).
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createAuthedTestUser, deleteTestUsers } from "../support/auth";
-import { localDbContainer } from "../support/local-psql";
-import { removeAuditRowsAsOwner, requireN1Db, runN1Sql } from "./migration-0265-local-db";
+import { holdSession, removeAuditRowsAsOwner, removeLedgerRowsAsOwner, requireN1Db, runN1Sql } from "./migration-0265-local-db";
 
 const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -50,7 +48,7 @@ const settingsBefore: Record<string, number> = {};
 
 async function device(user: string): Promise<string> {
   const id = randomUUID();
-  const { error } = await svc.from("push_subscriptions").insert({ id, user_id: user, endpoint: `https://push.example.invalid/${id}`, p256dh: "k", auth: "a", ua_short: "Chrome", timezone: zoneOut });
+  const { error } = await svc.from("push_subscriptions").insert({ id, user_id: user, endpoint: `https://fcm.googleapis.com/fcm/send/${id}`, p256dh: "k", auth: "a", ua_short: "Chrome", timezone: zoneOut });
   if (error) throw new Error(`device fixture: ${error.code}`);
   fixtureDevices.push(id);
   return id;
@@ -63,7 +61,8 @@ const newPerson = async (prefix: string) => {
 
 async function cleanup() {
   if (fixtureUsers.length) {
-    await svc.from("notification_deliveries").delete().in("user_id", fixtureUsers);
+    // the service role cannot delete ledger rows by table (0273): the owner does, on the local stack only
+    removeLedgerRowsAsOwner(fixtureUsers);
     await svc.from("push_subscriptions").delete().in("user_id", fixtureUsers);
   }
   await deleteTestUsers(fixtureUsers.splice(0));
@@ -132,14 +131,14 @@ describe("the ledger functions through the Data API (committed fixtures, cleaned
     it("the message is one of three generic texts and never carries an argument value", async () => {
       const subject = randomUUID();
       const errors = [
-        (await svc.rpc("release_notification", { p_id: subject, p_reason: "secret-reason-value" })).error,
-        (await claim(svc, { p_user: userA.id, p_kind: "secret-kind-value", p_subject: subject, p_channel: "inapp" })).error,
+        (await svc.rpc("release_notification", { p_id: subject, p_reason: "leaky-reason-value" })).error,
+        (await claim(svc, { p_user: userA.id, p_kind: "leaky-kind-value", p_subject: subject, p_channel: "inapp" })).error,
         (await svc.rpc("resolve_stale_claim", { p_id: subject, p_actor: userA.id, p_resolution: "mark_sent" })).error,
       ];
       for (const e of errors) {
         expect(e).toBeTruthy();
         expect(GENERIC.has(e!.message), e!.message).toBe(true);
-        expect(`${e!.message} ${e!.details ?? ""}`).not.toMatch(new RegExp(`${subject}|secret-reason-value|secret-kind-value|${userA.id}`));
+        expect(`${e!.message} ${e!.details ?? ""}`).not.toMatch(new RegExp(`${subject}|leaky-reason-value|leaky-kind-value|${userA.id}`));
       }
     });
   });
@@ -219,7 +218,7 @@ describe("the ledger functions through the Data API (committed fixtures, cleaned
   });
 
   describe("register_push_subscription: the signed-in person's own call, over HTTP", () => {
-    const endpoint = (n: number | string) => `https://push.example.invalid/api-${randomUUID()}-${n}`;
+    const endpoint = (n: number | string) => `https://fcm.googleapis.com/fcm/send/api-${randomUUID()}-${n}`;
     const args = (over: Record<string, unknown> = {}) => ({ p_endpoint: endpoint("x"), p_p256dh: "k", p_auth: "a", p_ua: "Chrome on Android", ...over });
     it("an anonymous visitor and the service role are refused by the grant (42501), not by a check in the body", async () => {
       for (const client of [anon, svc]) {
@@ -242,7 +241,7 @@ describe("the ledger functions through the Data API (committed fixtures, cleaned
       const call = (over: Record<string, unknown>) => untyped(person.client).rpc("register_push_subscription", args(over));
       const marker = "endpoint-marker-value";
       const cases: Array<[Record<string, unknown>, string, string | null]> = [
-        [{ p_endpoint: `http://push.example.invalid/${marker}` }, "P0001", "not_https"],
+        [{ p_endpoint: `http://fcm.googleapis.com/${marker}` }, "P0001", "not_https"],
         [{ p_endpoint: `https://${"x".repeat(2049 - 8)}` }, "P0001", "value_too_long"],
         [{ p_ua: "u".repeat(41) }, "P0001", "value_too_long"],
         [{ p_timezone: "Mars/Olympus" }, "22023", null],
@@ -282,19 +281,69 @@ describe("the ledger functions through the Data API (committed fixtures, cleaned
   });
 
   describe("two sessions at once (N1-R31): the registration limit and the send limits hold across connections", () => {
-    const hold = (statements: string) =>
-      new Promise<void>((resolve) => execFile("docker", ["exec", "-i", localDbContainer(), "psql", "-U", "postgres", "-d", "postgres", "-X", "-c", statements], () => resolve()));
     it("a registration that waits on another session's open registration of the same person sees the tenth device and is refused (the per-person lock)", async () => {
       const person = await newPerson("n1-api-two-reg");
       for (let i = 0; i < 9; i++) await device(person.id);
-      const holder = hold(
-        `begin; set local role authenticated; select set_config('request.jwt.claims', '{"sub":"${person.id}","role":"authenticated"}', true); select public.register_push_subscription('https://push.example.invalid/hold-${randomUUID()}', 'k', 'a', 'Chrome', null); select pg_sleep(3); commit;`,
+      const held = await holdSession(
+        `begin; set local role authenticated; select set_config('request.jwt.claims', '{"sub":"${person.id}","role":"authenticated"}', true); select public.register_push_subscription('https://fcm.googleapis.com/fcm/send/hold-${randomUUID()}', 'k', 'a', 'Chrome', null);`,
       );
-      await new Promise((r) => setTimeout(r, 1200));
-      const second = await untyped(person.client).rpc("register_push_subscription", { p_endpoint: `https://push.example.invalid/second-${randomUUID()}`, p_p256dh: "k", p_auth: "a", p_ua: "Chrome" });
-      await holder;
+      const second = await untyped(person.client).rpc("register_push_subscription", { p_endpoint: `https://fcm.googleapis.com/fcm/send/second-${randomUUID()}`, p_p256dh: "k", p_auth: "a", p_ua: "Chrome" });
+      await held.done;
       expect([second.error?.code, second.error?.hint]).toEqual(["P0001", "device_limit"]);
       expect(sql(`select count(*) from public.push_subscriptions where user_id = '${person.id}' and revoked_at is null;`)).toBe("10");
+    }, 60_000);
+  });
+
+  describe("two sessions at once (N1B): one endpoint registered by two people", () => {
+    it("a registration that waits on another person's open registration of the same NEW endpoint takes it over cleanly, not as a duplicate-key error (the endpoint lock)", async () => {
+      const first = await newPerson("n1-api-ep-a");
+      const second = await newPerson("n1-api-ep-b");
+      const shared = `https://fcm.googleapis.com/fcm/send/shared-${randomUUID()}`;
+      const held = await holdSession(
+        `begin; set local role authenticated; select set_config('request.jwt.claims', '{"sub":"${first.id}","role":"authenticated"}', true); select public.register_push_subscription('${shared}', 'k', 'a', 'Chrome', null);`,
+      );
+      const taken = await untyped(second.client).rpc("register_push_subscription", { p_endpoint: shared, p_p256dh: "k2", p_auth: "a2", p_ua: "Chrome" });
+      await held.done;
+      expect(taken.error).toBeNull();
+      expect(sql(`select user_id from public.push_subscriptions where endpoint = '${shared}' and revoked_at is null;`)).toBe(second.id);
+      expect(sql(`select revoke_reason || '/' || (endpoint like 'https://revoked.invalid/%')::text from public.push_subscriptions where user_id = '${first.id}';`)).toBe("user/true");
+    }, 60_000);
+    // N1B-LOCKKEY-1: the lock is keyed on the endpoint as STORED (host lower-cased), so two spellings of one host serialise. Keyed on the typed text, the two sessions would not wait for each other.
+    it.each([
+      ["FCM.GoogleAPIs.com", "fcm.googleapis.com"],
+      ["fcm.googleapis.com", "Fcm.GOOGLEAPIS.com"],
+    ])("two spellings of one host (%s held, %s second) serialise on the endpoint lock: the second takes the device over, one live row, no duplicate-key error", async (heldHost, secondHost) => {
+      const first = await newPerson("n1-api-ep-case-a");
+      const second = await newPerson("n1-api-ep-case-b");
+      const path = `/fcm/send/case-${randomUUID()}`;
+      const stored = `https://fcm.googleapis.com${path}`;
+      const held = await holdSession(
+        `begin; set local role authenticated; select set_config('request.jwt.claims', '{"sub":"${first.id}","role":"authenticated"}', true); select public.register_push_subscription('https://${heldHost}${path}', 'k', 'a', 'Chrome', null);`,
+      );
+      const taken = await untyped(second.client).rpc("register_push_subscription", { p_endpoint: `https://${secondHost}${path}`, p_p256dh: "k2", p_auth: "a2", p_ua: "Chrome" });
+      await held.done;
+      expect([taken.error?.code ?? null, taken.error?.message ?? null]).toEqual([null, null]);
+      expect(sql(`select count(*) from public.push_subscriptions where endpoint = '${stored}';`)).toBe("1");
+      expect(sql(`select user_id from public.push_subscriptions where endpoint = '${stored}' and revoked_at is null;`)).toBe(second.id);
+      expect(sql(`select revoke_reason || '/' || (endpoint like 'https://revoked.invalid/%')::text from public.push_subscriptions where user_id = '${first.id}';`)).toBe("user/true");
+    }, 60_000);
+    // N1B-NOTES-1 F2 / N1B-NOTES-2 N-1: the take-over lookup takes a row lock that conflicts with an ordinary writer of the row, so it waits for that writer and then reads the row AS COMMITTED. A plain select
+    // would act on the old version, and a weaker lock (for key share) does not conflict with an ordinary update. The holder therefore does a PLAIN update and takes no explicit lock.
+    it("a take-over waits for an ordinary update of the existing device row and then acts on the row as committed (the lookup's for update)", async () => {
+      const first = await newPerson("n1-api-lock-a");
+      const second = await newPerson("n1-api-lock-b");
+      const id = await device(first.id);
+      const stored = sql(`select endpoint from public.push_subscriptions where id = '${id}';`);
+      // the holder, as the table's owner and outside any registration (so it holds no advisory lock), hands the device to the SECOND person with a plain update and does not commit yet
+      const held = await holdSession(`begin; update public.push_subscriptions set user_id = '${second.id}' where endpoint = '${stored}';`);
+      const other = stored.replace("fcm.googleapis.com", "FCM.GoogleAPIs.com");
+      const registered = await untyped(second.client).rpc("register_push_subscription", { p_endpoint: other, p_p256dh: "k2", p_auth: "a2", p_ua: "Chrome" });
+      await held.done;
+      expect(registered.error).toBeNull();
+      // as committed, the device is already the second person's own: refreshed in place, the same row, not revoked, no tombstone, no second row
+      expect(registered.data).toBe(id);
+      expect(sql(`select count(*) from public.push_subscriptions where user_id = '${second.id}';`)).toBe("1");
+      expect(sql(`select (revoked_at is null)::text || '/' || (endpoint = '${stored}')::text || '/' || p256dh from public.push_subscriptions where id = '${id}';`)).toBe("true/true/k2");
     }, 60_000);
   });
 
@@ -357,6 +406,25 @@ describe("the ledger functions through the Data API (committed fixtures, cleaned
         expect(`${e!.message} ${e!.details ?? ""}`).not.toContain(operator.id);
       }
     });
+    it("N1B (0273) over HTTP: the service role cannot write the messages, the audit rows or the ledger by table (42501); the create function sets the creator and the creator cannot approve", async () => {
+      const hand = await svc.from("admin_messages").insert({ kind: "service_announcement", title: "t", body: "b", channels: ["inapp"], segment_key: "self_test", created_by_email: "x@example.test" });
+      expect(hand.error?.code).toBe("42501");
+      const event = await svc.from("admin_message_events").insert({ event: "approved" });
+      expect(event.error?.code).toBe("42501");
+      const ledger = await svc.from("notification_deliveries").delete().eq("user_id", userA.id);
+      expect(ledger.error?.code).toBe("42501");
+      const made = await svc.rpc("create_admin_message", { p_actor: operator.id, p_kind: "service_announcement", p_title: "T", p_body: "B", p_link_path: null, p_channels: ["inapp"], p_segment_key: "self_test", p_segment_params: {}, p_consent_line: null });
+      expect(made.error).toBeNull();
+      const id = made.data as string;
+      messageIds.push(id);
+      expect(sql(`select created_by || '/' || status from public.admin_messages where id = '${id}';`)).toBe(`${operator.id}/draft`);
+      expect((await svc.rpc("prepare_admin_message", { p_message: id, p_actor: operator.id, p_max_audience: 10 })).error).toBeNull();
+      expect((await svc.rpc("submit_admin_message", { p_message: id, p_actor: operator.id })).error).toBeNull();
+      const self = await svc.rpc("approve_admin_message", { p_message: id, p_actor: operator.id, p_kind_confirmed: "service_announcement" });
+      expect([self.error?.code, self.error?.hint]).toEqual(["P0001", "self_approval"]);
+      const bad = await svc.rpc("create_admin_message", { p_actor: operator.id, p_kind: "leaky-kind-value", p_title: "T", p_body: "B", p_link_path: null, p_channels: ["inapp"], p_segment_key: "self_test", p_segment_params: {}, p_consent_line: null });
+      expect([bad.error?.code, bad.error?.message]).toEqual(["22023", "invalid parameter"]);
+    });
     it("a prepare over HTTP returns the frozen count, and a repeat is invalid_state", async () => {
       const m = newMessage("draft");
       const first = await svc.rpc("prepare_admin_message", { p_message: m, p_actor: operator.id, p_max_audience: 10 });
@@ -373,12 +441,9 @@ describe("the ledger functions through the Data API (committed fixtures, cleaned
     }, 60_000);
     it("a prepare that waits on another session's open prepare of the same draft ends as invalid_state, not as a duplicate-row error (the message row is locked)", async () => {
       const m = newMessage("draft");
-      const holder = new Promise<void>((resolve) =>
-        execFile("docker", ["exec", "-i", localDbContainer(), "psql", "-U", "postgres", "-d", "postgres", "-X", "-c", `begin; select public.prepare_admin_message('${m}', '${operator.id}', 10); select pg_sleep(3); commit;`], () => resolve()),
-      );
-      await new Promise((r) => setTimeout(r, 1200));
+      const held = await holdSession(`begin; select public.prepare_admin_message('${m}', '${operator.id}', 10);`);
       const second = await svc.rpc("prepare_admin_message", { p_message: m, p_actor: operator.id, p_max_audience: 10 });
-      await holder;
+      await held.done;
       expect([second.error?.code, second.error?.hint]).toEqual(["P0001", "invalid_state"]);
       expect(sql(`select count(*) from public.admin_message_recipients where message_id = '${m}';`)).toBe("1");
     }, 60_000);
@@ -400,15 +465,26 @@ describe("the ledger functions through the Data API (committed fixtures, cleaned
       }
       const first = newMessage("prepared");
       const second = newMessage("prepared");
-      const holder = new Promise<void>((resolve) =>
-        execFile("docker", ["exec", "-i", localDbContainer(), "psql", "-U", "postgres", "-d", "postgres", "-X", "-c", `begin; select public.start_admin_message_send('${first}', '${operator.id}'); select pg_sleep(3); commit;`], () => resolve()),
-      );
-      await new Promise((r) => setTimeout(r, 1200));
+      const held = await holdSession(`begin; select public.start_admin_message_send('${first}', '${operator.id}');`);
       const refused = await svc.rpc("start_admin_message_send", { p_message: second, p_actor: operator.id });
-      await holder;
+      await held.done;
       expect([refused.error?.code, refused.error?.hint]).toEqual(["P0001", "operator_daily_limit"]);
       expect(sql(`select status from public.admin_messages where id = '${second}';`)).toBe("prepared");
       expect(sql(`select status from public.admin_messages where id = '${first}';`)).toBe("sending");
+    }, 60_000);
+    it("a start that waits on another session's open start with a flag off sees that session's stop and writes none of its own (the per-message lock, F8)", async () => {
+      const m = newMessage("approved");
+      sql(`update public.feature_flags set enabled = false where key = 'admin_messaging';`);
+      try {
+        const held = await holdSession(`begin; select public.start_admin_message_send('${m}', '${operator.id}');`);
+        const second = await svc.rpc("start_admin_message_send", { p_message: m, p_actor: operator.id });
+        await held.done;
+        expect(second.error).toBeNull();
+        expect(second.data).toBeNull();
+        expect(sql(`select count(*) || '/' || min(flag_state) from public.admin_message_events where message_id = '${m}' and event = 'flag_stopped';`)).toBe("1/2");
+      } finally {
+        sql(`update public.feature_flags set enabled = true where key = 'admin_messaging';`);
+      }
     }, 60_000);
   });
 

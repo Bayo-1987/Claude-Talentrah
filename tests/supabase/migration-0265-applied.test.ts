@@ -10,7 +10,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  A1, A2, COLUMNS, CONFIG, D1, D2, EXPECTED_GRANTS, FIXTURES, FUNCTIONS, IN_LIST, NAMES, NAME_LIST, M1, OTHER_TABLES, SAFE_COLUMNS, TABLES, U1, U2, applied0265, asRole, columnGrants, columnsQuery, deviceSql, draftSql, expectedColumns,
+  A1, A2, COLUMNS, COLUMN_GRANTS_ELSEWHERE, CONFIG, D1, D2, EXPECTED_GRANTS, FIXTURES, FUNCTIONS, IN_LIST, NAMES, NAME_LIST, M1, OTHER_TABLES, SAFE_COLUMNS, TABLES, U1, U2, applied0265, asRole, columnGrants, columnsQuery, deviceSql, draftSql, expectedColumns,
   functionAcl, grantMatrix, normalise, probe, rowsOf, scalar,
 } from "./migration-0265-support";
 
@@ -48,7 +48,7 @@ describe("0265 part 1 as applied to the database under test (no DDL)", () => {
     it("every table has exactly the expected grants per role, and the person's only column privilege is SELECT on the five safe columns", () => {
       for (const t of TABLES) expect(r.res[`grants_${t}`], t).toBe(EXPECTED_GRANTS[t]);
       expect(r.res.safe_columns).toBe(SAFE_COLUMNS);
-      expect(r.res.column_grants_elsewhere).toBe("0");
+      expect(r.res.column_grants_elsewhere).toBe(COLUMN_GRANTS_ELSEWHERE);
     });
     it("the two trigger functions are internal: executable by nobody but their owner, SECURITY INVOKER, with an empty search_path", () => {
       expect(r.res.function_execute).toBe("none");

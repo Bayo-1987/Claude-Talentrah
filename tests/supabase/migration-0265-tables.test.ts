@@ -197,14 +197,14 @@ describe("0265 part 1: the tables (replayed in a rolled-back transaction)", () =
   describe("row 7: push_subscriptions", () => {
     let n = 0;
     const ins = (over: Record<string, string> = {}) =>
-      insert("push_subscriptions", { user_id: `'${U1}'`, endpoint: `'https://push.example.invalid/${(n += 1)}'`, p256dh: "'k'", auth: "'a'", ua_short: "'Chrome'" }, over);
+      insert("push_subscriptions", { user_id: `'${U1}'`, endpoint: `'https://fcm.googleapis.com/fcm/send/${(n += 1)}'`, p256dh: "'k'", auth: "'a'", ua_short: "'Chrome'" }, over);
     const body = [
       FIXTURES,
       columnsQuery("push_subscriptions"),
       rowsOf("plain", ins()),
       scalar("default_zone", "select timezone from public.push_subscriptions limit 1"),
       scalar("last_seen_set", "select (last_seen_at is not null)::text from public.push_subscriptions limit 1"),
-      probe("endpoint_unique", `${deviceSql(D1, U1, "https://push.example.invalid/dup")} ${deviceSql(D2, U1, "https://push.example.invalid/dup")}`, "23505"),
+      probe("endpoint_unique", `${deviceSql(D1, U1, "https://fcm.googleapis.com/fcm/send/dup")} ${deviceSql(D2, U1, "https://fcm.googleapis.com/fcm/send/dup")}`, "23505"),
       rowsOf("endpoint_2048", ins({ endpoint: `'${endpointOfLength(2048)}'` })),
       probe("endpoint_2049", ins({ endpoint: `'${endpointOfLength(2049)}'` }), "23514"),
       rowsOf("p256dh_256", ins({ p256dh: `'${long(256)}'` })),
@@ -474,7 +474,7 @@ describe("0265 part 1: the tables (replayed in a rolled-back transaction)", () =
     const r = replay0265(body);
 
     it("the replay applies", () => expect(r.ok, r.stderr).toBe(true));
-    it("has the seven columns of the contract's event row", () => {
+    it("has the eight columns of the contract's event row (the eighth, flag_state, is N1B)", () => {
       expect(normalise(r.res.cols_admin_message_events)).toBe(expectedColumns("admin_message_events"));
     });
     it("the event CHECK lists exactly the twelve events of the email-pins addendum, and each is accepted", () => {

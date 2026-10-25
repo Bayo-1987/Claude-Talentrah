@@ -8,7 +8,7 @@ import { FIXTURES, asRole, personSql, replay0265, scalar } from "./migration-026
 const A = "00000000-0000-4000-8000-00000000c0a1";
 const B = "00000000-0000-4000-8000-00000000c0b2";
 const C = "00000000-0000-4000-8000-00000000c0c3";
-const E = "https://push.example.invalid/chain-endpoint";
+const E = "https://fcm.googleapis.com/fcm/send/chain-endpoint";
 const reg = (u: string, tag: string) => asRole("authenticated", [`select 'R|${tag}|' || public.register_push_subscription('${E}', 'key-${tag}', 'sec-${tag}', 'Chrome', null)::text;`], u);
 const ROWS = `select string_agg(case when user_id = '${A}' then 'A' when user_id = '${B}' then 'B' else 'C' end || ':' || case when endpoint = '${E}' then 'LIVE-ENDPOINT' when endpoint = 'https://revoked.invalid/' || id::text then 'tombstone-of-own-id' else 'OTHER' end || ':' || case when revoked_at is null then 'active' else 'revoked' end || ':' || coalesce(revoke_reason, '-') || ':' || p256dh, ' | ' order by user_id, (revoked_at is null) desc) from public.push_subscriptions`;
 
