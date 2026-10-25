@@ -67,6 +67,15 @@ export default function DataCookieNoticePage() {
         required for the site to function.
       </p>
 
+      <h2>Notes saved in your browser</h2>
+      <p>
+        Talentrah also saves two small notes in your browser, on your device
+        only and never sent to us: one (talentrah.farahLauncher) remembers that
+        you have opened Farah once, so her button stops showing its longer
+        label, and the other (talentrah-cookie-consent) remembers your answer
+        to the cookie banner, so it doesn&apos;t ask again.
+      </p>
+
       <h2>Where your data is processed</h2>
       <ul>
         <li>
