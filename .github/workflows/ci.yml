@@ -46,9 +46,9 @@ env:
   # call real Gemini, even by accident; it's Vercel-only.
   GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
   LLM_PROVIDER: groq
-  # Demo-account password for scripts/seed.ts and the masthead-nav e2e spec.
-  # Not a literal in the repo any more — see scripts/seed.ts.
-  DEMO_PASSWORD: ${{ secrets.DEMO_PASSWORD }}
+  # No DEMO_PASSWORD here, on purpose. A Playwright trace kept as an artifact (public repo) records what a spec types into the login form, so a long-lived secret
+  # must never be typed by a test. Each job that seeds gets its own random value from `npm run seed` (scripts/seed.ts, resolveDemoPassword), masked, exported to the
+  # steps after it through $GITHUB_ENV, and gone with that job's database. tests/ci/demo-password-per-run.test.ts pins this.
   PAYSTACK_SECRET_KEY: ${{ secrets.PAYSTACK_SECRET_KEY }}
   NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY: ${{ secrets.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY }}
 
