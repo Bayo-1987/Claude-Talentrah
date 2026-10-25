@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
-import { signOutAction } from "@/lib/auth/actions";
+import { AccountMenu } from "@/components/app-shell/account-menu";
 import { FarahMark } from "@/components/ui/farah-mark";
 import { scrollToFarahPanel } from "@/lib/farah/scroll-to-panel";
 import { useDisplayedCreditsBalance } from "@/components/app-shell/credits-balance";
@@ -127,9 +127,6 @@ export function Masthead({
   // The prop is what the server rendered at page load; this is that, updated for any credit a Farah
   // message has spent since (issue #605).
   const shownCreditsBalance = useDisplayedCreditsBalance(creditsBalance);
-  const [accountOpen, setAccountOpen] = useState(false);
-  const accountRef = useRef<HTMLDivElement>(null);
-  const accountTriggerRef = useRef<HTMLButtonElement>(null);
   const [navOpen, setNavOpen] = useState(false);
   const navRef = useRef<HTMLDivElement>(null);
   const navTriggerRef = useRef<HTMLButtonElement>(null);
@@ -402,47 +399,6 @@ export function Masthead({
       ? `${link.href}?from=${encodeURIComponent(pathname)}`
       : link.href;
   }
-
-  /*
-   * Same contract as the Farah and Report menus: outside click and Escape both
-   * close. Copied deliberately rather than abstracted — three call sites is
-   * not yet a component, and this one differs in what it closes over.
-   */
-  useEffect(() => {
-    if (!accountOpen) return;
-    // Same focus contract as the nav disclosure above: move focus into the
-    // panel on open, and back to the trigger on a close that doesn't itself
-    // navigate (Escape, outside click) rather than leaving it to fall back
-    // to <body>.
-    accountRef.current
-      ?.querySelector<HTMLElement>('[role="menuitem"]')
-      ?.focus();
-
-    function onPointer(e: MouseEvent) {
-      if (
-        accountRef.current &&
-        !accountRef.current.contains(e.target as Node)
-      ) {
-        setAccountOpen(false);
-        // Deferred — see the nav disclosure's onPointer above for why an
-        // un-deferred call here loses a race against the browser's own
-        // mousedown default focus behaviour.
-        setTimeout(() => accountTriggerRef.current?.focus(), 0);
-      }
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        setAccountOpen(false);
-        accountTriggerRef.current?.focus();
-      }
-    }
-    document.addEventListener("mousedown", onPointer);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onPointer);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [accountOpen]);
 
   return (
     /*
@@ -847,85 +803,9 @@ export function Masthead({
               : `${shownCreditsBalance} credits · Top up`}
           </Link>
           {/*
-            The avatar is the account control now, and Sign out lives inside
-            it. It used to be a bare 34px div — decoration, not a target — next
-            to a standalone Sign out link, which put the single most
-            destructive action in the bar permanently one stray click away.
-            Behind a disclosure it takes an intent to open and then an intent
-            to choose.
-
-            The circle stays 34px because that is the design; the BUTTON around
-            it is 40x40, which is the rule CLAUDE.md makes hard. Same trick the
-            brand link above uses.
+            The avatar is the account control, and Sign out lives inside it: the menu is src/components/app-shell/account-menu.tsx, shared with the employer header.
           */}
-          <div ref={accountRef} className="relative flex items-center">
-            <button
-              ref={accountTriggerRef}
-              type="button"
-              aria-expanded={accountOpen}
-              aria-haspopup="menu"
-              aria-label="Account menu"
-              onClick={() => setAccountOpen((o) => !o)}
-              className="inline-flex h-10 w-10 items-center justify-center"
-            >
-              <span className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-ink font-display text-[12px] font-bold text-paper">
-                {initials}
-              </span>
-            </button>
-
-            {accountOpen && (
-              <div
-                role="menu"
-                className="absolute top-[calc(100%+8px)] right-0 z-20 w-[248px] border-[1.5px] border-ink bg-card"
-              >
-                {/*
-                  Identity block. The name renders only when there is one —
-                  see MastheadProps.displayName on why absent is the norm. The
-                  email is always shown and carries `break-all`: an address
-                  longer than 248px would otherwise widen the menu or spill
-                  past its border.
-                */}
-                <div className="flex flex-col gap-0.5 px-4 py-3">
-                  {displayName && (
-                    <span className="font-display text-[15px] font-semibold text-ink">
-                      {displayName}
-                    </span>
-                  )}
-                  <span className="text-[12.5px] break-all text-ink-soft">
-                    {email}
-                  </span>
-                </div>
-
-                <div className="border-t border-line" />
-
-                {/*
-                  One item, not two. Notifications and profile both live at
-                  /settings today, and two labels pointing at one page is a
-                  menu that lies about what it can do.
-                */}
-                <Link
-                  href="/settings"
-                  role="menuitem"
-                  onClick={() => setAccountOpen(false)}
-                  className="flex min-h-10 items-center px-4 text-[13px] font-semibold text-ink no-underline hover:text-rust"
-                >
-                  Settings
-                </Link>
-
-                <div className="border-t border-line" />
-
-                <form action={signOutAction}>
-                  <button
-                    type="submit"
-                    role="menuitem"
-                    className="flex min-h-10 w-full items-center px-4 text-left text-[13px] font-semibold text-ink-soft hover:text-rust"
-                  >
-                    Sign out
-                  </button>
-                </form>
-              </div>
-            )}
-          </div>
+          <AccountMenu initials={initials} email={email} displayName={displayName} />
         </div>
       </div>
     </header>

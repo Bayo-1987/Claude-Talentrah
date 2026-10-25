@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
-import { signOutAction } from "@/lib/auth/actions";
+import { AccountMenu } from "@/components/app-shell/account-menu";
 
 /**
  * NAV SCOPE — a deliberate divergence from CLAUDE.md's information
@@ -33,13 +33,23 @@ const NAV_LINKS = [
   { href: "/employer/talent-directory", label: "Talent Directory" },
 ];
 
+/** The organisation's badge, as it was before the avatar became the account menu's button. */
+const ORG_BADGE = "flex h-[34px] w-[34px] items-center justify-center bg-ink font-display text-[12px] font-bold text-paper";
+
 export function EmployerMasthead({
   orgInitials,
   orgName,
+  email = "",
+  displayName = "",
+  userInitials = "",
 }: {
-  /** Null before the organisation exists — the badge is omitted, not filled in. */
+  /** Null before the organisation exists — the organisation's badge is omitted, not filled in. */
   orgInitials: string | null;
   orgName: string;
+  /** The signed-in user's own address, name and initials (from their profile), for the account menu. Optional only so a header can never fail to render for want of them: Sign out is always in the menu. */
+  email?: string;
+  displayName?: string;
+  userInitials?: string;
 }) {
   const pathname = usePathname();
   const [navOpen, setNavOpen] = useState(false);
@@ -323,7 +333,8 @@ export function EmployerMasthead({
             slightly is the accepted trade-off here, not a new dead zone —
             fixing THAT is a nav redesign, out of scope for a width-fit bug.
 
-            whitespace-nowrap on this and "Sign out" below is the second half
+            whitespace-nowrap on this (and, back when it was a loose link, on
+            "Sign out"; Sign out now lives in the account menu) is the second half
             of the fix: it stops the flex row from shrinking either box below
             its content width, so a future breakpoint-vs-nav collision
             overflows visibly (easy to catch — e.g. by
@@ -337,34 +348,19 @@ export function EmployerMasthead({
             Looking for work?
           </Link>
           {/*
-            Omitted entirely when there is no organisation yet, which is the
-            normal state on /employer/onboarding. See the layout for why a
-            placeholder character was worse than nothing.
+            The avatar is the account control, and Sign out lives inside it (the same menu as the seeker header: src/components/app-shell/account-menu.tsx). With an organisation the
+            avatar is the organisation's square badge, titled with its name, exactly as before. With none (the normal state on /employer/onboarding) the square badge is still omitted,
+            not filled with a placeholder character, but the button stays, showing the user's own initials in the seeker's circle, because Sign out has to stay reachable.
+            "large": 44px button and items, for a menu that is used on a phone.
           */}
-          {orgInitials && (
-            <div
-              className="flex h-[34px] w-[34px] items-center justify-center bg-ink font-display text-[12px] font-bold text-paper"
-              title={orgName}
-            >
-              {orgInitials}
-            </div>
-          )}
-          <form action={signOutAction}>
-            {/*
-              min-h-10 min-w-10, which it did not have. Measured at 46 x 20 on
-              this masthead — under CLAUDE.md's 40x40 rule, and missed by
-              app-chrome.spec.ts because that sweep only walks the SEEKER
-              masthead and the Farah panel. Found while porting the mobile
-              treatment; fixed here rather than left for the next person to
-              measure again.
-            */}
-            <button
-              type="submit"
-              className="inline-flex min-h-10 min-w-10 items-center justify-center whitespace-nowrap text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
-            >
-              Sign out
-            </button>
-          </form>
+          <AccountMenu
+            initials={orgInitials ?? userInitials}
+            email={email}
+            displayName={displayName}
+            size="large"
+            avatarClassName={orgInitials ? ORG_BADGE : undefined}
+            avatarTitle={orgInitials ? orgName : undefined}
+          />
         </div>
       </div>
     </div>

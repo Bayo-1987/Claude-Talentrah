@@ -108,7 +108,7 @@ async function login(page: Page) {
 test.describe("the employer masthead fits where it is shown", () => {
   test.skip(!DEMO_PASSWORD, "DEMO_PASSWORD is not set — see scripts/seed.ts");
 
-  test("\"Looking for work?\" and \"Sign out\" never wrap, across the real danger zone (send-442)", async ({
+  test("\"Looking for work?\" never wraps and the account button stays on screen, across the real danger zone (send-442)", async ({
     page,
   }) => {
     test.setTimeout(120_000);
@@ -131,17 +131,18 @@ test.describe("the employer masthead fits where it is shown", () => {
         const lookingLink = [...document.querySelectorAll("a")].find(
           (a) => a.textContent?.trim() === "Looking for work?",
         );
-        const signOutBtn = [...document.querySelectorAll("button")].find(
-          (b) => b.textContent?.trim() === "Sign out",
-        );
+        // Sign out used to be a loose button here; it now lives in the account menu behind the avatar. The avatar button has no text to wrap, so the check that
+        // replaces "Sign out did not wrap" is that it is still on screen: shown, and inside the viewport.
+        const accountBtn = document.querySelector<HTMLElement>('button[aria-label="Account menu"]');
+        const accountRect = accountBtn?.getBoundingClientRect();
         return {
           lookingVisible: !!(lookingLink && (lookingLink as HTMLElement).offsetParent !== null),
           lookingWrapped: isWrapped(lookingLink ?? null),
-          signOutWrapped: isWrapped(signOutBtn ?? null),
+          accountOnScreen: !!accountRect && accountRect.width > 0 && accountRect.right <= window.innerWidth && accountRect.left >= 0,
         };
       });
 
-      // "Sign out" carries no breakpoint of its own — it renders at every
+      // The account button carries no breakpoint of its own — it renders at every
       // width — so it is always checked. "Looking for work?" is gated by a
       // reveal breakpoint (see employer-masthead.tsx's own comment): BEFORE
       // this fix that breakpoint was 900, so a width in this sweep could be
@@ -154,7 +155,7 @@ test.describe("the employer masthead fits where it is shown", () => {
       // by never looking at the width range that was actually broken. This
       // checks wrap state whenever the element is genuinely visible, however
       // it got there.
-      expect(m.signOutWrapped, `"Sign out" wrapped onto two lines at ${width}px`).toBe(false);
+      expect(m.accountOnScreen, `the account button is not on screen at ${width}px`).toBe(true);
       if (m.lookingVisible) {
         expect(
           m.lookingWrapped,
