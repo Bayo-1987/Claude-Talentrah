@@ -170,15 +170,45 @@ export function countryOrFilter(country: TrackedCountry): string {
 }
 
 /**
- * profiles.country's own value ("Nigeria" | "Ghana" | "Kenya" | "South
- * Africa" | "Other" | any other country on the signup list — see SIGNUP_COUNTRIES/
- * DIASPORA_COUNTRIES in src/lib/auth/schemas.ts) mapped to a default feed
- * filter. Deliberately returns undefined for "Other" and every other country, diaspora
- * or not: this product's country filter targets the four boards it actually
- * has meaningful inventory for, and defaulting a US/UK/Canada-based user (or
- * one who picked "Other") into one of those four would be a guess with
- * nothing behind it — no filter is the honest default there, same as a user
- * with no profile.country set at all.
+ * Which country a /jobs request applies: ONLY the one the URL names. There is no default: not from the profile, a cookie, a stored value, the locale, the IP or a
+ * hard-coded "NG". The param absent means every country. (The feed used to default to the profile's country when the param was absent, which made "remove the chip"
+ * impossible to keep: the chip came back on the next link that did not repeat the param. Talentrah serves more than four home markets; a country is something a
+ * person chooses.)
+ *
+ * `chosen` is what the URL named, whatever the tab; `country` is what the tab APPLIES. They differ on Saved, which is the person's own set and has no country concept
+ * (send-496): there `country` is undefined but `chosen` survives, so the tab links still carry the choice back to the other tabs.
+ *
+ * `country=all` is still understood, as no country, because links written before this change exist (bookmarks, notifications already sent). It is never written again.
+ * `countryState` is the existing instrumentation dimension (country_default_events.country_state): "kept" a country is applied, "cleared" an old country=all link,
+ * "none" nothing is applied.
+ */
+export function resolveCountryParam(
+  param: string | undefined | null,
+  tab: string,
+): { country: TrackedCountry | undefined; chosen: TrackedCountry | undefined; countryState: "kept" | "cleared" | "none" } {
+  const chosen = isTrackedCountry(param) ? param : undefined;
+  if (tab === "saved") return { country: undefined, chosen, countryState: "none" };
+  if (chosen) return { country: chosen, chosen, countryState: "kept" };
+  return { country: undefined, chosen: undefined, countryState: param === "all" ? "cleared" : "none" };
+}
+
+/**
+ * profiles.country mapped to an optional VISIBLE SUGGESTION ("Show roles in Nigeria", a link the person may click), never to a filter. Only a tracked country (the four
+ * boards with real inventory) is suggested; "Other" and every other country get nothing. Nothing is suggested once a country is chosen or on the Saved tab.
+ */
+export function countrySuggestion(
+  profileCountry: string | null | undefined,
+  chosen: TrackedCountry | undefined,
+  tab: string,
+): TrackedCountry | undefined {
+  if (chosen || tab === "saved") return undefined;
+  return defaultCountryForProfile(profileCountry);
+}
+
+/**
+ * profiles.country's own value ("Nigeria" | "Ghana" | "Kenya" | "South Africa" | "Other" | any other country on the signup list — see SIGNUP_COUNTRIES/
+ * DIASPORA_COUNTRIES in src/lib/auth/schemas.ts) mapped to the one of the four tracked boards it names, or undefined. It decides nothing about the feed: only
+ * countrySuggestion above uses it, to offer a link.
  */
 export function defaultCountryForProfile(profileCountry: string | null | undefined): TrackedCountry | undefined {
   return isTrackedCountry(profileCountry) ? profileCountry : undefined;
