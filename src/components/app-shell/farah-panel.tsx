@@ -23,7 +23,7 @@ import {
   type FarahJobSeed,
 } from "@/lib/farah/job-seed";
 import { shouldAutoRestoreHistory } from "@/lib/farah/history-restore";
-import { jobSeedAnnouncement, prefersReducedMotion, revealJobBlock } from "@/lib/farah/job-seed-arrival";
+import { jobBlockIsNewest, jobSeedAnnouncement, prefersReducedMotion, revealJobBlock } from "@/lib/farah/job-seed-arrival";
 
 export interface FarahMessage {
   id: string;
@@ -665,7 +665,20 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
       */}
       <FarahAllowanceNote freeRemaining={freeRemaining} nextFreeMessageAt={mounted ? nextFreeMessageAt : null} />
 
-      <div ref={scrollRef} data-testid="farah-panel-scroller" className="flex max-h-80 flex-col gap-3 overflow-y-auto">
+      <div
+        ref={scrollRef}
+        data-testid="farah-panel-scroller"
+        // 26rem while the job block is the newest thing (so its four options fit), the old 20rem otherwise: see jobBlockIsNewest
+        className={`flex flex-col gap-3 overflow-y-auto ${
+          jobBlockIsNewest({
+            messageCount: messages.length,
+            hasPristineSeed: jobSeed !== null,
+            lastMarkerInsertAt: jobSeedMarkers.length > 0 ? jobSeedMarkers[jobSeedMarkers.length - 1].insertAt : null,
+          })
+            ? "max-h-[26rem]"
+            : "max-h-80"
+        }`}
+      >
         {messages.length === 0 ? (
           jobSeed ? (
             /*

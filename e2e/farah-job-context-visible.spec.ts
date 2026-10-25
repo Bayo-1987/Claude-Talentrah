@@ -108,6 +108,24 @@ async function expectSeen(block: Locator, timeout = 5_000) {
   }).toPass({ timeout });
 }
 
+/** All four options inside the visible part of the panel's scroller (the block must fit, not only its top). */
+async function expectAllOptionsSeen(block: Locator, timeout = 5_000) {
+  await expect(async () => {
+    const rects = await block.evaluate((el) => {
+      const s = el.parentElement!.getBoundingClientRect();
+      return [...el.querySelectorAll("[data-job-option]")].map((o) => {
+        const r = o.getBoundingClientRect();
+        return { top: r.top - s.top, bottomGap: s.bottom - r.bottom };
+      });
+    });
+    expect(rects).toHaveLength(4);
+    for (const [i, r] of rects.entries()) {
+      expect(r.top, `option ${i + 1} starts above the visible part of the scroller`).toBeGreaterThanOrEqual(-1);
+      expect(r.bottomGap, `option ${i + 1} runs past the bottom of the visible part of the scroller`).toBeGreaterThanOrEqual(-1);
+    }
+  }).toPass({ timeout });
+}
+
 const liveRegion = (panel: Locator) => panel.locator('p[role="status"][aria-live="polite"]');
 
 async function freeMessageText(panel: Locator) {
@@ -257,6 +275,48 @@ test.describe("Ask Farah on a job makes the panel visibly respond", () => {
     await expect(latest.getByRole("button", { name: "Why is this a good fit for me?" })).toBeFocused();
     await expectSeen(latest);
     expect(chatRequests).toHaveLength(0);
+  });
+
+  for (const thread of [true, false]) {
+    test(`wide screen, ${thread ? "mid-conversation" : "pristine panel"}: all four options are fully inside the scroller after the click (the fourth, 'Draft an intro message', is not below the fold)`, async ({ page }) => {
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await arrange(page, { thread });
+      await login(page);
+      const panel = page.getByTestId("farah-panel");
+      if (thread) await expect(panel.getByTestId("farah-message")).toHaveCount(10);
+      await page.getByTestId("job-card").first().getByRole("button", { name: "Ask Farah" }).click();
+      const block = panel.getByTestId("job-seed-block");
+      await expect(block).toBeVisible();
+      await expectAllOptionsSeen(block);
+    });
+  }
+
+  test("phone: the first-visit hint steps aside when a job is handed to Farah, and comes back on the next page load (hidden, not dismissed for good)", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 667 });
+    const chatRequests = await arrange(page, { thread: true });
+    await login(page);
+    const panel = page.getByTestId("farah-panel");
+    await expect(panel.getByTestId("farah-message")).toHaveCount(10);
+    const hint = page.getByTestId("farah-first-visit-hint");
+    await expect(hint).toBeVisible();
+    const card = page.getByTestId("job-card").first();
+    await card.scrollIntoViewIfNeeded();
+    await card.getByRole("button", { name: "Ask Farah" }).click();
+    await expect(panel.getByTestId("job-seed-block")).toBeVisible();
+    await expect(hint).toHaveCount(0);
+    // nothing covers the options: with the hint gone, no option is under a fixed card
+    await expect(async () => {
+      const covered = await page.evaluate(() => [...document.querySelectorAll("[data-job-option]")].some((el) => {
+        const r = el.getBoundingClientRect();
+        const top = document.elementFromPoint(r.left + r.width / 2, Math.min(Math.max(r.top + r.height / 2, 0), window.innerHeight - 1));
+        return !!top && !el.contains(top) && top.closest('[data-testid="farah-first-visit-hint"]') !== null;
+      }));
+      expect(covered).toBe(false);
+    }).toPass({ timeout: 5_000 });
+    expect(chatRequests).toHaveLength(0);
+    // hidden for this page view only: a reload brings it back (the profile was not written to)
+    await page.reload();
+    await expect(page.getByTestId("farah-first-visit-hint")).toBeVisible();
   });
 
   test("on a narrow screen the stacked panel is brought into view and the new block is on screen", async ({ page }) => {

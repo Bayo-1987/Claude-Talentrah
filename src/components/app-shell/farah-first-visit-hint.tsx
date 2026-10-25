@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { FarahMark } from "@/components/ui/farah-mark";
 import { dismissFarahHintAction } from "@/lib/profile/settings-actions";
 import { scrollToFarahPanel } from "@/lib/farah/scroll-to-panel";
+import { onFarahJobSeed } from "@/lib/farah/job-seed";
 import { FARAH_FIRST_VISIT_HINT_TEST_ID } from "@/lib/farah/first-visit-hint-id";
 
 /**
@@ -65,6 +66,10 @@ export function FarahFirstVisitHint() {
   // respond to being dismissed.
   const [gone, setGone] = useState(false);
   const [, startTransition] = useTransition();
+
+  // Someone who has just handed a job to Farah has found her, which is all this hint is for, and on a phone it sat over the lower part of the panel where the job's options are. Hidden for this page view
+  // only: nothing is written to the profile, so it comes back on the next load until it is dismissed with its own buttons.
+  useEffect(() => onFarahJobSeed(() => setGone(true)), []);
 
   function dismiss() {
     setGone(true);

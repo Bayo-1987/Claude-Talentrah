@@ -88,3 +88,15 @@ export function revealJobBlock(block: RevealableBlock | null, reducedMotion: boo
   block.focus({ preventScroll: true });
   return "block";
 }
+
+/**
+ * Is the job block the NEWEST thing in the panel? While it is, the conversation scroller is allowed 26rem instead of 20rem (320px): the block (divider, chip, label, opener, four options) is about 400px at the
+ * 280px column, and at 320px the fourth option, "Draft an intro message", fell below the scroller's fold at wide widths. In a pristine panel that was a regression (on origin/main the opener and four options were 283px
+ * and all four showed). The moment anything comes after the block, the old height returns.
+ *  - pristine panel: the job replaces the greeting, so it is newest when the panel has no messages and was handed a job;
+ *  - conversation: the newest divider is at the end when its insertion point is the current message count (nothing said since).
+ */
+export function jobBlockIsNewest(state: { messageCount: number; hasPristineSeed: boolean; lastMarkerInsertAt: number | null }): boolean {
+  if (state.messageCount === 0) return state.hasPristineSeed;
+  return state.lastMarkerInsertAt !== null && state.lastMarkerInsertAt === state.messageCount;
+}

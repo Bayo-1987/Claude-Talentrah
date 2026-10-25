@@ -73,6 +73,18 @@ describe("the panel responds when a job arrives", () => {
   });
 });
 
+describe("the scroller has room for the job block while it is the newest thing", () => {
+  it("uses 26rem while jobBlockIsNewest says so and the old 20rem (max-h-80) otherwise, on the one scroller", () => {
+    const at = panel.indexOf('data-testid="farah-panel-scroller"');
+    expect(at, "the scroller lost its test id").toBeGreaterThan(-1);
+    const line = panel.slice(at, panel.indexOf("\n      >", at));
+    expect(line).toContain("max-h-[26rem]");
+    expect(line).toContain("max-h-80");
+    expect(line).toContain("jobBlockIsNewest(");
+    expect(panel).toContain("jobBlockIsNewest({");
+  });
+});
+
 describe("one block for every arrival path", () => {
   it("the pristine panel and both marker positions render JobSeedBlock; the old JobSeedMarker is gone", () => {
     expect(panel.match(/<JobSeedBlock/g)?.length).toBe(3);
