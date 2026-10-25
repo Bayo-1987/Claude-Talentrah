@@ -21,6 +21,11 @@ import { requireAdminSecret, requireCronSecret, internalError } from "@/lib/api/
  * and the ~24-hour cron cadence compound, so worst case is closer to 48
  * hours end to end. Move to a paid plan's minute-level cron (or a
  * dedicated queue) if that gap turns out to matter in practice.
+ *
+ * The same run also returns human resume reviews a mentor claimed and did not
+ * decide within 72 hours to the review pool (0267, see runMentorshipSweep).
+ * A failed release answers 500 here exactly as a failed unpaid-booking expiry
+ * does, because the summary's `ok` is false.
  */
 export async function GET(request: Request) {
   const denied = requireCronSecret(request);
