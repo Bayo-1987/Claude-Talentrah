@@ -221,7 +221,10 @@ describe("on a phone the bar stands on the bottom edge in the employer shell", (
   });
 
   it("changes nothing in the shared strip or the seeker shell", () => {
-    expect(read("src/components/pwa/install-strip-view.tsx")).toContain("bottom-[calc(58.5px+env(safe-area-inset-bottom))]");
+    // Launcher PR-2: the seeker shell has no bottom bar any more, so the shared strip stands on the bottom edge at every width (the Farah launcher floats above it on a phone). The employer wrapper
+    // above is therefore redundant but identical in effect, and is left alone so this change does not reach into the employer side.
+    expect(read("src/components/pwa/install-strip-view.tsx")).toMatch(/fixed inset-x-0 bottom-0 z-\[17\]/);
+    expect(read("src/components/pwa/install-strip-view.tsx")).not.toContain("58.5px");
     expect(code("src/components/pwa/install-strip-lazy.tsx")).not.toMatch(/employer/i);
   });
 });

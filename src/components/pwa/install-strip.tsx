@@ -49,11 +49,20 @@ export default function InstallStrip() {
       Promise.resolve().then(() => setReserve(0));
       return;
     }
-    const measure = () => setReserve(Math.ceil(el.getBoundingClientRect().height));
+    const root = document.documentElement;
+    const measure = () => {
+      const height = Math.ceil(el.getBoundingClientRect().height);
+      setReserve(height);
+      // The Farah launcher (fixed, bottom right, phones) stands above the strip by this much; removed the moment the strip goes.
+      root.style.setProperty("--farah-strip-h", `${height}px`);
+    };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => {
+      ro.disconnect();
+      root.style.removeProperty("--farah-strip-h");
+    };
   }, [showing]);
 
   if (offer.kind === "none") return null;

@@ -11,22 +11,26 @@ import { FARAH_FIRST_VISIT_HINT_TEST_ID } from "@/lib/farah/first-visit-hint-id"
  * A one-time nudge toward Farah, pointing at whichever affordance is actually
  * on screen.
  *
- * ── IT POINTS AT THREE DIFFERENT THINGS, BECAUSE THERE ARE THREE ──────────
+ * ── IT POINTS AT TWO DIFFERENT THINGS, AND HAS NOTHING TO SAY ON A PHONE ──
  *
- * The shell already reaches Farah three ways, and which one exists depends
- * entirely on the viewport. A hint that said "use the bar at the bottom" would
- * be wrong on a desktop, and one that said "look at the right-hand column"
- * would point at nothing on a phone. So the copy and the position both move
- * with the same breakpoints the affordances themselves use — no new numbers
- * are introduced here:
+ * The shell reaches Farah differently by viewport, and a hint must name the thing that is
+ * actually there:
  *
- *   below 760   FarahMobileTab, fixed to the bottom      -> hint sits above it
+ *   below 760   the launcher (a round button, with a one-time "Ask Farah · AI assistant"
+ *               pill on a first visit) -> it announces itself, so there is NO hint here
  *   760 to 2xl  the panel itself, a sticky right column  -> hint sits beside it
  *   2xl and up  the masthead's "Ask Farah" item          -> hint sits under it
  *
- * The three variants are three spans with responsive visibility rather than a
- * JS media query, which keeps the server and client markup identical and means
- * there is no flash of the wrong sentence during hydration.
+ * The phone variant was retired with the bottom bar it pointed at (launcher plan, Q4): two
+ * floating overlays over a feed that is mostly buttons was one too many. Below 760px the card
+ * is hidden by CSS for the first paint and then LEFT OUT OF THE PAGE after mount, because the
+ * install strip waits while the hint is in the page (src/lib/pwa/install-state.ts) and a hint
+ * nobody can see must not hold it back. Nothing is written to the profile: on a wider screen
+ * the hint is still there until it is dismissed.
+ *
+ * The two remaining variants are two spans with responsive visibility rather than a JS media
+ * query, which keeps the server and client markup identical and means there is no flash of the
+ * wrong sentence during hydration.
  *
  * ── WHY IT IS NOT AN OVERLAY, A MODAL OR A SPOTLIGHT ──────────────────────
  *
@@ -39,9 +43,8 @@ import { FARAH_FIRST_VISIT_HINT_TEST_ID } from "@/lib/farah/first-visit-hint-id"
  *
  * ── LAYERING, AND WHY IT DOES NOT SWALLOW CLICKS ──────────────────────────
  *
- * z-[19]: above FarahMobileTab (18) so it is never behind the bar it is
- * pointing at, and below the masthead band (20) so a masthead dropdown still
- * wins.
+ * z-[19]: above the first-visit pill and the rest of the fixed chrome (18), and below
+ * the masthead band (20) so a masthead dropdown still wins.
  *
  * `pointer-events-none` on the box, `pointer-events-auto` on its two buttons,
  * and that is a bug fix rather than a flourish. This thing appears UNBIDDEN,
@@ -72,6 +75,16 @@ export function FarahFirstVisitHint() {
   // the Farah tab and covered the last job option on a 667px-high phone. Nothing is written to the profile: it comes back on the next load until it is dismissed with its own buttons.
   const [aside, setAside] = useState(false);
   useEffect(() => onFarahJobSeed(() => setAside(true)), []);
+
+  // Below 760px the launcher announces itself and this card has no phone variant: leave the page (not just hide), so the install strip, which waits for the hint, is not held back.
+  const [phone, setPhone] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 759px)");
+    const update = () => setPhone(query.matches);
+    Promise.resolve().then(update);
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
 
   function dismiss() {
     setGone(true);
@@ -105,7 +118,7 @@ export function FarahFirstVisitHint() {
     };
   }, [gone]);
 
-  if (gone) return null;
+  if (gone || phone) return null;
 
   return (
     <div
@@ -122,8 +135,8 @@ export function FarahFirstVisitHint() {
       aria-live="polite"
       className={[
         "pointer-events-none fixed z-[19] w-[min(320px,calc(100vw-32px))] border-[1.5px] border-ink bg-card px-4 pt-3.5 pb-4 print:hidden",
-        // below 760: just above the fixed bar (58.5px + a gap), centred.
-        "bottom-[76px] left-1/2 -translate-x-1/2",
+        // below 760: no phone variant (the launcher announces itself); hidden for the first paint, removed from the page after mount.
+        "max-[759px]:hidden",
         /*
          * 760 and up: released from the bottom and tucked under the masthead,
          * BESIDE the panel rather than over it.
@@ -161,15 +174,10 @@ export function FarahFirstVisitHint() {
 
           {/*
             One sentence per breakpoint, naming the thing that is actually on
-            screen. Rendered as three spans so the markup is identical on the
+            screen. Rendered as two spans so the markup is identical on the
             server and the client; only one is ever visible.
           */}
           <p className="mt-1 text-[13px] leading-[1.5] text-ink-soft">
-            <span className="min-[760px]:hidden">
-              She can tailor your resume or prep you for an interview. Tap{" "}
-              <span className="font-semibold text-ink">Ask Farah</span> at the bottom of the
-              screen whenever you need her.
-            </span>
             <span className="hidden min-[760px]:inline 2xl:hidden">
               She can tailor your resume or prep you for an interview. She&apos;s in the
               column on the right, and stays there as you scroll.
@@ -184,7 +192,7 @@ export function FarahFirstVisitHint() {
           <div className="mt-3 flex items-center gap-3">
             {/*
               "Show me" scrolls the panel into view — the same helper the
-              masthead item and the bar use, including its already-in-view
+              masthead item and the launcher use, including its already-in-view
               guard, so on a desktop where the panel is visible this does
               nothing rather than throwing the reader up the page.
 

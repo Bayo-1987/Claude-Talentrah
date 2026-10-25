@@ -25,8 +25,8 @@ function seedHandler(): string {
 describe("the click and the arrival send nothing", () => {
   it("the job card's button only announces the job and scrolls the panel into view", () => {
     const body = code(menu);
-    expect(body).toContain("seedFarahForJob({ jobId, jobTitle, companyName });");
-    expect(body).toContain("scrollToFarahPanel();");
+    // Launcher PR-2: the seed is handed to the reveal as its follow-up, so on a phone it is announced after the sheet has opened (a hidden panel cannot take focus). Same two calls, same sending of nothing.
+    expect(body).toContain("scrollToFarahPanel(() => seedFarahForJob({ jobId, jobTitle, companyName }))");
     expect(body).not.toMatch(/\bfetch\s*\(|sendOrPrefill|\bsend\s*\(|onStarter|\/api\/farah/);
   });
   it("seedFarahForJob is a window event and nothing more", () => {

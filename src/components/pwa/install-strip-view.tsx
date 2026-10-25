@@ -8,9 +8,9 @@ import { buttonClasses } from "@/lib/button-classes";
  * Hidden when printing.
  *
  * FIXED TO THE BOTTOM EDGE, NOT IN FLOW. It appears after hydration, so an in-flow strip under the masthead pushed the whole page down when it mounted
- * (measured: the content column's top moved from 70 to 147 px on a phone and to 123 px on a desktop). A fixed bar moves nothing. Below 760px it stands
- * ABOVE the Farah tab (the tab is 56px plus a 2.5px border plus the safe area, see farah-mobile-tab.tsx), from 760px up it sits on the bottom edge. It covers the
- * last strip of the page until dismissed, the usual cost of an install bar; z-17 keeps it under the tab (18) and the masthead (20).
+ * (measured: the content column's top moved from 70 to 147 px on a phone and to 123 px on a desktop). A fixed bar moves nothing. It stands on the
+ * bottom edge at every width (there is no bottom bar any more; the Farah launcher floats ABOVE it on a phone, using the height the strip publishes as `--farah-strip-h`, see
+ * install-strip.tsx). It covers the last strip of the page until dismissed, the usual cost of an install bar; z-17 keeps it under the launcher (18) and the masthead (20).
  *
  * Copy says only what is true: Android offers an Install button; iOS has no install prompt, so it says how to add the app from Safari.
  */
@@ -31,7 +31,7 @@ export function InstallStripView({
       ref={barRef}
       data-testid="install-strip"
       aria-label="Install Talentrah"
-      className="fixed inset-x-0 bottom-[calc(58.5px+env(safe-area-inset-bottom))] z-[17] flex flex-wrap items-center justify-between gap-x-6 gap-y-1 border-t border-line bg-paper-alt px-6 py-1 min-[760px]:bottom-0 min-[760px]:px-10 print:hidden"
+      className="fixed inset-x-0 bottom-0 z-[17] flex flex-wrap items-center justify-between gap-x-6 gap-y-1 border-t border-line bg-paper-alt px-6 pt-1 pb-[calc(4px+env(safe-area-inset-bottom))] min-[760px]:px-10 print:hidden"
     >
       <p className="text-[13.5px] leading-[1.5] text-ink-soft">
         {kind === "ios" ? "To install: tap Share, then Add to Home Screen." : "Add Talentrah to your home screen."}

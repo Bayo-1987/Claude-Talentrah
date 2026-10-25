@@ -654,6 +654,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
       <div className="flex items-center gap-2.5">
         <FarahMark size={28} hasUnread={hasUnreadNotification} />
         <EyebrowLabel size="sm">Farah — your co-pilot</EyebrowLabel>
+        <span className="ml-auto border border-ink-soft px-1.5 font-body text-[10.5px] leading-[18px] font-bold tracking-[0.06em] text-ink-soft uppercase">AI assistant</span>
       </div>
 
       {/*
