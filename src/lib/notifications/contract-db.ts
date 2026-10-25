@@ -38,6 +38,9 @@ import type {
   AdminMessageEventRow,
   ApproveAdminMessageArgs,
   ClaimNotificationArgs,
+  CreateAdminMessageArgs,
+  FinishAdminMessageSendArgs,
+  RecordAdminMessageProgressArgs,
   ClaimNotificationResult,
   ClaimRefusal,
   EmailUnsubscribeStreamArgs,
@@ -94,6 +97,9 @@ export const NOTIFICATION_RPCS = {
   startAdminMessageSend: "start_admin_message_send",
   adminMessageAudit: "admin_message_audit",
   recordAdminMessageTest: "record_admin_message_test",
+  createAdminMessage: "create_admin_message",
+  recordAdminMessageProgress: "record_admin_message_progress",
+  finishAdminMessageSend: "finish_admin_message_send",
   setNotificationSetting: "set_notification_setting",
   pauseAdminMessageSend: "pause_admin_message_send",
   resumeAdminMessageSend: "resume_admin_message_send",
@@ -131,6 +137,7 @@ export const NOTIFICATION_REFUSAL_REASONS = [
   "not_found",
   "unknown_id",
   "not_https",
+  "host_not_allowed",
   "value_too_long",
   "device_limit",
   "setting_key_unknown",
@@ -393,6 +400,21 @@ export async function recordAdminMessageTest(client: NotificationClient, args: A
 
 export async function setNotificationSetting(client: NotificationClient, args: SetNotificationSettingArgs): Promise<void> {
   unwrap(await loose(client).rpc(NOTIFICATION_RPCS.setNotificationSetting, args), "setNotificationSetting");
+}
+
+export async function createAdminMessage(client: NotificationClient, args: CreateAdminMessageArgs): Promise<string> {
+  const data = unwrap(await loose(client).rpc(NOTIFICATION_RPCS.createAdminMessage, args), "createAdminMessage");
+  // the function returns the new message id; anything else is a contract break, answered with an error that carries no database text
+  if (typeof data !== "string") throw new NotificationDbError({ code: "unknown", sqlstate: null, reason: null, rpc: NOTIFICATION_RPCS.createAdminMessage, table: null });
+  return data;
+}
+
+export async function recordAdminMessageProgress(client: NotificationClient, args: RecordAdminMessageProgressArgs): Promise<void> {
+  unwrap(await loose(client).rpc(NOTIFICATION_RPCS.recordAdminMessageProgress, args), "recordAdminMessageProgress");
+}
+
+export async function finishAdminMessageSend(client: NotificationClient, args: FinishAdminMessageSendArgs): Promise<void> {
+  unwrap(await loose(client).rpc(NOTIFICATION_RPCS.finishAdminMessageSend, args), "finishAdminMessageSend");
 }
 
 export async function pauseAdminMessageSend(client: NotificationClient, args: PauseAdminMessageSendArgs): Promise<void> {

@@ -8,6 +8,8 @@ import { AutoApplyToggle } from "@/components/jobs/auto-apply-toggle";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
 import { EyebrowLabel } from "@/components/ui";
 import { FeedTabs } from "@/components/jobs/feed-tabs";
+import { CountryNote } from "@/components/jobs/country-note";
+import { recentPageHref } from "@/lib/jobs/feed-href";
 import { FilterBar } from "@/components/jobs/filter-bar";
 import { FixedFeedHeader } from "@/components/jobs/fixed-feed-header";
 import { JobCard } from "@/components/jobs/job-card";
@@ -36,8 +38,8 @@ import {
 } from "@/lib/ads/promoted";
 import { isJobDateFilter, jobDateFilterSinceISO, JOB_FRESHNESS_WINDOW_DAYS, type JobDateFilter } from "@/lib/jobs/freshness";
 import {
-  isTrackedCountry,
-  defaultCountryForProfile,
+  resolveCountryParam,
+  countrySuggestion,
   deriveCountry,
   COUNTRY_THIN_THRESHOLD,
   TRACKED_COUNTRIES,
@@ -52,7 +54,7 @@ import {
 import { sortFeedResults } from "@/lib/jobs/ranking";
 import { fetchListablePending } from "@/lib/auto-apply/listable-pending";
 import { getViewerOrganizationIds } from "@/lib/employer/membership";
-import { logCountryDefaultEvent, type CountryState } from "@/lib/jobs/country-events";
+import { logCountryDefaultEvent } from "@/lib/jobs/country-events";
 import { pageMetadata } from "@/lib/seo/site";
 import { liveJobLandingLinks } from "@/lib/seo/landing-page-links";
 import { loadOpenJobsPreview } from "@/lib/seo/landing-page-data";
@@ -167,40 +169,11 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   const posted: JobDateFilter | undefined = isJobDateFilter(params.posted) ? params.posted : undefined;
 
   /*
-   * Country default (Stage 12). "all" is a real, explicit sentinel for
-   * cleared — distinct from the param simply being ABSENT, which falls back
-   * to the profile default instead. Every other filter on this page treats
-   * absence as "no filter"; country can't, because absence here means
-   * "apply the default", so clearing it needs its own state to win over that
-   * default rather than just omitting the param and landing back on it.
-   *
-   * countryState is Stage 12's own instrumentation dimension (kept/cleared/
-   * none — src/lib/jobs/country-events.ts), computed here once so the feed
-   * view log, the FilterBar chip and every apply on this page agree on it.
+   * No country unless the URL names one. Absent = every country; nothing defaults it (not the profile, a cookie, a stored value, the locale or the IP). The profile's
+   * country is only OFFERED, as a "Show roles in <country>" link in the filter bar. See resolveCountryParam for the rules (Saved applies none; `country=all` from an
+   * old link is read as none and never written again).
    */
-  let country: TrackedCountry | undefined;
-  let countryState: CountryState;
-  if (params.country === "all") {
-    country = undefined;
-    countryState = "cleared";
-  } else if (isTrackedCountry(params.country)) {
-    country = params.country;
-    countryState = "kept";
-  } else {
-    country = defaultCountryForProfile(profile.country);
-    countryState = country ? "kept" : "none";
-  }
-  /*
-   * send-496 — the Saved tab has NO country filter. It is the user's own set (every tracker application at stage
-   * "saved"), not a discovery feed, so country is not a concept there: it filtered the owner's saved jobs, and below
-   * COUNTRY_THIN_THRESHOLD it printed "No jobs in Nigeria… showing roles from elsewhere below" beside "No saved jobs yet".
-   * "none" is the existing state for "country does not apply", so the FilterBar's Clear link, the caption and the
-   * fallback notice below all follow without a second condition.
-   */
-  if (tab === "saved") {
-    country = undefined;
-    countryState = "none";
-  }
+  const { country, chosen: chosenCountry, countryState } = resolveCountryParam(params.country, tab);
 
   /*
    * RECENT-TAB PAGINATION (egress fix). Only Recent, and only when there is
@@ -950,15 +923,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    * renders on a search result in the first place.
    */
   const buildRecentPageHref = (target: number) => {
-    const sp = new URLSearchParams();
-    sp.set("tab", "recent");
-    if (workTypes.length) sp.set("workType", workTypes.join(","));
-    if (seniorities.length) sp.set("seniority", seniorities.join(","));
-    if (posted) sp.set("posted", posted);
-    if (params.country === "all") sp.set("country", "all");
-    else if (country) sp.set("country", country);
-    if (target > 1) sp.set("page", String(target));
-    return `/jobs?${sp.toString()}`;
+    return recentPageHref({ workTypes, seniorities, posted, country, target });
   };
 
   /*
@@ -1105,7 +1070,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
             </Link>
           </div>
           <div className="mt-2">
-            <FeedTabs active={tab} />
+            <FeedTabs active={tab} country={chosenCountry} />
           </div>
         </div>
       </FixedFeedHeader>
@@ -1139,7 +1104,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
           seniorities={seniorities}
           posted={posted}
           country={country}
-          countryApplicable={countryState !== "none"}
+          suggestedCountry={countrySuggestion(profile.country, chosenCountry, tab)}
           countryCounts={countryMenuCounts}
           everyCountryCount={everyCountryCount}
           searchIndex={searchIndex}
@@ -1153,13 +1118,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
           way to read. Never claims a remote role is open to everyone —
           states only what the filter itself does.
         */}
-        {country && (
-          <p className="text-[12.5px] italic text-ink-soft">
-            Showing roles in {country} plus every remote listing on the board. Remote doesn&apos;t
-            always mean open to any country — some roles are restricted to a specific one in the
-            listing itself.
-          </p>
-        )}
+        <CountryNote country={country} />
       </div>
 
       {baseResumeError && (

@@ -65,8 +65,8 @@ const CASES: Record<RpcKey, { call: (c: db.NotificationClient) => Promise<unknow
     answer: 12,
   },
   registerPushSubscription: {
-    args: { p_endpoint: "https://push.example.invalid/x", p_p256dh: "k", p_auth: "a", p_ua: "Chrome" },
-    call: (c) => db.registerPushSubscription(c, { p_endpoint: "https://push.example.invalid/x", p_p256dh: "k", p_auth: "a", p_ua: "Chrome" }),
+    args: { p_endpoint: "https://fcm.googleapis.com/fcm/send/x", p_p256dh: "k", p_auth: "a", p_ua: "Chrome" },
+    call: (c) => db.registerPushSubscription(c, { p_endpoint: "https://fcm.googleapis.com/fcm/send/x", p_p256dh: "k", p_auth: "a", p_ua: "Chrome" }),
     answer: ID,
   },
   emailUnsubscribeStream: {
@@ -100,6 +100,21 @@ const CASES: Record<RpcKey, { call: (c: db.NotificationClient) => Promise<unknow
   recordAdminMessageTest: {
     args: { p_message: ID, p_actor: ACTOR },
     call: (c) => db.recordAdminMessageTest(c, { p_message: ID, p_actor: ACTOR }),
+    answer: null,
+  },
+  createAdminMessage: {
+    args: { p_actor: ACTOR, p_kind: "service_announcement", p_title: "t", p_body: "b", p_link_path: null, p_channels: ["inapp"], p_segment_key: "self_test", p_segment_params: {}, p_consent_line: null },
+    call: (c) => db.createAdminMessage(c, { p_actor: ACTOR, p_kind: "service_announcement", p_title: "t", p_body: "b", p_link_path: null, p_channels: ["inapp"], p_segment_key: "self_test", p_segment_params: {}, p_consent_line: null }),
+    answer: ID,
+  },
+  recordAdminMessageProgress: {
+    args: { p_message: ID, p_sent: 1, p_failed: 0, p_skipped: 0 },
+    call: (c) => db.recordAdminMessageProgress(c, { p_message: ID, p_sent: 1, p_failed: 0, p_skipped: 0 }),
+    answer: null,
+  },
+  finishAdminMessageSend: {
+    args: { p_message: ID },
+    call: (c) => db.finishAdminMessageSend(c, { p_message: ID }),
     answer: null,
   },
   setNotificationSetting: {
@@ -210,7 +225,7 @@ describe("normalising what the database returns", () => {
 });
 
 describe("errors never carry database text", () => {
-  const echoed = "https://push.example.invalid/DO-NOT-LEAK-THIS-ENDPOINT";
+  const echoed = "https://fcm.googleapis.com/fcm/send/DO-NOT-LEAK-THIS-ENDPOINT";
   const register = (c: db.NotificationClient) =>
     db.registerPushSubscription(c, { p_endpoint: echoed, p_p256dh: "k", p_auth: "a", p_ua: "Chrome" });
   const failing = (code: string, hint: string | null) =>

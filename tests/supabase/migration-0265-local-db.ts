@@ -9,8 +9,18 @@
  *
  * Nothing here prints a key, a password or a connection string.
  */
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { vi } from "vitest";
 import { haveLocalDb, localDbContainer, runSql, type SqlResult } from "../support/local-psql";
+
+/*
+ * TIMEOUT CEILING for every file that uses the local database (FIX N6). These tests start docker commands, one after another and synchronously (a scratch database is created, swept and dropped
+ * by `docker exec`), and under a heavily loaded machine one such test took 24.8 s against the suite's 20 s ceiling and failed with a bare "timed out". The ceiling is raised for the files
+ * that import this module, and nothing else: no wait is lengthened, no sleep is added; a test that finishes in 3 s still takes 3 s.
+ */
+export const N1_TIMEOUT_MS = 120_000;
+vi.setConfig({ testTimeout: N1_TIMEOUT_MS, hookTimeout: N1_TIMEOUT_MS });
 
 export const N1_PORT_MIN = 55421;
 export const N1_PORT_MAX = 55429;
@@ -217,4 +227,45 @@ export function removeAuditRowsAsOwner(messageIds: readonly string[], url: strin
     `set session_replication_role = replica; delete from public.admin_message_events where message_id in (${list}); delete from public.admin_message_recipients where message_id in (${list}); delete from public.admin_messages where id in (${list});`,
   );
   if (!r.ok) throw new Error(`removing audit rows failed: ${r.stderr}`);
+}
+
+/**
+ * Removes the ledger rows of the given people as the table owner. The service role can no longer delete ledger rows by table (0273), and a pooled test person is reused rather than deleted, so a
+ * test that committed claims for it clears them here. Same rule as removeAuditRowsAsOwner: it checks BEFORE anything runs that the database address is 127.0.0.1 or localhost with no user info,
+ * and it takes uuids only.
+ */
+export function removeLedgerRowsAsOwner(userIds: readonly string[], url: string | undefined = process.env.NEXT_PUBLIC_SUPABASE_URL, run: (script: string) => SqlResult = runN1Sql): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(url ?? "");
+  } catch {
+    throw new LocalGuardError("the database address is missing or cannot be parsed; ledger rows are not removed");
+  }
+  if (!LOOPBACK.has(parsed.hostname) || parsed.username !== "" || parsed.password !== "") {
+    throw new LocalGuardError(`the database host is ${parsed.hostname}, not 127.0.0.1 or localhost; ledger rows are not removed`);
+  }
+  if (userIds.length === 0) return;
+  for (const id of userIds) if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) throw new LocalGuardError("an id is not a uuid");
+  const r = run(`delete from public.notification_deliveries where user_id in (${userIds.map((u) => `'${u}'`).join(", ")});`);
+  if (!r.ok) throw new Error(`removing ledger rows failed: ${r.stderr}`);
+}
+
+/**
+ * A SECOND database session for the two-connection race tests. It runs `statements` (for example `begin; select public.some_function(...);`), then sleeps inside the still-open transaction,
+ * then commits. It returns only when that session has been OBSERVED sleeping (pg_stat_activity shows wait_event PgSleep for its marker), so everything before the sleep has run and its locks
+ * are held: the caller can start its own competing call knowing the order. A fixed wait is not used (a slow machine makes one flaky). `done` resolves when the session has finished.
+ */
+export async function holdSession(statements: string, seconds = 4, readyTimeoutMs = 30_000): Promise<{ done: Promise<void> }> {
+  const marker = `n1hold_${randomUUID().replace(/-/g, "")}`;
+  const script = `${statements} select pg_sleep(${seconds}) /* ${marker} */; commit;`;
+  const done = new Promise<void>((resolve) =>
+    execFile("docker", ["exec", "-i", localDbContainer(), "psql", "-U", "postgres", "-d", "postgres", "-X", "-c", script], () => resolve()),
+  );
+  const until = Date.now() + readyTimeoutMs;
+  for (;;) {
+    const r = runN1Sql(`select count(*) from pg_stat_activity where wait_event = 'PgSleep' and query like '%${marker}%' and pid <> pg_backend_pid();`);
+    if (r.ok && Number(r.stdout.trim()) >= 1) return { done };
+    if (Date.now() > until) throw new Error("the second session never reached its sleep");
+    await new Promise((res) => setTimeout(res, 100));
+  }
 }

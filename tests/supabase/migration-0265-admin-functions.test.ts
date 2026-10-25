@@ -215,7 +215,7 @@ describe("prepare_admin_message: recipients, per-channel flags, the frozen count
     `update public.profiles set email = '   ' where id = '${R(7)}';`,
     `update public.profiles set last_active_at = now() - interval '40 days' where id = '${R(8)}';`,
     `update public.profiles set last_active_at = null where id = '${R(9)}';`,
-    ...people.map((id, i) => `insert into public.push_subscriptions (user_id, endpoint, p256dh, auth, ua_short, revoked_at) values ('${id}', 'https://push.example.invalid/${i}', 'k', 'a', 'Chrome', ${i === 3 ? "now()" : "null"});`),
+    ...people.map((id, i) => `insert into public.push_subscriptions (user_id, endpoint, p256dh, auth, ua_short, revoked_at) values ('${id}', 'https://fcm.googleapis.com/fcm/send/${i}', 'k', 'a', 'Chrome', ${i === 3 ? "now()" : "null"});`),
     FLAGS_ON,
     msg(M1, { kind: "service_announcement", channels: "array['inapp','push','email']", key: "country", params: '{"country":"testland"}' }),
     msg(M2, { kind: "promotion", channels: "array['inapp','push','email']", key: "country", params: '{"country":"testland"}' }),

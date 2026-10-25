@@ -3,11 +3,11 @@ import { test, admin } from "./fixtures/authed";
 import { runCleanups } from "../tests/support/teardown";
 import { deleteOrgsCascade } from "../tests/support/delete-orgs";
 import { randomUUID } from "node:crypto";
-import { storedEmail, submitLoginForm, waitForHydration } from "./support/remembered-account";
+import { openMenu, storedEmail, submitLoginForm, waitForHydration } from "./support/remembered-account";
 
 /**
  * f) the employer's sign-in is the same /login page, so the same card must work for an employer: create a company through the real
- * employer onboarding, sign out of the employer masthead, sign back in with a password, and be offered "Continue as <email>".
+ * employer onboarding, sign out through the employer masthead's account menu, sign back in with a password, and be offered "Continue as <email>".
  */
 test.use({ viewport: { width: 1280, height: 900 } });
 
@@ -38,7 +38,8 @@ test("f) an employer signs in, signs out, and is offered 'Continue as <email>'",
   if (error) throw error;
 
   await expect(async () => {
-    await page.getByRole("button", { name: "Sign out" }).click();
+    await openMenu(page, "Account menu");
+    await page.getByRole("menuitem", { name: "Sign out" }).click();
     await page.waitForURL((u) => !u.pathname.startsWith("/employer"), { timeout: 3000 });
   }).toPass({ timeout: 20_000 });
   expect(await storedEmail(page)).toBeNull();
@@ -52,7 +53,8 @@ test("f) an employer signs in, signs out, and is offered 'Continue as <email>'",
   // Sign out again (employer masthead), then the card is there.
   await page.goto("/employer/jobs");
   await expect(async () => {
-    await page.getByRole("button", { name: "Sign out" }).click();
+    await openMenu(page, "Account menu");
+    await page.getByRole("menuitem", { name: "Sign out" }).click();
     await page.waitForURL((u) => !u.pathname.startsWith("/employer"), { timeout: 3000 });
   }).toPass({ timeout: 20_000 });
   await page.goto("/login");

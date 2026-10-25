@@ -158,7 +158,7 @@ describe("N1-R31: stale resolution is for old e-mail claims only (F6), and the d
   const flagsOn = () => (["notifications_master", "admin_messaging", "admin_promotions", "admin_email"] as const).forEach((k) => fake.setFlag(k, true));
   const startable = (createdBy: string) => fake.addDraftMessage({ createdBy, requiresApproval: false });
   const asPrepared = (m: { status: string }) => { m.status = "prepared"; };
-  it("a sixth start by one creator inside 24 hours is operator_daily_limit; an eleventh overall is overall_daily_limit; older starts do not count", async () => {
+  it("a sixth start by one creator inside 24 hours is operator_daily_limit and leaves the message prepared; another creator is not held by that count", async () => {
     flagsOn();
     fake.addAdmin(NEW_ADMIN, "b@example.test", ["user_messaging"]);
     for (let i = 0; i < 5; i++) { const m = startable(ADMIN); asPrepared(m); m.sent_started_at = new Date(fake.now().getTime() - 3600_000).toISOString(); m.status = "sent"; }
@@ -239,7 +239,7 @@ describe("fake follow-up: the overall start limit, an active device taken over, 
     next.status = "prepared";
     await expect(fake.startAdminMessageSend({ p_message: next.id, p_actor: third })).rejects.toMatchObject({ info: { sqlstate: "P0001", reason: "overall_daily_limit" } });
   });
-  const ep = "https://push.example.invalid/follow-up";
+  const ep = "https://fcm.googleapis.com/fcm/send/follow-up";
   const reg = (user: string, keys: string) => fake.forCaller(user).registerPushSubscription({ p_endpoint: ep, p_p256dh: keys, p_auth: keys, p_ua: "Chrome" });
   it("a take-over revokes an ACTIVE previous row (user) and gives the caller a new one", async () => {
     const other = fake.newId();
@@ -257,5 +257,28 @@ describe("fake follow-up: the overall start limit, an active device taken over, 
     expect(again).toBe(first);
     expect(fake.devices).toHaveLength(1);
     expect(fake.devices[0]).toMatchObject({ p256dh: "k2", revoked_at: null });
+  });
+});
+
+describe("fake: a person's own revoked device registering again is revived in place", () => {
+  const ep = "https://fcm.googleapis.com/fcm/send/revive";
+  const reg = (keys: string) => fake.forCaller(USER).registerPushSubscription({ p_endpoint: ep, p_p256dh: keys, p_auth: keys, p_ua: "Chrome" });
+  it("same row, same id, revoked_at and revoke_reason cleared, keys and last seen refreshed", async () => {
+    const first = await reg("k1");
+    const row = fake.devices.find((d) => d.id === first)!;
+    row.revoked_at = fake.now().toISOString();
+    row.revoke_reason = "gone";
+    fake.advance(60 * 60 * 1000);
+    const again = await reg("k2");
+    expect(again).toBe(first);
+    expect(fake.devices).toHaveLength(1);
+    expect(row).toMatchObject({ revoked_at: null, revoke_reason: null, p256dh: "k2", auth: "k2", last_seen_at: fake.now().toISOString() });
+  });
+  it("a revoked device does not count toward the ten, and reviving one at the limit is refused when it would make eleven", async () => {
+    for (let i = 0; i < 10; i++) await fake.forCaller(USER).registerPushSubscription({ p_endpoint: `https://fcm.googleapis.com/fcm/send/lim${i}`, p_p256dh: "k", p_auth: "a", p_ua: "Chrome" });
+    fake.devices[0].revoked_at = fake.now().toISOString();
+    fake.devices[0].revoke_reason = "user";
+    await fake.forCaller(USER).registerPushSubscription({ p_endpoint: "https://fcm.googleapis.com/fcm/send/lim-eleven", p_p256dh: "k", p_auth: "a", p_ua: "Chrome" });
+    await expect(fake.forCaller(USER).registerPushSubscription({ p_endpoint: fake.devices[0].endpoint, p_p256dh: "k", p_auth: "a", p_ua: "Chrome" })).rejects.toMatchObject({ info: { sqlstate: "P0001", reason: "device_limit" } });
   });
 });

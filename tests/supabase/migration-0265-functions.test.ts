@@ -791,6 +791,9 @@ describe("prune_notification_deliveries (N1-R12, N1-R26 f)", () => {
 describe("the functions: exact list, flags and EXECUTE per role (N1-R2, N1-R5, grants addendum)", () => {
   const dummy: Record<string, string> = {
     claim_notification: `p_user => '${U1}', p_kind => 'match_alert', p_subject => '${UNKNOWN}', p_channel => 'inapp'`,
+    create_admin_message: `p_actor => '${A2}', p_kind => 'service_announcement', p_title => 't', p_body => 'b', p_link_path => null, p_channels => array['inapp'], p_segment_key => 'self_test', p_segment_params => '{}'::jsonb, p_consent_line => null`,
+    record_admin_message_progress: `p_message => '${UNKNOWN}', p_sent => 1, p_failed => 0, p_skipped => 0`,
+    finish_admin_message_send: `p_message => '${UNKNOWN}'`,
     release_notification: `p_id => '${UNKNOWN}', p_reason => 'gone'`,
     mark_notification_sent: `p_id => '${UNKNOWN}'`,
     stale_notification_claims: "p_channel => 'email', p_older_than => interval '1 hour'",

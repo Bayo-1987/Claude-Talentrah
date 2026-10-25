@@ -8,7 +8,7 @@
  * EXPECT. `pg_temp.expect(sql, sqlstate)` runs one statement in a subtransaction and answers `ok` when it fails with exactly that SQLSTATE, `NOT REFUSED` when it succeeds and `WRONG <state>`
  * otherwise, so one script can probe many refusals without aborting the transaction.
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll } from "vitest";
 import { createN1Scratch, dropN1Scratch, newScratchName, requireN1Db, runN1ScratchSql, runN1Sql, sweepStaleN1Scratch } from "./migration-0265-local-db";
@@ -18,9 +18,13 @@ export const F0264 = "0264_user_messaging_permission.sql";
 export const R0264 = "0264_user_messaging_permission.rollback.sql";
 export const F0265 = "0265_notifications_and_admin_messaging.sql";
 export const R0265 = "0265_notifications_and_admin_messaging.rollback.sql";
+/** N1B, the follow-up migration (0273). It is applied after 0265, so every replay is cumulative unless a test asks for 0265 alone. */
+export const F0273 = "0273_n1b_followup.sql";
+export const R0273 = "0273_n1b_followup.rollback.sql";
 
 export const readMigration = (name: string) => readFileSync(join(ROOT, "supabase/migrations", name), "utf8");
 export const readRollback = (name: string) => readFileSync(join(ROOT, "supabase/rollbacks", name), "utf8");
+export const haveFile = (dir: "migrations" | "rollbacks", name: string) => existsSync(join(ROOT, "supabase", dir, name));
 
 /** The SQL with `--` comments removed and whitespace collapsed. */
 export function code(sql: string): string {
@@ -160,7 +164,7 @@ export const ZONE_IN = "current_setting('n1.zone_in')";
 export const ZONE_OUT = "current_setting('n1.zone_out')";
 /** A device for `user` in the given zone expression (a SQL expression, for example ZONE_OUT, or a quoted literal). */
 export const deviceZoneSql = (id: string, user: string, zoneExpr: string, extra = "") =>
-  `insert into public.push_subscriptions (id, user_id, endpoint, p256dh, auth, ua_short, timezone${extra ? ", " + extra.split("=")[0] : ""}) values ('${id}', '${user}', 'https://push.example.invalid/${id}', 'k', 'a', 'Chrome', ${zoneExpr}${extra ? ", " + extra.split("=")[1] : ""});`;
+  `insert into public.push_subscriptions (id, user_id, endpoint, p256dh, auth, ua_short, timezone${extra ? ", " + extra.split("=")[0] : ""}) values ('${id}', '${user}', 'https://fcm.googleapis.com/fcm/send/${id}', 'k', 'a', 'Chrome', ${zoneExpr}${extra ? ", " + extra.split("=")[1] : ""});`;
 /** A claim result as one token: id|null, then the refusal or a dash. The id itself is random and is never printed. */
 export const claimTo = (name: string, args: string) =>
   `select 'R|${name}|' || (select case when c.id is null then 'null' else 'id' end || '/' || coalesce(c.refused, '-') from public.claim_notification(${args}) c);`;
@@ -169,7 +173,7 @@ export const claimTo = (name: string, args: string) =>
 export const draftSql = (id = M1) =>
   `insert into public.admin_messages (id, created_by, created_by_email, kind, title, body, channels, segment_key) values ('${id}', '${A1}', 'a1@example.test', 'service_announcement', 'Title', 'Body', array['inapp'], 'everyone');`;
 /** A valid device for U1. */
-export const deviceSql = (id = D1, user = U1, endpoint = `https://push.example.invalid/${id}`) =>
+export const deviceSql = (id = D1, user = U1, endpoint = `https://fcm.googleapis.com/fcm/send/${id}`) =>
   `insert into public.push_subscriptions (id, user_id, endpoint, p256dh, auth, ua_short) values ('${id}', '${user}', '${endpoint}', 'k', 'a', 'Chrome on Android');`;
 
 /**
@@ -263,11 +267,14 @@ function resultsOf(r: { ok: boolean; stdout: string; stderr: string }) {
  * Runs `body` after rolling back and re-applying 0265 as it is on disk, in a PRIVATE scratch database, all in one transaction that is rolled back. A test reports a result by selecting a line
  * `R|<name>|<value>`; `res` maps each name to its value (psql's own command tags are ignored). When the script fails, `ok` is false and `stderr` carries the SQLSTATE.
  */
-export function replay0265(body: string, opts: { forward?: string; rollback?: string; prelude?: string } = {}) {
+export function replay0265(body: string, opts: { forward?: string; rollback?: string; prelude?: string; only0265?: boolean } = {}) {
   requireN1Db();
   const forward = opts.forward ?? readMigration(F0265);
   const rollback = opts.rollback ?? readRollback(R0265);
-  const script = `begin;\n${rollback}\n${opts.prelude ?? ""}\n${forward}\n${EXPECT_FN}\n${body}\nrollback;`;
+  // CUMULATIVE (N1B-R9): 0273 is rolled back first and applied last, when its files exist; `only0265` replays 0265 alone.
+  const n1b = !opts.only0265 && haveFile("migrations", F0273);
+  const n1bRollback = !opts.only0265 && haveFile("rollbacks", R0273) ? readRollback(R0273) : "";
+  const script = `begin;\n${n1bRollback}\n${rollback}\n${opts.prelude ?? ""}\n${forward}\n${n1b ? readMigration(F0273) : ""}\n${EXPECT_FN}\n${body}\nrollback;`;
   return resultsOf(runN1ScratchSql(scratchDb(), script));
 }
 
@@ -302,15 +309,18 @@ export const IN_LIST = `(${TABLES.map((t) => `'${t}'`).join(", ")})`;
 export const FOUR = "DELETE,INSERT,SELECT,UPDATE";
 /** The exact grants (role: privileges) per table. The owner's own privileges are not listed. */
 export const EXPECTED_GRANTS: Record<(typeof TABLES)[number], string> = {
-  notification_deliveries: `service_role:${FOUR}`,
+  // FINAL state after 0265 and 0273 (N1B-R2, R6): the service role reads the ledger, the messages, the recipients and the audit rows, and writes them only through functions.
+  notification_deliveries: "service_role:SELECT",
   push_subscriptions: `authenticated:DELETE service_role:${FOUR}`,
-  admin_messages: `service_role:${FOUR}`,
-  admin_message_recipients: `service_role:${FOUR}`,
-  admin_message_events: "service_role:INSERT,SELECT",
+  admin_messages: "service_role:SELECT",
+  admin_message_recipients: "service_role:SELECT",
+  admin_message_events: "service_role:SELECT",
   notification_settings: "service_role:SELECT",
   notification_setting_changes: "service_role:INSERT,SELECT",
 };
 export const SAFE_COLUMNS = "created_at,id,last_seen_at,revoked_at,ua_short";
+/** Column-level grants outside push_subscriptions: the service role may update push_outcome and email_outcome of a recipient row (two grants). */
+export const COLUMN_GRANTS_ELSEWHERE = "2";
 export const OTHER_TABLES = TABLES.filter((t) => t !== "push_subscriptions");
 
 export const grantMatrix = () =>
@@ -364,7 +374,7 @@ export const COLUMNS: Record<string, Col[]> = {
   ],
   admin_message_events: [
     ["id", "uuid", "nn", GEN], ["message_id", "uuid", "null", ""], ["event", "text", "nn", ""], ["detail", "jsonb", "nn", "'{}'::jsonb"], ["actor_admin_id", "uuid", "null", ""],
-    ["actor_email", "text", "null", ""], ["at", "timestamp with time zone", "nn", NOW],
+    ["actor_email", "text", "null", ""], ["at", "timestamp with time zone", "nn", NOW], ["flag_state", "smallint", "null", ""],
   ],
   notification_settings: [
     ["key", "text", "nn", ""], ["int_value", "integer", "nn", ""], ["updated_by_email", "text", "null", ""], ["updated_at", "timestamp with time zone", "nn", NOW],
@@ -390,6 +400,9 @@ export const normalise = (s: string | undefined) => (s ?? "").split(" ; ").map((
 export const CONFIG = '{"search_path=\\"\\""}';
 export const FUNCTIONS: Record<string, { definer: boolean; role: "service_role" | "authenticated" | "nobody"; callable: boolean }> = {
   notification_in_quiet_hours: { definer: false, role: "nobody", callable: false },
+  create_admin_message: { definer: true, role: "service_role", callable: true },
+  record_admin_message_progress: { definer: true, role: "service_role", callable: true },
+  finish_admin_message_send: { definer: true, role: "service_role", callable: true },
   claim_notification: { definer: true, role: "service_role", callable: true },
   release_notification: { definer: true, role: "service_role", callable: true },
   mark_notification_sent: { definer: true, role: "service_role", callable: true },

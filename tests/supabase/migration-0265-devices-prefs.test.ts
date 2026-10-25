@@ -7,13 +7,13 @@ import { describe, expect, it } from "vitest";
 import { ZONE_INVALID_BOTH, ZONE_INVALID_DB_ONLY, ZONE_VALID } from "../support/n1-zone-cases";
 import { D1, D2, FIXTURES, R0265, U1, U2, asRole, probe, readRollback, replay0265, rowsOf, scalar } from "./migration-0265-support";
 
-const ep = (n: number | string) => `https://push.example.invalid/${n}`;
+const ep = (n: number | string) => `https://fcm.googleapis.com/fcm/send/${n}`;
 const lit = (v: string | null) => (v === null ? "null" : `'${v.replace(/'/g, "''")}'`);
 const call = (endpoint: string | null, opts: { p256dh?: string | null; auth?: string | null; ua?: string | null; zone?: string | null | undefined } = {}) =>
   `public.register_push_subscription(p_endpoint => ${lit(endpoint)}, p_p256dh => ${lit(opts.p256dh === undefined ? "k" : opts.p256dh)}, p_auth => ${lit(opts.auth === undefined ? "a" : opts.auth)}, p_ua => ${lit(opts.ua === undefined ? "Chrome on Android" : opts.ua)}${opts.zone === undefined ? "" : `, p_timezone => ${lit(opts.zone)}`})`;
 const reg = (name: string, endpoint: string, opts: Parameters<typeof call>[1] = {}) => `select 'R|${name}|' || (case when ${call(endpoint, opts)} is not null then 'id' else 'null' end);`;
 /** Between role blocks the owner clears the throwaway registrations, so a long script never reaches the ten-device limit (the person holds DELETE but no SELECT, so cannot delete by endpoint). */
-const CLEAR_TMP = "delete from public.push_subscriptions where endpoint not in ('https://push.example.invalid/1', 'https://push.example.invalid/2', 'https://push.example.invalid/3', 'https://push.example.invalid/4');";
+const CLEAR_TMP = "delete from public.push_subscriptions where endpoint not in ('https://fcm.googleapis.com/fcm/send/1', 'https://fcm.googleapis.com/fcm/send/2', 'https://fcm.googleapis.com/fcm/send/3', 'https://fcm.googleapis.com/fcm/send/4');";
 const x = (n: number) => "x".repeat(n);
 const asU1 = (lines: string[]) => asRole("authenticated", lines, U1);
 const asU2 = (lines: string[]) => asRole("authenticated", lines, U2);
@@ -33,14 +33,14 @@ describe("register_push_subscription: validation, in the fake's order", () => {
     CLEAR_TMP,
     asU1([
       ...ZONE_VALID.slice(5).map((z, i) => reg(`zone_ok_${i + 5}`, ep(`z${i + 5}`), { zone: z })),
-      probe("not_https", `select ${call("http://push.example.invalid/x")}`, "P0001", "not_https"),
-      probe("not_https_upper", `select ${call("HTTPS://push.example.invalid/x")}`, "P0001", "not_https"),
+      probe("not_https", `select ${call("http://fcm.googleapis.com/x")}`, "P0001", "not_https"),
+      probe("not_https_upper", `select ${call("HTTPS://fcm.googleapis.com/x")}`, "P0001", "not_https"),
       probe("not_https_first", `select ${call("http://" + x(2100))}`, "P0001", "not_https"),
-      reg("endpoint_2048", "https://" + x(2048 - 8)),
+      reg("endpoint_2048", "https://fcm.googleapis.com/" + x(2048 - 27)),
     ]),
     CLEAR_TMP,
     asU1([
-      probe("endpoint_2049", `select ${call("https://" + x(2049 - 8))}`, "P0001", "value_too_long"),
+      probe("endpoint_2049", `select ${call("https://fcm.googleapis.com/" + x(2049 - 27))}`, "P0001", "value_too_long"),
       reg("p256dh_256", ep(10), { p256dh: x(256) }),
       probe("p256dh_257", `select ${call(ep(11), { p256dh: x(257) })}`, "P0001", "value_too_long"),
       reg("auth_256", ep(12), { auth: x(256) }),
@@ -56,7 +56,7 @@ describe("register_push_subscription: validation, in the fake's order", () => {
     ]),
     scalar("stored_zones", `select string_agg(endpoint || '=' || timezone, ',' order by endpoint) from public.push_subscriptions where endpoint in ('${ep(1)}', '${ep(2)}', '${ep(3)}', '${ep(4)}')`),
     scalar("stored_row", `select user_id || '/' || ua_short || '/' || (last_seen_at is not null)::text || '/' || coalesce(revoked_at::text, 'none') from public.push_subscriptions where endpoint = '${ep(1)}'`),
-    scalar("refused_stored_nothing", `select count(*) from public.push_subscriptions where endpoint like '%/b%' or endpoint = 'http://push.example.invalid/x' or endpoint = '${ep(11)}'`),
+    scalar("refused_stored_nothing", `select count(*) from public.push_subscriptions where endpoint like '%/b%' or endpoint = 'http://fcm.googleapis.com/x' or endpoint = '${ep(11)}'`),
   ].join("\n");
   const r = replay0265(body);
 

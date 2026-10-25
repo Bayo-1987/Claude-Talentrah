@@ -20,7 +20,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import {
-  LocalGuardError, assertLocalGuard, createN1Scratch, dropN1Scratch, haveN1Db, listN1Scratch, localServiceSet, newScratchName, removeAuditRowsAsOwner, requireN1Db, runN1ScratchSql, sweepStaleN1Scratch,
+  LocalGuardError, N1_TIMEOUT_MS, assertLocalGuard, createN1Scratch, dropN1Scratch, haveN1Db, listN1Scratch, localServiceSet, newScratchName, removeAuditRowsAsOwner, removeLedgerRowsAsOwner, requireN1Db, runN1ScratchSql, sweepStaleN1Scratch,
 } from "./migration-0265-local-db";
 
 const ROOT = join(__dirname, "../..");
@@ -240,7 +240,7 @@ describe("scratch databases: creation, sweep and removal on the local stack", ()
   });
 
   it("a script runs in the scratch database it was given, and a failing script reports its SQLSTATE", () => {
-    const name = newScratchName(2_000_000_003);
+    const name = newScratchName(process.pid);
     createN1Scratch(name, "create table t (id int);");
     try {
       const ok = runN1ScratchSql(name, "select current_database();");
@@ -255,7 +255,7 @@ describe("scratch databases: creation, sweep and removal on the local stack", ()
   });
 
   it("dropping a name that is not there is not an error", () => {
-    expect(() => dropN1Scratch(newScratchName(2_000_000_004))).not.toThrow();
+    expect(() => dropN1Scratch(newScratchName(process.pid))).not.toThrow();
   });
 });
 
@@ -290,5 +290,51 @@ describe("removeAuditRowsAsOwner: the one place that switches triggers off to de
     expect(() => removeAuditRowsAsOwner(["x'; drop table t; --"], "http://127.0.0.1:55421", spy)).toThrow(/uuid/);
     removeAuditRowsAsOwner([], "http://127.0.0.1:55421", spy);
     expect(calls).toEqual([]);
+  });
+});
+
+describe("removeLedgerRowsAsOwner: the only place that deletes ledger rows by table, local stack only", () => {
+  const ID = "00000000-0000-4000-8000-0000000000c1";
+  const calls: string[] = [];
+  const spy = (script: string) => {
+    calls.push(script);
+    return { ok: true, stdout: "", stderr: "" };
+  };
+  it.each([
+    ["a hosted address", "https://abcdefgh.supabase.co"],
+    ["a private network address", "http://10.0.0.5:55421"],
+    ["a lookalike host", "http://127.0.0.1.evil.example:55421"],
+    ["localhost with user info", "http://user:pw@localhost:55421"],
+    ["an empty address", ""],
+  ])("refuses %s and runs nothing", (_n, url) => {
+    calls.length = 0;
+    expect(() => removeLedgerRowsAsOwner([ID], url, spy)).toThrow(LocalGuardError);
+    expect(calls).toEqual([]);
+  });
+  it.each(["http://127.0.0.1:55421", "http://localhost:55421"])("runs against %s, for the ids given only", (url) => {
+    calls.length = 0;
+    removeLedgerRowsAsOwner([ID], url, spy);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toContain(`'${ID}'`);
+    expect(calls[0]).toMatch(/^delete from public\.notification_deliveries where user_id in/);
+  });
+  it("refuses an id that is not a uuid, and an empty list does nothing", () => {
+    calls.length = 0;
+    expect(() => removeLedgerRowsAsOwner(["x'; drop table t; --"], "http://127.0.0.1:55421", spy)).toThrow(/uuid/);
+    removeLedgerRowsAsOwner([], "http://127.0.0.1:55421", spy);
+    expect(calls).toEqual([]);
+  });
+});
+
+describe("the timeout ceiling of the database test files (FIX N6)", () => {
+  it("the local-db helper, which every database test file imports, sets the test and hook ceilings to N1_TIMEOUT_MS (read from its source: vitest has no getter for the live value)", () => {
+    const source = readFileSync(join(__dirname, "migration-0265-local-db.ts"), "utf8");
+    expect(N1_TIMEOUT_MS).toBe(120_000);
+    expect(source).toContain("vi.setConfig({ testTimeout: N1_TIMEOUT_MS, hookTimeout: N1_TIMEOUT_MS });");
+    // and every database test file reaches it: each imports the helper or the support module that imports it
+    const files = readdirSync(__dirname).filter((f) => /^migration-0(264|265|273)-.*\.test\.ts$/.test(f) && f !== "migration-0273-c-rollback-order.test.ts");
+    const missing = files.filter((f) => !/migration-0265-(local-db|support)"/.test(readFileSync(join(__dirname, f), "utf8")));
+    expect(files.length).toBeGreaterThanOrEqual(15);
+    expect(missing).toEqual([]);
   });
 });

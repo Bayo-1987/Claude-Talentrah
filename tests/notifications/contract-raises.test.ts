@@ -11,7 +11,7 @@ import { FakeNotificationBackend } from "@/lib/notifications/fakes";
  *    permitted), and returns every business refusal as a row.
  *  - The release function raises P0001 only with the hint unknown_id.
  *  - Every other function raises 22023, 42501, or P0001 with the reason as the
- *    hint, from the existing 17 reason hints. No hint is added, removed or renamed.
+ *    hint, from the existing reason hints (17 in N1, 18 with host_not_allowed from N1B). No hint is added, removed or renamed.
  */
 let fake: FakeNotificationBackend;
 beforeEach(() => {
@@ -24,12 +24,12 @@ const errorOf = async (promise: Promise<unknown>) => {
   return (error as NotificationDbError).info;
 };
 
-describe("B3: the 17 reason hints", () => {
+describe("B3: the 18 reason hints", () => {
   it("are exactly these, in this order: none added, removed or renamed", () => {
     expect([...NOTIFICATION_REFUSAL_REASONS]).toEqual([
       "email_release_refused", "invalid_release_reason", "flag_off", "consent_required", "audience_over_limit",
       "operator_daily_limit", "overall_daily_limit", "self_approval", "kind_not_confirmed", "invalid_state",
-      "not_found", "unknown_id", "not_https", "value_too_long", "device_limit", "setting_key_unknown",
+      "not_found", "unknown_id", "not_https", "host_not_allowed", "value_too_long", "device_limit", "setting_key_unknown",
       "setting_value_out_of_range",
     ]);
   });

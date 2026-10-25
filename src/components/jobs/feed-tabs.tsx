@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { cn } from "@/lib/cn";
+import type { TrackedCountry } from "@/lib/jobs/country";
+import { feedTabHref } from "@/lib/jobs/feed-href";
 
 const TABS = [
   { key: "recommended", label: "Recommended" },
@@ -36,7 +38,8 @@ const TABS = [
  * ("open in new tab") and the no-JS fallback all still work exactly as
  * before.
  */
-export function FeedTabs({ active }: { active: string }) {
+/** `country` is the one the person chose, if any: it rides along on every tab link, so changing tab never resets it (and with none chosen the links name none). */
+export function FeedTabs({ active, country }: { active: string; country?: TrackedCountry }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [pendingTab, setPendingTab] = useState<string | null>(null);
@@ -50,7 +53,7 @@ export function FeedTabs({ active }: { active: string }) {
         return (
           <Link
             key={tab.key}
-            href={`/jobs?tab=${tab.key}`}
+            href={feedTabHref(tab.key, country)}
             aria-current={tabIsActive ? "page" : undefined}
             onClick={(e) => {
               if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
@@ -59,7 +62,7 @@ export function FeedTabs({ active }: { active: string }) {
               e.preventDefault();
               setPendingTab(tab.key);
               startTransition(() => {
-                router.push(`/jobs?tab=${tab.key}`);
+                router.push(feedTabHref(tab.key, country));
               });
             }}
             className={cn(

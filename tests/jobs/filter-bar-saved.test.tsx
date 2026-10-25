@@ -7,20 +7,20 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { FilterBar } from "@/components/jobs/filter-bar";
 
 const render = (tab: string) =>
-  renderToStaticMarkup(<FilterBar tab={tab} country="Nigeria" countryApplicable countryCounts={{ Nigeria: 3, Ghana: 0, Kenya: 0, "South Africa": 0 }} everyCountryCount={9} />);
+  renderToStaticMarkup(<FilterBar tab={tab} country="Nigeria" countryCounts={{ Nigeria: 3, Ghana: 0, Kenya: 0, "South Africa": 0 }} everyCountryCount={9} />);
 
 describe("FilterBar country control by tab", () => {
   it("is present on Recommended (control)", () => {
     const html = render("recommended");
     expect(html).toContain("filter-menu-country-desktop");
     expect(html).toContain("filter-menu-country-mobile");
-    expect(html).toContain("Every country");
+    expect(html).toContain("All countries");
   });
 
-  it("is absent on Saved: no country menu, no 'Every country', and no country chip", () => {
+  it("is absent on Saved: no country menu, no 'All countries', and no country chip", () => {
     const html = render("saved");
     expect(html).not.toContain("filter-menu-country");
-    expect(html).not.toContain("Every country");
+    expect(html).not.toContain("All countries");
     expect(html).not.toContain("Nigeria");
   });
 

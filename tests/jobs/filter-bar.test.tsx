@@ -83,26 +83,18 @@ describe("the search instrument", () => {
     expect(inner).toContain('href="/jobs?tab=saved">Clear filters');
   });
 
-  describe("Stage 12: Clear filters and the country default", () => {
-    it("does not add a country param when country was never applicable", () => {
+  describe("Clear filters and the country", () => {
+    it("does not add a country param when no country is chosen", () => {
       const inner = mergedControl(render({ workTypes: ["remote"] }));
       expect(inner).toContain('href="/jobs?tab=recommended">Clear filters');
     });
 
-    it(
-      "SABOTAGE-PROOF TARGET: re-asserts country=all even when country is ALREADY " +
-        "cleared (undefined) — otherwise clicking Clear filters after an explicit " +
-        "clear would silently let the profile default reassert itself",
-      () => {
-        const inner = mergedControl(
-          render({ workTypes: ["remote"], country: undefined, countryApplicable: true }),
-        );
-        expect(inner).toContain("Clear filters");
-        const clearHref = inner.match(/href="([^"]*)">Clear filters/)?.[1];
-        expect(clearHref, "Clear filters link not found").toBeTruthy();
-        expect(clearHref).toContain("country=all");
-      },
-    );
+    it("never writes country=all: no country param means every country, so clearing has nothing to re-assert (it used to, to beat a profile default that no longer exists)", () => {
+      const inner = mergedControl(render({ workTypes: ["remote"], country: "Nigeria" }));
+      const clearHref = inner.match(/href="([^"]*)">Clear filters/)?.[1];
+      expect(clearHref, "Clear filters link not found").toBeTruthy();
+      expect(clearHref).not.toContain("country");
+    });
   });
 
   it("carries every other filter through the hidden inputs when searching", () => {
@@ -164,7 +156,7 @@ describe("country and posted stay single-value", () => {
 
   it("the country button's face shows the live value", () => {
     expect(render({ country: "Ghana" })).toContain(">Ghana<");
-    expect(render()).toContain("Every country");
+    expect(render()).toContain("All countries");
   });
 
   it("posted toggles off rather than accumulating", () => {
@@ -215,11 +207,9 @@ describe("the active-filter summary line (P14)", () => {
     );
   });
 
-  it("the country chip removes with country=all, matching Clear filters' own rule", () => {
-    const html = render({ country: "Nigeria", countryApplicable: true });
-    expect(html).toMatch(
-      /aria-label="Remove Nigeria filter" class="[^"]*" href="[^"]*country=all[^"]*"/,
-    );
+  it("the country chip removes by dropping the param (no country param = every country), matching Clear filters' own rule", () => {
+    const html = render({ country: "Nigeria" });
+    expect(html).toMatch(/aria-label="Remove Nigeria filter" class="[^"]*" href="\/jobs\?tab=recommended"/);
   });
 });
 
