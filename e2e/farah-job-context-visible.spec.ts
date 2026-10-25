@@ -338,17 +338,19 @@ test.describe("Ask Farah on a job makes the panel visibly respond", () => {
       await expect(block).toBeVisible();
       await expectSeen(block);
       await expect(block.getByRole("button", { name: "Why is this a good fit for me?" })).toBeFocused();
-      // nothing fixed sits over an option: each option is inside the viewport and is the topmost thing at its centre
-      const state = await page.evaluate(() =>
-        [...document.querySelectorAll("[data-job-option]")].map((el) => {
+      // Nothing fixed sits over an option. On a short phone the sheet is at most 85% of the screen, so the last options may be below its fold (FARAH-SHORT-WINDOW-1, open): every option must be
+      // REACHABLE by scrolling the sheet, and when scrolled to, inside the viewport and the topmost thing at its centre.
+      const options = page.locator("[data-job-option]");
+      await expect(options).toHaveCount(4);
+      for (let i = 0; i < 4; i++) {
+        const option = options.nth(i);
+        await option.scrollIntoViewIfNeeded();
+        const o = await option.evaluate((el) => {
           const r = el.getBoundingClientRect();
           const top = document.elementFromPoint(r.left + r.width / 2, Math.min(Math.max(r.top + r.height / 2, 0), window.innerHeight - 1));
           return { label: (el as HTMLElement).innerText.slice(0, 20), inViewport: r.top >= 0 && r.bottom <= window.innerHeight, covered: !!top && !el.contains(top) && !top.contains(el) };
-        }),
-      );
-      expect(state).toHaveLength(4);
-      for (const o of state) {
-        expect(o.inViewport, `${o.label} is outside the viewport`).toBe(true);
+        });
+        expect(o.inViewport, `${o.label} is outside the viewport even after scrolling the sheet`).toBe(true);
         expect(o.covered, `${o.label} is covered`).toBe(false);
       }
       expect(chatRequests).toHaveLength(0);
