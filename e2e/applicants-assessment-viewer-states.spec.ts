@@ -3,16 +3,21 @@
  * made-up-id refusals, the two "nothing to show" states, a hostile and very long answer at 320 px, and a signed-out visitor. Every refusal is paired with the owner reading the answer in the same test.
  */
 import { randomUUID } from "node:crypto";
+import type { Browser, Page, TestInfo } from "@playwright/test";
 import { test, expect, admin } from "./fixtures/authed";
 import { deleteOrgsCascade, deletePostingsCascade } from "../tests/support/delete-orgs";
 
 const PATH = (jobId: string, applicationId: string) => `/employer/jobs/${jobId}/applicants/${applicationId}/assessment`;
 const HOSTILE = `<script>alert(1)</script><img src=x onerror=alert(1)><script>window.__pwned = true</script><b>bold</b> & ${"Z".repeat(5000)}`;
-const NOT_FOUND = /could not be found|not found|404/i;
+/**
+ * What a not-found page IS, here: the app's own not-found page (src/app/not-found.tsx) has one fixed <h1>, and it is the marker the other specs use too (e2e/not-found.spec.ts,
+ * employer-message-candidate.spec.ts, schedule-interview.spec.ts). It is looked for as a HEADING, never as words anywhere in the page text: the owner's pages print the job title, which carries
+ * this spec's random tag, and a tag of the form "404167" (6 hex characters can spell it) made a text pattern for "404" match a correct page. A user-controlled title cannot be this heading.
+ */
+const NOT_FOUND_HEADING = { name: "This page doesn't exist.", exact: true } as const;
 
-test("the assessment viewer: other job, made-up id, no response, no assessment, hostile long text, headers, signed out", async ({ authedPage: page, testUser, browser }, info) => {
-  test.setTimeout(180_000);
-  const tag = randomUUID().slice(0, 6);
+/** The scenario, with the tag that goes into every name it creates (organisation, job titles, applicant emails) passed in, so a test can choose it. */
+async function scenario({ page, testUser, browser, info }: { page: Page; testUser: { id: string }; browser: Browser; info: TestInfo }, tag: string) {
   const { data: org } = await admin.from("organizations").insert({ name: `E2E Employer Co AVS${tag}`, created_by: testUser.id, verified: true }).select("id").single();
   await admin.from("organization_members").insert({ organization_id: org!.id, user_id: testUser.id, role: "owner" });
   const mkJob = async (title: string) => {
@@ -39,7 +44,11 @@ test("the assessment viewer: other job, made-up id, no response, no assessment, 
   const read = async (path: string) => {
     const resp = await page.goto(path);
     await page.waitForLoadState("networkidle");
-    return { status: resp?.status() ?? 0, text: (await page.locator("body").innerText()).replace(/\s+/g, " ") };
+    return {
+      status: resp?.status() ?? 0,
+      text: (await page.locator("body").innerText()).replace(/\s+/g, " "),
+      notFound: (await page.getByRole("heading", NOT_FOUND_HEADING).count()) > 0,
+    };
   };
   try {
     // The owner's success: hostile text shows as TEXT, nothing runs, and nothing scrolls sideways at 390 px, 1280 px (and 320 px).
@@ -47,6 +56,7 @@ test("the assessment viewer: other job, made-up id, no response, no assessment, 
     page.on("dialog", (d) => { dialogs.push(d.message()); void d.dismiss(); });
     const owner = await read(PATH(jobA, appHostile));
     expect(owner.status, "the owner's page is a 200").toBe(200);
+    expect(owner.notFound, "the owner's page is not the not-found page (it has headings of its own, and none is the not-found heading)").toBe(false);
     expect(owner.text, "script shows as visible text").toContain("<script>alert(1)</script>");
     expect(owner.text, "img shows as visible text").toContain("<img src=x onerror=alert(1)>");
     expect(owner.text).toContain("<b>bold</b> &");
@@ -76,24 +86,24 @@ test("the assessment viewer: other job, made-up id, no response, no assessment, 
     expect((await read(PATH(jobB, appOtherJob))).text, "owner reads job B's own answer").toContain("job B's own answer");
     const wrongJob = await read(PATH(jobA, appOtherJob));
     expect(wrongJob.text).not.toContain("job B's own answer");
-    expect(wrongJob.status === 404 || NOT_FOUND.test(wrongJob.text), "another job's application is a not-found page").toBe(true);
+    expect(wrongJob.status === 404 || wrongJob.notFound, "another job's application is a not-found page").toBe(true);
     const madeUp = await read(PATH(jobA, randomUUID()));
-    expect(madeUp.status === 404 || NOT_FOUND.test(madeUp.text), "a made-up application id is a not-found page").toBe(true);
+    expect(madeUp.status === 404 || madeUp.notFound, "a made-up application id is a not-found page").toBe(true);
     const madeUpJob = await read(PATH(randomUUID(), appHostile));
-    expect(madeUpJob.status === 404 || NOT_FOUND.test(madeUpJob.text), "a made-up job id is a not-found page").toBe(true);
+    expect(madeUpJob.status === 404 || madeUpJob.notFound, "a made-up job id is a not-found page").toBe(true);
 
     // Nothing to show: a plain message for the OWNER, with a 200: not an error, not a blank page, not a 404.
     const noAnswer = await read(PATH(jobA, appNoAnswer));
     expect(noAnswer.status, "no response: a 200 page").toBe(200);
     expect(noAnswer.text).toContain("has not submitted an assessment response yet");
-    expect(noAnswer.text, "no response: not the not-found page").not.toMatch(NOT_FOUND);
+    expect(noAnswer.notFound, "no response: not the not-found page").toBe(false);
     expect(noAnswer.text.length).toBeGreaterThan(80);
     await page.screenshot({ fullPage: true, path: info.outputPath("no-response-yet.png") });
     await info.attach("no-response-yet", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
     const noAssessment = await read(PATH(jobNone, appNoAssessment));
     expect(noAssessment.status, "no assessment: a 200 page").toBe(200);
     expect(noAssessment.text).toContain("This job has no assessment");
-    expect(noAssessment.text, "no assessment: not the not-found page").not.toMatch(NOT_FOUND);
+    expect(noAssessment.notFound, "no assessment: not the not-found page").toBe(false);
     expect(noAssessment.text.length).toBeGreaterThan(80);
     await page.screenshot({ fullPage: true, path: info.outputPath("job-has-no-assessment.png") });
     await info.attach("job-has-no-assessment", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
@@ -127,4 +137,15 @@ test("the assessment viewer: other job, made-up id, no response, no assessment, 
     await deleteOrgsCascade(admin, [org!.id]);
     for (const u of users) await admin.auth.admin.deleteUser(u.id);
   }
+}
+
+test("the assessment viewer: other job, made-up id, no response, no assessment, hostile long text, headers, signed out", async ({ authedPage: page, testUser, browser }, info) => {
+  test.setTimeout(180_000);
+  await scenario({ page, testUser, browser, info }, randomUUID().slice(0, 6));
+});
+
+// The tag is random (6 hex characters) and ends up in every job title, which the owner's pages print. This run fixes it to one that contains "404", the case a random draw hit once in CI.
+test("the assessment viewer: the same scenario with a tag that contains 404 (job titles and the page text carry it)", async ({ authedPage: page, testUser, browser }, info) => {
+  test.setTimeout(180_000);
+  await scenario({ page, testUser, browser, info }, "404404");
 });
