@@ -96,7 +96,8 @@ describe("the install strip and the first-visit hint no longer point at a bar", 
     const hint = read("src/components/app-shell/farah-first-visit-hint.tsx");
     expect(hint).not.toContain("at the bottom of the");
     expect(hint).not.toContain("bottom-[76px]");
-    expect(hint).toContain("max-[759px]:hidden");
+    expect(hint).toContain("max-[760px]:hidden");
+    // JS media queries are inclusive (max-width: 759px is 759 and below); Tailwind's max-[760px] is exclusive (width < 760). Same set of widths.
     expect(hint).toMatch(/matchMedia\("\(max-width: 759px\)"\)/);
     expect(hint).toMatch(/if \(gone \|\| phone\) return null/);
   });
@@ -115,7 +116,7 @@ describe("Apply is never under the launcher", () => {
     for (const rel of ["src/components/jobs/job-card.tsx", "src/app/(app)/jobs/[id]/page.tsx"]) {
       const text = read(rel);
       expect(text, rel).toContain("data-farah-avoid");
-      expect(text, rel).toContain("max-[759px]:pr-[72px]");
+      expect(text, rel).toContain("max-[760px]:pr-[72px]");
     }
   });
 });

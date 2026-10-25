@@ -293,7 +293,7 @@ export function JobCard({
         <div
           data-testid="job-card-actions"
           data-farah-avoid="true"
-          className="relative flex flex-wrap items-center justify-end gap-2.5 max-[759px]:pr-[72px] min-[760px]:flex-nowrap"
+          className="relative flex flex-wrap items-center justify-end gap-2.5 max-[760px]:pr-[72px] min-[760px]:flex-nowrap"
         >
           <form action={toggleSaveAction.bind(null, job.id)}>
             {/*

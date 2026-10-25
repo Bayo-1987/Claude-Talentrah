@@ -136,7 +136,7 @@ export function FarahFirstVisitHint() {
       className={[
         "pointer-events-none fixed z-[19] w-[min(320px,calc(100vw-32px))] border-[1.5px] border-ink bg-card px-4 pt-3.5 pb-4 print:hidden",
         // below 760: no phone variant (the launcher announces itself); hidden for the first paint, removed from the page after mount.
-        "max-[759px]:hidden",
+        "max-[760px]:hidden",
         /*
          * 760 and up: released from the bottom and tucked under the masthead,
          * BESIDE the panel rather than over it.

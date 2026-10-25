@@ -75,6 +75,17 @@ test.describe("below 760px: the launcher replaces the bottom bar", () => {
   });
 });
 
+test.describe("the boundary is exactly 760", () => {
+  // Tailwind's max-[N] is EXCLUSIVE (width < N): a phone rule written max-[759px] missed 759 itself. The complement of the shell's min-[760px] is max-[760px].
+  for (const [width, phone] of [[758, true], [759, true], [760, false], [761, false]] as const) {
+    test(`${width}: ${phone ? "the launcher and the fixed sheet" : "the docked panel"}`, async ({ page }) => {
+      await open(page, width);
+      expect(await sheet(page).evaluate((el) => getComputedStyle(el).position)).toBe(phone ? "fixed" : "static");
+      await expect(launcher(page)).toBeVisible({ visible: phone });
+    });
+  }
+});
+
 test.describe("from 760px: nothing changes", () => {
   for (const width of [760, 1280]) {
     test(`${width}: no launcher, no scrim, the panel is the docked 280px column beside the content`, async ({ page }) => {

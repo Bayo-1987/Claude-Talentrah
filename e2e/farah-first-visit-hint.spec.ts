@@ -68,9 +68,10 @@ test.describe("the first-visit Farah hint", () => {
   test.afterEach(resetHint);
 
   test("on a phone there is no hint at all: the launcher announces itself (launcher plan Q4)", async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 844 });
+    await login(page);
     for (const width of [360, 390, 412, 759]) {
       await page.setViewportSize({ width, height: 844 });
-      await login(page);
       // Not just invisible: LEFT OUT OF THE PAGE, because the install strip waits while the hint is in the page and must not be held back by a hint nobody can see.
       await expect(page.getByTestId("farah-first-visit-hint"), `a hint at ${width}px`).toHaveCount(0);
       await expect(page.getByTestId("farah-launcher")).toBeVisible();

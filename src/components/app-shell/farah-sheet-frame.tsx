@@ -10,7 +10,7 @@ import type { ReactNode, Ref } from "react";
  * assistive technology, with no `aria-hidden`, which would also hide the docked panel from a desktop screen reader). Open, it is a modal dialog: about 85% of the screen at most, square
  * corners (decision Q7), the same paper-alt field, its own scroll that does not chain to the page.
  *
- * EVERY PHONE-ONLY RULE IS A `max-[759px]:` RULE, so none of them can reach 760px; the desktop hairline, tint and print rule stay on this same element exactly as they were
+ * EVERY PHONE-ONLY RULE IS A `max-[760px]:` RULE, so none of them can reach 760px; the desktop hairline, tint and print rule stay on this same element exactly as they were
  * (tests/farah/sheet-frame.test.tsx pins both halves).
  *
  * The state, the focus handling and the page-behind lock are in farah-sheet-host.tsx; this file is markup only.
@@ -48,9 +48,9 @@ export function FarahSheetFrame({ open, onClose, frameRef, scrimRef, onScrimTap,
         tabIndex={open ? -1 : undefined}
         className={[
           "bg-paper-alt min-[760px]:border-l min-[760px]:border-l-line print:hidden",
-          "max-[759px]:fixed max-[759px]:inset-x-0 max-[759px]:bottom-0 max-[759px]:z-[40] max-[759px]:flex max-[759px]:max-h-[85dvh] max-[759px]:flex-col",
-          "max-[759px]:overflow-y-auto max-[759px]:overscroll-contain max-[759px]:pb-[env(safe-area-inset-bottom)] max-[759px]:motion-safe:transition-transform max-[759px]:motion-safe:duration-200",
-          "data-[sheet=closed]:max-[759px]:invisible data-[sheet=closed]:max-[759px]:translate-y-full",
+          "max-[760px]:fixed max-[760px]:inset-x-0 max-[760px]:bottom-0 max-[760px]:z-[40] max-[760px]:flex max-[760px]:max-h-[85dvh] max-[760px]:flex-col",
+          "max-[760px]:overflow-y-auto max-[760px]:overscroll-contain max-[760px]:pb-[env(safe-area-inset-bottom)] max-[760px]:motion-safe:transition-transform max-[760px]:motion-safe:duration-200",
+          "data-[sheet=closed]:max-[760px]:invisible data-[sheet=closed]:max-[760px]:translate-y-full",
           "focus:outline-none",
         ].join(" ")}
       >

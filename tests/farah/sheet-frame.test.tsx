@@ -24,7 +24,7 @@ describe("the closed sheet", () => {
 
   it("is invisible below 760px (so it is out of the tab order and hidden from assistive technology) and has no dialog role", () => {
     expect(html).toContain('data-sheet="closed"');
-    expect(html).toMatch(/data-\[sheet=closed\]:max-\[759px\]:invisible/);
+    expect(html).toMatch(/data-\[sheet=closed\]:max-\[760px\]:invisible/);
     expect(html).not.toContain('role="dialog"');
     expect(html).not.toContain("aria-modal");
   });
@@ -62,7 +62,7 @@ describe("the open sheet", () => {
   });
 
   it("is about 85% of the viewport at most (dvh, so the browser toolbar does not push it off), with square corners and the paper-alt field", () => {
-    expect(html).toContain("max-[759px]:max-h-[85dvh]");
+    expect(html).toContain("max-[760px]:max-h-[85dvh]");
     expect(html).toContain("bg-paper-alt");
     expect(html).not.toMatch(/rounded/);
   });
@@ -73,7 +73,7 @@ describe("the open sheet", () => {
   });
 
   it("slides only if motion is allowed: the transition is a motion-safe rule, not a base rule with a motion-reduce override (the override LOST to the phone-only rule in the browser)", () => {
-    expect(html).toContain("max-[759px]:motion-safe:transition-transform");
+    expect(html).toContain("max-[760px]:motion-safe:transition-transform");
     expect(html).not.toMatch(/(?<!motion-safe:)transition-transform/);
   });
 });
@@ -85,7 +85,7 @@ describe("what does not change from 760px up", () => {
     expect(html).toContain("min-[760px]:border-l-line");
     expect(html).toContain("print:hidden");
   });
-  it("every phone-only rule is a max-[759px] rule, so none can reach 760", () => {
+  it("every phone-only rule is a max-[760px] rule, so none can reach 760", () => {
     const classes = /id="farah-sheet"[^>]*class="([^"]*)"|class="([^"]*)"[^>]*id="farah-sheet"/.exec(html);
     const list = (classes?.[1] ?? classes?.[2] ?? "").split(/\s+/);
     for (const c of list.filter((c) => /^(fixed|inset-x-0|bottom-0|z-\[40\]|translate-y-full)$/.test(c))) {

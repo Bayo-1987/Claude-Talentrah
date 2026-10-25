@@ -86,7 +86,7 @@ function Page({ options }: { options: Options }) {
             <div key={i} className="mb-6 flex flex-col gap-3.5 border-[1.5px] border-ink bg-card p-5">
               <p className="font-display text-[19px]">Job number {i + 1}</p>
               <p className="text-[14px] text-ink-soft">A short description that fills out the card a little so that the page is tall enough to scroll.</p>
-              <div data-testid="job-card-actions" data-farah-avoid="true" className="relative flex flex-wrap items-center justify-end gap-2.5 max-[759px]:pr-[72px] min-[760px]:flex-nowrap">
+              <div data-testid="job-card-actions" data-farah-avoid="true" className="relative flex flex-wrap items-center justify-end gap-2.5 max-[760px]:pr-[72px] min-[760px]:flex-nowrap">
                 <button type="button" className="h-10 w-10 border border-ink">S</button>
                 <FarahJobMenu jobId={`job-${i + 1}`} jobTitle={`Job number ${i + 1}`} companyName="Acme" />
                 <a href="#apply" data-testid={`apply-${i + 1}`} className="inline-flex min-h-10 items-center border-none bg-ink px-[18px] py-[10px] font-body text-[13.5px] font-semibold text-paper">

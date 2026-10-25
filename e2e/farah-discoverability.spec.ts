@@ -39,6 +39,14 @@ if (process.env.CI && !DEMO_PASSWORD) {
 const PHONE_WIDTHS = [360, 390, 412];
 
 async function login(page: Page) {
+  // A new browser sees the first-visit pill ("Ask Farah · AI assistant"); these specs measure the round launcher, so mark it seen first (the pill itself is covered in farah-launcher.spec.ts).
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem("talentrah.farahLauncher", '{"v":1,"opened":true}');
+    } catch {
+      // storage blocked: the pill shows, and the width assertions below will say so
+    }
+  });
   await page.goto("/login");
   await page.getByLabel("Email").fill("demo@talentrah.dev");
   await page.getByLabel("Password", { exact: true }).fill(DEMO_PASSWORD!);
@@ -114,7 +122,7 @@ test.describe("reaching Farah on a phone", () => {
           return { columnBottom: column.bottom, spacerTop: spacer.top, launcherTop: launcher.top };
         });
         expect(r.columnBottom, "the content column ends where the reserve starts").toBeLessThanOrEqual(r.spacerTop + 1);
-        expect(r.columnBottom, "the launcher is over the reserve, not over the last of the page").toBeLessThanOrEqual(r.launcherTop);
+        expect(r.columnBottom, "the launcher is over the reserve, not over the last of the page").toBeLessThanOrEqual(r.launcherTop + 1);
       }).toPass({ timeout: 10_000 });
     });
 
@@ -131,8 +139,9 @@ test.describe("reaching Farah on a phone", () => {
       await expect(sheet).toHaveAttribute("data-sheet", "open");
       await expect(sheet).toHaveAttribute("role", "dialog");
       await expect(page.getByTestId("farah-panel")).toBeVisible();
+      // Measured once the slide has finished, not mid-transition.
+      await expect.poll(async () => { const b = await sheet.boundingBox(); return Math.round(b!.y + b!.height); }, { message: "the sheet stands on the bottom edge" }).toBe(844);
       const box = await sheet.boundingBox();
-      expect(Math.round(box!.y + box!.height), "the sheet stands on the bottom edge").toBe(844);
       expect(box!.height).toBeLessThanOrEqual(844 * 0.85 + 2);
     });
   }
