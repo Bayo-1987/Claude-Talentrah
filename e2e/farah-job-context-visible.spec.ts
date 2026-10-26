@@ -1,7 +1,7 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { clearDemoFarahThread } from "./fixtures/farah-thread";
+import { clearDemoFarahThread, demoFarahHintDismissedAt, resetDemoFarahHint, setDemoFarahHintDismissedAt } from "./fixtures/farah-thread";
 import { waitForWorkerControl } from "./support/pwa";
 
 /**
@@ -145,6 +145,15 @@ test.describe("Ask Farah on a job makes the panel visibly respond", () => {
   test.skip(!DEMO_PASSWORD, "DEMO_PASSWORD is not set — see scripts/seed.ts");
   test.beforeEach(async () => {
     await clearDemoFarahThread();
+    // The hint is on the page only while the demo profile's flag is null, and the pair of install-strip tests dismisses it. Nothing else puts it back, so every test starts from "never seen it".
+    await resetDemoFarahHint();
+  });
+
+  // The flag the demo account is left in is what every later spec in the shard runs against, and the install strip waits while the hint is in the page. This file's tests dismiss the hint (the pair of install-strip tests clicks "Got it") and the dismissal is
+  // an un-awaited Server Action, so before this fix the end state was whatever that race left (null on fast machines, dismissed when a write landed). It is now always "never dismissed", which is also what the seeded account starts as and what the unmodified file left on every local run.
+  test.afterAll(async () => {
+    await setDemoFarahHintDismissedAt(null);
+    expect(await demoFarahHintDismissedAt(), "the hint flag must be left null so the file's end state is deterministic").toBeNull();
   });
 
   test("mid-conversation, on a wide screen: the new block is scrolled into view with the job's chip, labelled options and a divider; focus and the announcement follow; nothing is sent", async ({ page }) => {
@@ -373,8 +382,31 @@ test.describe("Ask Farah on a job makes the panel visibly respond", () => {
       await page.getByRole("button", { name: "Got it" }).click();
       await firePrompt(page);
       await expect(strip).toBeVisible();
+      // The dismissal is an optimistic, fire-and-forget Server Action: the box goes on the click and the profile is written afterwards. Ending the test here let that write land during the NEXT test's page load, which then
+      // found no hint (the 390x667 test, main run 40227282842). Wait for the write, as e2e/farah-first-visit-hint.spec.ts does.
+      await expect(async () => {
+        expect(await demoFarahHintDismissedAt(), "the dismissal was never persisted").not.toBeNull();
+      }).toPass({ timeout: 10_000 });
     });
   }
+
+  test("guard: the reset puts a dismissed demo account back to never-seen, so the hint renders on a phone", async ({ page }) => {
+    await setDemoFarahHintDismissedAt(new Date().toISOString());
+    expect(await demoFarahHintDismissedAt(), "the arrangement: dismissed").not.toBeNull();
+    await resetDemoFarahHint();
+    expect(await demoFarahHintDismissedAt(), "the helper did not clear the flag").toBeNull();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await arrange(page, { thread: true });
+    await login(page);
+    await expect(page.getByTestId("farah-first-visit-hint")).toBeVisible();
+  });
+
+  test("guard: the flag helper refuses to pass silently when Supabase refuses the update or no row matches", async () => {
+    const refused = { from: () => ({ update: () => ({ eq: () => ({ select: async () => ({ data: null, error: { message: "refused" } }) }) }) }) } as unknown as Parameters<typeof resetDemoFarahHint>[0];
+    await expect(resetDemoFarahHint(refused)).rejects.toThrow(/refused/);
+    const noRow = { from: () => ({ update: () => ({ eq: () => ({ select: async () => ({ data: [], error: null }) }) }) }) } as unknown as Parameters<typeof resetDemoFarahHint>[0];
+    await expect(resetDemoFarahHint(noRow)).rejects.toThrow(/expected exactly 1/);
+  });
 
   test("on a narrow screen the stacked panel is brought into view and the new block is on screen", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });

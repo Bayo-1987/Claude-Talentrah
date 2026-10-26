@@ -18,3 +18,27 @@ export async function clearDemoFarahThread(): Promise<void> {
   const { error } = await admin.from("farah_messages").delete().eq("user_id", profile.id);
   if (error) throw new Error(`could not clear the demo user's Farah thread: ${error.message}`);
 }
+
+/**
+ * The demo account's Farah first-visit hint flag (profiles.farah_hint_dismissed_at). The hint is rendered by the SERVER only while this is null (src/components/app-shell/app-shell.tsx), and the dismissal is a fire-and-forget Server
+ * Action, so a spec that needs the hint on screen must put the flag back itself and must wait for any dismissal it causes. The shared demo account is used by every spec in a shard, one after another (workers: 1).
+ *
+ * Checked, not fired and forgotten: a rejected Supabase update resolves with an `error` (CLAUDE.md), and an update that matches no row also "succeeds", so the row count is checked too.
+ */
+export async function setDemoFarahHintDismissedAt(value: string | null, admin: ReturnType<typeof createGuardedAdmin> = createGuardedAdmin()): Promise<void> {
+  const { data, error } = await admin.from("profiles").update({ farah_hint_dismissed_at: value }).eq("email", "demo@talentrah.dev").select("id");
+  if (error) throw new Error(`could not set the demo user's Farah hint flag: ${error.message}`);
+  if (!data || data.length !== 1) throw new Error(`the demo user's Farah hint flag update touched ${data?.length ?? 0} rows, expected exactly 1`);
+}
+
+/** Back to "never seen it", so the hint renders. */
+export function resetDemoFarahHint(admin?: ReturnType<typeof createGuardedAdmin>): Promise<void> {
+  return setDemoFarahHintDismissedAt(null, admin);
+}
+
+export async function demoFarahHintDismissedAt(): Promise<string | null> {
+  const admin = createGuardedAdmin();
+  const { data, error } = await admin.from("profiles").select("farah_hint_dismissed_at").eq("email", "demo@talentrah.dev").single();
+  if (error || !data) throw new Error(`could not read the demo user's Farah hint flag: ${error?.message}`);
+  return data.farah_hint_dismissed_at;
+}
