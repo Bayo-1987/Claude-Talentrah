@@ -63,7 +63,7 @@ export default async function PersonLookupPage() {
       <p className="text-[14px] text-ink-soft">
         Looking for a full list instead?{" "}
         <Link href="/admin/people/signups" className="underline">
-          Job-seeker signups
+          Signups
         </Link>{" "}
         lists everyone, newest first — and records each view.
       </p>
