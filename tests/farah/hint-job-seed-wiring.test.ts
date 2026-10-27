@@ -17,7 +17,8 @@ describe("the first-visit hint and a job arriving", () => {
   });
   it("steps aside by hiding the card with the hidden attribute and KEEPS it in the page, because the install strip's rule is 'the hint is in the page' (src/lib/pwa/install-state.ts): removing it would release the strip over the job options on a short phone", () => {
     expect(code).toMatch(/hidden=\{aside\}/);
-    expect(code).toMatch(/if \(gone\) return null;/);
+    // Launcher PR-2: the hint also leaves the page below 760px (no phone variant; the launcher announces itself), which is why this reads `gone || phone`. Still removed only for those two reasons, never for `aside`.
+    expect(code).toMatch(/if \(gone \|\| phone\) return null;/);
     expect(code).not.toMatch(/if \(aside\) return null;/);
   });
   it("only hides: it does not dismiss for good (no server action in that path), and the hint's own buttons still do", () => {

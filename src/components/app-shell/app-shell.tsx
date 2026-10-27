@@ -4,7 +4,7 @@ import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { GoogleOneTap } from "@/components/auth/google-one-tap";
 import { Masthead } from "@/components/app-shell/masthead";
 import { FarahPanel } from "@/components/app-shell/farah-panel";
-import { FarahMobileTab } from "@/components/app-shell/farah-mobile-tab";
+import { FarahSheetHost } from "@/components/app-shell/farah-sheet-host";
 import { FarahFirstVisitHint } from "@/components/app-shell/farah-first-visit-hint";
 import { visibleName, fullVisibleName, nameInitials } from "@/lib/profile/name";
 import { getActivePass } from "@/lib/passes/entitlement";
@@ -135,7 +135,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
    * is request-memoized, so a page that also needs pass state shares this
    * one call rather than making a second.
    *
-   * `hasUnreadNotification` is a NEW query here, added for FarahMobileTab's
+   * `hasUnreadNotification` is a NEW query here, added for the Farah launcher's
    * own notification dot — and it belongs in this file for the same reason
    * `getActivePass` does, not despite the warning above it. It is chrome
    * (the mobile tab's dot), not content: a single indexed EXISTENCE check
@@ -198,11 +198,11 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         padding: measured 0px at 360, 30px at 390, 52px at 412. Not "cramped" —
         a content column of zero.
 
-        Reflow rather than a launcher-and-sheet, and the reason is state. The
-        panel is a client component holding a Farah conversation; a sheet means
-        conditionally rendering it, which unmounts it and throws the
-        conversation away on every rotation. Changing flex-direction moves the
-        same mounted element, so nothing is lost crossing the breakpoint.
+        Below 760px the panel is a bottom sheet behind a launcher (FarahSheetHost), and the reason it is
+        not a conditional render is state. The panel is a client component holding a Farah conversation;
+        unmounting it throws the conversation away on every rotation. The host keeps the ONE mounted
+        element and only re-presents it (fixed and hidden when closed, a dialog when open), so nothing is
+        lost crossing the breakpoint. From 760px it is the docked column, exactly as before.
       */}
       <main
         id="main-content"
@@ -242,9 +242,9 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           itself: those DO mark where Farah's content begins, which is not the
           same place as where her column begins.
         */}
-        <div className="bg-paper-alt min-[760px]:border-l min-[760px]:border-l-line print:hidden">
+        <FarahSheetHost hasUnreadNotification={hasUnread}>
           <FarahPanel firstName={visibleName(profile.first_name) || "there"} />
-        </div>
+        </FarahSheetHost>
       </main>
       {/*
         The install-to-home-screen strip: signed-in shell only (this branch), never the signed-out branch above or any marketing page. It
@@ -252,12 +252,6 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         nothing when it mounts after hydration) and sits last in DOM order, so the skip link stays the first Tab stop. Lazy and client-only; see src/components/pwa/install-strip.tsx.
       */}
       <InstallStripLazy />
-      {/*
-        Rendered from the AUTHENTICATED shell only. The marketing pages under
-        (marketing) have their own layout and no Farah panel, so a global tab
-        would point at an element that is not there.
-      */}
-      <FarahMobileTab hasUnreadNotification={hasUnread} />
       {/*
         The first-visit hint, gated on the SERVER rather than in the client.
 

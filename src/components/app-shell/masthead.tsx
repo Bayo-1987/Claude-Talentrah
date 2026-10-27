@@ -553,7 +553,7 @@ export function Masthead({
             */}
             <button
               type="button"
-              onClick={scrollToFarahPanel}
+              onClick={() => scrollToFarahPanel()}
               className="hidden min-h-10 min-w-10 items-center justify-center gap-1.5 border-b-[2.5px] border-transparent font-body text-[14.5px] font-semibold text-ink hover:text-rust-hover 2xl:flex"
             >
               <FarahMark size={18} />

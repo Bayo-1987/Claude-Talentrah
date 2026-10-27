@@ -67,19 +67,33 @@ test.describe("the first-visit Farah hint", () => {
   test.beforeEach(resetHint);
   test.afterEach(resetHint);
 
+  test("on a phone there is no hint at all: the launcher announces itself (launcher plan Q4)", async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 844 });
+    await login(page);
+    for (const width of [360, 390, 412, 759]) {
+      await page.setViewportSize({ width, height: 844 });
+      // Not just invisible: LEFT OUT OF THE PAGE, because the install strip waits while the hint is in the page and must not be held back by a hint nobody can see.
+      await expect(page.getByTestId("farah-first-visit-hint"), `a hint at ${width}px`).toHaveCount(0);
+      await expect(page.getByTestId("farah-launcher")).toBeVisible();
+    }
+    // …and nothing was written to the profile: on a wider screen it is still there, undismissed.
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await expect(page.getByTestId("farah-first-visit-hint")).toBeVisible();
+  });
+
   test("names the affordance that is actually on screen, at every width", async ({ page }) => {
     test.setTimeout(120_000);
-    await page.setViewportSize({ width: 390, height: 844 });
+    await page.setViewportSize({ width: 1024, height: 900 });
     await login(page);
 
     /*
      * Expected sentence per width, keyed to the same breakpoints the
-     * affordances use — 760 for the mobile bar, 2xl (1536) for the nav item.
+     * affordances use — 760 for the docked panel, 2xl (1536) for the nav item.
+     * (Below 760 there is no hint: see the test above.)
      * `innerText` returns only VISIBLE text, so finding one variant is also
      * proof the other two are hidden rather than merely present.
      */
     const cases = [
-      { width: 390, expect: "at the bottom of the screen", not: ["in the menu bar"] },
       { width: 1024, expect: "stays there as you scroll", not: ["at the bottom of the screen"] },
       { width: 1280, expect: "stays there as you scroll", not: ["in the menu bar"] },
       { width: 1536, expect: "in the menu bar", not: ["stays there as you scroll"] },
@@ -104,18 +118,14 @@ test.describe("the first-visit Farah hint", () => {
       const geometry = await page.evaluate(() => {
         const el = document.querySelector('[data-testid="farah-first-visit-hint"]')!;
         const panel = document.querySelector('[data-testid="farah-panel"]')!;
-        const tab = document.querySelector('[data-testid="farah-mobile-tab"]') as HTMLElement | null;
         const b = el.getBoundingClientRect();
         const p = panel.getBoundingClientRect();
-        const tabVisible = tab && getComputedStyle(tab).display !== "none";
-        const t = tabVisible ? tab!.getBoundingClientRect() : null;
         return {
           zIndex: Number(getComputedStyle(el).zIndex),
           // Real 2-D overlap. A horizontal-only test reports a false positive
           // on a phone, where the panel is full-width but far below the fold.
           coversPanel:
             b.right > p.left && b.left < p.right && b.bottom > p.top && b.top < p.bottom,
-          clearsTab: t ? b.bottom <= t.top : null,
           withinViewport: b.left >= 0 && b.right <= document.documentElement.clientWidth,
         };
       });
@@ -125,12 +135,9 @@ test.describe("the first-visit Farah hint", () => {
         `at ${c.width}px the hint sits on the panel it is pointing at`,
       ).toBe(false);
       expect(geometry.withinViewport, `the hint is off screen at ${c.width}px`).toBe(true);
-      // Above the bar (18), below the masthead band (20).
+      // Above the launcher and the rest of the fixed chrome (18), below the masthead band (20).
       expect(geometry.zIndex).toBeGreaterThan(18);
       expect(geometry.zIndex).toBeLessThan(20);
-      if (geometry.clearsTab !== null) {
-        expect(geometry.clearsTab, "the hint covers the bar it points at").toBe(true);
-      }
     }
   });
 
@@ -220,7 +227,8 @@ test.describe("the first-visit Farah hint", () => {
   });
 
   test("'Show me' also dismisses, so following the hint counts as seeing it", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
+    // 1024: a width that has the hint (a phone has none). The panel is the docked column there, so it is on screen once the hint has gone.
+    await page.setViewportSize({ width: 1024, height: 900 });
     await login(page);
 
     const hint = page.getByTestId("farah-first-visit-hint");

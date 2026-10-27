@@ -40,10 +40,12 @@ import { useMounted, mountedTriggerProps } from "@/hooks/use-mounted";
  * WHY A WINDOW EVENT AND A SCROLL CALL, NOT PROPS OR STATE. See job-seed.ts's
  * own header — the docked panel is a sibling several component trees away,
  * under a Server Component layout that cannot hold client state itself.
- * `scrollToFarahPanel` is the exact function the mobile tab's own "Ask
- * Farah" button already uses for the same reason; calling it here means a
- * desktop reader mid-feed and a phone reader both land on the seeded panel,
- * with no separate mobile-specific wiring.
+ * `scrollToFarahPanel` is the one function every way into Farah uses; calling
+ * it here means a desktop reader mid-feed and a phone reader (whose panel is the
+ * bottom sheet) both land on the seeded panel. The seed is handed to it as the
+ * follow-up, NOT sent first: on a phone the panel is hidden until the sheet has
+ * opened, and the panel moves focus to the new job's first option when the seed
+ * arrives, which cannot work on an element that is still hidden.
  */
 
 export interface FarahJobMenuProps {
@@ -59,10 +61,7 @@ export function FarahJobMenu({ jobId, jobTitle, companyName }: FarahJobMenuProps
   return (
     <button
       type="button"
-      onClick={() => {
-        seedFarahForJob({ jobId, jobTitle, companyName });
-        scrollToFarahPanel();
-      }}
+      onClick={() => scrollToFarahPanel(() => seedFarahForJob({ jobId, jobTitle, companyName }))}
       className="inline-flex min-h-10 items-center py-2 text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-ink-soft"
       {...mountedTriggerProps(mounted)}
     >

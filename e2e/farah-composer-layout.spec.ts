@@ -9,6 +9,7 @@
  *
  * The stub LLM answers (requireStubbedLlm refuses a real model), so nothing here depends on a model.
  */
+import { openFarahPanelIfSheet } from "./support/farah-sheet";
 import type { Page } from "@playwright/test";
 import { test, expect, requireStubbedLlm } from "./fixtures/authed";
 
@@ -32,6 +33,7 @@ for (const { name, width, height } of WIDTHS) {
     test("no sideways scroll, the user's message is visible, the counter appears near the limit, the send button is at least 44px", async ({ authedPage: page }) => {
       await requireStubbedLlm(page);
       await page.goto("/tracker");
+      await openFarahPanelIfSheet(page); // a phone's panel is the bottom sheet
       const box = page.getByPlaceholder("Ask me anything…");
       await box.scrollIntoViewIfNeeded();
       await expect(box).toBeVisible();

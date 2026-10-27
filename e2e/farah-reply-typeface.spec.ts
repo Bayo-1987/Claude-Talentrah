@@ -3,6 +3,7 @@
  * The reply is written straight to farah_messages for the test user (no LLM), then read back on a page the panel is on, in a browser at 360 x 800.
  * The unit pins are tests/farah/reply-typeface.test.tsx; this proves the computed style and the width in a real browser.
  */
+import { openFarahPanelIfSheet } from "./support/farah-sheet";
 import { test, expect, admin } from "./fixtures/authed";
 
 // A very long unbroken run, built at run time (no long literal in the source): 90 letters plus path-like separators with no spaces, the shape of a pasted URL.
@@ -20,6 +21,7 @@ test("a Farah reply is upright body text with italic only on the emphasised word
   if (error) throw new Error(`could not seed the Farah thread: ${error.message}`);
 
   await authedPage.goto("/tracker");
+  await openFarahPanelIfSheet(authedPage); // 360px: the panel is the bottom sheet
   const reply = authedPage.getByTestId("farah-message").filter({ hasText: "Start with the number you can defend" });
   await expect(reply).toBeVisible();
 

@@ -309,73 +309,62 @@ test.describe("Ask Farah on a job makes the panel visibly respond", () => {
     });
   }
 
-  test("phone: the first-visit hint steps aside when a job is handed to Farah, and comes back on the next page load (hidden, not dismissed for good)", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 667 });
-    const chatRequests = await arrange(page, { thread: true });
-    await login(page);
-    const panel = page.getByTestId("farah-panel");
-    await expect(panel.getByTestId("farah-message")).toHaveCount(10);
-    const hint = page.getByTestId("farah-first-visit-hint");
-    await expect(hint).toBeVisible();
-    const card = page.getByTestId("job-card").first();
-    await card.scrollIntoViewIfNeeded();
-    await card.getByRole("button", { name: "Ask Farah" }).click();
-    await expect(panel.getByTestId("job-seed-block")).toBeVisible();
-    await expect(hint).toBeHidden();
-    // nothing covers the options: with the hint out of sight, no option is under a fixed card
-    await expect(async () => {
-      const covered = await page.evaluate(() => [...document.querySelectorAll("[data-job-option]")].some((el) => {
-        const r = el.getBoundingClientRect();
-        const top = document.elementFromPoint(r.left + r.width / 2, Math.min(Math.max(r.top + r.height / 2, 0), window.innerHeight - 1));
-        return !!top && !el.contains(top) && top.closest('[data-testid="farah-first-visit-hint"]') !== null;
-      }));
-      expect(covered).toBe(false);
-    }).toPass({ timeout: 5_000 });
-    expect(chatRequests).toHaveLength(0);
-    // hidden for this page view only: a reload brings it back (the profile was not written to)
-    await page.reload();
-    await expect(page.getByTestId("farah-first-visit-hint")).toBeVisible();
-  });
-
+  /*
+   * LAUNCHER PLAN PR-2. Below 760px there is no first-visit hint (the launcher announces itself) and the panel is the bottom sheet. The old phone tests here were about the hint stepping
+   * aside for a job and about the install strip waiting for it; with no hint on a phone, what is left to prove is: the strip is NOT held back, "Ask Farah" on a card opens the sheet, the seed
+   * arrives after the sheet is open (so focus lands on the first option), and nothing fixed covers an option.
+   */
   for (const [w, h] of [[390, 844], [390, 667]] as const) {
-    test(`phone ${w}x${h}: the hint stepping aside does NOT release the install strip, so nothing fixed covers a job option`, async ({ page }) => {
+    test(`phone ${w}x${h}: the strip is not held back; Ask Farah opens the sheet with the job on screen, focus on its first option, and nothing covering an option`, async ({ page }) => {
       await page.setViewportSize({ width: w, height: h });
       await page.addInitScript(() => localStorage.setItem("talentrah-cookie-consent", "accepted"));
       const chatRequests = await arrange(page, { thread: true });
       await login(page);
       const panel = page.getByTestId("farah-panel");
-      await expect(panel.getByTestId("farah-message")).toHaveCount(10);
       await waitForWorkerControl(page);
       const strip = page.getByTestId("install-strip");
-      await expect(page.getByTestId("farah-first-visit-hint")).toBeVisible();
+      await expect(page.getByTestId("farah-first-visit-hint"), "no hint on a phone").toHaveCount(0);
       await firePrompt(page);
-      await page.waitForTimeout(700);
-      await expect(strip, "while the hint is on screen the strip waits (existing rule)").toHaveCount(0);
+      await expect(strip, "with no hint in the page the strip is not held back").toBeVisible();
+      await page.getByRole("button", { name: "Not now" }).click();
 
+      const sheet = page.getByTestId("farah-sheet");
+      await expect(sheet).toHaveAttribute("data-sheet", "closed");
       const card = page.getByTestId("job-card").first();
       await card.scrollIntoViewIfNeeded();
       await card.getByRole("button", { name: "Ask Farah" }).click();
-      await expect(page.getByTestId("farah-first-visit-hint")).toBeHidden();
+      await expect(sheet).toHaveAttribute("data-sheet", "open");
       const block = panel.getByTestId("job-seed-block");
       await expect(block).toBeVisible();
       await expectSeen(block);
-      // the strip's own rule (src/lib/pwa/install-state.ts) is "the hint is in the page": the hint stepped aside for the job, it did not leave, so the strip keeps waiting until the hint is dismissed
-      await page.waitForTimeout(1200);
-      await expect(strip, "the hint going out of sight must not release the install strip over the job options").toHaveCount(0);
-      // and nothing fixed sits over an option: each option is inside the viewport and is the topmost thing at its centre
-      const state = await page.evaluate(() =>
-        [...document.querySelectorAll("[data-job-option]")].map((el) => {
+      await expect(block.getByRole("button", { name: "Why is this a good fit for me?" })).toBeFocused();
+      // Nothing fixed sits over an option. On a short phone the sheet is at most 85% of the screen, so the last options may be below its fold (FARAH-SHORT-WINDOW-1, open): every option must be
+      // REACHABLE by scrolling the sheet, and when scrolled to, inside the viewport and the topmost thing at its centre.
+      const options = page.locator("[data-job-option]");
+      await expect(options).toHaveCount(4);
+      for (let i = 0; i < 4; i++) {
+        const option = options.nth(i);
+        await option.scrollIntoViewIfNeeded();
+        const o = await option.evaluate((el) => {
           const r = el.getBoundingClientRect();
           const top = document.elementFromPoint(r.left + r.width / 2, Math.min(Math.max(r.top + r.height / 2, 0), window.innerHeight - 1));
-          return { label: (el as HTMLElement).innerText.slice(0, 20), inViewport: r.top >= 0 && r.bottom <= window.innerHeight, coveredBy: top && !el.contains(top) ? ((top.closest("[data-testid]") as HTMLElement | null)?.dataset.testid ?? top.tagName) : null };
-        }),
-      );
-      expect(state).toHaveLength(4);
-      for (const o of state) {
-        expect(o.inViewport, `${o.label} is outside the viewport`).toBe(true);
-        expect(o.coveredBy, `${o.label} is covered by ${o.coveredBy}`).toBeNull();
+          return { label: (el as HTMLElement).innerText.slice(0, 20), inViewport: r.top >= 0 && r.bottom <= window.innerHeight, covered: !!top && !el.contains(top) && !top.contains(el) };
+        });
+        expect(o.inViewport, `${o.label} is outside the viewport even after scrolling the sheet`).toBe(true);
+        expect(o.covered, `${o.label} is covered`).toBe(false);
       }
       expect(chatRequests).toHaveLength(0);
+    });
+  }
+
+  // Moved here from the end of the two phone tests (S3's FIX-FARAH-HINT-FLAKE-1) unchanged: a phone has no first-visit hint any more (the launcher announces itself), so the dismissal runs at a width that has one.
+  test("dismissing the hint properly lets the strip come", async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await page.addInitScript(() => localStorage.setItem("talentrah-cookie-consent", "accepted"));
+    await arrange(page, { thread: true });
+    await login(page);
+    await waitForWorkerControl(page);
+    const strip = page.getByTestId("install-strip");
       // dismissing the hint properly (its own button) still lets the strip come, as before
       await page.reload();
       await expect(page.getByTestId("farah-first-visit-hint")).toBeVisible();
@@ -388,14 +377,13 @@ test.describe("Ask Farah on a job makes the panel visibly respond", () => {
         expect(await demoFarahHintDismissedAt(), "the dismissal was never persisted").not.toBeNull();
       }).toPass({ timeout: 10_000 });
     });
-  }
 
-  test("guard: the reset puts a dismissed demo account back to never-seen, so the hint renders on a phone", async ({ page }) => {
+  test("guard: the reset puts a dismissed demo account back to never-seen, so the hint renders on a wide screen", async ({ page }) => {
     await setDemoFarahHintDismissedAt(new Date().toISOString());
     expect(await demoFarahHintDismissedAt(), "the arrangement: dismissed").not.toBeNull();
     await resetDemoFarahHint();
     expect(await demoFarahHintDismissedAt(), "the helper did not clear the flag").toBeNull();
-    await page.setViewportSize({ width: 390, height: 844 });
+    await page.setViewportSize({ width: 1024, height: 900 });
     await arrange(page, { thread: true });
     await login(page);
     await expect(page.getByTestId("farah-first-visit-hint")).toBeVisible();
@@ -408,7 +396,7 @@ test.describe("Ask Farah on a job makes the panel visibly respond", () => {
     await expect(resetDemoFarahHint(noRow)).rejects.toThrow(/expected exactly 1/);
   });
 
-  test("on a narrow screen the stacked panel is brought into view and the new block is on screen", async ({ page }) => {
+  test("on a narrow screen the sheet opens and the new block is on screen", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     const chatRequests = await arrange(page, { thread: true });
     await login(page);
@@ -417,12 +405,12 @@ test.describe("Ask Farah on a job makes the panel visibly respond", () => {
     const card = page.getByTestId("job-card").first();
     const title = await cardTitle(card);
     await card.scrollIntoViewIfNeeded();
-    expect(await panel.evaluate((el) => el.getBoundingClientRect().top < window.innerHeight), "the panel starts below the fold on a phone").toBe(false);
+    await expect(page.getByTestId("farah-sheet"), "the panel starts as the closed sheet on a phone").toHaveAttribute("data-sheet", "closed");
     await shotViewport(page, "narrow-1-before-click");
     await card.getByRole("button", { name: "Ask Farah" }).click();
     const block = panel.getByTestId("job-seed-block");
     await expect(block).toBeVisible();
-    // the stacked panel was brought into view by the click, and the chip and first option are on the screen (the viewport), not only inside the scroller
+    // the sheet was opened by the click, and the chip and first option are on the screen (the viewport), not only inside the scroller
     await expectSeen(block, 8_000);
     await expect(async () => {
       const r = await block.evaluate((el) => {

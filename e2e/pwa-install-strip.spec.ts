@@ -146,12 +146,13 @@ test.describe("the strip does not move the page", () => {
       expect(await top(), "content column top after the strip mounted").toBe(before.top);
       expect(await mastheadBottom(), "masthead bottom after the strip mounted").toBe(before.masthead);
 
-      // The strip is a bar on the bottom edge of the viewport; on a phone it stands above the Farah tab instead of on it.
+      // The strip is a bar on the bottom edge of the viewport at every width; on a phone the Farah launcher (a round button, no bottom bar any more) floats ABOVE it instead of on it.
       const box = (await strip(page).boundingBox())!;
       expect(Math.round(box.y + box.height), "strip bottom edge, below the content").toBeLessThanOrEqual(viewport.height);
       if (viewport.width < 760) {
-        const tab = (await page.getByRole("button", { name: /Ask Farah/ }).last().boundingBox())!;
-        expect(box.y + box.height, "strip bottom must not overlap the Farah tab").toBeLessThanOrEqual(tab.y + 1);
+        expect(Math.round(box.y + box.height), "on a phone the strip stands on the bottom edge").toBe(viewport.height);
+        const launcher = (await page.getByTestId("farah-launcher").boundingBox())!;
+        expect(launcher.y + launcher.height, "the launcher must not overlap the strip").toBeLessThanOrEqual(box.y + 1);
       }
 
       // And it leaves again without moving anything.
@@ -279,9 +280,9 @@ test.describe("the strip against fixed controls and the end of the page", () => 
         a.x < b.right && a.x + a.width > b.left && a.y < b.bottom && a.y + a.height > b.top;
       const controls = await fixedControls(page);
       for (const c of controls) for (const b of buttons) expect(overlaps(b, c), `a strip button overlaps the fixed control ${c.name}`).toBe(false);
-      // On a phone the Farah tab is there and the whole bar stands above it.
+      // On a phone the Farah launcher is there (and the strip stands under it, not on it).
       if (width < 760) {
-        expect(controls.some((c) => c.name.includes("farah") || c.bottom >= 800 - 1), "the Farah tab is among the fixed controls on a phone").toBe(true);
+        expect(controls.some((c) => c.name.includes("farah") || c.bottom >= 800 - 1), "the Farah launcher is among the fixed controls on a phone").toBe(true);
       }
 
       // The last piece of CONTENT on the page, with the page scrolled to its end, must end above the strip's top edge: nothing is hidden under the bar. "Content" is an element that
@@ -306,21 +307,15 @@ test.describe("the strip against fixed controls and the end of the page", () => 
     });
   }
 
-  test("on a phone, while Farah's first-visit hint is on screen the strip waits, so nothing overlaps; it appears when the hint has gone", async ({ authedPage: page, testUser }) => {
+  test("on a phone there is no first-visit hint, so the strip is never held back by one; it appears at once", async ({ authedPage: page }) => {
+    // Launcher plan Q4: the phone variant of the hint is retired and the card leaves the page below 760px, which is what lets the strip show. (The strip still waits for the hint at its other
+    // widths only if the hint overlaps it, which it cannot: from 760px the hint sits beside the panel. That rule is exercised by the "live" test below with an injected hint.)
     await page.setViewportSize({ width: 360, height: 800 });
     await page.addInitScript(CONSENTED);
     await page.goto("/jobs");
     await waitForWorkerControl(page);
-    await expect(page.getByTestId("farah-first-visit-hint")).toBeVisible();
-    await firePrompt(page);
-    await page.waitForTimeout(800);
-    await expect(strip(page)).toHaveCount(0);
-
-    await admin.from("profiles").update({ farah_hint_dismissed_at: new Date().toISOString() }).eq("id", testUser.id);
-    await page.reload();
-    await waitForWorkerControl(page);
-    await firePrompt(page);
     await expect(page.getByTestId("farah-first-visit-hint")).toHaveCount(0);
+    await firePrompt(page);
     await expect(strip(page)).toBeVisible();
   });
 });

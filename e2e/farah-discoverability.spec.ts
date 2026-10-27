@@ -39,6 +39,14 @@ if (process.env.CI && !DEMO_PASSWORD) {
 const PHONE_WIDTHS = [360, 390, 412];
 
 async function login(page: Page) {
+  // A new browser sees the first-visit pill ("Ask Farah · AI assistant"); these specs measure the round launcher, so mark it seen first (the pill itself is covered in farah-launcher.spec.ts).
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem("talentrah.farahLauncher", '{"v":1,"opened":true}');
+    } catch {
+      // storage blocked: the pill shows, and the width assertions below will say so
+    }
+  });
   await page.goto("/login");
   await page.getByLabel("Email").fill("demo@talentrah.dev");
   await page.getByLabel("Password", { exact: true }).fill(DEMO_PASSWORD!);
@@ -53,16 +61,25 @@ async function login(page: Page) {
 test.describe("reaching Farah on a phone", () => {
   test.skip(!DEMO_PASSWORD, "DEMO_PASSWORD is not set — see scripts/seed.ts");
 
+  /*
+   * LAUNCHER PLAN PR-2. Below 760px the full-width bottom bar is gone: a fixed 56px round launcher (the Reviewer-approved exception, decision Q6, written into CLAUDE.md)
+   * opens the SAME mounted panel as a bottom sheet. The browser behaviour of the launcher and the sheet themselves (open and close, focus, the page behind, the first-visit
+   * pill, the soft keyboard, not covering Apply, reduced motion) is e2e/farah-launcher.spec.ts, which needs no sign-in; what stays here is what only the signed-in app can show:
+   * that the real shell mounts it, that the real panel is the sheet, and that the page does not end under it.
+   */
   for (const width of PHONE_WIDTHS) {
-    test(`at ${width}px the tab is a fixed, full-width, square bar`, async ({ page }) => {
+    test(`at ${width}px the launcher is a fixed 56px round button and there is no bottom bar`, async ({ page }) => {
       await page.setViewportSize({ width, height: 844 });
       await login(page);
 
-      const tab = page.getByTestId("farah-mobile-tab");
-      await expect(tab).toBeVisible();
+      await expect(page.getByTestId("farah-mobile-tab")).toHaveCount(0);
+      await expect(page.getByTestId("farah-tab-spacer")).toHaveCount(0);
+
+      const launcher = page.getByTestId("farah-launcher");
+      await expect(launcher).toBeVisible();
 
       const m = await page.evaluate(() => {
-        const el = document.querySelector('[data-testid="farah-mobile-tab"]') as HTMLElement;
+        const el = document.querySelector('[data-testid="farah-launcher"]') as HTMLElement;
         const cs = getComputedStyle(el);
         const r = el.getBoundingClientRect();
         return {
@@ -70,101 +87,62 @@ test.describe("reaching Farah on a phone", () => {
           zIndex: cs.zIndex,
           radius: cs.borderTopLeftRadius,
           width: Math.round(r.width),
-          bottom: Math.round(r.bottom),
-          clientW: document.documentElement.clientWidth,
-          viewportH: window.innerHeight,
+          height: Math.round(r.height),
+          rightGap: Math.round(document.documentElement.clientWidth - r.right),
+          bottomGap: Math.round(window.innerHeight - r.bottom),
         };
       });
 
-      expect(m.position, "a sticky bar would scroll away with its parent").toBe("fixed");
-      expect(m.width, "the bar spans the viewport").toBe(m.clientW);
-      expect(m.bottom, "the bar sits on the bottom edge").toBe(m.viewportH);
-      // Square corners — the design system has no radius outside avatars,
-      // notification dots and toggles. A rounded pill here would be the FAB
-      // this deliberately is not.
-      expect(m.radius).toBe("0px");
-      /*
-       * Above the job cards' menus (z-[15]) so a menu cannot render over the
-       * bar, below the masthead band (z-20) so a masthead dropdown that grows
-       * long on a short viewport still wins.
-       */
+      expect(m.position, "a sticky button would scroll away with its parent").toBe("fixed");
+      expect(m.width).toBe(56);
+      expect(m.height).toBe(56);
+      expect(m.rightGap).toBe(16);
+      expect(m.bottomGap, "above the bottom edge (and above the install strip if it is showing)").toBeGreaterThanOrEqual(16);
+      expect(m.radius, "the one round shape in the app, a written exception").not.toBe("0px");
+      // Above the job cards' menus (z-[15]), below the masthead band (z-20) so a masthead dropdown that grows long on a short viewport still wins.
       expect(Number(m.zIndex)).toBeGreaterThan(15);
       expect(Number(m.zIndex)).toBeLessThan(20);
-
-      const box = await tab.getByRole("button", { name: "Ask Farah" }).boundingBox();
-      expect(box!.height).toBeGreaterThanOrEqual(44);
     });
 
-    test(`at ${width}px the bar does not cover the last thing on the page`, async ({ page }) => {
+    test(`at ${width}px the page does not end under the launcher`, async ({ page }) => {
       /*
-       * The reserve, asserted at the one place it can fail. A fixed bar with no
-       * matching space at the end of the document hides whatever is last —
-       * and below 760 that is the Farah PANEL, not the last job card, because
-       * the columns stack. The first version of this reserved 56px against a
-       * bar that is 58.5px tall including its rule, and the panel's bottom
-       * edge measured 2px BEHIND the bar.
-       *
-       * SCROLL AND RE-MEASURE, rather than scroll-once-then-fixed-wait: the
-       * panel's own history fetch (farah-panel.tsx) resolves after mount and,
-       * once the credit-gate indicator (0123) has something to show, adds a
-       * line of text that grows the panel — and therefore the document —
-       * AFTER a scroll that already happened. A single `scrollTo` plus a
-       * fixed timeout races that fetch: on a fast response the document was
-       * already at its final height when scrolled and the test passes; on a
-       * slower one (this is exactly what CI's ephemeral database did,
-       * consistently, on a freshly-seeded account with no existing Pass) the
-       * scroll target was measured before the growth, the page is scrolled
-       * to what is now short of the true bottom, and the panel's new bottom
-       * edge — not the bar's reserve — is what's uncovered. `toPass` re-scrolls
-       * on every retry, so it converges once the document stops growing,
-       * instead of gambling on one fetch finishing inside one fixed wait.
+       * The reserve, asserted at the one place it can fail. Scroll and re-measure rather than scroll once: the panel's own history fetch resolves after mount and can grow the
+       * document after a scroll that already happened, so `toPass` re-scrolls on every retry and converges once the document stops growing. Below 760 the panel is the sheet and
+       * is not in the page, so the last thing on the page is the content column's last child; the launcher's spacer comes after it.
        */
       await page.setViewportSize({ width, height: 844 });
       await login(page);
 
       await expect(async () => {
         await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-
         const r = await page.evaluate(() => {
-          const panel = document
-            .querySelector('[data-testid="farah-panel"]')!
-            .getBoundingClientRect();
-          const tab = document
-            .querySelector('[data-testid="farah-mobile-tab"]')!
-            .getBoundingClientRect();
-          return { panelBottom: panel.bottom, tabTop: tab.top };
+          const spacer = document.querySelector('[data-testid="farah-launcher-spacer"]')!.getBoundingClientRect();
+          const launcher = document.querySelector('[data-testid="farah-launcher"]')!.getBoundingClientRect();
+          const column = document.querySelector('[data-testid="content-column"]')!.getBoundingClientRect();
+          return { columnBottom: column.bottom, spacerTop: spacer.top, launcherTop: launcher.top };
         });
-
-        expect(
-          r.panelBottom,
-          "the bar is covering the panel it exists to reveal",
-        ).toBeLessThanOrEqual(r.tabTop);
+        expect(r.columnBottom, "the content column ends where the reserve starts").toBeLessThanOrEqual(r.spacerTop + 1);
+        expect(r.columnBottom, "the launcher is over the reserve, not over the last of the page").toBeLessThanOrEqual(r.launcherTop + 1);
       }).toPass({ timeout: 10_000 });
     });
 
-    test(`at ${width}px tapping the tab brings the panel into view`, async ({ page }) => {
+    test(`at ${width}px the panel is the closed sheet, and tapping the launcher opens it`, async ({ page }) => {
       await page.setViewportSize({ width, height: 844 });
       await login(page);
 
-      const offScreen = await page.evaluate(() => {
-        const p = document.querySelector('[data-testid="farah-panel"]')!.getBoundingClientRect();
-        return p.top > window.innerHeight;
-      });
-      expect(offScreen, "precondition: the panel starts off screen on a phone").toBe(true);
+      const sheet = page.getByTestId("farah-sheet");
+      await expect(sheet).toHaveAttribute("data-sheet", "closed");
+      await expect(sheet).toHaveCSS("visibility", "hidden");
 
-      await page.getByTestId("farah-mobile-tab").getByRole("button", { name: "Ask Farah" }).click();
+      await page.getByTestId("farah-launcher").click();
 
-      // Smooth scroll over a long feed takes a while; assert the end state
-      // rather than a fixed wait.
-      await expect(async () => {
-        const inView = await page.evaluate(() => {
-          const p = document
-            .querySelector('[data-testid="farah-panel"]')!
-            .getBoundingClientRect();
-          return p.top < window.innerHeight && p.bottom > 0;
-        });
-        expect(inView).toBe(true);
-      }).toPass({ timeout: 20_000 });
+      await expect(sheet).toHaveAttribute("data-sheet", "open");
+      await expect(sheet).toHaveAttribute("role", "dialog");
+      await expect(page.getByTestId("farah-panel")).toBeVisible();
+      // Measured once the slide has finished, not mid-transition.
+      await expect.poll(async () => { const b = await sheet.boundingBox(); return Math.round(b!.y + b!.height); }, { message: "the sheet stands on the bottom edge" }).toBe(844);
+      const box = await sheet.boundingBox();
+      expect(box!.height).toBeLessThanOrEqual(844 * 0.85 + 2);
     });
   }
 });
@@ -238,11 +216,11 @@ test.describe("reaching Farah between 760 and 1535px", () => {
 test.describe("reaching Farah on a desktop", () => {
   test.skip(!DEMO_PASSWORD, "DEMO_PASSWORD is not set — see scripts/seed.ts");
 
-  test("at 2xl the masthead carries the item and the bar is gone", async ({ page }) => {
+  test("at 2xl the masthead carries the item and the launcher is gone", async ({ page }) => {
     await page.setViewportSize({ width: 1536, height: 900 });
     await login(page);
 
-    await expect(page.getByTestId("farah-mobile-tab")).toBeHidden();
+    await expect(page.getByTestId("farah-launcher")).toBeHidden();
     /*
      * SCOPED TO THE MASTHEAD, and it has to be: every job card carries its own
      * "Ask Farah ▾" menu, so the unscoped role+name locator resolved to 154

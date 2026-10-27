@@ -559,7 +559,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div data-farah-avoid="true" className="flex flex-wrap items-center gap-3 max-[760px]:pr-[72px]">
         {!user ? (
           <>
         {/*

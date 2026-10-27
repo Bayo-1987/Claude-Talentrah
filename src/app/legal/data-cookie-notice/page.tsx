@@ -67,6 +67,41 @@ export default function DataCookieNoticePage() {
         required for the site to function.
       </p>
 
+      <h2>Notes saved in your browser</h2>
+      <p>
+        Besides cookies, Talentrah saves some small notes in your browser&apos;s
+        own storage, on your device only. Each one is named here so you can
+        find it and clear it in your browser&apos;s settings.
+      </p>
+      <ul>
+        <li>
+          <strong>talentrah.lastEmail</strong> — the email address you last
+          signed in with, so the sign-in page can offer to continue as that
+          account. It stays on this device; signing out does not clear it,
+          and &quot;Use another account&quot; on the sign-in page does.
+        </li>
+        <li>
+          <strong>talentrah.farahLauncher</strong> — that you have opened
+          Farah once, so her button stops showing its longer label.
+        </li>
+        <li>
+          <strong>talentrah-cookie-consent</strong> — your answer to the
+          cookie banner, so it doesn&apos;t ask again.
+        </li>
+        <li>
+          <strong>talentrah-install-dismissed</strong> — when you chose
+          &quot;Not now&quot; on the offer to add Talentrah to your home
+          screen, so we don&apos;t ask again for a while.
+        </li>
+        <li>
+          <strong>talentrah:pending-job-banner</strong> and{" "}
+          <strong>talentrah-pending-job-assessment-files</strong> — for
+          employers posting a job: the banner picture and any exercise files
+          you picked are held in your browser until the job is posted, when
+          they are uploaded with the job and removed from your browser.
+        </li>
+      </ul>
+
       <h2>Where your data is processed</h2>
       <ul>
         <li>
