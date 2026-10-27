@@ -8,6 +8,7 @@ import { FarahMobileTab } from "@/components/app-shell/farah-mobile-tab";
 import { FarahFirstVisitHint } from "@/components/app-shell/farah-first-visit-hint";
 import { visibleName, fullVisibleName, nameInitials } from "@/lib/profile/name";
 import { getActivePass } from "@/lib/passes/entitlement";
+import { isOrganisationMember } from "@/lib/auth/organization-member";
 import { hasUnreadNotification } from "@/lib/notifications/unread";
 import { CreditsBalanceProvider } from "@/components/app-shell/credits-balance";
 import { InstallStripLazy } from "@/components/pwa/install-strip-lazy";
@@ -147,9 +148,11 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
    * this does not add a second sequential round trip to a layout that
    * already fought to remove one.
    */
-  const [activePass, hasUnread] = await Promise.all([
+  const [activePass, hasUnread, isMember] = await Promise.all([
     getActivePass(session.user.id),
     hasUnreadNotification(session.user.id),
+    // One indexed lookup, in the same round trip: whether the account menu offers "Switch to Employer".
+    isOrganisationMember(session.user.id),
   ]);
 
   return (
@@ -184,6 +187,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           initials={initials}
           email={profile.email}
           displayName={displayName}
+          isOrganisationMember={isMember}
         />
       </div>
       {/*

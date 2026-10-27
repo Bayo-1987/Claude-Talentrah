@@ -207,3 +207,75 @@ test.describe("employer header: the menu replaces the loose Sign out link", () =
     await expect(menu(page).getByRole("menuitem", { name: "Sign out" })).toBeVisible();
   });
 });
+
+// The side switch (DASHBOARD-SWITCH-PR1-1). The existing tests above never pass the switch props, so they run on a menu without the item and stay as they were; these add it.
+const SEEKER_MEMBER = { ...SEEKER, isOrganisationMember: true };
+const EMPLOYER_WITH_SWITCH = { ...EMPLOYER, canSwitchToSeeker: true };
+
+for (const kind of ["seeker", "employer"] as const) {
+  const withSwitch = kind === "seeker" ? SEEKER_MEMBER : EMPLOYER_WITH_SWITCH;
+  const without = kind === "seeker" ? SEEKER : EMPLOYER;
+  const label = kind === "seeker" ? "Switch to Employer" : "Switch to Job seeker";
+  const side = kind === "seeker" ? "employer" : "seeker";
+  const min = kind === "employer" ? 44 : 40;
+
+  test.describe(`${kind} header: the side switch item`, () => {
+    test("is absent when the account cannot switch", async ({ page }) => {
+      await mount(page, kind, without);
+      await trigger(page).click();
+      await expect(menu(page).getByRole("menuitem")).toHaveText(["Settings", "Sign out"]);
+      await expect(page.getByText(/Switch to/)).toHaveCount(0);
+    });
+
+    test(`is present as "${label}", between Settings and Sign out`, async ({ page }) => {
+      await mount(page, kind, withSwitch);
+      await trigger(page).click();
+      await expect(menu(page).getByRole("menuitem")).toHaveText(["Settings", label, "Sign out"]);
+      const text = (await menu(page).innerText()).split("\n").map((l) => l.trim()).filter(Boolean);
+      expect(text).toEqual([withSwitch.displayName, withSwitch.email, "Settings", label, "Sign out"]);
+    });
+
+    test("Tab goes Settings, then the switch, then Sign out, and Shift+Tab goes back", async ({ page }) => {
+      await mount(page, kind, withSwitch);
+      await trigger(page).click();
+      await expect(menu(page).getByRole("menuitem", { name: "Settings" })).toBeFocused();
+      await page.keyboard.press("Tab");
+      await expect(menu(page).getByRole("menuitem", { name: label })).toBeFocused();
+      await page.keyboard.press("Tab");
+      await expect(menu(page).getByRole("menuitem", { name: "Sign out" })).toBeFocused();
+      await page.keyboard.press("Shift+Tab");
+      await expect(menu(page).getByRole("menuitem", { name: label })).toBeFocused();
+    });
+
+    test(`submits the side "${side}" and nothing else, and does not sign out`, async ({ page }) => {
+      await mount(page, kind, withSwitch);
+      await trigger(page).click();
+      const hidden = await menu(page).locator('input[type="hidden"]').evaluateAll((els) => els.map((e) => [(e as HTMLInputElement).name, (e as HTMLInputElement).value]));
+      expect(hidden).toEqual([["side", side]]);
+      await menu(page).getByRole("menuitem", { name: label }).click();
+      expect(await page.evaluate(() => window.__switched)).toEqual([side]);
+      expect(await signOuts(page)).toBe(0);
+    });
+
+    test(`is ${min}px tall (the menu's own size for this header) and the longer menu stays inside a 375px screen`, async ({ page }) => {
+      await mount(page, kind, withSwitch, 375);
+      await trigger(page).click();
+      const item = (await menu(page).getByRole("menuitem", { name: label }).boundingBox())!;
+      expect(item.height).toBeGreaterThanOrEqual(min);
+      expect(item.height).toBeLessThan(min + 1);
+      expect(item.width).toBeGreaterThanOrEqual(min);
+      const m = (await menu(page).boundingBox())!;
+      expect(m.x).toBeGreaterThanOrEqual(0);
+      expect(m.x + m.width).toBeLessThanOrEqual(375);
+    });
+
+    test("opens with focus on Settings and Escape still closes it and returns focus to the button", async ({ page }) => {
+      await mount(page, kind, withSwitch);
+      await trigger(page).click();
+      await expect(menu(page).getByRole("menuitem", { name: "Settings" })).toBeFocused();
+      await page.keyboard.press("Escape");
+      await expect(menu(page)).toHaveCount(0);
+      await expect(trigger(page)).toBeFocused();
+    });
+  });
+}

@@ -50,6 +50,7 @@ export default async function EmployerLayout({ children }: { children: React.Rea
         email={session.profile.email}
         displayName={fullVisibleName(session.profile.first_name, session.profile.last_name)}
         userInitials={accountInitials(session.profile.first_name, session.profile.last_name, session.profile.email)}
+        canSwitchToSeeker
       />
       {/* print: the applicant resume page prints through here, and its own margin is ResumePrintSurface's. */}
       <div className="mx-auto w-full max-w-[1120px] px-10 py-8 print:max-w-none print:p-0">{children}</div>

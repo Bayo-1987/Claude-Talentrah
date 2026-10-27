@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { signOutAction } from "@/lib/auth/actions";
+import { switchSideAction } from "@/lib/auth/switch-side";
+import type { Side } from "@/lib/auth/side-preference";
 
 /**
  * The account menu behind the avatar, shared by the seeker header (src/components/app-shell/masthead.tsx) and the employer header (src/components/employer/employer-masthead.tsx).
@@ -32,6 +34,8 @@ export interface AccountMenuProps {
   avatarClassName?: string;
   /** The avatar's hover title (the employer header puts the organisation's name here). */
   avatarTitle?: string;
+  /** Present only for someone who can use both sides: one extra item between Settings and Sign out that remembers the choice and goes to that side. Absent: no item. */
+  switchSide?: { to: Side; label: string };
 }
 
 const SEEKER_AVATAR = "flex h-[34px] w-[34px] items-center justify-center rounded-full bg-ink font-display text-[12px] font-bold text-paper";
@@ -41,7 +45,7 @@ const SIZES = {
   large: { button: "h-11 w-11", item: "min-h-11" },
 } as const;
 
-export function AccountMenu({ initials, email, displayName, settingsHref = "/settings", size = "default", avatarClassName = SEEKER_AVATAR, avatarTitle }: AccountMenuProps) {
+export function AccountMenu({ initials, email, displayName, settingsHref = "/settings", size = "default", avatarClassName = SEEKER_AVATAR, avatarTitle, switchSide }: AccountMenuProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -115,6 +119,15 @@ export function AccountMenu({ initials, email, displayName, settingsHref = "/set
           >
             Settings
           </Link>
+
+          {switchSide && (
+            <form action={switchSideAction}>
+              <input type="hidden" name="side" value={switchSide.to} />
+              <button type="submit" role="menuitem" className={`flex ${sizes.item} w-full items-center px-4 text-left text-[13px] font-semibold text-ink hover:text-rust`}>
+                {switchSide.label}
+              </button>
+            </form>
+          )}
 
           <div className="border-t border-line" />
 

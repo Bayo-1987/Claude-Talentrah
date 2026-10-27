@@ -19,7 +19,7 @@ export default function DataCookieNoticePage() {
     <LegalPage
       eyebrow="Legal"
       title="Data & Cookie Notice"
-      lastUpdated="September 16, 2026"
+      lastUpdated="October 27, 2026"
     >
       <p>
         This notice explains, in plain terms, the technical side of how
@@ -49,6 +49,14 @@ export default function DataCookieNoticePage() {
           visitor, never appears anywhere in the signed-in app, and its
           absence changes nothing: the ordinary &quot;Continue with
           Google&quot; button on the same pages still works.
+        </li>
+        <li>
+          <strong>Side preference (set only when you choose it)</strong> — if
+          you use Talentrah as both a job seeker and an employer, a cookie
+          called tr_side remembers which of the two you last switched to from
+          your account menu, so the app opens on that side. It holds only the
+          word seeker or employer, lasts a year, and is removed when you sign
+          out.
         </li>
       </ul>
       <p>
