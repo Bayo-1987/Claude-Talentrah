@@ -98,23 +98,35 @@ const USE_FIXTURES = process.env.SEED_FIXTURES === "1";
  * platform. `||` falls through for any falsy value, which is correct here
  * specifically because a real DEMO_PASSWORD is never itself falsy.
  */
-const DEMO_PASSWORD =
-  process.env.DEMO_PASSWORD || (process.env.CI ? randomBytes(24).toString("hex") : undefined);
-if (!DEMO_PASSWORD) {
-  throw new Error(
-    "DEMO_PASSWORD is not set. Add it to .env.local (and to CI secrets for the e2e job). " +
-      "It is deliberately not committed — see the note above this check.",
-  );
-}
-if (!process.env.DEMO_PASSWORD && process.env.CI) {
-  console.log(
+/*
+ * The whole rule above, as one function a test can call. `env` is process.env in the real run; `io` is only for tests (a fixed generator, a log sink, a file writer).
+ *
+ * Returns the password to use, or undefined when there is none (outside CI, with nothing set): the caller throws, as before. An EMPTY string counts as not set (the `||` above is
+ * the reason: a withheld secret is an empty string, not an absent key).
+ *
+ * In CI with nothing set it generates a value and, BEFORE writing it anywhere, tells the runner to mask it (`::add-mask::`), so a later log line that happens to contain it prints ***
+ * instead. The mask line is the only line that carries the value; the notice below it does not. Then, when the runner gave us a GITHUB_ENV file, it exports the value to the steps
+ * that follow (the e2e specs read it from the environment). Masking does not touch files: the point of generating it is that it only ever existed in this job's own database.
+ */
+export function resolveDemoPassword(
+  env: Readonly<Record<string, string | undefined>>,
+  io: { generate?: () => string; log?: (line: string) => void; append?: (file: string, data: string) => void } = {},
+): string | undefined {
+  const { generate = () => randomBytes(24).toString("hex"), log = console.log, append = appendFileSync } = io;
+  if (env.DEMO_PASSWORD) return env.DEMO_PASSWORD;
+  if (!env.CI) return undefined;
+  const value = generate();
+  log(`::add-mask::${value}`);
+  log(
     "DEMO_PASSWORD not set — generated a per-run value for this CI job " +
       "(Dependabot PRs never receive repository secrets; see scripts/seed.ts).",
   );
-  if (process.env.GITHUB_ENV) {
-    appendFileSync(process.env.GITHUB_ENV, `DEMO_PASSWORD=${DEMO_PASSWORD}\n`);
-  }
+  if (env.GITHUB_ENV) append(env.GITHUB_ENV, `DEMO_PASSWORD=${value}\n`);
+  return value;
 }
+
+// Assigned at the start of main() (it used to be resolved when this file was loaded), so importing this file, as the CI test does, resolves nothing and seeds nothing.
+let DEMO_PASSWORD: string;
 
 // RESUME_TEMPLATES, CREDIT_PACKS and PASSES now live in
 // src/lib/billing/catalog.ts — imported above, alongside
@@ -194,6 +206,15 @@ const DEMO_RESUME = {
 };
 
 async function main() {
+  const demoPassword = resolveDemoPassword(process.env);
+  if (!demoPassword) {
+    throw new Error(
+      "DEMO_PASSWORD is not set. Add it to .env.local (and to CI secrets for the e2e job). " +
+        "It is deliberately not committed — see the note above this check.",
+    );
+  }
+  DEMO_PASSWORD = demoPassword;
+
   // Which database is about to be seeded, said out loud. The seed writes a lot
   // of rows; "it worked locally" needs to name where.
   announceDbTarget("seed");
@@ -878,7 +899,10 @@ async function findUserByEmail(
   );
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+// Seed only when this file is the program being run (`tsx scripts/seed.ts`); importing it, as tests/ci/demo-password-per-run.test.ts does for resolveDemoPassword, seeds nothing.
+if (/[\\/]seed\.ts$/.test(process.argv[1] ?? "")) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
