@@ -103,6 +103,8 @@ beforeAll(async () => {
           talent_verification_status: seed.status,
           talent_verification_score: seed.score,
           talent_directory_opt_in: seed.optIn,
+          // a verified profile always has its review date (resolve_talent_verification sets both); without it the 0266 backfill refuses to run for any file that comes after this one
+          ...(seed.status === "verified" ? { talent_verified_at: new Date().toISOString() } : {}),
         })
         .eq("id", seeker.id);
       if (profErr) throw new Error(`fixture profile (${seed.key}): ${profErr.message}`);
@@ -149,6 +151,16 @@ afterAll(async () => {
   for (const id of resumeIds) await admin.from("resumes").delete().eq("id", id);
   await deleteOrgsCascade(admin, [orgId].filter(Boolean));
   await deleteTestUsers([orgOwner.id, ...seekerIds].filter(Boolean));
+});
+
+describe("the fixture follows the rule the 0266 backfill relies on", () => {
+  it("every verified fixture seeker has a review date", async () => {
+    const { data, error } = await admin.from("profiles").select("id, talent_verification_status, talent_verified_at").in("id", seekerIds);
+    expect(error).toBeNull();
+    const verified = (data ?? []).filter((p) => p.talent_verification_status === "verified");
+    expect(verified.length, "the fixture must still contain a verified seeker, or this test proves nothing").toBeGreaterThan(0);
+    expect(verified.filter((p) => p.talent_verified_at === null)).toEqual([]);
+  });
 });
 
 describe("employer_job_applicants surfaces Talent Directory verification, independent of opt-in", () => {
