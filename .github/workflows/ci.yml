@@ -392,7 +392,7 @@ jobs:
 
       - name: Install Supabase CLI
         # The same pin as .github/actions/local-supabase/action.yml (a commit sha, and version 2.117.0).
-        uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3, the head of the v1 branch on 2026-10-20
+        uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v1.7.3, the head of the v1 branch on 2026-10-20
         with:
           version: 2.117.0
 
