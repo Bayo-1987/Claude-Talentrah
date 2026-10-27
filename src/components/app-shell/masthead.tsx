@@ -114,6 +114,8 @@ export interface MastheadProps {
    * rendering an empty bold line over an address looks like a failed load.
    */
   displayName: string;
+  /** True for an account that belongs to an organisation: the account menu then offers "Switch to Employer". */
+  isOrganisationMember?: boolean;
 }
 
 export function Masthead({
@@ -122,6 +124,7 @@ export function Masthead({
   initials,
   email,
   displayName,
+  isOrganisationMember,
 }: MastheadProps) {
   const pathname = usePathname();
   // The prop is what the server rendered at page load; this is that, updated for any credit a Farah
@@ -805,7 +808,7 @@ export function Masthead({
           {/*
             The avatar is the account control, and Sign out lives inside it: the menu is src/components/app-shell/account-menu.tsx, shared with the employer header.
           */}
-          <AccountMenu initials={initials} email={email} displayName={displayName} />
+          <AccountMenu initials={initials} email={email} displayName={displayName} switchSide={isOrganisationMember ? { to: "employer", label: "Switch to Employer" } : undefined} />
         </div>
       </div>
     </header>

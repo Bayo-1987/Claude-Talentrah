@@ -20,6 +20,7 @@ import { getRequestIp, getTrustedClientIp } from "@/lib/security/request-ip";
 import type { ResendState } from "./resend-state";
 import { captureEvent } from "@/lib/analytics/posthog";
 import { stashPostAuthDestination } from "./post-auth-destination";
+import { clearSideCookie } from "./side-preference";
 import { passwordRefusal } from "./password-errors";
 import { clearSignupPending, readSignupPending, setSignupPending } from "./signup-pending";
 import { CODE_RESEND_COOLDOWN_SECONDS, cooldownSecondsLeft } from "./signup-pending-codec";
@@ -579,6 +580,7 @@ export async function updatePasswordAction(
 export async function signOutAction() {
   const supabase = await createClient();
   await supabase.auth.signOut({ scope: "local" });
+  clearSideCookie(await cookies());
   redirect("/login");
 }
 
@@ -589,6 +591,7 @@ export async function signOutAction() {
 export async function signOutEverywhereAction() {
   const supabase = await createClient();
   await supabase.auth.signOut({ scope: "global" });
+  clearSideCookie(await cookies());
   redirect("/login");
 }
 

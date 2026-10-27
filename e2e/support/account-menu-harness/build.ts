@@ -14,6 +14,7 @@ const stubs: Plugin = {
     b.onResolve({ filter: /^next\/link$/ }, () => ({ path: path.join(HERE, "link-stub.tsx") }));
     b.onResolve({ filter: /^next\/navigation$/ }, () => ({ path: path.join(HERE, "navigation-stub.ts") }));
     b.onResolve({ filter: /^@\/lib\/auth\/actions$/ }, () => ({ path: path.join(HERE, "actions-stub.ts") }));
+    b.onResolve({ filter: /^@\/lib\/auth\/switch-side$/ }, () => ({ path: path.join(HERE, "switch-side-stub.ts") }));
     b.onResolve({ filter: /^@\// }, (args) => b.resolve(path.join(ROOT, "src", args.path.slice(2)), { resolveDir: ROOT, kind: args.kind }));
   },
 };

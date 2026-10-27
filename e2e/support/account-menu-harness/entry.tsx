@@ -11,11 +11,13 @@ declare global {
   interface Window {
     __mount: (kind: Kind, props: Record<string, unknown>) => void;
     __signOuts: number;
+    __switched: string[];
     __navigated: string[];
   }
 }
 
 window.__signOuts = 0;
+window.__switched = [];
 window.__navigated = [];
 window.__mount = (kind, props) => {
   const el = document.getElementById("root");

@@ -42,6 +42,7 @@ export function EmployerMasthead({
   email = "",
   displayName = "",
   userInitials = "",
+  canSwitchToSeeker = false,
 }: {
   /** Null before the organisation exists — the organisation's badge is omitted, not filled in. */
   orgInitials: string | null;
@@ -50,6 +51,8 @@ export function EmployerMasthead({
   email?: string;
   displayName?: string;
   userInitials?: string;
+  /** True in the employer shell, for any signed-in account: the account menu then offers "Switch to Job seeker" (every account is also a seeker). Off by default, like the other optional details. */
+  canSwitchToSeeker?: boolean;
 }) {
   const pathname = usePathname();
   const [navOpen, setNavOpen] = useState(false);
@@ -360,6 +363,7 @@ export function EmployerMasthead({
             size="large"
             avatarClassName={orgInitials ? ORG_BADGE : undefined}
             avatarTitle={orgInitials ? orgName : undefined}
+            switchSide={canSwitchToSeeker ? { to: "seeker", label: "Switch to Job seeker" } : undefined}
           />
         </div>
       </div>
