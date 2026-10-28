@@ -39,7 +39,7 @@ vi.mock("@/lib/talent-directory/subscription-actions", () => ({ purchaseTalentDi
 vi.mock("@/lib/talent-directory/waitlist-actions", () => ({ joinTalentDirectoryWaitlistAction: async () => {} }));
 vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("notFound"); }, useRouter: () => ({ refresh: () => {}, push: () => {} }) }));
 
-const ai: DirectoryCandidate = { userId: "c1", firstName: "Ada", lastName: "Okafor", country: "Nigeria", availableForHire: true, remoteReady: true, earliestStartDate: null, verifiedAt: "2026-10-05T09:30:00Z", reviewType: "ai" };
+const ai: DirectoryCandidate = { userId: "c1", firstName: "Ada", lastName: "Okafor", country: "Nigeria", availableForHire: true, remoteReady: true, earliestStartDate: null, verifiedAt: "2026-10-05T09:30:00Z", reviewType: "ai", section: "organic" };
 const mentor: DirectoryCandidate = { ...ai, userId: "c2", firstName: "Chidi", lastName: "Eze", verifiedAt: "2026-10-12T10:00:00Z", reviewType: "human" };
 
 const text = (html: string) => html.replace(/&#x27;/g, "'").replace(/&amp;/g, "&");
