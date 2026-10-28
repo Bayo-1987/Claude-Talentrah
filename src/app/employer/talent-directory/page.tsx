@@ -8,6 +8,8 @@ import { isOnTalentDirectoryWaitlist } from "@/lib/talent-directory/waitlist-run
 import { TalentDirectoryPreviewPanel } from "@/components/employer/talent-directory-preview-panel";
 import { EyebrowLabel, BorderedCard, Button } from "@/components/ui";
 import { ResumeReviewedBadge } from "@/components/talent-directory/resume-reviewed-badge";
+import { PromotedLabel } from "@/components/talent-directory/promoted-label";
+import { isPromotedSection } from "@/lib/talent-directory/promoted-label";
 import { reviewMethodFromType } from "@/lib/talent-directory/review-badge";
 import { howWeReviewHref } from "@/lib/talent-directory/how-we-review-link";
 import { formatDate } from "@/lib/format/datetime";
@@ -119,6 +121,8 @@ export default async function EmployerTalentDirectoryPage({
                       stretches over the card; the badge sits above that stretch so it can be opened. The score the database returns is turned into a method here, on the
                       server, and goes no further: nothing below takes a score. */}
                   <BorderedCard className="relative flex h-full flex-col gap-2 p-5">
+                    {/* The database put this candidate in the Promoted strip (0268): say so, before the name. Nothing is drawn for any other answer, including one this page has never seen. */}
+                    {isPromotedSection(c.section) && <PromotedLabel />}
                     <h2 className="font-display text-[18px] font-semibold text-ink">
                       <Link href={`/employer/talent-directory/${c.userId}`} className="no-underline after:absolute after:inset-0 after:content-['']">
                         {[c.firstName, c.lastName].filter(Boolean).join(" ") || "A Talentrah candidate"}

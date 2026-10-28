@@ -3,6 +3,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { spendCredits, InsufficientCreditsError } from "@/lib/credits/spend";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { TALENT_DIRECTORY_BOOST_DAYS } from "./boost-constants";
+import { boostPurchasedMessage } from "./boost-copy";
 import { formatDate } from "@/lib/format/datetime";
 
 /**
@@ -106,7 +107,7 @@ export async function runTalentDirectoryBoostPurchase(userId: string): Promise<B
 
   return {
     status: "success",
-    message: `You're now boosted to the top of search results until ${formatDate(boostedUntil)}.`,
+    message: boostPurchasedMessage(formatDate(boostedUntil)),
     boostedUntil,
   };
 }
