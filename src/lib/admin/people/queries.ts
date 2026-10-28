@@ -20,7 +20,21 @@ export interface SignupPage {
 }
 
 /**
- * One page of job-seeker signups, newest first. QA and owner test accounts are not listed or counted.
+ * WHO COUNTS AS A SIGNUP, written once. Every read of "the people on the Signups page" starts here: the `profiles` table with QA and owner test accounts left out (exclude-qa.ts). The list, the new-since counter, the nav's total and the
+ * nav's employer count all call this, so the number in the nav is the page's own total by construction and not by two queries agreeing (tests/admin/signups-scope-wiring.test.ts fails on a read that builds its own).
+ *
+ * The page lists everyone with an account: an employer is an ordinary account that also belongs to an organisation, so they are rows here too.
+ */
+export function signupsScope(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  columns: string,
+  options?: { count?: "exact"; head?: boolean },
+) {
+  return excludeQaAccounts(supabase.from("profiles").select(columns, options));
+}
+
+/**
+ * One page of signups (everyone with an account, job seekers and employers), newest first. QA and owner test accounts are not listed or counted.
  *
  * SERVICE ROLE, like every other admin read. `profiles` is not readable by an
  * operator's session — there is no operator Supabase session at all (see
@@ -37,13 +51,9 @@ export async function listSignups(spec: SignupListSpec): Promise<SignupPage> {
   const { from, to } = pageRange(spec.page);
 
   // QA and owner test accounts are left out IN THE QUERY, before the range and the count, so the total, the page count and every page are of real accounts only (see exclude-qa.ts).
-  let query = excludeQaAccounts(
-    supabase
-      .from("profiles")
-      .select(SIGNUP_COLUMNS, { count: "exact" })
-      .order("created_at", { ascending: false })
-      .range(from, to),
-  );
+  let query = signupsScope(supabase, SIGNUP_COLUMNS, { count: "exact" })
+    .order("created_at", { ascending: false })
+    .range(from, to);
 
   if (spec.email) query = query.ilike("email", `%${spec.email}%`);
   if (spec.from) query = query.gte("created_at", fromInclusiveBound(spec.from));
@@ -105,13 +115,45 @@ async function resolveReferrerEmails(
 export async function countSignupsSince(sinceIso: string): Promise<number> {
   const supabase = createServiceRoleClient();
   // The same exclusion as the list: the badge says "N new", and N must not include the owner's own test accounts.
-  const { count, error } = await excludeQaAccounts(
-    supabase
-      .from("profiles")
-      .select("id", { count: "exact", head: true })
-      .gt("created_at", sinceIso),
-  );
+  const { count, error } = await signupsScope(supabase, "id", { count: "exact", head: true }).gt("created_at", sinceIso);
 
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/**
+ * `onlyIds` narrows a count to the given profile ids, through the SAME scope (QA accounts are still left out). Production callers pass nothing: the nav asks for the whole table. It exists so a test can count among accounts it created itself,
+ * which no other test file can change, instead of comparing two reads of a table other files are adding to and removing from while the test runs.
+ */
+export interface SignupCountOptions {
+  onlyIds?: readonly string[];
+}
+
+/**
+ * How many people the Signups page lists, with no filter: its unfiltered total, for the admin nav.
+ *
+ * A HEAD-ONLY COUNT through the same scope as the list, so it fetches no row and carries no personal data, and writes no audit entry for the same reason `countSignupsSince` does not. The page writes `people.listed` because it SHOWS people;
+ * the nav shows a number.
+ */
+export async function countSignups(options: SignupCountOptions = {}): Promise<number> {
+  const supabase = createServiceRoleClient();
+  const everyone = signupsScope(supabase, "id", { count: "exact", head: true });
+  const { count, error } = await (options.onlyIds ? everyone.in("id", [...options.onlyIds]) : everyone);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/**
+ * How many of those people belong to an organisation: the employers, counted as PEOPLE, once each.
+ *
+ * Counted from the profiles side through the same scope as `countSignups`, so the same QA exclusion applies to the member's own profile and E can never exceed N. The inner embed keeps only profiles that have at least one membership
+ * and returns each profile once however many organisations it belongs to; counting `organizations` or `organization_members` rows instead would count companies or memberships. A membership always has a profile
+ * (organization_members.user_id references profiles(id)), so there is no member to miss.
+ */
+export async function countSignupEmployers(options: SignupCountOptions = {}): Promise<number> {
+  const supabase = createServiceRoleClient();
+  const members = signupsScope(supabase, "id, organization_members!inner(user_id)", { count: "exact", head: true });
+  const { count, error } = await (options.onlyIds ? members.in("id", [...options.onlyIds]) : members);
   if (error) throw error;
   return count ?? 0;
 }

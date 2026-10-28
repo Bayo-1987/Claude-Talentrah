@@ -9,7 +9,7 @@ import { Container, BorderedCard, Button, TextField } from "@/components/ui";
 import { formatDateTime } from "@/lib/format/datetime";
 
 export const metadata = {
-  title: "Job-seeker signups — Talentrah admin",
+  title: "Signups — Talentrah admin",
   robots: { index: false, follow: false },
 };
 
@@ -94,9 +94,9 @@ export default async function SignupsPage({
   return (
     <Container className="flex max-w-[1120px] flex-col gap-8 py-12">
       <QueueHeader
-        eyebrow="Job-seeker signups"
+        eyebrow="Signups"
         title="Who has signed up."
-        blurb="Newest first. Job seekers only — employers live on the organisation side and are not listed here."
+        blurb="Newest first. Everyone with an account, job seekers and employers."
         adminLabel={admin.displayName || admin.email}
       />
 

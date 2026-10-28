@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { queueCounts } from "@/lib/admin/moderation/queues";
+import { countSignupEmployers, countSignups } from "@/lib/admin/people/queries";
 import { PATH_HEADER } from "@/lib/auth/redirect-to";
 import type { AdminPermission } from "@/lib/admin/session";
 
@@ -62,6 +63,52 @@ const ITEMS = [
 ] as const;
 
 /*
+ * The count chip beside a nav link, in its two looks. ALERT (a dark pill) is for a queue with something waiting; QUIET (plain digits, no background) is for zero, and for a number that is only a total. The class lists used to be
+ * written inline in the queue links' ternary; they are constants so the Signups total can take the same quiet look without a third copy (tests/admin/admin-nav-count-style.test.tsx pins the existing output).
+ */
+const COUNT_CHIP = "min-w-6 px-1.5 py-0.5 text-center font-body text-[12px] font-bold";
+const COUNT_ALERT = "bg-ink text-paper";
+const COUNT_QUIET = "bg-transparent text-ink-soft";
+
+const SIGNUPS_HREF = "/admin/people/signups";
+
+interface SignupsNavCounts {
+  /** Everyone the Signups page lists (its unfiltered total). */
+  people: number;
+  /** The people among them who belong to an organisation, once each. */
+  employers: number;
+  /** people - employers. */
+  seekers: number;
+}
+
+/**
+ * The Signups total for the nav, or null when it cannot be shown.
+ *
+ * ITS OWN GUARD, NOT PART OF queueCounts(): queueCounts is one Promise.all, so any one failure there stops the whole nav, which is the existing behaviour and is left alone. This number is a courtesy, so a failure (or an impossible
+ * pair) leaves the link without a number and says nothing. COUNTS ONLY: no row, and no audit event (the page writes people.listed because it shows people; the nav shows a number).
+ */
+async function loadSignupsCounts(): Promise<SignupsNavCounts | null> {
+  try {
+    const [people, employers] = await Promise.all([countSignups(), countSignupEmployers()]);
+    // Both come from the same scope, so employers cannot exceed people; if they ever do, the pair is wrong and no number is better than a wrong one.
+    if (!Number.isInteger(people) || !Number.isInteger(employers) || employers < 0 || employers > people) return null;
+    return { people, employers, seekers: people - employers };
+  } catch {
+    console.error("[admin-nav] the Signups total is unavailable");
+    return null;
+  }
+}
+
+const formatCount = (n: number) => n.toLocaleString("en-US");
+
+/** "1 person" / "2 people": each noun agrees with its own number (the three numbers are independent: 1 person can be 1 job seeker and 0 employers). */
+const countOf = (n: number, one: string, many: string) => `${formatCount(n)} ${n === 1 ? one : many}`;
+
+function describeSignups(c: SignupsNavCounts): string {
+  return `Signups, ${countOf(c.people, "person", "people")}: ${countOf(c.seekers, "job seeker", "job seekers")}, ${countOf(c.employers, "employer", "employers")}`;
+}
+
+/*
  * Links with no count. These sit apart from ITEMS because a number beside them
  * would invent a backlog that does not exist — there is no queue of operators
  * waiting to be dealt with, and a blog post is not work arriving.
@@ -81,7 +128,7 @@ const ITEMS = [
  */
 const COUNTLESS_ITEMS = [
   { href: "/admin/blog", label: "Blog", permission: "blog" },
-  // Job seekers, newest first. The single-person billing lookup at
+  // Everyone with an account, newest first. The single-person billing lookup at
   // /admin/people is deliberately NOT linked: it is reached on purpose for one
   // case, and a nav entry is how a tool becomes something people browse.
   { href: "/admin/people/signups", label: "Signups", permission: "people_list" },
@@ -113,7 +160,9 @@ export async function AdminNav({ permissions }: { permissions: readonly AdminPer
    * too. Here the worst case is the wrong link being bold, so it is compared
    * rather than sanitised.
    */
-  const [counts, headerList] = await Promise.all([queueCounts(), headers()]);
+  // The Signups total is asked for only by a viewer who can see the link (people_list), and in its own guarded call.
+  const signupsCounts = permissions.includes("people_list") ? loadSignupsCounts() : Promise.resolve(null);
+  const [counts, headerList, signups] = await Promise.all([queueCounts(), headers(), signupsCounts]);
   const path = headerList.get(PATH_HEADER) ?? "";
 
   return (
@@ -139,8 +188,7 @@ export async function AdminNav({ permissions }: { permissions: readonly AdminPer
             */}
             <span
               className={
-                "min-w-6 px-1.5 py-0.5 text-center font-body text-[12px] font-bold " +
-                (count > 0 ? "bg-ink text-paper" : "bg-transparent text-ink-soft")
+                COUNT_CHIP + " " + (count > 0 ? COUNT_ALERT : COUNT_QUIET)
               }
             >
               {count}
@@ -149,19 +197,28 @@ export async function AdminNav({ permissions }: { permissions: readonly AdminPer
         );
       })}
 
-      {COUNTLESS_ITEMS.filter((item) => permissions.includes(item.permission)).map((item) => (
-        <Link
-          key={item.href}
-          href={item.href}
-          aria-current={path.startsWith(item.href) ? "page" : undefined}
-          className={
-            "inline-flex min-h-11 items-center font-body text-[14px] no-underline " +
-            (path.startsWith(item.href) ? "font-semibold text-rust" : "text-ink hover:text-rust")
-          }
-        >
-          {item.label}
-        </Link>
-      ))}
+      {COUNTLESS_ITEMS.filter((item) => permissions.includes(item.permission)).map((item) => {
+        // Only the Signups link carries a number, and only when there is one to show.
+        const total = item.href === SIGNUPS_HREF ? signups : null;
+        const description = total ? describeSignups(total) : undefined;
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            aria-current={path.startsWith(item.href) ? "page" : undefined}
+            aria-label={description}
+            title={description}
+            className={
+              "inline-flex min-h-11 items-center font-body text-[14px] no-underline " +
+              (total ? "gap-2 " : "") +
+              (path.startsWith(item.href) ? "font-semibold text-rust" : "text-ink hover:text-rust")
+            }
+          >
+            {item.label}
+            {total && <span className={COUNT_CHIP + " " + COUNT_QUIET}>{formatCount(total.people)}</span>}
+          </Link>
+        );
+      })}
     </nav>
   );
 }
