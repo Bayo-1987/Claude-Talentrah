@@ -8,6 +8,7 @@ import { createRoot } from "react-dom/client";
 import { useEffect, useRef, useState } from "react";
 import { Masthead } from "@/components/app-shell/masthead";
 import { FarahSheetHost } from "@/components/app-shell/farah-sheet-host";
+import { FarahPanel } from "@/components/app-shell/farah-panel";
 import { FarahJobMenu } from "@/components/jobs/farah-job-menu";
 import { FarahFirstVisitHint } from "@/components/app-shell/farah-first-visit-hint";
 import InstallStrip from "@/components/pwa/install-strip";
@@ -26,6 +27,8 @@ declare global {
     __focusLanded: boolean | null;
     __hintDismissals: number;
     __mountHeader: (props: Record<string, unknown>) => void;
+    __mountRealPanel: () => void;
+    __setVisualHeight?: (h: number) => void;
     __signOuts: number;
     __switched: string[];
     __navigated: string[];
@@ -138,4 +141,35 @@ window.__mountHeader = (props) => {
   const el = document.getElementById("root");
   if (!el) throw new Error("no root");
   createRoot(el).render(<HeaderPage props={props} />);
+};
+
+/**
+ * The REAL Farah panel (not the stand-in) inside the REAL sheet host, in the shell's wrapper: what the launcher sheet really contains on a phone. The page's /api/farah/history is answered by the
+ * spec (route interception), so the header, the allowance line, the quick actions, the conversation and the composer are all the product's own markup.
+ */
+function RealPanelPage() {
+  return (
+    <div className="min-h-screen">
+      <div data-testid="masthead-band" className="sticky top-0 z-20 border-b border-line bg-paper px-6 py-4">
+        <span>Talentrah</span>
+      </div>
+      <main id="main-content" className="mx-auto flex w-full max-w-[1360px] flex-col min-[760px]:flex-row">
+        <div data-testid="content-column" className="min-w-0 flex-1 px-6 py-8 min-[760px]:px-10">
+          {Array.from({ length: 6 }, (_, i) => (
+            <div key={i} className="mb-6 border-[1.5px] border-ink bg-card p-5">
+              <p className="font-display text-[19px]">Job number {i + 1}</p>
+            </div>
+          ))}
+        </div>
+        <FarahSheetHost hasUnreadNotification={false}>
+          <FarahPanel firstName="Sam" />
+        </FarahSheetHost>
+      </main>
+    </div>
+  );
+}
+window.__mountRealPanel = () => {
+  const el = document.getElementById("root");
+  if (!el) throw new Error("no root");
+  createRoot(el).render(<RealPanelPage />);
 };

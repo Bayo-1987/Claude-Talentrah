@@ -40,6 +40,7 @@ export function FarahComposer({
       // send-381 — same shape as jd-demo-input.tsx: the box inside has no border of its own, so the visible focus change lands on this form's border via focus-within.
       className="mt-auto flex items-end gap-2 border-[1.5px] border-ink bg-card px-2.5 py-2 focus-within:border-rust"
     >
+      {/* 16px below the shell breakpoint (760px): Safari on iPhone zooms the whole page when a text field under 16px takes focus and stays zoomed after the keyboard closes, which pushed the sheet's Send button off the edge. The docked desktop panel keeps 12.5px. Same pattern as src/components/ui/writing-box.ts. */}
       <TextArea
         compact
         autoGrow
@@ -57,7 +58,7 @@ export function FarahComposer({
         wrapperClassName="flex-1 min-w-0"
         onKeyDown={(e) => handleComposerKeyDown(e, { text: value, pending, coarsePointer: isCoarsePointer, onSend: onEnterSend })}
         /* 40px tall at one row, like the single-line field it replaces (a text field people hit on a phone was under half the minimum height once). */
-        className="min-h-11 py-[13px] font-display text-[12.5px] italic leading-[1.4] text-ink placeholder:text-ink-soft disabled:opacity-60"
+        className="min-h-11 py-[13px] font-display text-[16px] italic leading-[1.4] text-ink placeholder:text-ink-soft disabled:opacity-60 min-[760px]:text-[12.5px]"
       />
       <button
         type="submit"
