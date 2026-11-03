@@ -47,6 +47,9 @@ import { revalidateEmbedForOrganizations } from "@/lib/embed/revalidate";
  * `ingestAllSources`' freshness sweep noticing the source stopped serving it,
  * never by a date on the row.
  *
+ * ONE EXCEPTION, ADDED LATER AND NARROW: a MANUAL import (`external_source` starting "manual-", see MANUAL_IMPORT_SOURCE_PREFIX) has no source to go silent, so
+ * `closeStaleExternalPostings` below closes an open manual row once its own `expires_at` has passed, and skips it in the 72-hour rule. No other external row is affected.
+ *
 
  * ── WHY CLOSE THE ROW RATHER THAN FILTER AT READ TIME ─────────────────────
  *
@@ -155,6 +158,14 @@ export async function closeExpiredInternalPostings(
  */
 export const EXTERNAL_STALE_AFTER_HOURS = 72;
 
+/**
+ * An `external_source` starting with this is a MANUAL import (for example the jobs-sheet import, `manual-sheet-2026-11-02`): rows loaded once from a sheet, not fetched from a
+ * source, so nothing ever re-confirms them and `last_checked_at` is the insert time for good. The 72-hour rule would close every one of them three days after the import, so it skips
+ * them (a NULL source is NOT manual and still counts), and they close on their OWN `expires_at` instead (below). This is the one place an external row's expires_at decides closure,
+ * and only because for these rows there is no board that could disagree with it.
+ */
+export const MANUAL_IMPORT_SOURCE_PREFIX = "manual-";
+
 export async function closeStaleExternalPostings(
   now: Date = new Date(),
 ): Promise<ExpirySweepResult> {
@@ -171,10 +182,26 @@ export async function closeStaleExternalPostings(
     .eq("source_type", "external")
     .eq("status", "open")
     .lt("last_checked_at", cutoff.toISOString())
+    // Manual imports are skipped, but a NULL source is not manual: `external_source NOT LIKE 'manual-%'` alone is NULL (not true) for a NULL source and would silently skip
+    // every external row that has no source key, so the NULL case is spelled out. PostgREST reads `*` as the LIKE wildcard.
+    .or(`external_source.is.null,external_source.not.like.${MANUAL_IMPORT_SOURCE_PREFIX}*`)
     .select("id");
 
   if (error) throw error;
 
-  const ids = (data ?? []).map((row) => row.id);
+  // The manual rule: an open manual import past its own expires_at closes (status and closed_at only; expires_at is the importer's statement and is never written here).
+  // A NULL or future expires_at compares false and stays open.
+  const { data: expired, error: expiredError } = await supabase
+    .from("job_postings")
+    .update({ status: "closed", closed_at: now.toISOString() })
+    .eq("source_type", "external")
+    .eq("status", "open")
+    .like("external_source", `${MANUAL_IMPORT_SOURCE_PREFIX}%`)
+    .lt("expires_at", now.toISOString())
+    .select("id");
+
+  if (expiredError) throw expiredError;
+
+  const ids = [...new Set([...(data ?? []), ...(expired ?? [])].map((row) => row.id))];
   return { closed: ids.length, ids };
 }
