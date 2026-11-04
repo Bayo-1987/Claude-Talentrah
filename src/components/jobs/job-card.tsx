@@ -15,6 +15,8 @@ import { toggleSaveAction, applyInAppAction, markAppliedExternallyAction } from 
 import type { CountryState } from "@/lib/jobs/country-events";
 import type { Tables } from "@/lib/supabase/types";
 import { isLinkOutPosting, provenanceLabel } from "@/lib/jobs/link-out";
+import { normaliseApplyEmail } from "@/lib/jobs/apply-email";
+import { ApplyByEmailLink } from "@/components/jobs/apply-by-email";
 
 const WORK_TYPE_LABEL: Record<string, string> = {
   remote: "Remote",
@@ -59,7 +61,10 @@ export interface JobCardProps {
   // and matches what the query actually returns.
   // closed_at (0102) is also never selected by the feed query — it filters
   // to status = 'open', where closed_at is always null anyway.
-  job: Omit<Tables<"job_postings">, "description_preview" | "search_vector" | "closing_date_source" | "closed_at" | "unlisted_at" | "superseded_by" | "superseded_at" | "banner_path" | "admin_review_decision" | "admin_review_note" | "admin_review_requested_at" | "admin_reviewed_at" | "admin_reviewed_by" | "claimed_by_organization_id" | "claimed_at" | "llm_enrichment_attempted_at" | "import_key" | "employer_closed_at">;
+  job: Omit<Tables<"job_postings">, "apply_email" | "description_preview" | "search_vector" | "closing_date_source" | "closed_at" | "unlisted_at" | "superseded_by" | "superseded_at" | "banner_path" | "admin_review_decision" | "admin_review_note" | "admin_review_requested_at" | "admin_reviewed_at" | "admin_reviewed_by" | "claimed_by_organization_id" | "claimed_at" | "llm_enrichment_attempted_at" | "import_key" | "employer_closed_at"> & {
+    /** 0274. Optional: a path that does not select the column (the promoted strip's RPC rows) leaves it undefined, which is treated as no address. */
+    apply_email?: string | null;
+  };
   score: number;
   isSaved: boolean;
   applicationStage: Tables<"applications">["stage"] | null;
@@ -129,6 +134,8 @@ export function JobCard({
 
   // Apply mode and provenance are different questions: an imported posting is applied for on the employer's own site (link-out) but is not "sourced externally" (src/lib/jobs/link-out.ts).
   const isExternal = isLinkOutPosting(job);
+  // The address a link-out posting can be applied to by email, or null (none stored, or not one plain address). `apply_email` is absent on rows from a path that does not select it (the promoted strip), which reads as null.
+  const applyEmail = isExternal ? normaliseApplyEmail(job.apply_email) : null;
   const provenance = provenanceLabel(job);
   // Own line, same call as the detail page (jobs/[id]/page.tsx) and the same
   // reason: the one fact on the card most worth scanning for shouldn't be
@@ -340,15 +347,20 @@ export function JobCard({
               <form action={markAppliedExternallyAction.bind(null, job.id, countryState)}>
                 <MarkAppliedButton />
               </form>
-              <a
-                href={job.external_url ?? "#"}
-                target="_blank"
-                rel="noopener noreferrer"
-                data-ad-click={isSponsored ? "true" : undefined}
-                className="inline-flex min-h-10 items-center justify-center border-none bg-ink px-[18px] py-[10px] font-body text-[13.5px] font-semibold text-paper no-underline transition-colors hover:bg-rust"
-              >
-                Apply on company site
-              </a>
+              {job.external_url && (
+                <a
+                  href={job.external_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-ad-click={isSponsored ? "true" : undefined}
+                  className="inline-flex min-h-10 items-center justify-center border-none bg-ink px-[18px] py-[10px] font-body text-[13.5px] font-semibold text-paper no-underline transition-colors hover:bg-rust"
+                >
+                  Apply on company site
+                </a>
+              )}
+              {applyEmail && (
+                <ApplyByEmailLink address={applyEmail} title={job.title} variant="card" secondary={!!job.external_url} sponsored={isSponsored} />
+              )}
             </>
           ) : !hasBaseResume ? (
             /*

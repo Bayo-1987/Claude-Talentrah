@@ -2282,6 +2282,7 @@ export type Database = {
           admin_review_requested_at: string | null
           admin_reviewed_at: string | null
           admin_reviewed_by: string | null
+          apply_email: string | null
           banner_path: string | null
           claimed_at: string | null
           claimed_by_organization_id: string | null
@@ -2331,6 +2332,7 @@ export type Database = {
           admin_review_requested_at?: string | null
           admin_reviewed_at?: string | null
           admin_reviewed_by?: string | null
+          apply_email?: string | null
           banner_path?: string | null
           claimed_at?: string | null
           claimed_by_organization_id?: string | null
@@ -2382,6 +2384,7 @@ export type Database = {
           admin_review_requested_at?: string | null
           admin_reviewed_at?: string | null
           admin_reviewed_by?: string | null
+          apply_email?: string | null
           banner_path?: string | null
           claimed_at?: string | null
           claimed_by_organization_id?: string | null
