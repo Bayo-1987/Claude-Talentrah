@@ -2080,6 +2080,51 @@ export type Database = {
           },
         ]
       }
+      job_posting_apply_email_events: {
+        Row: {
+          actor_user_id: string | null
+          created_at: string
+          id: string
+          job_posting_id: string
+          new_address: string | null
+          old_address: string | null
+          organization_id: string
+        }
+        Insert: {
+          actor_user_id?: string | null
+          created_at?: string
+          id?: string
+          job_posting_id: string
+          new_address?: string | null
+          old_address?: string | null
+          organization_id: string
+        }
+        Update: {
+          actor_user_id?: string | null
+          created_at?: string
+          id?: string
+          job_posting_id?: string
+          new_address?: string | null
+          old_address?: string | null
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_posting_apply_email_events_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_posting_apply_email_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_posting_assessment_files: {
         Row: {
           byte_size: number
@@ -5721,6 +5766,10 @@ export type Database = {
           p_reviewer_id: string
         }
         Returns: Database["public"]["Enums"]["ad_campaign_status"]
+      }
+      set_job_apply_email: {
+        Args: { p_address: string; p_job_id: string }
+        Returns: undefined
       }
       set_notification_setting: {
         Args: { p_actor: string; p_key: string; p_value: number }
