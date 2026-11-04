@@ -5,7 +5,7 @@ import { requestTalentDirectoryBoostAction } from "@/lib/talent-directory/action
 import { Button } from "@/components/ui";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { priced } from "@/lib/credits/price-labels";
-import { TALENT_DIRECTORY_BOOST_DAYS } from "@/lib/talent-directory/boost-constants";
+import { boostPanelIntro } from "@/lib/talent-directory/boost-copy";
 import { formatDate } from "@/lib/format/datetime";
 
 /**
@@ -23,11 +23,7 @@ export function BoostPanel({ boostedUntil }: { boostedUntil: string | null }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="max-w-[48ch] text-[13.5px] text-ink-soft">
-        Move to the top of employer search results for {TALENT_DIRECTORY_BOOST_DAYS} days —{" "}
-        {CREDIT_COSTS.talentDirectoryBoost} credits. Purchases stack: buying again while already
-        boosted adds {TALENT_DIRECTORY_BOOST_DAYS} more days on top of your current one.
-      </p>
+      <p className="max-w-[48ch] text-[13.5px] text-ink-soft">{boostPanelIntro(CREDIT_COSTS.talentDirectoryBoost)}</p>
 
       {boostedUntil && (
         <p className={`text-[13px] ${isActive ? "text-green" : "text-ink-soft"}`}>
