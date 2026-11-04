@@ -34,6 +34,8 @@ import {
 import { logCountryDefaultEvent, type CountryState } from "@/lib/jobs/country-events";
 import { bannerIsEligibleToRender, bannerPublicUrl } from "@/lib/employer/banner";
 import { isLinkOutPosting, provenanceLabel } from "@/lib/jobs/link-out";
+import { normaliseApplyEmail } from "@/lib/jobs/apply-email";
+import { ApplyByEmailLink, ApplyByEmailNote } from "@/components/jobs/apply-by-email";
 
 const WORK_TYPE_LABEL: Record<string, string> = {
   remote: "Remote",
@@ -322,6 +324,8 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
   // Apply mode and provenance are different questions (src/lib/jobs/link-out.ts): an imported posting is applied for on the employer's own site (link-out) but is not "sourced externally".
   const isExternal = isLinkOutPosting(job);
   const provenance = provenanceLabel(job);
+  // The address a link-out posting can be applied to by email, or null (none stored, or not one plain address). Shown only in the signed-in link-out branch below; the signed-out view is unchanged.
+  const applyEmail = isExternal ? normaliseApplyEmail(job.apply_email) : null;
   // Mirrors the feed's own `hasBaseResume` shape exactly (jobs/(feed)/page.tsx)
   // so the two surfaces can never disagree about whether this signed-in user
   // has a resume to apply with. `null` only for a signed-out reader, who
@@ -629,19 +633,23 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
           </>
         ) : isExternal ? (
           <>
-            <a
-              href={job.external_url ?? "#"}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={buttonClasses("primary", "sm", "no-underline")}
-            >
-              Apply on company site
-            </a>
+            {job.external_url && (
+              <a
+                href={job.external_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={buttonClasses("primary", "sm", "no-underline")}
+              >
+                Apply on company site
+              </a>
+            )}
+            {applyEmail && <ApplyByEmailLink address={applyEmail} title={job.title} variant="page" secondary={!!job.external_url} />}
             <form action={markAppliedExternallyAction.bind(null, job.id, detailCountryState)}>
               <button type="submit" className={buttonClasses("text", "sm")}>
                 Mark as applied
               </button>
             </form>
+            {applyEmail && <ApplyByEmailNote address={applyEmail} />}
           </>
         ) : !hasBaseResume ? (
           /*
