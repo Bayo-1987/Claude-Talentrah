@@ -179,17 +179,42 @@ export function parseSalary(text: string): ParsedSalary | null {
 
 export const SOURCE_LINE = "Listed from public job boards";
 
+/** What stands where the row's address was: the address is behind the "Apply by email" button and is never printed in the description (PR-E3, the owner's decision). */
+export const ADDRESS_POINTER = "(see Apply by email)";
+
+const ADDRESS_TOKEN = /[^\s,;<>()"'\[\]]+@[^\s,;<>()"'\[\]]+/g;
+
 /**
- * The stored description: the body, the other locations, a salary that did not parse (kept as written), the "How to apply" block as written, and the source line. The e-mail and phone
- * are in the block exactly as the sheet has them; if the apply text does not already contain one, it is added on its own line, still as written.
+ * Every spelling of the row's address that must not reach the description: the apply_email cell as written, and each address-shaped piece inside it (a cell that lists two addresses
+ * names both). Longest first, so a whole cell is replaced before the pieces inside it.
+ */
+function addressSpellings(applyEmail: string): string[] {
+  const whole = applyEmail.trim();
+  if (whole === "") return [];
+  const found = new Set<string>([whole, ...(whole.match(ADDRESS_TOKEN) ?? []).map((t) => t.replace(/[.:]+$/, ""))]);
+  return [...found].filter((t) => t !== "").sort((a, b) => b.length - a.length);
+}
+
+/** The text with every occurrence of the row's address (any letter case) replaced by the pointer. Nothing else in the text is touched. */
+export function withoutAddress(text: string, applyEmail: string): string {
+  let out = text;
+  for (const spelling of addressSpellings(applyEmail)) {
+    out = out.replace(new RegExp(spelling.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), ADDRESS_POINTER);
+  }
+  return out;
+}
+
+/**
+ * The stored description: the body, the other locations, a salary that did not parse (kept as written), the "How to apply" block, and the source line. The phone is in the block as the
+ * sheet has it; if the apply text does not already contain it, it is added on its own line, still as written. The row's e-mail address is NEVER in the description: no "Email:" line, and
+ * wherever the address appears (the apply text or any other text of the row) it is replaced by "(see Apply by email)", because the address is shown only behind the button (PR-E3).
  */
 export function composeDescription(row: SheetRow, rest: string[], salaryParsed: boolean): string {
-  const parts: string[] = [jobBody(row)];
+  const parts: string[] = [withoutAddress(jobBody(row), row.applyEmail)];
   if (rest.length > 0) parts.push(`Other locations: ${rest.join("; ")}`);
   if (!salaryParsed && row.salary !== "") parts.push(`Salary: ${row.salary}`);
   const apply: string[] = [];
-  if (row.applyText !== "") apply.push(row.applyText);
-  if (row.applyEmail !== "" && !row.applyText.includes(row.applyEmail)) apply.push(`Email: ${row.applyEmail}`);
+  if (row.applyText !== "") apply.push(withoutAddress(row.applyText, row.applyEmail));
   if (row.applyPhone !== "" && !row.applyText.includes(row.applyPhone)) apply.push(`Phone: ${row.applyPhone}`);
   if (apply.length > 0) parts.push(`How to apply\n${apply.join("\n")}`);
   parts.push(SOURCE_LINE);

@@ -52,11 +52,14 @@ export function ApplyByEmailLink({ address, title, variant, secondary = false, s
   );
 }
 
-/** The job page's address block: the address in full, and what Talentrah does and does not do. */
-export function ApplyByEmailNote({ address }: { address: string }) {
+/**
+ * The job page's note under the buttons: what Talentrah does and does not do. It never prints the address (the owner's decision): the address is behind "Apply by email" (a mailto link) and
+ * "Copy address", and nowhere else on the page.
+ */
+export function ApplyByEmailNote() {
   return (
     <p className="basis-full max-w-[520px] border border-dashed border-line p-3 text-[13px] text-ink-soft">
-      Send your resume to <code className="break-all font-mono text-[14px] text-ink">{address}</code>. Talentrah does not send this email or attach your resume.
+      Use Apply by email to open your mail app, or Copy address to paste it elsewhere, then send your resume. Talentrah does not send this email or attach your resume.
     </p>
   );
 }

@@ -7,9 +7,11 @@
  *   JOBS_IMPORT_PROD_CONFIRM=<csv sha256, first 12>:<batch>:<rows in the batch> tsx scripts/import-jobs-sheet.ts --csv <file> --apply --production --batch <n>
  *   JOBS_IMPORT_PROD_CONFIRM=UNDO:manual-sheet-2026-11-02 tsx scripts/import-jobs-sheet.ts --undo --production
  *
- * WHAT IS IMPORTED. Phase 1 only: the rows that give a seeker an https APPLY LINK (the link rows and the e-mail rows that also have a link). An e-mail-only row is not built (no page can
- * show an apply-by-email line yet); it is listed in the preview with that reason. Every imported row is LINK-OUT (source_type = external, a real external_url), so no Apply button
- * inside Talentrah and no applicant count is ever shown for it, and no button points at "#". The sheet's job-board link is not a column of the CSV and is never read.
+ * WHAT IS IMPORTED. The rows that give a seeker an https APPLY LINK (the link rows and the e-mail rows that also have a link), then the E-MAIL-ONLY rows whose address is one plain address.
+ * Every imported row is LINK-OUT (source_type = external), so no Apply button inside Talentrah and no applicant count is ever shown for it, and no button points at "#". A link row has a real
+ * external_url and NEVER an apply_email. An e-mail-only row has no external_url and its address, normalised by src/lib/jobs/apply-email.ts, in job_postings.apply_email: the job page
+ * shows it only behind "Apply by email" and "Copy address". A row whose address is not one plain address is skipped with a named reason, never repaired. The address is never in the
+ * description (scripts/jobs-sheet-import/parse.ts) and never in the preview. The sheet's job-board link is not a column of the CSV and is never read.
  *
  * HOW IT IS SAFE.
  *   - Insert-only: INSERT ... ON CONFLICT (dedup_fingerprint) DO NOTHING. An existing row (the same job already on Talentrah, or an earlier run of this import) is skipped and counted;
@@ -36,6 +38,7 @@ import { refuseIfProduction } from "./refuse-production";
 import { announceDbTarget } from "./db-target";
 import { applyKind, composeDescription, parseDatePosted, parseDeadline, parseSalary, readSheet, splitLocation, type ApplyKind, type SheetRow } from "./jobs-sheet-import/parse";
 import { cleanApplyUrl, textNamesBoard } from "./jobs-sheet-import/url";
+import { normaliseApplyEmail } from "../src/lib/jobs/apply-email";
 import { assignFingerprints } from "./jobs-sheet-import/fingerprint";
 
 export const SOURCE_KEY = "manual-sheet-2026-11-02";
@@ -59,7 +62,10 @@ export interface JobInsert {
   salary_max: number | null;
   salary_currency: string | null;
   salary_unit: string | null;
-  external_url: string;
+  /** null for an e-mail-only row (the address is in apply_email instead). */
+  external_url: string | null;
+  /** Present ONLY on an e-mail-only row: the normalised address. A row with an apply link has no apply_email key at all. */
+  apply_email?: string;
   external_source: string;
   status: "open";
   posted_at: string;
@@ -87,7 +93,7 @@ export interface PlanItem {
 }
 
 export interface Plan {
-  /** Importable rows in import order (link rows first, then e-mail-plus-link rows), each with its batch number. */
+  /** Importable rows in import order (link rows, then e-mail-plus-link rows, then e-mail-only rows), each with its batch number. */
   items: PlanItem[];
   /** One preview line per CSV row, in file order (importable rows carry their batch, skipped rows their reason). */
   preview: PreviewLine[];
@@ -102,7 +108,7 @@ export interface PlanOptions {
   existingFingerprints?: ReadonlySet<string>;
 }
 
-const REASON_EMAIL_ONLY = "email-only row: not built in Phase 1";
+const REASON_EMAIL_INVALID = "email address is not one plain address";
 const REASON_NO_WAY = "no way to apply";
 const REASON_NO_TITLE = "missing title or company";
 const REASON_BOARD_TEXT = "job-board address in the text";
@@ -120,28 +126,37 @@ export function buildPlan(csvText: string, options: PlanOptions): Plan {
   const now = options.now;
   const sourceKey = options.sourceKey ?? SOURCE_KEY;
   const preview: Array<PreviewLine | null> = rows.map(() => null);
-  type Candidate = { index: number; row: SheetRow; kind: ApplyKind; url: string; location: string | null; rest: string[]; description: string; deadline: Date | null; salary: ReturnType<typeof parseSalary> };
+  type Candidate = { index: number; row: SheetRow; kind: ApplyKind; url: string | null; applyEmail: string | null; location: string | null; rest: string[]; description: string; deadline: Date | null; salary: ReturnType<typeof parseSalary> };
   const candidates: Candidate[] = [];
 
   rows.forEach((row, index) => {
     const kind = applyKind(row);
     if (row.title === "" || row.company === "") return void (preview[index] = previewOf(row, kind, REASON_NO_TITLE));
-    if (kind === "email") return void (preview[index] = previewOf(row, kind, REASON_EMAIL_ONLY));
-    if (kind !== "link" && kind !== "email+link") return void (preview[index] = previewOf(row, kind, REASON_NO_WAY));
-    const verdict = cleanApplyUrl(row.applyLink);
-    if (!verdict.ok) return void (preview[index] = previewOf(row, kind, `link rejected: ${verdict.reason}`));
+    if (kind !== "link" && kind !== "email+link" && kind !== "email") return void (preview[index] = previewOf(row, kind, REASON_NO_WAY));
+    // An e-mail-only row is built from its address; a row with a link is built from the link and never carries an address.
+    let url: string | null = null;
+    let applyEmail: string | null = null;
+    if (kind === "email") {
+      applyEmail = normaliseApplyEmail(row.applyEmail);
+      if (applyEmail === null) return void (preview[index] = previewOf(row, kind, REASON_EMAIL_INVALID));
+    } else {
+      const verdict = cleanApplyUrl(row.applyLink);
+      if (!verdict.ok) return void (preview[index] = previewOf(row, kind, `link rejected: ${verdict.reason}`));
+      url = verdict.url;
+    }
     const { first, rest } = splitLocation(row.location);
     const salary = parseSalary(row.salary);
     const description = composeDescription(row, rest, salary !== null);
     if ([row.title, row.company, description].some(textNamesBoard)) return void (preview[index] = previewOf(row, kind, REASON_BOARD_TEXT));
     const deadline = parseDeadline(row.deadline);
     if (deadline && deadline.getTime() < now.getTime()) return void (preview[index] = previewOf(row, kind, REASON_DEADLINE));
-    candidates.push({ index, row, kind, url: verdict.url, location: first, rest, description, deadline, salary });
+    candidates.push({ index, row, kind, url, applyEmail, location: first, rest, description, deadline, salary });
   });
 
-  // Link rows first, then the e-mail-plus-link rows; file order inside each group.
-  const ordered = [...candidates.filter((c) => c.kind === "link"), ...candidates.filter((c) => c.kind === "email+link")];
-  const fingerprints = assignFingerprints(ordered.map((c) => ({ company: c.row.company, title: c.row.title, location: c.location, applyKey: c.url })));
+  // Link rows first, then the e-mail-plus-link rows, then the e-mail-only rows (so the canary and the earlier batches never change); file order inside each group.
+  const ordered = [...candidates.filter((c) => c.kind === "link"), ...candidates.filter((c) => c.kind === "email+link"), ...candidates.filter((c) => c.kind === "email")];
+  // The apply key only tells two requisitions of one company, title and place apart: the link, or for an e-mail-only row its address (hashed by the fingerprint, stored nowhere).
+  const fingerprints = assignFingerprints(ordered.map((c) => ({ company: c.row.company, title: c.row.title, location: c.location, applyKey: c.url ?? `mailto:${c.applyEmail}` })));
 
   const items: PlanItem[] = [];
   ordered.forEach((c, i) => {
@@ -167,6 +182,7 @@ export function buildPlan(csvText: string, options: PlanOptions): Plan {
       salary_currency: c.salary?.currency ?? null,
       salary_unit: c.salary?.unit ?? null,
       external_url: c.url,
+      ...(c.applyEmail === null ? {} : { apply_email: c.applyEmail }),
       external_source: sourceKey,
       status: "open",
       posted_at: postedAt.toISOString(),

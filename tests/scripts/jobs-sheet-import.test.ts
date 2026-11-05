@@ -4,7 +4,7 @@
  * fragments at run time, here and in the code.
  *
  * What is pinned, in the task's words: the parser (e-mail, phone, link, "10th November, 2026.", "N" and per month, "A | B" locations); e-mail and phone carried exactly as written, the
- * misspelt address included; Phase 1 imports exactly the link rows and the e-mail-plus-link rows and no e-mail-only row; insert-only, ON CONFLICT DO NOTHING, never an update; skips
+ * misspelt address included (by the reader; the stored description holds no address, PR-E3: tests/scripts/jobs-sheet-import-email.test.ts); the import builds the link rows, the e-mail-plus-link rows and the valid e-mail-only rows; insert-only, ON CONFLICT DO NOTHING, never an update; skips
  * counted with a reason, a job already on Talentrah included; llm_enrichment_attempted_at set; the URL rules; no imported address with a tracker, "hnj" or a board name; a batch above 50
  * refused and the first batch a canary of 10; no notification, e-mail or push on insert; link-out only (a real https external_url, so no Apply button inside Talentrah and none pointing at "#");
  * the undo closes exactly this import's rows; and the host-pattern test over every stored field, preview line, log line and new repo file. The database-backed block needs the local stack
@@ -140,19 +140,21 @@ describe("the parser", () => {
     expect(applyKind({ applyEmail: "", applyPhone: "", applyLink: "" })).toBe("none");
   });
 
-  it("an e-mail and a phone number come out exactly as written, the misspelt address included, and nothing is added", () => {
+  it("a phone number comes out exactly as written; the row's address (the misspelt one included) is replaced by the Apply by email pointer and nothing is added", () => {
     const row = readSheet(csv([emailPlusLink({ apply_email: "recuitment@example.test", apply_phone: "0800 000 0000", apply_text: "Mail recuitment@example.test or call 0800 000 0000." })]))[0];
+    expect(row.applyEmail).toBe("recuitment@example.test"); // the reader still carries it exactly as written
     const description = composeDescription(row, [], true);
-    expect(description).toContain("recuitment@example.test");
-    expect(description).toContain("0800 000 0000");
+    expect(description).toContain("Mail (see Apply by email) or call 0800 000 0000.");
+    expect(description).not.toContain("recuitment@");
     expect(description).not.toContain("recruitment@");
-    expect(description.match(/[\w.+-]+@[\w.-]+\.\w+/g)).toEqual(["recuitment@example.test"]);
+    expect(description.match(/[\w.+-]+@[\w.-]+\.\w+/g)).toBeNull();
   });
 
-  it("an e-mail or phone missing from the apply text is added on its own line, still as written", () => {
+  it("a phone missing from the apply text is added on its own line, still as written; an e-mail missing from it is NOT added", () => {
     const row = readSheet(csv([emailPlusLink({ apply_email: "x.y@example.test", apply_phone: "+234 800 000 0000", apply_text: "See the link." })]))[0];
     const description = composeDescription(row, [], true);
-    expect(description).toContain("Email: x.y@example.test");
+    expect(description).not.toContain("x.y@example.test");
+    expect(description).not.toContain("Email:");
     expect(description).toContain("Phone: +234 800 000 0000");
   });
 });
@@ -206,7 +208,7 @@ describe("the apply-link rules", () => {
   });
 });
 
-describe("Phase 1 imports the link rows and the e-mail-plus-link rows, and nothing else", () => {
+describe("the import builds the link rows, the e-mail-plus-link rows and the valid e-mail-only rows, and nothing else", () => {
   const sheet = () =>
     csv([
       linkRow({ title: "Link A", company: "Co A" }),
@@ -217,18 +219,18 @@ describe("Phase 1 imports the link rows and the e-mail-plus-link rows, and nothi
       cells({ method: "Email", apply_link: "", apply_email: "", apply_phone: "08000000000", title: "Phone only", company: "Co F" }),
     ]);
 
-  it("imports exactly the link rows and the e-mail-plus-link row, link rows first", () => {
+  it("imports the link rows, the e-mail-plus-link row and the e-mail-only rows, link rows first and e-mail-only rows last", () => {
     const plan = buildPlan(sheet(), { now: NOW });
-    expect(plan.items.map((i) => i.insert.title)).toEqual(["Link A", "Link B", "Both A"]);
-    expect(plan.counts).toMatchObject({ rows: 6, importable: 3, batches: 1 });
+    expect(plan.items.map((i) => i.insert.title)).toEqual(["Link A", "Link B", "Both A", "Email only A", "Email only B"]);
+    expect(plan.counts).toMatchObject({ rows: 6, importable: 5, batches: 1 });
   });
 
-  it("never builds an e-mail-only row, and lists it in the preview with the reason", () => {
+  it("still skips a row with only a phone number, and lists it in the preview with the reason", () => {
     const plan = buildPlan(sheet(), { now: NOW });
     const skipped = plan.preview.filter((p) => p.skipReason !== "");
-    expect(skipped.map((p) => p.title).sort()).toEqual(["Email only A", "Email only B", "Phone only"]);
-    expect(plan.counts.skippedByReason["email-only row: not built in Phase 1"]).toBe(2);
+    expect(skipped.map((p) => p.title)).toEqual(["Phone only"]);
     expect(plan.counts.skippedByReason["no way to apply"]).toBe(1);
+    expect(plan.counts.skippedByReason["email-only row: not built in Phase 1"]).toBeUndefined();
   });
 
   it("a rejected link skips only that row and is counted with its reason", () => {
@@ -299,7 +301,7 @@ describe("the rows it would insert", () => {
     const plan = buildPlan(csv([linkRow({ apply_link: "https://company.example.test/apply?utm_source=hnjx&fbclid=1&id=7" }), linkRow({ apply_link: "https://company.example.test/hnj/apply" })]), { now: NOW });
     for (const i of plan.items) {
       expect(i.insert.external_url).not.toMatch(/utm_|fbclid|gclid/i);
-      expect(textNamesBoard(i.insert.external_url)).toBe(false);
+      expect(textNamesBoard(i.insert.external_url as string)).toBe(false); // a link row always has a link
     }
     expect(plan.items).toHaveLength(1);
   });
@@ -437,7 +439,7 @@ describe("the preview file", () => {
     expect(lines[0]).toBe("title,company,kind,apply_method_type,external_key,batch,skip_reason");
     expect(lines).toHaveLength(3);
     expect(lines[1]).toMatch(/^A,X,link,link,manual-sheet-2026-11-02:[0-9a-f]{12},1,$/);
-    expect(lines[2]).toBe("B,Y,email,email,,,email-only row: not built in Phase 1");
+    expect(lines[2]).toMatch(/^B,Y,email,email,manual-sheet-2026-11-02:[0-9a-f]{12},1,$/);
   });
 
   it("holds no address, no e-mail, no phone number and no job-board name", () => {
