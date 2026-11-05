@@ -15,7 +15,7 @@ export async function fetchListablePending(supabase: Supabase, userId: string) {
   const { data: rows } = await supabase
     .from("auto_apply_queue")
     .select(
-      "id, job_posting_id, status, match_score, tier, source_type, queued_at, decided_at, credits_spent, job_postings(title, company_name, location, status)",
+      "id, job_posting_id, status, match_score, tier, source_type, queued_at, decided_at, credits_spent, job_postings(title, company_name, location, status, apply_email)",
     )
     .eq("user_id", userId)
     .eq("status", "pending")

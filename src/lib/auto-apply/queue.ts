@@ -9,6 +9,7 @@ import {
 import { checkPassCoverage } from "@/lib/passes/entitlement";
 import { freshnessFloorISO } from "@/lib/jobs/freshness";
 import { queueSourceType } from "@/lib/jobs/link-out";
+import { takesApplicationsByEmail } from "@/lib/jobs/posting-apply-email";
 import { isThinScreenableTagSet } from "@/lib/match-tier";
 import type { MatchExplanation } from "@/lib/matching/score";
 
@@ -106,6 +107,8 @@ export interface QueueableJobCandidate {
   sourceType: string;
   /** Null for an external posting — those have no organisation to verify. */
   organizationId: string | null;
+  /** PR-E2b: a job whose applications arrive by email is never queued (no in-app submission exists for it). Absent on a path that does not select it. */
+  applyEmail?: string | null;
 }
 
 /**
@@ -133,7 +136,7 @@ export function filterQueueableJobs(
   jobs: QueueableJobCandidate[],
   verifiedOrganizationIds: ReadonlySet<string>,
 ): QueueableJobCandidate[] {
-  return jobs.filter((j) => j.organizationId === null || verifiedOrganizationIds.has(j.organizationId));
+  return jobs.filter((j) => !takesApplicationsByEmail({ apply_email: j.applyEmail }) && (j.organizationId === null || verifiedOrganizationIds.has(j.organizationId)));
 }
 
 /**
@@ -234,7 +237,7 @@ export async function scanAndQueue(userId: string): Promise<ScanResult> {
     // it needs the floor applied here too.
     admin
       .from("job_postings")
-      .select("id, source_type, status, organization_id, import_feed_id")
+      .select("id, source_type, status, organization_id, import_feed_id, apply_email")
       .in("id", jobIds)
       .eq("status", "open")
       // 0202: a superseded duplicate is hidden everywhere public; this client bypasses RLS, so say it here.
@@ -274,7 +277,7 @@ export async function scanAndQueue(userId: string): Promise<ScanResult> {
   // real "internal" | "external" literal type rather than widening to string.
   const queueableIds = new Set(
     filterQueueableJobs(
-      (openJobs ?? []).map((j) => ({ id: j.id, sourceType: j.source_type, organizationId: j.organization_id })),
+      (openJobs ?? []).map((j) => ({ id: j.id, sourceType: j.source_type, organizationId: j.organization_id, applyEmail: j.apply_email })),
       verifiedOrganizationIds,
     ).map((j) => j.id),
   );

@@ -1,3 +1,4 @@
+import { takesApplicationsByEmail } from "@/lib/jobs/posting-apply-email";
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
@@ -84,7 +85,7 @@ export async function POST(request: Request) {
 
   const { data: job, error: jobError } = await supabase
     .from("job_postings")
-    .select("id, organization_id, source_type, import_feed_id")
+    .select("id, organization_id, source_type, import_feed_id, apply_email")
     .eq("id", jobId)
     .maybeSingle();
 
@@ -95,6 +96,10 @@ export async function POST(request: Request) {
   // An IMPORTED posting is read-only in Talentrah (close and hide only): its content lives on the employer's own site.
   if (!job || !job.organization_id || job.source_type !== "internal" || isImportedPosting(job)) {
     return NextResponse.json({ error: "That posting isn't yours to edit." }, { status: 404 });
+  }
+  // PR-E2b: a job whose applications arrive by email has no in-app assessment to attach an exercise to.
+  if (takesApplicationsByEmail(job)) {
+    return NextResponse.json({ error: "This job takes applications by email, so it can't have an assessment." }, { status: 409 });
   }
 
   /*
