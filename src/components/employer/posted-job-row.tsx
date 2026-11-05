@@ -17,6 +17,8 @@ export interface PostedJob {
   applicationCount: number;
   /** Submitted applications the employer has not yet given a status (0259). Optional: absent means the count could not be read, and no badge is shown. */
   newApplicantCount?: number;
+  /** PR-E2b: applications for this job arrive by email, so there is no applicant list and no count. A flag only: the address itself never reaches this component. */
+  appliesByEmail?: boolean;
   workType: string | null;
   employmentType: string | null;
   /** Non-null once a private link has been minted for this posting (0107). */
@@ -169,7 +171,9 @@ export function PostedJobRow({
             applicants page for every unapplied-to posting is not worth the
             click, and the count already says so.
           */}
-          {job.applicationCount > 0 ? (
+          {job.appliesByEmail ? (
+            <span className="font-semibold text-ink">Applications arrive by email</span>
+          ) : job.applicationCount > 0 ? (
             <>
               <Link
                 href={`/employer/jobs/${job.id}/applicants`}

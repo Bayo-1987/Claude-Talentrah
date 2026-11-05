@@ -55,12 +55,16 @@ describe("where the column is named (source scan)", () => {
     "src/app/(app)/jobs/[id]/page.tsx", // the Apply area
     "src/components/jobs/job-card.tsx", // the card's prop type and Apply area
     "src/lib/account-export/manifest.ts", // names only the audit table job_posting_apply_email_events (excluded from the export)
+    "src/app/employer/jobs/[id]/applicants/page.tsx", // PR-E2b: reads the column to say "Applications arrive by email" instead of listing applicants (the address is not rendered)
+    "src/app/employer/jobs/[id]/edit/page.tsx", // PR-E2b: the employer's own edit screen reads the address (its own row) to prefill the form's input
+    "src/app/employer/jobs/page.tsx", // PR-E2b: Jobs Posted selects the column to pass a flag to the row (the address does not reach the row)
     "src/app/api/employer/job-assessment-exercise/route.ts", // PR-E2b: reads the column to refuse an exercise upload for a job that takes applications by email
     "src/lib/applications/actions.ts", // PR-E2b: performInAppApply reads the column to refuse an in-app apply to such a job
     "src/lib/auto-apply/actions.ts", // PR-E2b: confirm re-reads the job (through the queue row's embed) so a row that predates the switch is not confirmed
     "src/lib/auto-apply/listable-pending.ts", // PR-E2b: the review list's job embed selects the column so such a row is not offered
     "src/lib/auto-apply/queue-read.ts", // PR-E2b: isListableQueueRow's row type carries the column
     "src/lib/auto-apply/queue.ts", // PR-E2b: the scan's job read selects the column so such a job is not queued
+    "src/lib/employer/apply-method.ts", // PR-E2b: the employer write path; the only caller of the 0275 function, and it names the function (set_job_apply_email)
     "src/lib/jobs/apply-email.ts", // the helper (named in its header)
     "src/lib/jobs/posting-apply-email.ts", // PR-E2b: the one place that asks "does this posting take applications by email?"; surfaces call it and do not name the column
     "src/lib/jobs/job-columns.ts", // JOB_DETAIL_COLUMNS

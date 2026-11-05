@@ -1,3 +1,4 @@
+import { postingApplyEmail } from "@/lib/jobs/posting-apply-email";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -30,6 +31,15 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
     .maybeSingle();
 
   if (!job) notFound();
+
+  // PR-E2b: the address applications are sent to, if the employer chose "By email". A read of its own, not part of JOB_EDIT_COLUMNS: that list is pinned to exclude the column
+  // (tests/jobs/apply-email-leaks.test.ts), and this is the employer's own row, scoped to their organisation like the read above.
+  const { data: applyRow } = await supabase
+    .from("job_postings")
+    .select("apply_email")
+    .eq("id", id)
+    .eq("organization_id", organization.id)
+    .maybeSingle();
 
   const { data: screeningQuestions } = await supabase
     .from("job_posting_screening_questions")
@@ -137,6 +147,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
             salaryMax: job.salary_max,
             salaryCurrency: job.salary_currency,
             salaryUnit: job.salary_unit,
+            applyEmail: postingApplyEmail(applyRow),
             skills: structuredJd?.skills ?? [],
             screeningQuestions: (screeningQuestions ?? []).map((q) => ({
               id: q.id,

@@ -1,5 +1,6 @@
 "use server";
 
+import { APPLY_EMAIL_NO_SCREENING_MESSAGE, readApplyMethod, readStoredApplyEmail, setApplyEmail } from "@/lib/employer/apply-method";
 import { createHash } from "node:crypto";
 import { submittedValues, type SubmittedValues } from "@/lib/forms/keep-input";
 import {
@@ -568,6 +569,13 @@ export async function postJobAction(
   const assessment = parseJobPostingAssessmentForm(form);
   if (!assessment.ok) return { error: assessment.error };
 
+  // PR-E2b: "How should people apply?". The address is never part of the INSERT (the policy refuses a row that carries one); it is set afterwards, through the database function.
+  const applyMethod = readApplyMethod(form);
+  if (!applyMethod.ok) return { error: applyMethod.error };
+  if (applyMethod.method.kind === "email" && (screeningQuestions.value.length > 0 || assessment.value)) {
+    return { error: APPLY_EMAIL_NO_SCREENING_MESSAGE };
+  }
+
   /*
    * TWO SUBMIT BUTTONS, ONE ACTION, ONE FORM — see job-posting-form.tsx's own
    * header on why. Each button sets `name="intent"` to its own value; only
@@ -578,7 +586,8 @@ export async function postJobAction(
    * intent this server didn't understand.
    */
   const intent = form.get("intent") === "draft" ? "draft" : "publish";
-  const status: Enums<"job_status"> = intent === "draft" ? "draft" : "open";
+  // A job that takes applications by email is always created as a draft: it is opened only after the address is set, so there is never a moment when it is open and shows the in-app Apply.
+  const status: Enums<"job_status"> = intent === "draft" || applyMethod.method.kind === "email" ? "draft" : "open";
 
   // Inserted through the user's client on purpose. The 0027 policy
   // (`source_type = 'internal' and is_org_member(organization_id)`) is what
@@ -643,6 +652,15 @@ export async function postJobAction(
       .update({ closing_date_source: source })
       .eq("id", created.id);
     if (sourceError) console.error("[employer] created job but could not record closing_date_source", created.id, sourceError.message);
+  }
+
+  if (applyMethod.method.kind === "email") {
+    const set = await setApplyEmail(supabase, created.id, applyMethod.method.address, { userId: user.id, fallback: TRY_AGAIN });
+    if (!set.ok) return { error: `Saved as a draft, but couldn't set how people apply. ${set.error}` };
+    if (intent === "publish") {
+      const published = await publishJobAction(created.id);
+      if (!published.ok) return { error: `Saved as a draft, but it couldn't be published. ${published.error}` };
+    }
   }
 
   // A brand-new posting has no existing questions to reconcile against —
@@ -730,6 +748,18 @@ export async function updateJobAction(
 
   const assessment = parseJobPostingAssessmentForm(form);
   if (!assessment.ok) return { error: assessment.error };
+
+  // PR-E2b: the apply method is changed FIRST, through the database function, so a refusal (applications already exist, too many changes, a bad address) returns before any other field is written.
+  const applyMethod = readApplyMethod(form);
+  if (!applyMethod.ok) return { error: applyMethod.error };
+  if (applyMethod.method.kind === "email" && (screeningQuestions.value.length > 0 || assessment.value)) {
+    return { error: APPLY_EMAIL_NO_SCREENING_MESSAGE };
+  }
+  const wantedAddress = applyMethod.method.kind === "email" ? applyMethod.method.address : null;
+  if (wantedAddress !== (await readStoredApplyEmail(supabase, jobId, organization.id))) {
+    const set = await setApplyEmail(supabase, jobId, wantedAddress, { userId: user.id, fallback: TRY_AGAIN });
+    if (!set.ok) return { error: set.error };
+  }
 
   // .eq("organization_id") is belt-and-braces on top of the RLS UPDATE policy.
   // Both must agree; neither is trusted alone.
