@@ -77,6 +77,9 @@ export async function toggleSaveAction(jobId: string) {
 /** Shown when an in-app apply reaches a job that takes applications by email (the buttons do not offer it; this is the server saying no to a stale page or a direct call). */
 const APPLY_BY_EMAIL_MESSAGE = "This job takes applications by email.";
 
+/** Shown when the check above could not be made (the read failed). The same try-again wording the employer actions use. */
+const CHECK_FAILED_MESSAGE = "Couldn't check this job. Please try again, or contact support if it keeps happening.";
+
 async function performInAppApply(
   jobId: string,
   countryState: CountryState,
@@ -123,7 +126,7 @@ async function performInAppApply(
   // making a click on Apply pay for three round-trips in sequence (1-then-2)
   // instead of the one this button's own CTA-latency fix (Button/IconButton
   // now show a real pending state via useFormStatus) still can't hide.
-  const [{ data: baseResume, error: baseResumeError }, { data: existing }, snapshot, { data: postingRow }] = await Promise.all([
+  const [{ data: baseResume, error: baseResumeError }, { data: existing }, snapshot, { data: postingRow, error: postingError }] = await Promise.all([
     supabase.from("resumes").select("id").eq("user_id", userId).eq("is_base", true).maybeSingle(),
     supabase
       .from("applications")
@@ -136,6 +139,11 @@ async function performInAppApply(
     supabase.from("job_postings").select("apply_email").eq("id", jobId).maybeSingle(),
   ]);
 
+  // Fail closed: if the read of the job's address failed we do not know whether it takes email, so nothing is written. The database's own text goes to the log, never to the person.
+  if (postingError) {
+    console.error(`[performInAppApply] could not read the job's apply method for job ${jobId}, user ${userId}:`, postingError.message);
+    throw new Error(CHECK_FAILED_MESSAGE);
+  }
   if (takesApplicationsByEmail(postingRow)) {
     throw new Error(APPLY_BY_EMAIL_MESSAGE);
   }

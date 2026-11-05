@@ -12,10 +12,15 @@ const fd = (fields: Record<string, string>) => {
 };
 
 describe("readApplyMethod", () => {
-  it("is 'On Talentrah' unless the form says email, whatever else it carries", () => {
-    expect(readApplyMethod(fd({}))).toEqual({ ok: true, method: { kind: "talentrah" } });
+  it("only an explicit 'talentrah' means On Talentrah, whatever else the form carries", () => {
+    expect(readApplyMethod(fd({ applyMethod: "talentrah" }))).toEqual({ ok: true, method: { kind: "talentrah" } });
     expect(readApplyMethod(fd({ applyMethod: "talentrah", applyEmail: "careers@example.test", applyEmailConfirm: "on" }))).toEqual({ ok: true, method: { kind: "talentrah" } });
-    expect(readApplyMethod(fd({ applyMethod: "anything-else" }))).toEqual({ ok: true, method: { kind: "talentrah" } });
+  });
+  it("a form that does not carry the choice at all, or carries one this code does not know, means UNCHANGED (never 'On Talentrah')", () => {
+    expect(readApplyMethod(fd({}))).toEqual({ ok: true, method: { kind: "unchanged" } });
+    expect(readApplyMethod(fd({ applyEmail: "careers@example.test", applyEmailConfirm: "on" }))).toEqual({ ok: true, method: { kind: "unchanged" } });
+    expect(readApplyMethod(fd({ applyMethod: "anything-else" }))).toEqual({ ok: true, method: { kind: "unchanged" } });
+    expect(readApplyMethod(fd({ applyMethod: "" }))).toEqual({ ok: true, method: { kind: "unchanged" } });
   });
   it("by email: the address is normalised and the tick is required", () => {
     expect(readApplyMethod(fd({ applyMethod: "email", applyEmail: " Careers@Example.TEST ", applyEmailConfirm: "on" }))).toEqual({ ok: true, method: { kind: "email", address: "careers@example.test" } });
@@ -70,6 +75,19 @@ describe("setApplyEmail", () => {
     expect(logged).toContain("zz_marker_4417");
     expect(logged).toContain("job-7");
     expect(logged).toContain("user-9");
+  });
+
+  it("the log line carries the code and the message but NOT the submitted address, in any letter case", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    await setApplyEmail(client({ code: "AE003", message: 'bad address "CAREERS@EXAMPLE.TEST" (was careers@example.test, then Careers@Example.Test again)' }), "job-7", "careers@example.test", { userId: "user-9", fallback: "TRY" });
+    const logged = log.mock.calls.map((c) => c.map(String).join(" ")).join("\n");
+    log.mockRestore();
+    expect(logged).toContain("AE003");
+    expect(logged).toContain("bad address");
+    expect(logged).toContain("job-7");
+    expect(logged.toLowerCase()).not.toContain("careers@example.test");
+    expect(logged).not.toContain("CAREERS@EXAMPLE.TEST");
+    expect(logged).not.toContain("example.test");
   });
 
   it("an unknown code gets the try-again line, and the database's text stays out of it", async () => {

@@ -1,5 +1,4 @@
 import { normaliseApplyEmail } from "@/lib/jobs/apply-email";
-import { isLinkOutPosting, type LinkOutFields } from "@/lib/jobs/link-out";
 
 /**
  * "Does this posting take applications by email?" for every surface that decides how a seeker can apply (PR-E2b). The posting's stored address, judged by the one helper that refuses
@@ -18,9 +17,4 @@ export function postingApplyEmail(job: ApplyEmailFields | null | undefined): str
 /** True when the posting's applications arrive by email: no in-app Apply, no screening, no resume check, no applicant count, never queued by Auto-Apply. */
 export function takesApplicationsByEmail(job: ApplyEmailFields | null | undefined): boolean {
   return postingApplyEmail(job) !== null;
-}
-
-/** True only for a posting seekers can apply to INSIDE Talentrah: not link-out, and no address. */
-export function takesApplicationsInApp(job: LinkOutFields & ApplyEmailFields): boolean {
-  return !isLinkOutPosting(job) && !takesApplicationsByEmail(job);
 }

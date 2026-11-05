@@ -3,7 +3,7 @@
  * normaliseApplyEmail, or null; a row from a path that does not select the column has no address. Every address below is invented.
  */
 import { describe, expect, it } from "vitest";
-import { postingApplyEmail, takesApplicationsByEmail, takesApplicationsInApp } from "@/lib/jobs/posting-apply-email";
+import { postingApplyEmail, takesApplicationsByEmail } from "@/lib/jobs/posting-apply-email";
 
 describe("postingApplyEmail", () => {
   it("returns the normalised address", () => {
@@ -25,17 +25,5 @@ describe("takesApplicationsByEmail", () => {
     expect(takesApplicationsByEmail({ apply_email: "nonsense" })).toBe(false);
     expect(takesApplicationsByEmail({ apply_email: null })).toBe(false);
     expect(takesApplicationsByEmail({})).toBe(false);
-  });
-});
-
-describe("takesApplicationsInApp", () => {
-  it.each([
-    ["an ordinary internal posting", { source_type: "internal" }, true],
-    ["an internal posting with an address", { source_type: "internal", apply_email: "careers@example.test" }, false],
-    ["an internal posting with an unusable stored value", { source_type: "internal", apply_email: "a, b" }, true],
-    ["an external posting", { source_type: "external" }, false],
-    ["an imported posting", { source_type: "internal", import_feed_id: "11111111-1111-4111-8111-111111111111" }, false],
-  ])("%s", (_name, job, expected) => {
-    expect(takesApplicationsInApp(job)).toBe(expected);
   });
 });

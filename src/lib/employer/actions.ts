@@ -750,15 +750,18 @@ export async function updateJobAction(
   if (!assessment.ok) return { error: assessment.error };
 
   // PR-E2b: the apply method is changed FIRST, through the database function, so a refusal (applications already exist, too many changes, a bad address) returns before any other field is written.
+  // A form that does not carry the choice leaves the method exactly as it is: nothing is read and the function is not called.
   const applyMethod = readApplyMethod(form);
   if (!applyMethod.ok) return { error: applyMethod.error };
   if (applyMethod.method.kind === "email" && (screeningQuestions.value.length > 0 || assessment.value)) {
     return { error: APPLY_EMAIL_NO_SCREENING_MESSAGE };
   }
-  const wantedAddress = applyMethod.method.kind === "email" ? applyMethod.method.address : null;
-  if (wantedAddress !== (await readStoredApplyEmail(supabase, jobId, organization.id))) {
-    const set = await setApplyEmail(supabase, jobId, wantedAddress, { userId: user.id, fallback: TRY_AGAIN });
-    if (!set.ok) return { error: set.error };
+  if (applyMethod.method.kind !== "unchanged") {
+    const wantedAddress = applyMethod.method.kind === "email" ? applyMethod.method.address : null;
+    if (wantedAddress !== (await readStoredApplyEmail(supabase, jobId, organization.id))) {
+      const set = await setApplyEmail(supabase, jobId, wantedAddress, { userId: user.id, fallback: TRY_AGAIN });
+      if (!set.ok) return { error: set.error };
+    }
   }
 
   // .eq("organization_id") is belt-and-braces on top of the RLS UPDATE policy.

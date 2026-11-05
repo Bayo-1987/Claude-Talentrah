@@ -8,11 +8,12 @@ import path from "node:path";
 
 const h = vi.hoisted(() => ({
   queued: { job_postings: { apply_email: null as string | null } } as unknown,
+  queuedError: null as null | { message: string },
   rpcCalls: [] as unknown[],
 }));
 
 function chain(table: string): Record<string, unknown> {
-  const result = () => (table === "auto_apply_queue" ? { data: h.queued, error: null } : { data: { external_url: "https://example.com/job/1" }, error: null });
+  const result = () => (table === "auto_apply_queue" ? { data: h.queuedError ? null : h.queued, error: h.queuedError } : { data: { external_url: "https://example.com/job/1" }, error: null });
   const c: Record<string, unknown> = new Proxy({}, {
     get: (_t, p) => {
       if (p === "then") return (res: (v: unknown) => unknown) => res(result());
@@ -90,6 +91,21 @@ describe("confirmAutoApplyAction", () => {
   beforeEach(() => {
     h.rpcCalls = [];
     h.queued = { job_postings: { apply_email: null } };
+    h.queuedError = null;
+  });
+  it("fails closed: when the read of the job fails it returns the try-again error BEFORE anything is claimed, without the database's text", async () => {
+    h.queuedError = { message: 'raw database text "zz_marker_6613"' };
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const result = await confirmAutoApplyAction("queue-1");
+    log.mockRestore();
+    expect(result).toEqual({ ok: false, error: "Couldn't confirm. Please try again." });
+    expect(h.rpcCalls).toEqual([]);
+    expect(JSON.stringify(result)).not.toContain("zz_marker_6613");
+  });
+  it("a null row without an error behaves as today (it reaches the claim)", async () => {
+    h.queued = null;
+    await confirmAutoApplyAction("queue-1");
+    expect(h.rpcCalls).toHaveLength(1);
   });
   it("refuses a queue row whose job now takes email BEFORE anything is claimed, with a plain sentence that has no address", async () => {
     h.queued = { job_postings: { apply_email: ADDRESS } };

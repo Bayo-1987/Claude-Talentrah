@@ -185,15 +185,31 @@ describe("updateJobAction", () => {
     expect(at("rpc:set_job_apply_email")).toBe(-1);
   });
 
-  it("switching back to 'On Talentrah' clears the address through the function", async () => {
+  it("an edit whose form does not carry the choice at all leaves the apply method UNCHANGED: no function call, the stored address is not cleared", async () => {
     stored(ADDRESS);
     await updateJobAction("job-9", null, form()).catch(() => {});
+    expect(at("rpc:")).toBe(-1);
+    expect(h.events.some((e) => e.includes("apply_email"))).toBe(false);
+  });
+
+  it("an edit with a choice this code does not know is also unchanged", async () => {
+    stored(ADDRESS);
+    await updateJobAction("job-9", null, form({ applyMethod: "something-else" })).catch(() => {});
+    expect(at("rpc:")).toBe(-1);
+  });
+
+  it("an explicit 'On Talentrah' with a stored address clears it through the function", async () => {
+    stored(ADDRESS);
+    await updateJobAction("job-9", null, form({ applyMethod: "talentrah" })).catch(() => {});
     expect(h.events.find((e) => e.startsWith("rpc:set_job_apply_email"))).toBe(`rpc:set_job_apply_email:${JSON.stringify({ p_job_id: "job-9", p_address: null })}`);
   });
 
-  it("an ordinary job's edit (no address before or after) makes no function call", async () => {
+  it("an ordinary job's edit (no address before or after) makes no function call, with or without the choice in the form", async () => {
     stored(null);
     await updateJobAction("job-9", null, form()).catch(() => {});
+    expect(at("rpc:set_job_apply_email")).toBe(-1);
+    h.events = [];
+    await updateJobAction("job-9", null, form({ applyMethod: "talentrah" })).catch(() => {});
     expect(at("rpc:set_job_apply_email")).toBe(-1);
   });
 

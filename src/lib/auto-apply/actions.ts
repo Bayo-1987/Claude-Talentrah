@@ -100,12 +100,17 @@ export async function confirmAutoApplyAction(queueId: string): Promise<AutoApply
   const admin = createServiceRoleClient();
 
   // PR-E2b: a queue row can predate the employer's switch to email (only an application blocks the switch, a queued match does not). Re-read the job here, before anything is claimed or charged.
-  const { data: queued } = await admin
+  const { data: queued, error: queuedError } = await admin
     .from("auto_apply_queue")
     .select("job_postings(apply_email)")
     .eq("id", queueId)
     .eq("user_id", userId)
     .maybeSingle();
+  // Fail closed: a read that failed is not "no address". The database's own text goes to the log with the ids; the person gets the same line a failed claim gets.
+  if (queuedError) {
+    console.error(`[confirmAutoApplyAction] could not read the job for user ${userId}, queue ${queueId}:`, queuedError.message);
+    return { ok: false, error: "Couldn't confirm. Please try again." };
+  }
   if (takesApplicationsByEmail(queued?.job_postings)) {
     return { ok: false, error: "This job now takes applications by email, so it can't be confirmed here." };
   }

@@ -6,12 +6,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => ({
   posting: { apply_email: null as string | null } as { apply_email: string | null } | null,
+  postingError: null as null | { message: string },
   writes: [] as string[],
 }));
 
 function chain(table: string): Record<string, unknown> {
   const result = () => {
-    if (table === "job_postings") return { data: h.posting, error: null };
+    if (table === "job_postings") return { data: h.postingError ? null : h.posting, error: h.postingError };
     if (table === "resumes") return { data: { id: "resume-1" }, error: null };
     return { data: null, error: null };
   };
@@ -49,6 +50,7 @@ const MESSAGE = "This job takes applications by email.";
 
 beforeEach(() => {
   h.posting = { apply_email: null };
+  h.postingError = null;
   h.writes = [];
 });
 
@@ -74,6 +76,24 @@ describe("an in-app apply to a job that takes applications by email", () => {
     h.posting = { apply_email: "a@b.co, c@d.co" };
     await applyInAppAction("job-1", "none");
     expect(h.writes).toContain("insert:applications");
+  });
+});
+
+describe("fail closed: when the read of the job's address fails, nothing is written", () => {
+  const TRY = "Couldn't check this job. Please try again, or contact support if it keeps happening.";
+  it("applyInAppAction throws the try-again line and writes nothing", async () => {
+    h.postingError = { message: 'raw database text "zz_marker_6612"' };
+    await expect(applyInAppAction("job-1", "none")).rejects.toThrow(TRY);
+    expect(h.writes).toEqual([]);
+  });
+  it("applyWithScreeningAction does the same", async () => {
+    h.postingError = { message: 'raw database text "zz_marker_6612"' };
+    await expect(applyWithScreeningAction("job-1", "none", [])).rejects.toThrow(TRY);
+    expect(h.writes).toEqual([]);
+  });
+  it("the database's own text never reaches the person", async () => {
+    h.postingError = { message: 'raw database text "zz_marker_6612"' };
+    await expect(applyInAppAction("job-1", "none")).rejects.not.toThrow(/zz_marker_6612/);
   });
 });
 
