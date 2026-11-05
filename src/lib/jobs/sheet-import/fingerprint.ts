@@ -6,7 +6,7 @@
  * Two rows of ONE import that share a fingerprint but are different requisitions (a different apply address) get the apply address mixed in, exactly as ingest.ts does for two
  * postings of one fetch (`disambiguateFingerprint`); two rows with the same fingerprint AND the same apply address are one job listed twice, and the later one is a duplicate.
  */
-import { computeDedupFingerprint, disambiguateFingerprint } from "../../src/lib/jobs/dedup";
+import { computeDedupFingerprint, disambiguateFingerprint } from "@/lib/jobs/dedup";
 
 export interface FingerprintInput {
   company: string;
