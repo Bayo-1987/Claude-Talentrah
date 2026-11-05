@@ -79,6 +79,8 @@ export type AdminPermission =
   | "data_export"
   // 0264. Sending messages to users from the dashboard; starts granted to nobody. Role grants are not changed by adding the label.
   | "user_messaging"
+  // 0276. Uploading a CSV of jobs to the public feed from the dashboard; starts granted to nobody, like `data_export` and `user_messaging`. See docs/admin-jobs-import.md.
+  | "jobs_import"
   | "operators";
 
 export interface AdminIdentity {

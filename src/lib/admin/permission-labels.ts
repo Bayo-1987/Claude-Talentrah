@@ -23,6 +23,7 @@ export const PERMISSION_AREA_LABELS: Record<AdminPermission, string> = {
   mentor_review: "Mentor review",
   data_export: "Data export",
   user_messaging: "User messages",
+  jobs_import: "Jobs import",
   operators: "Operators",
 };
 
