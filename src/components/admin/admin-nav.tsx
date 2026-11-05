@@ -139,6 +139,7 @@ const COUNTLESS_ITEMS = [
   // anything — this is a search tool, not a worklist.
   { href: "/admin/postings", label: "Find a posting", permission: "reported_postings" },
   { href: "/admin/feature-flags", label: "Feature flags", permission: "feature_flags" },
+  { href: "/admin/jobs-import", label: "Jobs import", permission: "jobs_import" },
   { href: "/admin/operators", label: "Operators", permission: "operators" },
   // Mentor payouts (0139). Not a QUEUE — most rows are just `pending`,
   // waiting on their 72h hold window, which is not a backlog to work

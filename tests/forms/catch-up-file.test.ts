@@ -32,6 +32,7 @@ const INPUTS: Array<{ name: string; file: string; multiple: boolean }> = [
   { name: "assessment exercise upload", file: "src/components/employer/assessment-exercise-upload.tsx", multiple: false },
   { name: "screening-gate apply (seeker)", file: "src/components/jobs/screening-gate-apply.tsx", multiple: true },
   { name: "onboarding resume upload", file: "src/components/onboarding/resume-upload.tsx", multiple: false },
+  { name: "admin jobs import upload", file: "src/components/admin/jobs-import-panel.tsx", multiple: false },
 ];
 
 describe("filesToCatchUp, for every input's shape", () => {
