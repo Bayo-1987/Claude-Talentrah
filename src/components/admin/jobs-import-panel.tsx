@@ -24,6 +24,10 @@ type Preview = {
 };
 type Answer = { ok: boolean; message: string };
 
+/** What the panel says for the refusals the server's status already explains; any other answer shows the server's own message. */
+const NO_PERMISSION = "You do not have permission to import jobs. Nothing was written.";
+const FILE_CHANGED = "The file changed since the preview (or the jobs already on Talentrah did). Preview it again before confirming. Nothing was written.";
+
 /**
  * The page's panel: choose a CSV (the same 17 columns as the jobs sheet), see a PREVIEW that writes nothing, then tick and confirm. The server recomputes the plan from the file when
  * you confirm and refuses if the numbers differ from the ones shown here; nothing in this component decides what is written. No address is ever shown: the server leaves them out.
@@ -61,6 +65,7 @@ export function JobsImportPanel() {
     try {
       const r = await post("preview");
       if (r?.json && r.json.ok === true) setPreview(r.json.preview as Preview);
+      else if (r?.status === 401 || r?.status === 403) setAnswer({ ok: false, message: NO_PERMISSION });
       else setAnswer({ ok: false, message: typeof r?.json?.message === "string" ? r.json.message : "No answer came back. Nothing was written." });
     } catch {
       setAnswer({ ok: false, message: "The request did not reach the server. Nothing was written." });
@@ -75,9 +80,17 @@ export function JobsImportPanel() {
     setAnswer(null);
     try {
       const r = await post("confirm", { sha12: preview.sha12, importable: String(preview.counts.importable), batches: String(preview.counts.batches), tick: tick ? "on" : "" });
-      const message = typeof r?.json?.message === "string" ? r.json.message : "No answer came back. Check the public feed before trying again.";
-      setAnswer({ ok: r?.json?.ok === true, message });
-      if (r?.json?.ok === true) setPreview(null);
+      if (r?.status === 409) {
+        setAnswer({ ok: false, message: FILE_CHANGED });
+        setPreview(null);
+      } else if (r?.status === 401 || r?.status === 403) {
+        setAnswer({ ok: false, message: NO_PERMISSION });
+        setPreview(null);
+      } else {
+        const message = typeof r?.json?.message === "string" ? r.json.message : "No answer came back. Check the public feed before trying again.";
+        setAnswer({ ok: r?.json?.ok === true, message });
+        if (r?.json?.ok === true) setPreview(null);
+      }
     } catch {
       setAnswer({ ok: false, message: "The request did not reach the server. Check the public feed before trying again." });
     } finally {
