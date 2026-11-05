@@ -240,6 +240,7 @@ export const EXCLUDED_TABLES: Record<string, string> = {
   employer_applicant_status: "an employer member's review mark on someone else's applicant",
   feature_flags: "a flag's last editor (staff)",
   job_posting_assessments: "an organisation's assessment; the person is only its author",
+  job_posting_apply_email_events: "an organisation's audit record of who set, changed or cleared a job's apply-by-email address (0275); the person is only the member who made the change",
   job_postings: "an organisation's posting; the person is only the admin who reviewed or removed it",
   organizations: "an organisation, not the person; the person is only its creator or the admin who confirmed it",
   scholarships: "a catalogue entry; the person is only the admin who moderated it",
