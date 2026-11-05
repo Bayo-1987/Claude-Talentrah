@@ -75,3 +75,29 @@ describe("posting as an organisation member", () => {
     expect(data ?? []).toEqual([]);
   });
 });
+
+/**
+ * 0275 (PR-E2a): apply_email joins the policy's definition. authenticated holds a TABLE-level INSERT on job_postings, so no column grant can stop a member setting the address when they create a posting; the policy's
+ * WITH CHECK is the only thing that can. RED FIRST: on a database that has 0274 but not 0275 the first case below FAILS (the row is accepted); after 0275 it passes. Run by S3-21 on a local stack.
+ */
+describe("posting as an organisation member: apply_email (0275)", () => {
+  it("an insert that carries an apply_email is rejected by row-level security", async () => {
+    const { error } = await member.client.from("job_postings").insert(posting({ apply_email: "careers@example.test" }) as never);
+    expect(error, "the insert must be rejected").not.toBeNull();
+    expect(error!.code).toBe("42501");
+    expect(error!.message).toMatch(/row-level security/i);
+  });
+
+  it("an explicit null apply_email is accepted (the same as leaving it out)", async () => {
+    const { error } = await member.client.from("job_postings").insert(posting({ apply_email: null }) as never);
+    expect(error).toBeNull();
+  });
+
+  it("the rejected row was not written", async () => {
+    const dedup = `policy-0221-${randomUUID()}`;
+    fingerprints.push(dedup);
+    await member.client.from("job_postings").insert({ ...posting({ apply_email: "careers@example.test" }), dedup_fingerprint: dedup } as never);
+    const { data } = await admin.from("job_postings").select("id").eq("dedup_fingerprint", dedup);
+    expect(data ?? []).toEqual([]);
+  });
+});

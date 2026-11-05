@@ -54,6 +54,7 @@ describe("where the column is named (source scan)", () => {
     "src/app/(app)/jobs/(feed)/page.tsx", // FEED_COLUMNS
     "src/app/(app)/jobs/[id]/page.tsx", // the Apply area
     "src/components/jobs/job-card.tsx", // the card's prop type and Apply area
+    "src/lib/account-export/manifest.ts", // names only the audit table job_posting_apply_email_events (excluded from the export)
     "src/lib/jobs/apply-email.ts", // the helper (named in its header)
     "src/lib/jobs/job-columns.ts", // JOB_DETAIL_COLUMNS
     "src/lib/supabase/types.ts", // generated types
@@ -65,6 +66,12 @@ describe("where the column is named (source scan)", () => {
 
   it("only the allowlisted files under src/ name apply_email", () => {
     expect(named).toEqual([...ALLOWED].sort());
+  });
+
+  it("the export manifest names apply_email only inside the audit table's name", () => {
+    const manifest = readFileSync(path.join(ROOT, "src/lib/account-export/manifest.ts"), "utf8");
+    expect(manifest).toContain("job_posting_apply_email_events");
+    expect(manifest.split("job_posting_apply_email_events").join("")).not.toContain("apply_email");
   });
 
   it("the page's metadata function and the share image never name the address", () => {
