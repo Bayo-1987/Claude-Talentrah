@@ -1,5 +1,6 @@
 /**
- * The address a posting can be applied to by email is public on exactly two surfaces: the signed-in job page's Apply area and the signed-in feed card (PR-E1).
+ * The address a posting can be applied to by email is public on exactly two surfaces: the signed-in job page's Apply area and the signed-in feed card (PR-E1). On both it is behind the
+ * "Apply by email" button (a mailto link) and "Copy address", never printed as text (PR-E3, the owner's decision).
  * It must not reach structured data, the page's meta tags, the share image, the sitemap, the embed widget, a digest or an e-mail.
  *
  *   - structured data: the JSON-LD built for a job that has the column set contains neither the address nor `mailto`;
@@ -9,6 +10,9 @@
 import { describe, expect, it } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { ApplyByEmailLink, ApplyByEmailNote } from "@/components/jobs/apply-by-email";
 import { buildJobPostingJsonLd } from "@/lib/seo/job-posting-jsonld";
 
 const ROOT = process.cwd();
@@ -89,5 +93,34 @@ describe("where the column is named (source scan)", () => {
     const board = /const BOARD_AGGREGATE_COLUMNS =\s*"([^"]*)"/.exec(feed)?.[1] ?? "";
     expect(board.length).toBeGreaterThan(0);
     expect(board).not.toMatch(/apply_email/);
+  });
+});
+
+describe("the address is never printed as text (PR-E3)", () => {
+  const text = (html: string) => html.replace(/<[^>]*>/g, " ");
+
+  it("the note names the button and Copy address and holds no address, even when one is handed to it", () => {
+    const html = renderToStaticMarkup(createElement(ApplyByEmailNote, { address: ADDRESS } as object));
+    expect(html).not.toContain(ADDRESS);
+    expect(html).not.toContain("example.test");
+    expect(text(html)).toContain("Apply by email");
+    expect(text(html)).toContain("Copy address");
+  });
+
+  it.each(["page", "card"] as const)("the %s button carries the address only inside the mailto link, never as visible text or a label", (variant) => {
+    const html = renderToStaticMarkup(createElement(ApplyByEmailLink, { address: ADDRESS, title: "Support Lead", variant }));
+    expect(html).toContain(`href="mailto:${ADDRESS}?subject=`);
+    const withoutHref = html.replace(/href="[^"]*"/g, "");
+    expect(withoutHref).not.toContain(ADDRESS);
+    expect(withoutHref).not.toContain("example.test");
+    expect(text(withoutHref)).toContain("Apply by email");
+  });
+
+  it("only the importer and its sheet reader name apply_email outside src/ (the importer writes the column; the reader names the sheet's own apply_email cell)", () => {
+    const scripts = sourceFiles(path.join(ROOT, "scripts"))
+      .filter((f) => readFileSync(f, "utf8").includes("apply_email"))
+      .map((f) => path.relative(ROOT, f))
+      .sort();
+    expect(scripts).toEqual(["scripts/import-jobs-sheet.ts", "scripts/jobs-sheet-import/parse.ts"]);
   });
 });

@@ -649,7 +649,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
                 Mark as applied
               </button>
             </form>
-            {applyEmail && <ApplyByEmailNote address={applyEmail} />}
+            {applyEmail && <ApplyByEmailNote />}
           </>
         ) : !hasBaseResume ? (
           /*

@@ -181,10 +181,12 @@ describe("the job page's pieces (variant 'page')", () => {
     }
   });
 
-  it("the note shows the address in full and says what Talentrah does not do", () => {
-    const html = renderToStaticMarkup(<ApplyByEmailNote address="careers@example.test" />);
-    expect(html).toContain("Send your resume to");
-    expect(html).toContain("careers@example.test");
+  it("the note does NOT print the address (it points at the button and Copy address) and says what Talentrah does not do", () => {
+    const html = renderToStaticMarkup(<ApplyByEmailNote {...({ address: "careers@example.test" } as object)} />);
+    expect(html).not.toContain("careers@example.test");
+    expect(html).not.toContain("example.test");
+    expect(html).toContain("Apply by email");
+    expect(html).toContain("Copy address");
     expect(html).toContain("Talentrah does not send this email or attach your resume.");
     expect(html).not.toMatch(/rounded-/);
     expect(html).not.toMatch(/\bCVs?\b/); // the house word is "resume" (tests/copy/no-cv-in-user-facing-strings.test.ts)
@@ -205,7 +207,7 @@ describe("the job page's wiring (source)", () => {
   });
   it("the address block is the secondary choice exactly when a company link exists", () => {
     expect(branch).toContain('{applyEmail && <ApplyByEmailLink address={applyEmail} title={job.title} variant="page" secondary={!!job.external_url} />}');
-    expect(branch).toContain("{applyEmail && <ApplyByEmailNote address={applyEmail} />}");
+    expect(branch).toContain("{applyEmail && <ApplyByEmailNote />}");
   });
   it("'Mark as applied' is present for every link-out posting, an address-only one included (it sits outside both conditions)", () => {
     const form = branch.indexOf("<form action={markAppliedExternallyAction.bind(null, job.id, detailCountryState)}>");
