@@ -87,11 +87,10 @@ describe("the other entries", () => {
     expect(read("src/components/admin/admin-nav.tsx")).toMatch(/href:\s*"\/admin\/jobs-import"[^}]*permission:\s*"jobs_import"/);
   });
 
-  it("the real wiring takes the identity from the admin session and writes only through the service-role client", () => {
-    const wiring = read("src/lib/jobs/sheet-import/deps.ts");
-    expect(wiring).toMatch(/getAdmin/);
-    expect(wiring).toMatch(/createServiceRoleClient/);
-    for (const f of ["handlers.ts", "upload.ts", "write.ts", "constants.ts", "limits.ts"]) {
+  it("the real wiring takes the identity from the admin session (auth-deps.ts) and the service-role client lives in deps.ts alone", () => {
+    expect(read("src/lib/jobs/sheet-import/auth-deps.ts")).toMatch(/getAdmin/);
+    expect(read("src/lib/jobs/sheet-import/deps.ts")).toMatch(/createServiceRoleClient/);
+    for (const f of ["handlers.ts", "upload.ts", "write.ts", "constants.ts", "limits.ts", "auth-deps.ts"]) {
       const src = read(`src/lib/jobs/sheet-import/${f}`);
       expect(src, f).not.toMatch(/supabase\/(client|server)"/);
       expect(src, f).not.toMatch(/createServiceRoleClient/);

@@ -23,8 +23,8 @@ export interface AdminLike extends AdminRef {
 export interface HandlerDeps {
   getAdmin(): Promise<AdminLike | null>;
   audit: ImportAudit;
-  /** The service-role client, created only after the permission check passes. */
-  service(): ImportWriteClient;
+  /** The service-role client, asked for ONLY after the permission check passes (and possibly loaded lazily, hence the promise). */
+  service(): ImportWriteClient | Promise<ImportWriteClient>;
   now(): Date;
   /** One short class per failure, for the server log. */
   log(errorClass: string): void;
@@ -96,7 +96,7 @@ export async function handlePreview(request: Request, deps: HandlerDeps): Promis
   if (!g.ok) return g.response;
   const upload = await readUpload(request);
   if (!upload.ok) return upload.response;
-  const planned = await planUpload(upload.inspected, deps.now(), deps.service());
+  const planned = await planUpload(upload.inspected, deps.now(), await deps.service());
   if (!planned.ok) {
     deps.log(planned.errorClass);
     return refuse("read_failed", 503);
@@ -116,7 +116,7 @@ export async function handleConfirm(request: Request, deps: HandlerDeps): Promis
   const tick = String(upload.form.get("tick") ?? "");
   if (tick !== "on" && tick !== "true") return refuse("not_confirmed", 400);
 
-  const client = deps.service();
+  const client = await deps.service();
   const planned = await planUpload(upload.inspected, deps.now(), client);
   if (!planned.ok) {
     deps.log(planned.errorClass);
