@@ -50,7 +50,8 @@ import { takesApplicationsByEmail } from "@/lib/jobs/posting-apply-email";
 
 // The page loads the row through JOB_DETAIL_COLUMNS (src/lib/jobs/job-columns.ts), which leaves out the text-search vector and one internal
 // admin column; nothing in here reads either, so the type does not carry them.
-type JobPosting = Omit<Tables<"job_postings">, "search_vector" | "admin_review_note" | "import_key" | "employer_closed_at">;
+// 0277: apply_link is withheld from every API role, and the kind and host are not selected here yet (the app commit of PR-E4 selects them); type-only.
+type JobPosting = Omit<Tables<"job_postings">, "search_vector" | "admin_review_note" | "import_key" | "employer_closed_at" | "apply_link" | "apply_link_kind" | "apply_link_host">;
 
 /**
  * Google's employmentType values are CASE-SENSITIVE and are not our enum's

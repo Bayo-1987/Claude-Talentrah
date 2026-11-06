@@ -591,6 +591,10 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
     // 0246: the import sync's own bookkeeping, never selected (import_feed_id IS selected: the card treats an imported posting as link-out).
     | "import_key"
     | "employer_closed_at"
+    // 0277: apply_link is withheld from every API role; the kind and host are not selected here until the app commit of PR-E4. Type-only.
+    | "apply_link"
+    | "apply_link_kind"
+    | "apply_link_host"
   >;
   const matchingFilters: FeedJobPosting[] = jobsRaw ?? [];
 

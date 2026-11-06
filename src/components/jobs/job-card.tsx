@@ -62,7 +62,7 @@ export interface JobCardProps {
   // and matches what the query actually returns.
   // closed_at (0102) is also never selected by the feed query — it filters
   // to status = 'open', where closed_at is always null anyway.
-  job: Omit<Tables<"job_postings">, "apply_email" | "description_preview" | "search_vector" | "closing_date_source" | "closed_at" | "unlisted_at" | "superseded_by" | "superseded_at" | "banner_path" | "admin_review_decision" | "admin_review_note" | "admin_review_requested_at" | "admin_reviewed_at" | "admin_reviewed_by" | "claimed_by_organization_id" | "claimed_at" | "llm_enrichment_attempted_at" | "import_key" | "employer_closed_at"> & {
+  job: Omit<Tables<"job_postings">, "apply_link" | "apply_link_kind" | "apply_link_host" | "apply_email" | "description_preview" | "search_vector" | "closing_date_source" | "closed_at" | "unlisted_at" | "superseded_by" | "superseded_at" | "banner_path" | "admin_review_decision" | "admin_review_note" | "admin_review_requested_at" | "admin_reviewed_at" | "admin_reviewed_by" | "claimed_by_organization_id" | "claimed_at" | "llm_enrichment_attempted_at" | "import_key" | "employer_closed_at"> & {
     /** 0274. Optional: a path that does not select the column (the promoted strip's RPC rows) leaves it undefined, which is treated as no address. */
     apply_email?: string | null;
   };

@@ -234,7 +234,8 @@ describe("src/lib/jobs/job-columns.ts", () => {
     const mod = await import("@/lib/jobs/job-columns");
     const left = realColumns.filter((c) => !split(mod.JOB_DETAIL_COLUMNS).includes(c)).sort();
     // 0246: import_key and employer_closed_at are the import sync's own bookkeeping, unreadable by anon and authenticated (tests/rls/job-postings-column-grants.test.ts); import_feed_id IS in the list.
-    expect(left).toEqual([NOTE, "search_vector", "import_key", "employer_closed_at"].sort());
+    // 0277: apply_link is withheld from every API role on purpose; apply_link_kind and apply_link_host are readable but the detail page does not select them until the app commit of PR-E4 (which removes them from this list).
+    expect(left).toEqual([NOTE, "search_vector", "import_key", "employer_closed_at", "apply_link", "apply_link_kind", "apply_link_host"].sort());
   });
 });
 

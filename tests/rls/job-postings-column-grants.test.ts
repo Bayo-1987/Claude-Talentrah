@@ -19,7 +19,9 @@ import { admin, createAuthedTestUser, deleteTestUsers, type TestUser } from "../
 import { compareColumnGrants } from "../support/column-grants";
 
 /** The columns anon and authenticated must NOT be able to read. Adding to this list is a decision, not a fix for a failing test. */
-const RESTRICTED = ["admin_review_note", "import_key", "employer_closed_at"] as const; // 0246: the import sync's own bookkeeping; import_feed_id IS readable (the pages need it to treat a job as link-out)
+const RESTRICTED = ["admin_review_note", "import_key", "employer_closed_at", "apply_link"] as const;
+// 0246: the import sync's own bookkeeping; import_feed_id IS readable (the pages need it to treat a job as link-out)
+// 0277: apply_link has NO SELECT grant for any API role on purpose (OWNER-DECISION-EMPLOYER-APPLY-LINK-1, Step 0 ruling 2): the redirect route reads it with the service role and the employer reads their own through get_job_apply_link. apply_link_kind and apply_link_host ARE readable (the button says "Opens {host}").
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
