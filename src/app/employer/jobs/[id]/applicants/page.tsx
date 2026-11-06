@@ -1,3 +1,4 @@
+import { takesApplicationsByEmail } from "@/lib/jobs/posting-apply-email";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -59,7 +60,7 @@ export default async function JobApplicantsPage({
     await Promise.all([
       supabase
         .from("job_postings")
-        .select("id, title")
+        .select("id, title, apply_email")
         .eq("id", id)
         .eq("organization_id", organization.id)
         .maybeSingle(),
@@ -147,6 +148,11 @@ export default async function JobApplicantsPage({
         <div className="mt-4">
           <EyebrowLabel>Applicants</EyebrowLabel>
           <h1 className="mt-2 font-display text-[30px] leading-[1.15] font-medium text-ink">{job.title}</h1>
+          {takesApplicationsByEmail(job) && (
+            <p className="mt-2 max-w-[62ch] font-body text-[13.5px] text-ink-soft">
+              Applications for this job arrive by email, so they are not listed here.
+            </p>
+          )}
           {rows.some((r) => r.status === "new") && (
             <p className="mt-2 inline-flex min-h-6 items-center bg-rust-soft px-2 font-body text-[12px] font-bold text-rust">
               {`${rows.filter((r) => r.status === "new").length} new`}

@@ -19,6 +19,7 @@ import { parseMultiSelect } from "@/lib/jobs/multi-select";
 import { buildSuggestionIndex } from "@/lib/jobs/search-suggestions";
 import { searchJobs } from "@/lib/jobs/search";
 import { isLinkOutPosting } from "@/lib/jobs/link-out";
+import { takesApplicationsByEmail } from "@/lib/jobs/posting-apply-email";
 import { withImportMarkers } from "@/lib/jobs/import-markers";
 import { SavedEntryCard } from "@/components/jobs/saved-entry-card";
 import {
@@ -774,7 +775,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    * (`record_ad_event`), so nothing is over- or under-billed by the shift.
    */
   // Applicant counts exist only for postings people apply to INSIDE Talentrah: an imported posting is applied for on the employer's own site, so there is no honest count.
-  const internalIds = scored.filter((s) => !isLinkOutPosting(s.job) && s.job.source_type === "internal").map((s) => s.job.id);
+  const internalIds = scored.filter((s) => !isLinkOutPosting(s.job) && s.job.source_type === "internal" && !takesApplicationsByEmail(s.job)).map((s) => s.job.id);
 
   const [, applicantCounts, { data: autoApplySettings }, pendingQueue, promoted] =
     await Promise.all([
@@ -1188,7 +1189,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
               posting being external.
             */
             applicantCount={
-              job.source_type === "internal" && applicantCounts
+              job.source_type === "internal" && !takesApplicationsByEmail(job) && applicantCounts
                 ? (applicantCounts.get(job.id) ?? 0)
                 : null
             }

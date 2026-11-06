@@ -10,6 +10,7 @@ import { computeAndStoreApplicationMatchScore } from "@/lib/matching/compute-and
 import { captureEvent } from "@/lib/analytics/posthog";
 import { runFarahScreeningReview } from "@/lib/screening/farah-review";
 import { notifyFirstApplicant } from "@/lib/employer/new-applicants/instant";
+import { takesApplicationsByEmail } from "@/lib/jobs/posting-apply-email";
 import { defaultInstantDeps } from "@/lib/employer/new-applicants/deps";
 
 async function getAuthedUserId() {
@@ -73,6 +74,12 @@ export async function toggleSaveAction(jobId: string) {
  * return value. `applyInAppAction`'s own behavior is UNCHANGED: it calls
  * this and discards the id.
  */
+/** Shown when an in-app apply reaches a job that takes applications by email (the buttons do not offer it; this is the server saying no to a stale page or a direct call). */
+const APPLY_BY_EMAIL_MESSAGE = "This job takes applications by email.";
+
+/** Shown when the check above could not be made (the read failed). The same try-again wording the employer actions use. */
+const CHECK_FAILED_MESSAGE = "Couldn't check this job. Please try again, or contact support if it keeps happening.";
+
 async function performInAppApply(
   jobId: string,
   countryState: CountryState,
@@ -119,7 +126,7 @@ async function performInAppApply(
   // making a click on Apply pay for three round-trips in sequence (1-then-2)
   // instead of the one this button's own CTA-latency fix (Button/IconButton
   // now show a real pending state via useFormStatus) still can't hide.
-  const [{ data: baseResume, error: baseResumeError }, { data: existing }, snapshot] = await Promise.all([
+  const [{ data: baseResume, error: baseResumeError }, { data: existing }, snapshot, { data: postingRow, error: postingError }] = await Promise.all([
     supabase.from("resumes").select("id").eq("user_id", userId).eq("is_base", true).maybeSingle(),
     supabase
       .from("applications")
@@ -128,7 +135,18 @@ async function performInAppApply(
       .eq("job_posting_id", jobId)
       .maybeSingle(),
     loadJobSnapshot(supabase, jobId),
+    // PR-E2b: a job whose applications arrive by email takes none inside Talentrah. Read in the same parallel block, so the Apply click pays no extra round trip.
+    supabase.from("job_postings").select("apply_email").eq("id", jobId).maybeSingle(),
   ]);
+
+  // Fail closed: if the read of the job's address failed we do not know whether it takes email, so nothing is written. The database's own text goes to the log, never to the person.
+  if (postingError) {
+    console.error(`[performInAppApply] could not read the job's apply method for job ${jobId}, user ${userId}:`, postingError.message);
+    throw new Error(CHECK_FAILED_MESSAGE);
+  }
+  if (takesApplicationsByEmail(postingRow)) {
+    throw new Error(APPLY_BY_EMAIL_MESSAGE);
+  }
 
   // A missing resume is a legitimate state (resume_id just stays null below)
   // — a query error is not, and applying anyway would silently record the

@@ -129,11 +129,14 @@ describe("the feed card", () => {
     expect(applyAnchors(html)[0]).toContain(`href="${MAIL}"`);
   });
 
-  it("an ordinary internal posting is untouched even if an address is stored: the in-app Apply, no mailto", () => {
+  it("an internal posting that has a stored address takes applications by email (PR-E2b reverses the E1 rule that ignored it); one without an address is the ordinary in-app Apply, unchanged", () => {
     const html = card({ source_type: "internal", apply_email: "careers@example.test", external_url: null });
-    expect(html).toMatch(/type="submit">Apply<\/button>/);
-    expect(html).not.toMatch(/mailto:|Apply by email|Apply on company site/);
-    expect(html).toBe(card({ source_type: "internal", external_url: null }));
+    expect(html).toContain(">Apply by email</a>");
+    expect(html).toContain("mailto:careers@example.test");
+    expect(html).not.toMatch(/type="submit">Apply<\/button>|Apply on company site/);
+    const plain = card({ source_type: "internal", external_url: null });
+    expect(plain).toMatch(/type="submit">Apply<\/button>/);
+    expect(plain).not.toMatch(/mailto:|Apply by email|Apply on company site/);
   });
 
   it("the subject carries the job title, encoded", () => {

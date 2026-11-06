@@ -35,6 +35,7 @@ import { logCountryDefaultEvent, type CountryState } from "@/lib/jobs/country-ev
 import { bannerIsEligibleToRender, bannerPublicUrl } from "@/lib/employer/banner";
 import { isLinkOutPosting, provenanceLabel } from "@/lib/jobs/link-out";
 import { normaliseApplyEmail } from "@/lib/jobs/apply-email";
+import { postingApplyEmail } from "@/lib/jobs/posting-apply-email";
 import { ApplyByEmailLink, ApplyByEmailNote } from "@/components/jobs/apply-by-email";
 
 const WORK_TYPE_LABEL: Record<string, string> = {
@@ -326,6 +327,8 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
   const provenance = provenanceLabel(job);
   // The address a link-out posting can be applied to by email, or null (none stored, or not one plain address). Shown only in the signed-in link-out branch below; the signed-out view is unchanged.
   const applyEmail = isExternal ? normaliseApplyEmail(job.apply_email) : null;
+  // An employer's own posting that takes applications by email (PR-E2b): no company link by construction, so it is its own branch below, ahead of the link-out one, and never offers the in-app Apply, the screening form or the resume check.
+  const internalApplyEmail = isExternal ? null : postingApplyEmail(job);
   // Mirrors the feed's own `hasBaseResume` shape exactly (jobs/(feed)/page.tsx)
   // so the two surfaces can never disagree about whether this signed-in user
   // has a resume to apply with. `null` only for a signed-out reader, who
@@ -650,6 +653,16 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
               </button>
             </form>
             {applyEmail && <ApplyByEmailNote />}
+          </>
+        ) : internalApplyEmail ? (
+          <>
+            <ApplyByEmailLink address={internalApplyEmail} title={job.title} variant="page" />
+            <form action={markAppliedExternallyAction.bind(null, job.id, detailCountryState)}>
+              <button type="submit" className={buttonClasses("text", "sm")}>
+                Mark as applied
+              </button>
+            </form>
+            <ApplyByEmailNote />
           </>
         ) : !hasBaseResume ? (
           /*

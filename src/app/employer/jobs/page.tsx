@@ -1,3 +1,4 @@
+import { takesApplicationsByEmail } from "@/lib/jobs/posting-apply-email";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireEmployer } from "@/lib/employer/membership";
@@ -56,7 +57,7 @@ export default async function JobsPostedPage({
       supabase
         .from("job_postings")
         .select(
-          "id, title, location, status, posted_at, work_type, employment_type, removal_reason, unlisted_at, admin_review_requested_at, admin_review_decision",
+          "id, title, location, status, posted_at, work_type, employment_type, removal_reason, unlisted_at, admin_review_requested_at, admin_review_decision, apply_email",
         )
         .eq("organization_id", organization.id)
         .eq("source_type", "internal")
@@ -124,6 +125,7 @@ export default async function JobsPostedPage({
     adminReviewDecision: job.admin_review_decision,
     applicationCount: countByJob.get(job.id) ?? 0,
     newApplicantCount: newByJob.get(job.id) ?? 0,
+    appliesByEmail: takesApplicationsByEmail(job),
   }));
 
   const openCount = rows.filter((r) => r.status === "open").length;

@@ -11,6 +11,7 @@ import type { ScreeningQuestionInput } from "@/lib/employer/screening-questions"
 import type { EmployerActionState } from "@/lib/employer/actions";
 import { RichMarkdownEditor, type RichMarkdownEditorHandle } from "./rich-markdown-editor";
 import { AssessmentEditor } from "./assessment-editor";
+import { ApplyMethodField } from "./apply-method-field";
 import { FarahScopeButton } from "./farah-scope-button";
 import { SalaryCurrencyField } from "./salary-currency-field";
 import type { AssessmentExerciseFile } from "./assessment-exercise-upload";
@@ -411,6 +412,8 @@ export interface JobFormValues {
   screeningQuestions?: ScreeningQuestionInput[];
   /** send-346 v2 — undefined/null for a posting with no assessment attached. */
   assessment?: JobPostingAssessmentInput | null;
+  /** PR-E2b — the address applications are sent to, when the employer chose "By email"; null/undefined means applications are on Talentrah. Edit only. */
+  applyEmail?: string | null;
 }
 
 export function JobPostingForm({
@@ -514,6 +517,10 @@ export function JobPostingForm({
   const [salaryMax, setSalaryMax] = useState(initial?.salaryMax != null ? String(initial.salaryMax) : "");
   const descriptionRef = useRef<RichMarkdownEditorHandle>(null);
   const [descriptionText, setDescriptionText] = useState(initial?.description ?? "");
+  // PR-E2b — "How should people apply?". Controlled here because choosing "By email" hides the screening questions and the assessment (they are not used for such a job).
+  const [applyMethod, setApplyMethod] = useState<"talentrah" | "email">(initial?.applyEmail ? "email" : "talentrah");
+  const [applyAddress, setApplyAddress] = useState(initial?.applyEmail ?? "");
+  const [applyConfirmed, setApplyConfirmed] = useState(false);
   const [drafting, setDrafting] = useState(false);
   const [draftError, setDraftError] = useState<string | null>(null);
   const [draftErrorKind, setDraftErrorKind] = useState<"insufficient_balance" | "generation_error" | null>(null);
@@ -846,14 +853,31 @@ export function JobPostingForm({
 
           <SkillsAutocomplete skills={skills} onChange={setSkills} />
 
-          <ScreeningQuestionsEditor initial={initial?.screeningQuestions} />
-
-          <AssessmentEditor
-            initial={initial?.assessment}
-            editContext={assessmentEditContext}
-            createContext={assessmentCreateContext}
-            savedFiles={assessmentSavedFiles}
+          <ApplyMethodField
+            method={applyMethod}
+            onMethodChange={setApplyMethod}
+            address={applyAddress}
+            onAddressChange={setApplyAddress}
+            confirmed={applyConfirmed}
+            onConfirmedChange={setApplyConfirmed}
           />
+
+          {applyMethod === "email" ? (
+            <p className="font-body text-[13px] text-ink-soft">
+              Screening questions and the assessment are not used for a job that takes applications by email. If this job has any, they are removed when you save.
+            </p>
+          ) : (
+            <>
+              <ScreeningQuestionsEditor initial={initial?.screeningQuestions} />
+
+              <AssessmentEditor
+                initial={initial?.assessment}
+                editContext={assessmentEditContext}
+                createContext={assessmentCreateContext}
+                savedFiles={assessmentSavedFiles}
+              />
+            </>
+          )}
 
           <div className="flex items-center gap-3">
             <Button

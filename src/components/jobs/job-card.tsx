@@ -16,6 +16,7 @@ import type { CountryState } from "@/lib/jobs/country-events";
 import type { Tables } from "@/lib/supabase/types";
 import { isLinkOutPosting, provenanceLabel } from "@/lib/jobs/link-out";
 import { normaliseApplyEmail } from "@/lib/jobs/apply-email";
+import { postingApplyEmail } from "@/lib/jobs/posting-apply-email";
 import { ApplyByEmailLink } from "@/components/jobs/apply-by-email";
 
 const WORK_TYPE_LABEL: Record<string, string> = {
@@ -136,6 +137,8 @@ export function JobCard({
   const isExternal = isLinkOutPosting(job);
   // The address a link-out posting can be applied to by email, or null (none stored, or not one plain address). `apply_email` is absent on rows from a path that does not select it (the promoted strip), which reads as null.
   const applyEmail = isExternal ? normaliseApplyEmail(job.apply_email) : null;
+  // An employer's own posting that takes applications by email (PR-E2b): its own branch below, ahead of the link-out one; no in-app Apply.
+  const internalApplyEmail = isExternal ? null : postingApplyEmail(job);
   const provenance = provenanceLabel(job);
   // Own line, same call as the detail page (jobs/[id]/page.tsx) and the same
   // reason: the one fact on the card most worth scanning for shouldn't be
@@ -361,6 +364,13 @@ export function JobCard({
               {applyEmail && (
                 <ApplyByEmailLink address={applyEmail} title={job.title} variant="card" secondary={!!job.external_url} sponsored={isSponsored} />
               )}
+            </>
+          ) : internalApplyEmail ? (
+            <>
+              <form action={markAppliedExternallyAction.bind(null, job.id, countryState)}>
+                <MarkAppliedButton />
+              </form>
+              <ApplyByEmailLink address={internalApplyEmail} title={job.title} variant="card" sponsored={isSponsored} />
             </>
           ) : !hasBaseResume ? (
             /*
