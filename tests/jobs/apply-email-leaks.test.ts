@@ -57,6 +57,8 @@ describe("where the column is named (source scan)", () => {
     "src/lib/account-export/manifest.ts", // names only the audit table job_posting_apply_email_events (excluded from the export)
     "src/lib/jobs/apply-email.ts", // the helper (named in its header)
     "src/lib/jobs/job-columns.ts", // JOB_DETAIL_COLUMNS
+    "src/lib/jobs/sheet-import/parse.ts", // the sheet reader names the sheet's own apply_email cell (moved from scripts/ so the admin uploader can use it; the address is never copied into the description)
+    "src/lib/jobs/sheet-import/plan.ts", // the plan: an e-mail-only row's normalised address goes into the insert's apply_email field; never into the description, a preview line or a count (moved from scripts/)
     "src/lib/supabase/types.ts", // generated types
   ];
   const named = sourceFiles(path.join(ROOT, "src"))
