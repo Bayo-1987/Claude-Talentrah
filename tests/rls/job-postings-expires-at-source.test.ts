@@ -92,6 +92,34 @@ describe("the backfill rule (expires_at_source_backfill), at both edges of its w
   });
 });
 
+describe("which source a row gets (expires_at_source_resolve, what the backfill UPDATE uses): closing_date_source first, the window only where it is null", () => {
+  const created = new Date("2026-10-01T09:00:00.000Z");
+  const after = (minutes: number) => new Date(created.getTime() + minutes * 60_000).toISOString();
+  const DAY = 24 * 60;
+  const resolve = async (closing: string | null, expires: string | null) => {
+    const { data, error } = await admin.rpc("expires_at_source_resolve", { p_closing_date_source: closing as never, p_expires_at: expires as never, p_created_at: created.toISOString() });
+    expect(error, "the service role must be able to call it").toBeNull();
+    return data;
+  };
+
+  it("an employer row 'chosen' with a date INSIDE the default window is stated (the window alone would call it default)", async () => {
+    expect(await resolve("chosen", after(30 * DAY))).toBe("stated");
+  });
+  it("an employer row 'default' whose date was extended OUTSIDE the window is default (the window alone would call it stated)", async () => {
+    expect(await resolve("default", after(60 * DAY))).toBe("default");
+  });
+  it("a row with no closing_date_source uses the window: inside is default, outside is stated, no date is null", async () => {
+    expect(await resolve(null, after(30 * DAY))).toBe("default");
+    expect(await resolve(null, after(7 * DAY))).toBe("stated");
+    expect(await resolve(null, null)).toBeNull();
+  });
+  it("neither anon nor a signed-in user can call it", async () => {
+    const args = { p_closing_date_source: "chosen" as never, p_expires_at: after(7 * DAY) as never, p_created_at: created.toISOString() };
+    expect((await anon.rpc("expires_at_source_resolve", args)).error, "anon").not.toBeNull();
+    expect((await member.client.rpc("expires_at_source_resolve", args)).error, "authenticated").not.toBeNull();
+  });
+});
+
 describe("the column", () => {
   it("only stated and default are accepted; anything else is refused by the check (23514)", async () => {
     const id = await makeJob();

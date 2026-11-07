@@ -10,7 +10,7 @@
 -- validThrough, else NULL), and the employer's own server actions. An employer's own date is stated; the 30-day default an employer leaves in place is 'default'. job_postings.closing_date_source (0207) already
 -- records that distinction for employer rows ('chosen' / 'default'); this column is the one every kind of posting has, so the display reads one column.
 --
--- BACKFILL, once, by the rule the owner set: a non-null expires_at within 29 days 23 hours .. 30 days 1 hour of created_at is the default lifetime ('default'); any other non-null expires_at is 'stated'.
+-- BACKFILL, once. Where job_postings.closing_date_source (0207) is present it decides ('chosen' -> stated, 'default' -> default). Where it is null, the rule the owner set: a non-null expires_at within 29 days 23 hours .. 30 days 1 hour of created_at is the default lifetime ('default'); any other non-null expires_at is 'stated'.
 -- It is a heuristic and errs the safe way: a stated deadline that happens to fall exactly 30 days after posting is hidden, never a default shown as if it were stated. Rows with no expires_at stay NULL.
 -- The backfill is an UPDATE, so job_postings' update triggers are evaluated for every row it touches. The two AFTER UPDATE ones are conditional on structured_jd / seniority / status changes, which it does not make;
 -- the BEFORE UPDATE ones (removal, supersession, and the guard below) act only on changes to their own columns or on client roles, and this runs as the migration owner.
@@ -87,9 +87,27 @@ $$;
 revoke execute on function public.expires_at_source_backfill(timestamptz, timestamptz) from public, anon, authenticated;
 grant execute on function public.expires_at_source_backfill(timestamptz, timestamptz) to service_role;
 
+-- Which source a row gets: where closing_date_source (0207) is present it decides ('chosen' is stated, 'default' is default), because it recorded what the server actually did; the window rule above is
+-- the fallback ONLY where closing_date_source is null (imported and ingested rows, and employer rows from before 0207). One function so the DB-proof spec can call exactly what the UPDATE uses.
+create or replace function public.expires_at_source_resolve(p_closing_date_source text, p_expires_at timestamptz, p_created_at timestamptz)
+returns text
+language sql
+immutable
+set search_path = ''
+as $$
+  select case p_closing_date_source
+    when 'chosen' then 'stated'
+    when 'default' then 'default'
+    else public.expires_at_source_backfill(p_expires_at, p_created_at)
+  end;
+$$;
+
+revoke execute on function public.expires_at_source_resolve(text, timestamptz, timestamptz) from public, anon, authenticated;
+grant execute on function public.expires_at_source_resolve(text, timestamptz, timestamptz) to service_role;
+
 -- Backfill (see the header). Only rows that have a date and no source yet, so a second run changes nothing.
 update public.job_postings
-set expires_at_source = public.expires_at_source_backfill(expires_at, created_at)
+set expires_at_source = public.expires_at_source_resolve(closing_date_source, expires_at, created_at)
 where expires_at is not null
   and expires_at_source is null;
 

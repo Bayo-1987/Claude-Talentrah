@@ -5263,6 +5263,10 @@ export type Database = {
         Args: { p_created_at: string; p_expires_at: string }
         Returns: string
       }
+      expires_at_source_resolve: {
+        Args: { p_closing_date_source: string; p_created_at: string; p_expires_at: string }
+        Returns: string
+      }
       redeem_job_expiry_extend_token: {
         Args: { p_now?: string; p_token_hash: string }
         Returns: {

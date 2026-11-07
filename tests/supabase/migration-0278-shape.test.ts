@@ -41,8 +41,14 @@ describe("0278_job_postings_expires_at_source.sql", () => {
     expect(flat).toContain("revoke execute on function public.expires_at_source_backfill(timestamptz, timestamptz) from public, anon, authenticated;");
     expect(flat).toContain("grant execute on function public.expires_at_source_backfill(timestamptz, timestamptz) to service_role;");
   });
+  it("resolves each row's source in one more pure service-role-only function: closing_date_source first ('chosen' is stated, 'default' is default), the window rule only where closing_date_source is null", () => {
+    expect(flat).toContain("create or replace function public.expires_at_source_resolve(p_closing_date_source text, p_expires_at timestamptz, p_created_at timestamptz) returns text language sql immutable set search_path = ''");
+    expect(flat).toContain("select case p_closing_date_source when 'chosen' then 'stated' when 'default' then 'default' else public.expires_at_source_backfill(p_expires_at, p_created_at) end;");
+    expect(flat).toContain("revoke execute on function public.expires_at_source_resolve(text, timestamptz, timestamptz) from public, anon, authenticated;");
+    expect(flat).toContain("grant execute on function public.expires_at_source_resolve(text, timestamptz, timestamptz) to service_role;");
+  });
   it("backfills with that function, only dated rows with no source yet, so a second run changes nothing", () => {
-    expect(flat).toContain("update public.job_postings set expires_at_source = public.expires_at_source_backfill(expires_at, created_at) where expires_at is not null and expires_at_source is null;");
+    expect(flat).toContain("update public.job_postings set expires_at_source = public.expires_at_source_resolve(closing_date_source, expires_at, created_at) where expires_at is not null and expires_at_source is null;");
   });
   it("touches no policy, no other table, and writes nothing else", () => {
     expect(flat).not.toMatch(/create (or replace )?policy|alter policy|drop policy/i);
@@ -71,6 +77,7 @@ describe("0278_job_postings_expires_at_source.rollback.sql", () => {
     const flat = code(rollback).replace(/\s+/g, " ");
     expect(flat).toContain("drop trigger if exists job_postings_guard_expires_at_source on public.job_postings;");
     expect(flat).toContain("drop function if exists public.job_postings_guard_expires_at_source();");
+    expect(flat).toContain("drop function if exists public.expires_at_source_resolve(text, timestamptz, timestamptz);");
     expect(flat).toContain("drop function if exists public.expires_at_source_backfill(timestamptz, timestamptz);");
     expect(flat).toContain("alter table public.job_postings drop column if exists expires_at_source;");
     expect(flat).not.toMatch(/drop table|delete from|update public|truncate/i);
