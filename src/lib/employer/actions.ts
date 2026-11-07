@@ -1,6 +1,14 @@
 "use server";
 
-import { APPLY_EMAIL_NO_SCREENING_MESSAGE, readApplyMethod, readStoredApplyEmail, setApplyEmail } from "@/lib/employer/apply-method";
+import {
+  APPLY_EMAIL_NO_SCREENING_MESSAGE,
+  APPLY_LINK_NO_SCREENING_MESSAGE,
+  readApplyMethod,
+  readStoredApplyLink,
+  readStoredApplyMethod,
+  setApplyEmail,
+  setApplyLink,
+} from "@/lib/employer/apply-method";
 import { createHash } from "node:crypto";
 import { submittedValues, type SubmittedValues } from "@/lib/forms/keep-input";
 import {
@@ -570,10 +578,14 @@ export async function postJobAction(
   if (!assessment.ok) return { error: assessment.error };
 
   // PR-E2b: "How should people apply?". The address is never part of the INSERT (the policy refuses a row that carries one); it is set afterwards, through the database function.
-  const applyMethod = readApplyMethod(form);
+  // PR-E4: a third choice, "On our career site". The company's domain is passed ONLY when the company is verified (an unverified one has the applicant-tracking path alone).
+  const applyMethod = readApplyMethod(form, { companyDomain: organization.verified ? organization.domain ?? null : null, companyName: organization.name });
   if (!applyMethod.ok) return { error: applyMethod.error };
   if (applyMethod.method.kind === "email" && (screeningQuestions.value.length > 0 || assessment.value)) {
     return { error: APPLY_EMAIL_NO_SCREENING_MESSAGE };
+  }
+  if (applyMethod.method.kind === "link" && (screeningQuestions.value.length > 0 || assessment.value)) {
+    return { error: APPLY_LINK_NO_SCREENING_MESSAGE };
   }
 
   /*
@@ -587,7 +599,8 @@ export async function postJobAction(
    */
   const intent = form.get("intent") === "draft" ? "draft" : "publish";
   // A job that takes applications by email is always created as a draft: it is opened only after the address is set, so there is never a moment when it is open and shows the in-app Apply.
-  const status: Enums<"job_status"> = intent === "draft" || applyMethod.method.kind === "email" ? "draft" : "open";
+  // A job that sends applications to a career site is created the same way, for the same reason.
+  const status: Enums<"job_status"> = intent === "draft" || applyMethod.method.kind === "email" || applyMethod.method.kind === "link" ? "draft" : "open";
 
   // Inserted through the user's client on purpose. The 0027 policy
   // (`source_type = 'internal' and is_org_member(organization_id)`) is what
@@ -663,6 +676,16 @@ export async function postJobAction(
     }
   }
 
+  if (applyMethod.method.kind === "link") {
+    // The function is service-role only (so a direct call cannot skip the rules); the signed-in employer is named as the actor and the function re-checks membership itself.
+    const set = await setApplyLink(createServiceRoleClient(), created.id, { url: applyMethod.method.url, kind: applyMethod.method.linkKind, atsConfirmed: applyMethod.method.atsConfirmed }, { userId: user.id, fallback: TRY_AGAIN });
+    if (!set.ok) return { error: `Saved as a draft, but couldn't set how people apply. ${set.error}` };
+    if (intent === "publish") {
+      const published = await publishJobAction(created.id);
+      if (!published.ok) return { error: `Saved as a draft, but it couldn't be published. ${published.error}` };
+    }
+  }
+
   // A brand-new posting has no existing questions to reconcile against —
   // this is a plain insert of whatever the form submitted. If it fails, the
   // posting itself still exists (public if published, private if drafted);
@@ -705,7 +728,9 @@ export async function postJobAction(
   // target serve both intents. The card's own copy and share block are what
   // read `postedJob.status` to say something true about a draft rather than
   // claiming it is "posted".
-  redirect(`/employer/jobs?posted=${created.id}`);
+  // PR-E4: a career-site link on an applicant-tracking page whose company name does not resemble yours is saved all the same; the person is told on the next page (a warning, never a block).
+  const linkNote = applyMethod.method.kind === "link" && applyMethod.method.warning ? "&applyLinkNote=name" : "";
+  redirect(`/employer/jobs?posted=${created.id}${linkNote}`);
 }
 
 export async function updateJobAction(
@@ -751,16 +776,37 @@ export async function updateJobAction(
 
   // PR-E2b: the apply method is changed FIRST, through the database function, so a refusal (applications already exist, too many changes, a bad address) returns before any other field is written.
   // A form that does not carry the choice leaves the method exactly as it is: nothing is read and the function is not called.
-  const applyMethod = readApplyMethod(form);
+  // PR-E4: a career-site link is judged against the company as it is now, except an address equal to the one already stored, which is passed through unjudged.
+  const wantsLink = form.get("applyMethod") === "link";
+  if (wantsLink && (screeningQuestions.value.length > 0 || assessment.value)) {
+    return { error: APPLY_LINK_NO_SCREENING_MESSAGE };
+  }
+  const choice = form.get("applyMethod");
+  const stored = choice === "talentrah" || choice === "email" || wantsLink ? await readStoredApplyMethod(supabase, jobId, organization.id) : null;
+  const storedLinkUrl = wantsLink && stored?.linkKind ? await readStoredApplyLink(supabase, jobId) : null;
+  const applyMethod = readApplyMethod(form, {
+    companyDomain: organization.verified ? organization.domain ?? null : null,
+    companyName: organization.name,
+    storedLink: storedLinkUrl && stored?.linkKind ? { url: storedLinkUrl, kind: stored.linkKind } : null,
+  });
   if (!applyMethod.ok) return { error: applyMethod.error };
   if (applyMethod.method.kind === "email" && (screeningQuestions.value.length > 0 || assessment.value)) {
     return { error: APPLY_EMAIL_NO_SCREENING_MESSAGE };
   }
-  if (applyMethod.method.kind !== "unchanged") {
+  if (applyMethod.method.kind === "link") {
+    if (!applyMethod.method.unchanged) {
+      const set = await setApplyLink(createServiceRoleClient(), jobId, { url: applyMethod.method.url, kind: applyMethod.method.linkKind, atsConfirmed: applyMethod.method.atsConfirmed }, { userId: user.id, fallback: TRY_AGAIN });
+      if (!set.ok) return { error: set.error };
+    }
+  } else if (applyMethod.method.kind !== "unchanged" && stored) {
     const wantedAddress = applyMethod.method.kind === "email" ? applyMethod.method.address : null;
-    if (wantedAddress !== (await readStoredApplyEmail(supabase, jobId, organization.id))) {
+    if (wantedAddress !== stored.email) {
       const set = await setApplyEmail(supabase, jobId, wantedAddress, { userId: user.id, fallback: TRY_AGAIN });
       if (!set.ok) return { error: set.error };
+    } else if (applyMethod.method.kind === "talentrah" && stored.linkKind) {
+      // "On Talentrah" chosen while a career-site link is stored: clear it (a link and an address are cleared by different functions).
+      const cleared = await setApplyLink(createServiceRoleClient(), jobId, null, { userId: user.id, fallback: TRY_AGAIN });
+      if (!cleared.ok) return { error: cleared.error };
     }
   }
 
@@ -853,7 +899,12 @@ export async function updateJobAction(
   // INSERT (reconcileJobPostingAssessment's own `created` flag): an update
   // to an already-existing assessment already has its real
   // AssessmentExerciseUpload widget and nothing was ever staged for it.
-  redirect(assessmentResult.created ? `/employer/jobs?assessmentCreated=${jobId}` : "/employer/jobs");
+  const updateLinkNote = applyMethod.method.kind === "link" && applyMethod.method.warning ? "applyLinkNote=name" : "";
+  redirect(
+    assessmentResult.created
+      ? `/employer/jobs?assessmentCreated=${jobId}${updateLinkNote ? `&${updateLinkNote}` : ""}`
+      : `/employer/jobs${updateLinkNote ? `?${updateLinkNote}` : ""}`,
+  );
 }
 
 /**

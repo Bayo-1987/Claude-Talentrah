@@ -10,7 +10,7 @@ import { computeAndStoreApplicationMatchScore } from "@/lib/matching/compute-and
 import { captureEvent } from "@/lib/analytics/posthog";
 import { runFarahScreeningReview } from "@/lib/screening/farah-review";
 import { notifyFirstApplicant } from "@/lib/employer/new-applicants/instant";
-import { takesApplicationsByEmail } from "@/lib/jobs/posting-apply-email";
+import { takesApplicationsByEmail, takesApplicationsOffPlatform } from "@/lib/jobs/posting-apply-email";
 import { defaultInstantDeps } from "@/lib/employer/new-applicants/deps";
 
 async function getAuthedUserId() {
@@ -76,6 +76,7 @@ export async function toggleSaveAction(jobId: string) {
  */
 /** Shown when an in-app apply reaches a job that takes applications by email (the buttons do not offer it; this is the server saying no to a stale page or a direct call). */
 const APPLY_BY_EMAIL_MESSAGE = "This job takes applications by email.";
+const APPLY_ON_COMPANY_SITE_MESSAGE = "This job takes applications on the company's own site.";
 
 /** Shown when the check above could not be made (the read failed). The same try-again wording the employer actions use. */
 const CHECK_FAILED_MESSAGE = "Couldn't check this job. Please try again, or contact support if it keeps happening.";
@@ -136,7 +137,7 @@ async function performInAppApply(
       .maybeSingle(),
     loadJobSnapshot(supabase, jobId),
     // PR-E2b: a job whose applications arrive by email takes none inside Talentrah. Read in the same parallel block, so the Apply click pays no extra round trip.
-    supabase.from("job_postings").select("apply_email").eq("id", jobId).maybeSingle(),
+    supabase.from("job_postings").select("apply_email, apply_link_kind").eq("id", jobId).maybeSingle(),
   ]);
 
   // Fail closed: if the read of the job's address failed we do not know whether it takes email, so nothing is written. The database's own text goes to the log, never to the person.
@@ -144,8 +145,9 @@ async function performInAppApply(
     console.error(`[performInAppApply] could not read the job's apply method for job ${jobId}, user ${userId}:`, postingError.message);
     throw new Error(CHECK_FAILED_MESSAGE);
   }
-  if (takesApplicationsByEmail(postingRow)) {
-    throw new Error(APPLY_BY_EMAIL_MESSAGE);
+  // PR-E4: "off platform" is an address OR a career-site link; each gets its own plain sentence.
+  if (takesApplicationsOffPlatform(postingRow)) {
+    throw new Error(takesApplicationsByEmail(postingRow) ? APPLY_BY_EMAIL_MESSAGE : APPLY_ON_COMPANY_SITE_MESSAGE);
   }
 
   // A missing resume is a legitimate state (resume_id just stays null below)

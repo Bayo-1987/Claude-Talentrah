@@ -1,6 +1,6 @@
 import { AUTO_APPLY_MIN_SCORE } from "@/lib/auto-apply/config";
 import { isThinScreenableTagSet, screenableTagTotalFromExplanation } from "@/lib/match-tier";
-import { takesApplicationsByEmail } from "@/lib/jobs/posting-apply-email";
+import { takesApplicationsOffPlatform } from "@/lib/jobs/posting-apply-email";
 import type { MatchExplanation } from "@/lib/matching/score";
 
 /**
@@ -36,12 +36,12 @@ export function isWellFormedExplanation(explanation: unknown): explanation is Ma
 }
 
 export function isListableQueueRow(
-  row: { job_postings: { status?: string | null; apply_email?: string | null } | null },
+  row: { job_postings: { status?: string | null; apply_email?: string | null; apply_link_kind?: string | null } | null },
   live: LiveScore | undefined,
 ): boolean {
   if (row.job_postings?.status !== "open") return false;
   // PR-E2b: a queue row that predates the employer's switch to email is not offered: there is nothing to confirm inside Talentrah.
-  if (takesApplicationsByEmail(row.job_postings)) return false;
+  if (takesApplicationsOffPlatform(row.job_postings)) return false;
   if (!live) return false;
   if (live.score < AUTO_APPLY_MIN_SCORE) return false;
   if (!isWellFormedExplanation(live.explanation)) return false;

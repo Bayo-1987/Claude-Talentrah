@@ -1,4 +1,4 @@
-import { takesApplicationsByEmail } from "@/lib/jobs/posting-apply-email";
+import { takesApplicationsByEmail, takesApplicationsOffPlatform } from "@/lib/jobs/posting-apply-email";
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
@@ -85,7 +85,7 @@ export async function POST(request: Request) {
 
   const { data: job, error: jobError } = await supabase
     .from("job_postings")
-    .select("id, organization_id, source_type, import_feed_id, apply_email")
+    .select("id, organization_id, source_type, import_feed_id, apply_email, apply_link_kind")
     .eq("id", jobId)
     .maybeSingle();
 
@@ -100,6 +100,10 @@ export async function POST(request: Request) {
   // PR-E2b: a job whose applications arrive by email has no in-app assessment to attach an exercise to.
   if (takesApplicationsByEmail(job)) {
     return NextResponse.json({ error: "This job takes applications by email, so it can't have an assessment." }, { status: 409 });
+  }
+  // PR-E4: the same for a job whose applications go to the employer's career site (whatever else takes applications off Talentrah is caught here too).
+  if (takesApplicationsOffPlatform(job)) {
+    return NextResponse.json({ error: "This job sends applications to the company's own site, so it can't have an assessment." }, { status: 409 });
   }
 
   /*

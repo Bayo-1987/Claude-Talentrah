@@ -414,6 +414,8 @@ export interface JobFormValues {
   assessment?: JobPostingAssessmentInput | null;
   /** PR-E2b — the address applications are sent to, when the employer chose "By email"; null/undefined means applications are on Talentrah. Edit only. */
   applyEmail?: string | null;
+  /** PR-E4 — the career-site address, when the employer chose "On our career site" (read through get_job_apply_link, as the column itself is unreadable). Edit only. */
+  applyLink?: string | null;
 }
 
 export function JobPostingForm({
@@ -451,6 +453,9 @@ export function JobPostingForm({
   assessmentCreateContext,
   /** EMP-1 / E4 — Edit only: files already uploaded to the saved assessment. */
   assessmentSavedFiles,
+  companyDomain = null,
+  companyVerified = false,
+  companyName = null,
 }: {
   action: (state: EmployerActionState, form: FormData) => Promise<EmployerActionState>;
   initial?: JobFormValues;
@@ -464,6 +469,10 @@ export function JobPostingForm({
   defaultSalaryCurrency?: SalaryCurrency;
   assessmentCreateContext?: { userId: string };
   assessmentSavedFiles?: AssessmentExerciseFile[];
+  /** PR-E4 — the company as it is now, for the career-site hint. The server judges the address; this only tells the person what is accepted. */
+  companyDomain?: string | null;
+  companyVerified?: boolean;
+  companyName?: string | null;
 }) {
   const [state, formAction, pending] = useActionState<EmployerActionState, FormData>(action, null);
   const error = state && "error" in state ? state.error : null;
@@ -518,7 +527,9 @@ export function JobPostingForm({
   const descriptionRef = useRef<RichMarkdownEditorHandle>(null);
   const [descriptionText, setDescriptionText] = useState(initial?.description ?? "");
   // PR-E2b — "How should people apply?". Controlled here because choosing "By email" hides the screening questions and the assessment (they are not used for such a job).
-  const [applyMethod, setApplyMethod] = useState<"talentrah" | "email">(initial?.applyEmail ? "email" : "talentrah");
+  const [applyMethod, setApplyMethod] = useState<"talentrah" | "email" | "link">(initial?.applyLink ? "link" : initial?.applyEmail ? "email" : "talentrah");
+  const [applyLinkUrl, setApplyLinkUrl] = useState(initial?.applyLink ?? "");
+  const [applyLinkConfirmed, setApplyLinkConfirmed] = useState(false);
   const [applyAddress, setApplyAddress] = useState(initial?.applyEmail ?? "");
   const [applyConfirmed, setApplyConfirmed] = useState(false);
   const [drafting, setDrafting] = useState(false);
@@ -860,11 +871,22 @@ export function JobPostingForm({
             onAddressChange={setApplyAddress}
             confirmed={applyConfirmed}
             onConfirmedChange={setApplyConfirmed}
+            linkUrl={applyLinkUrl}
+            onLinkUrlChange={setApplyLinkUrl}
+            linkConfirmed={applyLinkConfirmed}
+            onLinkConfirmedChange={setApplyLinkConfirmed}
+            companyDomain={companyDomain}
+            companyVerified={companyVerified}
+            companyName={companyName}
           />
 
           {applyMethod === "email" ? (
             <p className="font-body text-[13px] text-ink-soft">
               Screening questions and the assessment are not used for a job that takes applications by email. If this job has any, they are removed when you save.
+            </p>
+          ) : applyMethod === "link" ? (
+            <p className="font-body text-[13px] text-ink-soft">
+              Screening questions and the assessment are not used for a job that sends applications to your career site. Remove any this job has before you save.
             </p>
           ) : (
             <>

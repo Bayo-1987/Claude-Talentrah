@@ -7,16 +7,13 @@
  * policy VERBATIM. The SQL's link rules are replayed in JavaScript from the patterns in the SQL text itself (so they cannot drift from the file) against a corpus of 50+ addresses.
  */
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { normalizeDomain } from "@/lib/employer/verification";
+import { code, EXACT, fnText, functionBlock, grab, read, sqlModel, VENDOR, XN, type Org } from "../support/apply-link-sql-model";
 
-const read = (file: string) => readFileSync(path.join(process.cwd(), file), "utf8");
 const sql = read("supabase/migrations/0277_job_postings_apply_link.sql");
 const rollback = read("supabase/rollbacks/0277_job_postings_apply_link.rollback.sql");
 const sql0275 = read("supabase/migrations/0275_job_postings_apply_email_write.sql");
-const code = (text: string) => text.split("\n").filter((l) => !l.trim().startsWith("--")).join("\n");
 const flat = (text: string) => code(text).replace(/\s+/g, " ");
 const md5 = (s: string) => createHash("md5").update(s).digest("hex");
 
@@ -38,13 +35,6 @@ function deparsedCheck(script: string): string {
   return `(${parts.join(" AND ")})`;
 }
 
-/** The text of a whole `create or replace function public.<name>(...)` ... through its trailing comment statement. */
-function functionBlock(script: string, name: string): string {
-  const start = script.indexOf(`create or replace function public.${name}(`);
-  if (start < 0) throw new Error(`no function ${name}`);
-  const commentAt = script.indexOf(`comment on function public.${name}(`, start);
-  return script.slice(start, script.indexOf(";\n", commentAt) + 2);
-}
 
 describe("the INSERT policy", () => {
   it("0277's expression is 575 characters, the pinned md5: the 0275 expression plus apply_link, apply_link_kind and apply_link_host are null", () => {
@@ -246,41 +236,6 @@ describe("the rollback", () => {
     expect(f.indexOf("alter policy")).toBeLessThan(f.indexOf("drop column if exists apply_link_host"));
   });
 });
-
-// ── The SQL's link rules, replayed from the patterns in the SQL text ────────────────────────────────────────────────────────────────────────────
-const fnText = code(functionBlock(sql, "set_job_apply_link"));
-const posix = (re: string) => re.replace(/\[\[:space:\]\]/g, "\\s").replace(/\[:space:\]/g, "\\s").replace(/\[:cntrl:\]/g, "\\x00-\\x1f\\x7f");
-const grab = (re: RegExp, label: string): string => {
-  const m = fnText.match(re);
-  if (!m) throw new Error(`SQL pattern not found: ${label}`);
-  return m[1];
-};
-const SHAPE = new RegExp(posix(grab(/p_url !~ '([^']+)'/, "shape")));
-const HOST = new RegExp(posix(grab(/substring\(p_url from '(\^https:\/\/\([^']+)'\)/, "host")));
-const HOST_BAD = new RegExp(grab(/v_host ~ '(\(\\\.\\\.[^']+)'/, "host-bad"));
-const PATH = new RegExp(grab(/v_path := substring\(p_url from '([^']+)'\)/, "path"));
-const PATH_OK = new RegExp(grab(/v_path !~ '([^']+)'/, "path-ok"));
-const TENANT = new RegExp(grab(/v_host !~ '(\^\[a-z0-9\]\(\[a-z0-9-\]\*\[a-z0-9\]\)\?\\\.\([^']+)'/, "tenant"));
-const XN = new RegExp(grab(/v_host ~ '(\(\^\|\\\.\)xn--)'/, "xn--"));
-const VENDOR = [...grab(/split_part\(v_host, '\.', 1\) = any \(array\[([^\]]+)\]\)/, "vendor labels").matchAll(/'([^']+)'/g)].map((m) => m[1]);
-const EXACT = [...grab(/v_host = any \(array\[([^\]]+)\]\)/, "exact list").matchAll(/'([^']+)'/g)].map((m) => m[1]);
-
-type Org = { domain: string | null; verified: boolean };
-function sqlModel(url: string, kind: string | null, org: Org, tick: boolean): "accept" | "AE005" | "AE006" | "AE007" {
-  if (kind === null || !["company", "ats"].includes(kind) || url.length > 2000 || /\s/.test(url) || !SHAPE.test(url)) return "AE005";
-  const host = HOST.exec(url)?.[1];
-  if (!host || !host.includes(".") || HOST_BAD.test(host) || XN.test(host) || host.length > 253) return "AE005";
-  if (kind === "company") {
-    const d = (org.domain ?? "").trim().toLowerCase();
-    if (!org.verified || d === "") return "AE006";
-    return host === d || host.slice(-(d.length + 1)) === `.${d}` ? "accept" : "AE005";
-  }
-  const p = PATH.exec(url)?.[1] ?? null;
-  if (EXACT.includes(host)) {
-    if (p === null || !PATH_OK.test(p)) return "AE005";
-  } else if (!TENANT.test(host) || VENDOR.includes(host.split(".")[0])) return "AE005";
-  return tick ? "accept" : "AE007";
-}
 
 describe("the SQL's two domain paths against a corpus (the patterns are read from the SQL text)", () => {
   it("the ATS allowlist in the SQL is exactly the approved one", () => {

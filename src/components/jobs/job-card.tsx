@@ -16,8 +16,9 @@ import type { CountryState } from "@/lib/jobs/country-events";
 import type { Tables } from "@/lib/supabase/types";
 import { isLinkOutPosting, provenanceLabel } from "@/lib/jobs/link-out";
 import { normaliseApplyEmail } from "@/lib/jobs/apply-email";
-import { postingApplyEmail } from "@/lib/jobs/posting-apply-email";
+import { postingApplyEmail, postingApplyLinkHost } from "@/lib/jobs/posting-apply-email";
 import { ApplyByEmailLink } from "@/components/jobs/apply-by-email";
+import { ApplyOnCompanySite } from "@/components/jobs/apply-on-company-site";
 
 const WORK_TYPE_LABEL: Record<string, string> = {
   remote: "Remote",
@@ -65,6 +66,9 @@ export interface JobCardProps {
   job: Omit<Tables<"job_postings">, "apply_link" | "apply_link_kind" | "apply_link_host" | "apply_email" | "description_preview" | "search_vector" | "closing_date_source" | "closed_at" | "unlisted_at" | "superseded_by" | "superseded_at" | "banner_path" | "admin_review_decision" | "admin_review_note" | "admin_review_requested_at" | "admin_reviewed_at" | "admin_reviewed_by" | "claimed_by_organization_id" | "claimed_at" | "llm_enrichment_attempted_at" | "import_key" | "employer_closed_at"> & {
     /** 0274. Optional: a path that does not select the column (the promoted strip's RPC rows) leaves it undefined, which is treated as no address. */
     apply_email?: string | null;
+    /** 0277 (PR-E4). Kind and host of the employer's career-site link; never the address. Optional for the same reason as apply_email. */
+    apply_link_kind?: string | null;
+    apply_link_host?: string | null;
   };
   score: number;
   isSaved: boolean;
@@ -139,6 +143,8 @@ export function JobCard({
   const applyEmail = isExternal ? normaliseApplyEmail(job.apply_email) : null;
   // An employer's own posting that takes applications by email (PR-E2b): its own branch below, ahead of the link-out one; no in-app Apply.
   const internalApplyEmail = isExternal ? null : postingApplyEmail(job);
+  // PR-E4: an employer's own posting that sends applications to their career site. Kind and host only; the control goes to /jobs/{id}/go.
+  const internalApplyLink = isExternal ? null : postingApplyLinkHost(job);
   const provenance = provenanceLabel(job);
   // Own line, same call as the detail page (jobs/[id]/page.tsx) and the same
   // reason: the one fact on the card most worth scanning for shouldn't be
@@ -371,6 +377,13 @@ export function JobCard({
                 <MarkAppliedButton />
               </form>
               <ApplyByEmailLink address={internalApplyEmail} title={job.title} variant="card" sponsored={isSponsored} />
+            </>
+          ) : internalApplyLink ? (
+            <>
+              <form action={markAppliedExternallyAction.bind(null, job.id, countryState)}>
+                <MarkAppliedButton />
+              </form>
+              <ApplyOnCompanySite jobId={job.id} host={internalApplyLink} variant="card" sponsored={isSponsored} />
             </>
           ) : !hasBaseResume ? (
             /*

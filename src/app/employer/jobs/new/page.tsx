@@ -50,6 +50,9 @@ export default async function NewJobPage() {
           action={postJobAction}
           defaultSalaryCurrency={defaultSalaryCurrency}
           assessmentCreateContext={{ userId }}
+          companyVerified={organization.verified}
+          companyDomain={organization.verified ? organization.domain : null}
+          companyName={organization.name}
           submitLabel="Publish job"
           pendingLabel="Publishing…"
           secondarySubmitLabel="Save as draft"

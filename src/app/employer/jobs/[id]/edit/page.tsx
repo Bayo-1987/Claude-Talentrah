@@ -36,10 +36,15 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
   // (tests/jobs/apply-email-leaks.test.ts), and this is the employer's own row, scoped to their organisation like the read above.
   const { data: applyRow } = await supabase
     .from("job_postings")
-    .select("apply_email")
+    .select("apply_email, apply_link_kind")
     .eq("id", id)
     .eq("organization_id", organization.id)
     .maybeSingle();
+
+  // PR-E4: the career-site address, if the employer chose "On our career site". The column is readable by no API role, so it comes through get_job_apply_link (members of the job's organisation only); the kind is on the row above.
+  const storedApplyLink = applyRow?.apply_link_kind ? (await supabase.rpc("get_job_apply_link", { p_job_id: id })).data : null;
+  // What the form needs to say what is accepted: the company as it is now (the domain only when it is verified; an unverified company has the applicant-tracking path alone).
+  const companyProps = { companyDomain: organization.verified ? organization.domain : null, companyVerified: organization.verified, companyName: organization.name };
 
   const { data: screeningQuestions } = await supabase
     .from("job_posting_screening_questions")
@@ -134,6 +139,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
           assessmentEditContext={{ jobId: job.id, userId }}
           assessmentSavedFiles={assessmentFiles}
           defaultSalaryCurrency={defaultSalaryCurrency}
+          {...companyProps}
           initial={{
             title: job.title,
             location: job.location ?? "",
@@ -148,6 +154,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
             salaryCurrency: job.salary_currency,
             salaryUnit: job.salary_unit,
             applyEmail: postingApplyEmail(applyRow),
+            applyLink: typeof storedApplyLink === "string" && storedApplyLink !== "" ? storedApplyLink : null,
             skills: structuredJd?.skills ?? [],
             screeningQuestions: (screeningQuestions ?? []).map((q) => ({
               id: q.id,

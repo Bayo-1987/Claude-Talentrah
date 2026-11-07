@@ -19,7 +19,7 @@ import { parseMultiSelect } from "@/lib/jobs/multi-select";
 import { buildSuggestionIndex } from "@/lib/jobs/search-suggestions";
 import { searchJobs } from "@/lib/jobs/search";
 import { isLinkOutPosting } from "@/lib/jobs/link-out";
-import { takesApplicationsByEmail } from "@/lib/jobs/posting-apply-email";
+import { takesApplicationsOffPlatform } from "@/lib/jobs/posting-apply-email";
 import { withImportMarkers } from "@/lib/jobs/import-markers";
 import { SavedEntryCard } from "@/components/jobs/saved-entry-card";
 import {
@@ -251,7 +251,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   // here). One literal keeps the aliased `description` typechecking as
   // `Tables<"job_postings">`.
   const FEED_COLUMNS =
-    "id, source_type, organization_id, title, company_name, company_logo_url, location, work_type, employment_type, seniority, years_experience_min, description:description_preview, structured_jd, external_url, external_source, status, posted_at, last_checked_at, dedup_fingerprint, created_at, expires_at, removed_at, removal_reason, removed_by, salary_min, salary_max, salary_currency, salary_unit, import_feed_id, apply_email";
+    "id, source_type, organization_id, title, company_name, company_logo_url, location, work_type, employment_type, seniority, years_experience_min, description:description_preview, structured_jd, external_url, external_source, status, posted_at, last_checked_at, dedup_fingerprint, created_at, expires_at, removed_at, removal_reason, removed_by, salary_min, salary_max, salary_currency, salary_unit, import_feed_id, apply_email, apply_link_kind, apply_link_host";
 
   /*
    * The Recent tab's own board-WIDE columns — for aggregate reads only
@@ -591,10 +591,8 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
     // 0246: the import sync's own bookkeeping, never selected (import_feed_id IS selected: the card treats an imported posting as link-out).
     | "import_key"
     | "employer_closed_at"
-    // 0277: apply_link is withheld from every API role; the kind and host are not selected here until the app commit of PR-E4. Type-only.
+    // 0277: apply_link is withheld from every API role and never selected here; the kind and host ARE (PR-E4), for the card's "Apply on company site". Type-only.
     | "apply_link"
-    | "apply_link_kind"
-    | "apply_link_host"
   >;
   const matchingFilters: FeedJobPosting[] = jobsRaw ?? [];
 
@@ -779,7 +777,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    * (`record_ad_event`), so nothing is over- or under-billed by the shift.
    */
   // Applicant counts exist only for postings people apply to INSIDE Talentrah: an imported posting is applied for on the employer's own site, so there is no honest count.
-  const internalIds = scored.filter((s) => !isLinkOutPosting(s.job) && s.job.source_type === "internal" && !takesApplicationsByEmail(s.job)).map((s) => s.job.id);
+  const internalIds = scored.filter((s) => !isLinkOutPosting(s.job) && s.job.source_type === "internal" && !takesApplicationsOffPlatform(s.job)).map((s) => s.job.id);
 
   const [, applicantCounts, { data: autoApplySettings }, pendingQueue, promoted] =
     await Promise.all([
@@ -1193,7 +1191,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
               posting being external.
             */
             applicantCount={
-              job.source_type === "internal" && !takesApplicationsByEmail(job) && applicantCounts
+              job.source_type === "internal" && !takesApplicationsOffPlatform(job) && applicantCounts
                 ? (applicantCounts.get(job.id) ?? 0)
                 : null
             }

@@ -1,4 +1,4 @@
-import { takesApplicationsByEmail } from "@/lib/jobs/posting-apply-email";
+import { takesApplicationsByEmail, takesApplicationsByLink, takesApplicationsOffPlatform } from "@/lib/jobs/posting-apply-email";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -60,7 +60,7 @@ export default async function JobApplicantsPage({
     await Promise.all([
       supabase
         .from("job_postings")
-        .select("id, title, apply_email")
+        .select("id, title, apply_email, apply_link_kind")
         .eq("id", id)
         .eq("organization_id", organization.id)
         .maybeSingle(),
@@ -153,6 +153,11 @@ export default async function JobApplicantsPage({
               Applications for this job arrive by email, so they are not listed here.
             </p>
           )}
+          {takesApplicationsByLink(job) && (
+            <p className="mt-2 max-w-[62ch] font-body text-[13.5px] text-ink-soft">
+              Applications for this job go to your career site, so they are not listed here.
+            </p>
+          )}
           {rows.some((r) => r.status === "new") && (
             <p className="mt-2 inline-flex min-h-6 items-center bg-rust-soft px-2 font-body text-[12px] font-bold text-rust">
               {`${rows.filter((r) => r.status === "new").length} new`}
@@ -168,12 +173,15 @@ export default async function JobApplicantsPage({
       )}
 
       {rows.length === 0 ? (
-        <BorderedCard className="p-8 text-center">
-          <p className="font-display text-[18px] font-medium text-ink">No applicants yet.</p>
-          <p className="mx-auto mt-2 max-w-[46ch] font-body text-[14px] text-ink-soft">
-            Anyone who applies through Talentrah will show up here, with their resume one click away.
-          </p>
-        </BorderedCard>
+        // A job whose applications go elsewhere (an address or a career site) is already explained above; an "empty list" card would read as "nobody applied".
+        takesApplicationsOffPlatform(job) ? null : (
+          <BorderedCard className="p-8 text-center">
+            <p className="font-display text-[18px] font-medium text-ink">No applicants yet.</p>
+            <p className="mx-auto mt-2 max-w-[46ch] font-body text-[14px] text-ink-soft">
+              Anyone who applies through Talentrah will show up here, with their resume one click away.
+            </p>
+          </BorderedCard>
+        )
       ) : (
         <>
           <ApplicantFilterBar

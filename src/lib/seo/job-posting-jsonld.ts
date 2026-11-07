@@ -3,7 +3,7 @@ import { absoluteUrl } from "./site";
 import { stripMarkdownToPlainText } from "@/lib/jobs/extract-jd";
 import { resolveCountry } from "@/lib/jobs/countries";
 import { isLinkOutPosting } from "@/lib/jobs/link-out";
-import { takesApplicationsByEmail } from "@/lib/jobs/posting-apply-email";
+import { takesApplicationsOffPlatform } from "@/lib/jobs/posting-apply-email";
 
 /**
  * schema.org JobPosting markup, built to Google's own required/recommended
@@ -367,7 +367,7 @@ export function buildJobPostingJsonLd(job: JobPosting): Record<string, unknown> 
    */
   // An imported posting is `internal` in storage but applied for on the employer's own site: not a direct application either.
   // A posting whose applications arrive by email is not a direct application either (PR-E2b); the address itself never enters the structured data.
-  jsonLd.directApply = !isLinkOutPosting(job) && !takesApplicationsByEmail(job);
+  jsonLd.directApply = !isLinkOutPosting(job) && !takesApplicationsOffPlatform(job);
 
   return jsonLd;
 }

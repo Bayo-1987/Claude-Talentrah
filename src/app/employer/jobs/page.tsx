@@ -1,4 +1,4 @@
-import { takesApplicationsByEmail } from "@/lib/jobs/posting-apply-email";
+import { takesApplicationsByEmail, takesApplicationsByLink, takesApplicationsOffPlatform } from "@/lib/jobs/posting-apply-email";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireEmployer } from "@/lib/employer/membership";
@@ -26,6 +26,8 @@ type SearchParams = Promise<{
   deleted?: string;
   error?: string;
   assessmentCreated?: string;
+  /** PR-E4: set by the job form's redirect when the saved career-site address is an applicant-tracking page whose company name does not resemble this company's. */
+  applyLinkNote?: string;
 }>;
 
 export default async function JobsPostedPage({
@@ -34,7 +36,7 @@ export default async function JobsPostedPage({
   searchParams: SearchParams;
 }) {
   const { organization, userId, userEmail, emailConfirmed } = await requireEmployer();
-  const { posted, claimed, deleted, error: actionError, assessmentCreated } = await searchParams;
+  const { posted, claimed, deleted, error: actionError, assessmentCreated, applyLinkNote } = await searchParams;
   const supabase = await createClient();
   const origin = await getSiteOrigin();
   const noticeMode = await readNewApplicantNotice(userId);
@@ -57,7 +59,7 @@ export default async function JobsPostedPage({
       supabase
         .from("job_postings")
         .select(
-          "id, title, location, status, posted_at, work_type, employment_type, removal_reason, unlisted_at, admin_review_requested_at, admin_review_decision, apply_email",
+          "id, title, location, status, posted_at, work_type, employment_type, removal_reason, unlisted_at, admin_review_requested_at, admin_review_decision, apply_email, apply_link_kind",
         )
         .eq("organization_id", organization.id)
         .eq("source_type", "internal")
@@ -123,9 +125,11 @@ export default async function JobsPostedPage({
     unlistedAt: mintedAt.get(job.id) ?? job.unlisted_at ?? null,
     adminReviewRequestedAt: job.admin_review_requested_at,
     adminReviewDecision: job.admin_review_decision,
-    applicationCount: countByJob.get(job.id) ?? 0,
-    newApplicantCount: newByJob.get(job.id) ?? 0,
+    // A job whose applications go elsewhere (an address or a career site) has no Talentrah applicants to count.
+    applicationCount: takesApplicationsOffPlatform(job) ? 0 : (countByJob.get(job.id) ?? 0),
+    newApplicantCount: takesApplicationsOffPlatform(job) ? 0 : (newByJob.get(job.id) ?? 0),
     appliesByEmail: takesApplicationsByEmail(job),
+    appliesByLink: takesApplicationsByLink(job),
   }));
 
   const openCount = rows.filter((r) => r.status === "open").length;
@@ -234,6 +238,11 @@ export default async function JobsPostedPage({
       {actionError && (
         <p className="border-[1.5px] border-rust bg-rust-soft px-4 py-3 text-[13.5px] text-rust">
           {actionError}
+        </p>
+      )}
+      {applyLinkNote === "name" && (
+        <p role="status" className="border-[1.5px] border-ink bg-[oklch(95%_0.02_60)] px-4 py-3 text-[13.5px] text-ink">
+          Your career-site address was saved. The company name in it doesn&apos;t look like yours, so check it opens your own careers page.
         </p>
       )}
 
