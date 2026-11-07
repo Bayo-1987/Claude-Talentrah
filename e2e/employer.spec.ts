@@ -99,7 +99,7 @@ test.describe("employer surface", () => {
       "Ad Campaigns",
       "Analytics",
       "Talent Directory",
-      "Looking for work?",
+      "Browse jobs",
     ]) {
       await expect(menu.getByRole("menuitem", { name: label })).toBeVisible();
     }

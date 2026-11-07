@@ -56,9 +56,13 @@ describe("what the employer header renders closed", () => {
     expect(html, "the square organisation badge is still omitted").not.toContain('class="flex h-[34px] w-[34px] items-center justify-center bg-ink');
   });
 
-  it("\"Looking for work?\" is still in the bar, once", () => {
+  it("\"Browse jobs\" is in the bar, once, and in the nav menu's source too; the old wording is gone", () => {
     const html = renderToStaticMarkup(<EmployerMasthead {...WITH_ORG} />);
-    expect(html.match(/Looking for work\?/g)).toHaveLength(1);
+    expect(html.match(/Browse jobs/g)).toHaveLength(1);
+    expect(html).not.toContain("Looking for work");
+    const src = code("src/components/employer/employer-masthead.tsx");
+    expect(src.match(/> Browse jobs </g), "the bar link and the nav-menu item").toHaveLength(2);
+    expect(src).not.toContain("Looking for work");
   });
 });
 

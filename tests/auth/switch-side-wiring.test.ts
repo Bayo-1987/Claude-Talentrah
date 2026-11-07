@@ -64,7 +64,7 @@ describe("the two headers", () => {
     expect(code("src/app/employer/layout.tsx")).toMatch(/<EmployerMasthead [^>]*\bcanSwitchToSeeker\b/);
   });
 
-  it("the two cross links stay PLAIN links that remember nothing: 'Post a job' to /employer and 'Looking for work?' to /jobs", () => {
+  it("the two cross links stay PLAIN links that remember nothing: 'Post a job' to /employer and 'Browse jobs' to /jobs", () => {
     const seeker = read("src/components/app-shell/masthead.tsx");
     expect([...seeker.matchAll(/href="\/employer"/g)].length).toBeGreaterThanOrEqual(2);
     const employer = read("src/components/employer/employer-masthead.tsx");

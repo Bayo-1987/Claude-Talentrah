@@ -206,7 +206,7 @@ export function EmployerMasthead({
                      * was rendering identically to the inactive ones.
                      *
                      * whitespace-nowrap (send-470 follow-up) — this row had none, unlike
-                     * "Looking for work?"/"Sign out" in the right-hand group, which
+                     * "Browse jobs"/"Sign out" in the right-hand group, which
                      * already got this exact fix in send-442. Without it, a font whose
                      * metrics render this row even slightly wider than Source Sans 3 did
                      * (IBM Plex Sans measured wrapping these labels onto two lines at
@@ -293,7 +293,7 @@ export function EmployerMasthead({
                   onClick={() => setNavOpen(false)}
                   className="flex min-h-11 items-center px-4 font-body text-[14px] font-semibold text-ink-soft no-underline hover:text-rust"
                 >
-                  Looking for work?
+                  Browse jobs
                 </Link>
               </div>
             )}
@@ -303,14 +303,14 @@ export function EmployerMasthead({
         <div className="flex items-center gap-3.5">
           {/*
             MEASURED, NOT 900 — a real git-stash A/B test (send-442) found
-            "Looking for work?" and "Sign out" wrapping onto two lines at
+            "Browse jobs" and "Sign out" wrapping onto two lines at
             1024px, clean at 1160px, with the LEFT nav (already showing from
             640px) and this chip's own min-[900px] reveal never checked
             together. Swept the actual combined-width interaction in 4-20px
             steps, logged in signed in as the demo org owner (so the
             orgInitials badge is present, the widest right-hand-group state):
 
-                width   "Looking for work?" / "Sign out"
+                width   "Browse jobs" / "Sign out"
                  900    wrapped
                 1024    wrapped
                 1120    wrapped
@@ -329,7 +329,7 @@ export function EmployerMasthead({
             single-digit-pixel margin measured 0 on CI's Linux runner —
             different font metrics render this row wider there). 1200 buys
             ~64px over the measured crossover rather than shipping the bare
-            number. Below 1200 this chip stays hidden — "Looking for work?"
+            number. Below 1200 this chip stays hidden — "Browse jobs"
             is already unreachable in the bar between 640px (where the left
             nav's own hamburger disappears) and this breakpoint; that gap
             already existed below 900px before this fix and widening it
@@ -348,7 +348,7 @@ export function EmployerMasthead({
             href="/jobs"
             className="hidden min-h-10 items-center whitespace-nowrap bg-rust-soft px-3.5 text-[13px] font-bold text-rust no-underline hover:bg-[oklch(87%_0.04_40)] min-[1200px]:inline-flex"
           >
-            Looking for work?
+            Browse jobs
           </Link>
           {/*
             The avatar is the account control, and Sign out lives inside it (the same menu as the seeker header: src/components/app-shell/account-menu.tsx). With an organisation the
