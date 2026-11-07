@@ -88,6 +88,11 @@ describe("POSITIVE CONTROLS: a member's job takes a company link and an ATS link
     expect(events[0]).toMatchObject({ actor_user_id: member.id, new_url: COMPANY, new_kind: "company", ats_confirmed: false, old_url: null, replaced_by_email: false });
     expect((await setLink(member.id, id, `https://${DOMAIN}/careers`, "company")).error).toBeNull();
   });
+  it("a real tenant label on a tenant host is accepted with the tick", async () => {
+    const id = await makeJob();
+    expect((await setLink(member.id, id, "https://acme-e4.bamboohr.com/careers", "ats", true)).error).toBeNull();
+    expect((await row(id)).apply_link_host).toBe("acme-e4.bamboohr.com");
+  });
   it("an ATS link needs the tick, which is recorded in the audit row", async () => {
     const id = await makeJob();
     expect((await setLink(member.id, id, ATS, "ats", true)).error).toBeNull();
@@ -137,6 +142,12 @@ describe("every error code", () => {
     ["https://a.b.bamboohr.com/x", "ats"],
     ["https://unlisted-ats.example/acme", "ats"],
     [COMPANY, "other"],
+    [`https://xn--bcher-kva.${DOMAIN}/x`, "company"], // G1b-2: an xn-- label
+    ["https://xn--abc.bamboohr.com/x", "ats"],
+    ["https://www.bamboohr.com/careers", "ats"], // G1b-1: a vendor's own label on a tenant host
+    ["https://login.recruitee.com/", "ats"],
+    ["https://docs.teamtailor.com/x", "ats"],
+    [`https://careers.${DOMAIN}/a\u0001b`, "company"], // G1b-3: a control character in the path
   ])("AE005: %s as %s is refused and nothing is written", async (url, kind) => {
     const id = await makeJob();
     expect((await code(setLink(member.id, id, url, kind)))?.code).toBe("AE005");

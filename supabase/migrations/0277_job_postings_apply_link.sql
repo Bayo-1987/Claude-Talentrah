@@ -18,7 +18,7 @@
 --      under the job row lock, SQL re-checks: the actor is a member of the job's organisation; the job is an internal, non-imported, non-removed draft, open or closed job; the link's shape (https,
 --      at most 2000 characters, no whitespace, a lower-case ASCII host with at least one dot, no user info, no port); BOTH domain paths (kind 'company' needs a verified organisation and the host to
 --      be the organisation's domain or a dot-boundary subdomain of it; kind 'ats' needs an allowlisted host, a company page path where the host is path-style, and the confirmation tick); the
---      has-applications lock; and the shared cap. Shorteners, IP hosts and job-board hosts stay in the TypeScript validator only: only the Server Action can reach this function.
+--      has-applications lock; and the shared cap. A tenant host never takes a vendor's own label (www, app, api, login, accounts, support, help, blog, status, docs), no host may carry an xn-- label, and no control character may appear in the address (the same rules as the TypeScript validator). Shorteners, IP hosts and job-board hosts stay in the TypeScript validator only: only the Server Action can reach this function.
 --      Errors: 28000 not signed in, 42501 not found or not yours, AE004 not changeable, AE005 the link is refused, AE006 a link on the company's own domain needs a verified company, AE007 the careers
 --      page confirmation is missing, AE001 the job already has applications, AE002 more than 5 changes in 24 hours.
 --   6. get_job_apply_link(p_job_id): returns the stored address to a member of the job's organisation and null to everyone else. authenticated only.
@@ -185,11 +185,11 @@ begin
     if p_kind is null or p_kind not in ('company', 'ats')
        or char_length(p_url) > 2000
        or p_url ~ '[[:space:]]'
-       or p_url !~ '^https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?([/?#][^[:space:]]*)?$' then
+       or p_url !~ '^https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?([/?#][^[:space:][:cntrl:]]*)?$' then
       raise exception 'That link can''t be used. Use a full https address on your company''s website or on your applicant tracking system.' using errcode = 'AE005';
     end if;
     v_host := substring(p_url from '^https://([a-z0-9][a-z0-9.-]*[a-z0-9])');
-    if v_host is null or position('.' in v_host) = 0 or v_host ~ '(\.\.|(^|\.)-|-(\.|$))' or char_length(v_host) > 253 then
+    if v_host is null or position('.' in v_host) = 0 or v_host ~ '(\.\.|(^|\.)-|-(\.|$))' or v_host ~ '(^|\.)xn--' or char_length(v_host) > 253 then
       raise exception 'That link can''t be used. Use a full https address on your company''s website or on your applicant tracking system.' using errcode = 'AE005';
     end if;
 
@@ -210,7 +210,8 @@ begin
         if v_path is null or v_path !~ '^/[^/]+' then
           raise exception 'That link can''t be used. Use a full https address on your company''s website or on your applicant tracking system.' using errcode = 'AE005';
         end if;
-      elsif v_host !~ '^[a-z0-9]([a-z0-9-]*[a-z0-9])?\.(bamboohr\.com|recruitee\.com|teamtailor\.com)$' then
+      elsif v_host !~ '^[a-z0-9]([a-z0-9-]*[a-z0-9])?\.(bamboohr\.com|recruitee\.com|teamtailor\.com)$'
+            or split_part(v_host, '.', 1) = any (array['www', 'app', 'api', 'login', 'accounts', 'support', 'help', 'blog', 'status', 'docs']) then
         raise exception 'That link can''t be used. Use a full https address on your company''s website or on your applicant tracking system.' using errcode = 'AE005';
       end if;
       if p_ats_confirmed is not true then

@@ -249,7 +249,7 @@ describe("the rollback", () => {
 
 // ── The SQL's link rules, replayed from the patterns in the SQL text ────────────────────────────────────────────────────────────────────────────
 const fnText = code(functionBlock(sql, "set_job_apply_link"));
-const posix = (re: string) => re.replace(/\[\[:space:\]\]/g, "\\s").replace(/\[\^\[:space:\]\]/g, "[^\\s]").replace(/\[:space:\]/g, "\\s");
+const posix = (re: string) => re.replace(/\[\[:space:\]\]/g, "\\s").replace(/\[:space:\]/g, "\\s").replace(/\[:cntrl:\]/g, "\\x00-\\x1f\\x7f");
 const grab = (re: RegExp, label: string): string => {
   const m = fnText.match(re);
   if (!m) throw new Error(`SQL pattern not found: ${label}`);
@@ -261,13 +261,15 @@ const HOST_BAD = new RegExp(grab(/v_host ~ '(\(\\\.\\\.[^']+)'/, "host-bad"));
 const PATH = new RegExp(grab(/v_path := substring\(p_url from '([^']+)'\)/, "path"));
 const PATH_OK = new RegExp(grab(/v_path !~ '([^']+)'/, "path-ok"));
 const TENANT = new RegExp(grab(/v_host !~ '(\^\[a-z0-9\]\(\[a-z0-9-\]\*\[a-z0-9\]\)\?\\\.\([^']+)'/, "tenant"));
+const XN = new RegExp(grab(/v_host ~ '(\(\^\|\\\.\)xn--)'/, "xn--"));
+const VENDOR = [...grab(/split_part\(v_host, '\.', 1\) = any \(array\[([^\]]+)\]\)/, "vendor labels").matchAll(/'([^']+)'/g)].map((m) => m[1]);
 const EXACT = [...grab(/v_host = any \(array\[([^\]]+)\]\)/, "exact list").matchAll(/'([^']+)'/g)].map((m) => m[1]);
 
 type Org = { domain: string | null; verified: boolean };
 function sqlModel(url: string, kind: string | null, org: Org, tick: boolean): "accept" | "AE005" | "AE006" | "AE007" {
   if (kind === null || !["company", "ats"].includes(kind) || url.length > 2000 || /\s/.test(url) || !SHAPE.test(url)) return "AE005";
   const host = HOST.exec(url)?.[1];
-  if (!host || !host.includes(".") || HOST_BAD.test(host) || host.length > 253) return "AE005";
+  if (!host || !host.includes(".") || HOST_BAD.test(host) || XN.test(host) || host.length > 253) return "AE005";
   if (kind === "company") {
     const d = (org.domain ?? "").trim().toLowerCase();
     if (!org.verified || d === "") return "AE006";
@@ -276,7 +278,7 @@ function sqlModel(url: string, kind: string | null, org: Org, tick: boolean): "a
   const p = PATH.exec(url)?.[1] ?? null;
   if (EXACT.includes(host)) {
     if (p === null || !PATH_OK.test(p)) return "AE005";
-  } else if (!TENANT.test(host)) return "AE005";
+  } else if (!TENANT.test(host) || VENDOR.includes(host.split(".")[0])) return "AE005";
   return tick ? "accept" : "AE007";
 }
 
@@ -295,7 +297,17 @@ describe("the SQL's two domain paths against a corpus (the patterns are read fro
     ["https://a.b.acme.com/x", "company", ACME, false, "accept"],
     ["https://acme.com", "company", ACME, false, "accept"],
     ["https://acme.com?team=eng", "company", ACME, false, "accept"],
-    ["https://xn--bcher-kva.acme.com/x", "company", ACME, false, "accept"],
+    ["https://xn--bcher-kva.acme.com/x", "company", ACME, false, "AE005"], // G1b-2: an xn-- label is refused in SQL too (it was "accept" in gate 1; the TypeScript rule always refused it)
+    ["https://acme.xn--p1ai/x", "company", { domain: "acme.xn--p1ai", verified: true }, false, "AE005"],
+    ["https://xn--abc.bamboohr.com/x", "ats", ACME, true, "AE005"],
+    ["https://acme.com/a\u0001b", "company", ACME, false, "AE005"], // G1b-3: a control character in the path
+    ["https://acme.com/a\u007fb", "company", ACME, false, "AE005"],
+    ["https://acme.com/a\u0000b", "company", ACME, false, "AE005"],
+    ["https://acme.com/a%20b?x=1#top", "company", ACME, false, "accept"],
+    ["https://www.bamboohr.com/careers", "ats", ACME, true, "AE005"], // G1b-1: a vendor's own label on a tenant host
+    ["https://login.recruitee.com/", "ats", ACME, true, "AE005"],
+    ["https://docs.teamtailor.com/x", "ats", ACME, true, "AE005"],
+    ["https://acme-app.bamboohr.com/x", "ats", ACME, true, "accept"],
     ["https://acme.com.evil.com/x", "company", ACME, false, "AE005"],
     ["https://evilacme.com/x", "company", ACME, false, "AE005"],
     ["https://notacme.com/x", "company", ACME, false, "AE005"],
@@ -352,6 +364,22 @@ describe("the SQL's two domain paths against a corpus (the patterns are read fro
 
   it.each(corpus.map((c, i) => [i + 1, ...c] as const))("case %i: %s as %s", (_n, url, kind, org, tick, expected) => {
     expect(sqlModel(url, kind, org, tick)).toBe(expected);
+  });
+  it("G1b-1: the vendor-own labels are exactly the approved ten, and every one is refused on every tenant vendor (a real tenant label still passes)", () => {
+    expect([...VENDOR].sort()).toEqual(["accounts", "api", "app", "blog", "docs", "help", "login", "status", "support", "www"]);
+    for (const vendor of ["bamboohr.com", "recruitee.com", "teamtailor.com"]) {
+      for (const label of VENDOR) expect(sqlModel(`https://${label}.${vendor}/careers`, "ats", ACME, true), `${label}.${vendor}`).toBe("AE005");
+      expect(sqlModel(`https://acme.${vendor}/careers`, "ats", ACME, true), `acme.${vendor}`).toBe("accept");
+    }
+  });
+  it("G1b-2: any xn-- label in the host is refused, at any position, on both paths", () => {
+    expect(XN.source).toBe("(^|\\.)xn--");
+    for (const host of ["xn--a.acme.com", "careers.xn--a.acme.com", "acme.xn--p1ai"]) expect(XN.test(host), host).toBe(true);
+    for (const host of ["acme.com", "boxn--a.acme.com", "axn--.com"]) expect(XN.test(host), host).toBe(false);
+  });
+  it("G1b-3: the path part of the shape pattern refuses control characters as well as whitespace", () => {
+    expect(fnText.replace(/\s+/g, " ")).toContain("([/?#][^[:space:][:cntrl:]]*)?$'");
+    expect(fnText).not.toContain("[^[:space:]]*)?$'");
   });
   it("the corpus has more than 50 cases and covers every outcome", () => {
     expect(corpus.length).toBeGreaterThan(50);
