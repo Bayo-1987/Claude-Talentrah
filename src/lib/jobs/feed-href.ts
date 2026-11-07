@@ -21,9 +21,11 @@ export function recentPageHref(args: {
   posted?: JobDateFilter;
   country: TrackedCountry | undefined;
   target: number;
+  /** The tab the link stays on. Most Recent unless a ranked tab (Recommended, External) is paging. */
+  tab?: string;
 }): string {
   const sp = new URLSearchParams();
-  sp.set("tab", "recent");
+  sp.set("tab", args.tab ?? "recent");
   if (args.workTypes.length) sp.set("workType", args.workTypes.join(","));
   if (args.seniorities.length) sp.set("seniority", args.seniorities.join(","));
   if (args.posted) sp.set("posted", args.posted);
