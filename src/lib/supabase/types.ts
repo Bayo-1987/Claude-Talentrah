@@ -2342,6 +2342,7 @@ export type Database = {
           employer_closed_at: string | null
           employment_type: Database["public"]["Enums"]["employment_type"] | null
           expires_at: string | null
+          expires_at_source: string | null
           external_source: string | null
           external_url: string | null
           id: string
@@ -2394,6 +2395,7 @@ export type Database = {
             | Database["public"]["Enums"]["employment_type"]
             | null
           expires_at?: string | null
+          expires_at_source?: string | null
           external_source?: string | null
           external_url?: string | null
           id?: string
@@ -2446,6 +2448,7 @@ export type Database = {
             | Database["public"]["Enums"]["employment_type"]
             | null
           expires_at?: string | null
+          expires_at_source?: string | null
           external_source?: string | null
           external_url?: string | null
           id?: string
@@ -5255,6 +5258,10 @@ export type Database = {
       expiry_reminder_window_ok: {
         Args: { p_closes_at: string; p_now: string }
         Returns: boolean
+      }
+      expires_at_source_backfill: {
+        Args: { p_created_at: string; p_expires_at: string }
+        Returns: string
       }
       redeem_job_expiry_extend_token: {
         Args: { p_now?: string; p_token_hash: string }
