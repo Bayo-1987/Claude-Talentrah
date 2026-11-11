@@ -36,6 +36,34 @@ export const FEED_PAGE_SIZE = 24;
  */
 export const RANK_COLUMNS = "id, posted_at, title, company_name, location, external_source, work_type, seniority, jd_skills:structured_jd->skills";
 
+/** Rows per request. Supabase answers at most its Max rows (default 1000) per request and does not say when it cut a response short. */
+export const READ_A_CHUNK = 1000;
+/** A ceiling on the loop, not a product limit: 10,000 rows is far past any window the feed has (1,219 in November 2026). */
+export const READ_A_MAX_CHUNKS = 10;
+
+/**
+ * Reads Read A's window in chunks of READ_A_CHUNK with `.range()`, in the order the caller's query fixes, until a chunk comes back SHORT. A chunk of exactly READ_A_CHUNK
+ * rows is not the end (the next one may be empty, which is how a window of exactly 1000 or 2000 rows is read in full). An error in any chunk is a failed read: no rows and the
+ * error, which the page logs and renders as it always has for a failed Read A (partial rows would be a wrong, silently shortened window). After READ_A_MAX_CHUNKS full chunks it
+ * stops, warns, and returns what it has.
+ */
+export async function readWindowInChunks<T>(
+  fetchChunk: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+  opts: { warn?: (message: string) => void } = {},
+): Promise<{ data: T[] | null; error: { message: string } | null }> {
+  const rows: T[] = [];
+  for (let i = 0; i < READ_A_MAX_CHUNKS; i += 1) {
+    const from = i * READ_A_CHUNK;
+    const { data, error } = await fetchChunk(from, from + READ_A_CHUNK - 1);
+    if (error) return { data: null, error };
+    const chunk = data ?? [];
+    rows.push(...chunk);
+    if (chunk.length < READ_A_CHUNK) return { data: rows, error: null };
+  }
+  (opts.warn ?? console.warn)(`[jobs] the ranked window reached ${READ_A_MAX_CHUNKS} chunks of ${READ_A_CHUNK} rows; the rest of it was not read`);
+  return { data: rows, error: null };
+}
+
 export type RankRow = Pick<
   Tables<"job_postings">,
   "id" | "posted_at" | "title" | "company_name" | "location" | "external_source" | "work_type" | "seniority" | "structured_jd"

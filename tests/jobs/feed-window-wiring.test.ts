@@ -39,6 +39,15 @@ describe("Read A", () => {
     expect(q).not.toContain("FEED_COLUMNS");
   });
 
+  it("reads the window in chunks with .range(), through readWindowInChunks (a single read is cut at the API's Max rows)", () => {
+    const chunked = calls("readWindowInChunks");
+    expect(chunked).toHaveLength(1);
+    expect(flat(chunked[0].arguments[0].getText())).toBe("(from, to) => rankWindowQuery(orgIds).range(from, to)");
+    // No other, unchunked read of the window: the only call to the query is inside that lambda.
+    expect(calls("rankWindowQuery")).toHaveLength(1);
+    expect(flat(text)).not.toMatch(/await rankWindowQuery\(/);
+  });
+
   it("reads in a fixed order, so ties and page boundaries are the same on every request", () => {
     expect(bodyOf("rankWindowQuery")).toContain('.order("posted_at", { ascending: false }).order("id", { ascending: true })');
   });

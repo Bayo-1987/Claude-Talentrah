@@ -13,10 +13,13 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   FEED_PAGE_SIZE,
   RANK_COLUMNS,
+  READ_A_CHUNK,
+  READ_A_MAX_CHUNKS,
   RECOMMENDED_HARD_CAP,
   attachFullRows,
   pageReadIds,
   rankFeedWindow,
+  readWindowInChunks,
   selectPage,
   toRankRow,
   type RankRow,
@@ -226,5 +229,92 @@ describe("Read A rows", () => {
     const fullRows = rows.map((r) => ({ ...r, description: "x".repeat(300), external_url: "https://example.test/j", salary_min: 1 }));
     expect(rows.map((r) => deriveCountry(r))).toEqual(fullRows.map((r) => deriveCountry(r)));
     expect(buildSuggestionIndex(rows)).toEqual(buildSuggestionIndex(fullRows));
+  });
+});
+
+/**
+ * Read A is read in chunks of 1000 with .range(): Supabase answers at most its Max rows (default 1000) per request, silently, so a single read of a window of 1,219 postings
+ * returns 1,000 and drops the oldest 219. The fake below is that server: it caps EVERY response at 1000 rows whatever range was asked for.
+ */
+describe("Read A in chunks (readWindowInChunks)", () => {
+  type Row = { id: string };
+  const SERVER_MAX = 1000;
+  const rowsOf = (n: number): Row[] => Array.from({ length: n }, (_, i) => ({ id: `r-${String(i).padStart(5, "0")}` }));
+  /** A server holding `all`, in the fixed order, that returns at most SERVER_MAX rows per request. */
+  function server(all: Row[], failOnCall?: number) {
+    const calls: Array<[number, number]> = [];
+    const fetchChunk = async (from: number, to: number) => {
+      calls.push([from, to]);
+      if (calls.length === failOnCall) return { data: null, error: { message: "boom" } };
+      return { data: all.slice(from, Math.min(to + 1, from + SERVER_MAX)), error: null };
+    };
+    return { fetchChunk, calls };
+  }
+
+  it("POSITIVE CONTROL: the fake really is capped (one read of 1,219 rows returns 1,000), which is the bug", async () => {
+    const all = rowsOf(1219);
+    expect((await server(all).fetchChunk(0, 4999)).data).toHaveLength(1000);
+  });
+
+  it("returns all 1,219 rows, in order, with the second chunk asked for from row 1000", async () => {
+    const all = rowsOf(1219);
+    const s = server(all);
+    const out = await readWindowInChunks(s.fetchChunk);
+    expect(out.error).toBeNull();
+    expect(out.data).toEqual(all);
+    expect(s.calls).toEqual([[0, 999], [1000, 1999]]);
+  });
+
+  it("exactly 1000 rows: a full chunk is not the end, so one more is asked for and comes back empty", async () => {
+    const all = rowsOf(1000);
+    const s = server(all);
+    const out = await readWindowInChunks(s.fetchChunk);
+    expect(out.data).toEqual(all);
+    expect(s.calls).toEqual([[0, 999], [1000, 1999]]);
+  });
+
+  it("exactly 2000 rows: three reads, the last empty, nothing lost or repeated", async () => {
+    const all = rowsOf(2000);
+    const s = server(all);
+    const out = await readWindowInChunks(s.fetchChunk);
+    expect(out.data).toEqual(all);
+    expect(new Set(out.data!.map((r) => r.id)).size).toBe(2000);
+    expect(s.calls).toHaveLength(3);
+  });
+
+  it("an empty window and a short window each take one read", async () => {
+    expect((await readWindowInChunks(server([]).fetchChunk)).data).toEqual([]);
+    const s = server(rowsOf(37));
+    expect((await readWindowInChunks(s.fetchChunk)).data).toHaveLength(37);
+    expect(s.calls).toHaveLength(1);
+  });
+
+  it("an error in any chunk is a failed Read A: no rows, the error returned, and no further chunks asked for", async () => {
+    const s = server(rowsOf(2500), 2);
+    const out = await readWindowInChunks(s.fetchChunk);
+    expect(out.data).toBeNull();
+    expect(out.error?.message).toBe("boom");
+    expect(s.calls).toHaveLength(2);
+    const first = server(rowsOf(2500), 1);
+    expect((await readWindowInChunks(first.fetchChunk)).data).toBeNull();
+  });
+
+  it("stops after 10 chunks and warns, returning the 10,000 rows it has", async () => {
+    expect(READ_A_CHUNK).toBe(1000);
+    expect(READ_A_MAX_CHUNKS).toBe(10);
+    const all = rowsOf(10_500);
+    const s = server(all);
+    const warnings: string[] = [];
+    const out = await readWindowInChunks(s.fetchChunk, { warn: (m) => warnings.push(m) });
+    expect(s.calls).toHaveLength(10);
+    expect(out.data).toEqual(all.slice(0, 10_000));
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatch(/10 chunks/);
+  });
+
+  it("does not warn when the window ends exactly inside the limit", async () => {
+    const warnings: string[] = [];
+    await readWindowInChunks(server(rowsOf(9_999)).fetchChunk, { warn: (m) => warnings.push(m) });
+    expect(warnings).toEqual([]);
   });
 });

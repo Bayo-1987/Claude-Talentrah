@@ -58,6 +58,7 @@ import {
   attachFullRows,
   pageReadIds,
   rankFeedWindow,
+  readWindowInChunks,
   selectPage,
   toRankRow,
   type RankRow,
@@ -507,7 +508,8 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
     }
     const orgIds = await viewerOrgIds;
     if (usesRankWindow) {
-      const { data, error } = await rankWindowQuery(orgIds);
+      // In chunks of 1000: the API answers at most its Max rows per request, so one read of a larger window silently drops its oldest postings.
+      const { data, error } = await readWindowInChunks((from, to) => rankWindowQuery(orgIds).range(from, to));
       if (error) console.error("[jobs] could not read the ranked window:", error.message);
       return { result: { data: null }, rankRows: ((data ?? []) as unknown as RankRowRaw[]).map(toRankRow) };
     }
