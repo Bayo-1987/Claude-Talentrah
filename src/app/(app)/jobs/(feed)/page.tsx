@@ -2,7 +2,7 @@ import Link from "next/link";
 import { after } from "next/server";
 import { getOptionalUser, requireUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
-import { scoreJobs, persistMatchScores } from "@/lib/matching/compute-and-store";
+import { persistMatchScores, type ScoredJob } from "@/lib/matching/compute-and-store";
 import { scanAndQueue } from "@/lib/auto-apply/queue";
 import { AutoApplyToggle } from "@/components/jobs/auto-apply-toggle";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
@@ -52,7 +52,18 @@ import {
   RECENT_PAGE_SIZE,
   type BoardAggregateRow,
 } from "@/lib/jobs/recent-pagination";
-import { sortFeedResults } from "@/lib/jobs/ranking";
+import {
+  FEED_PAGE_SIZE,
+  RANK_COLUMNS,
+  attachFullRows,
+  pageReadIds,
+  rankFeedWindow,
+  readWindowInChunks,
+  selectPage,
+  toRankRow,
+  type RankRow,
+  type RankRowRaw,
+} from "@/lib/jobs/feed-window";
 import { fetchListablePending } from "@/lib/auto-apply/listable-pending";
 import { getViewerOrganizationIds } from "@/lib/employer/membership";
 import { logCountryDefaultEvent } from "@/lib/jobs/country-events";
@@ -98,28 +109,10 @@ type SearchParams = Promise<{
 const VALID_WORK_TYPES: readonly string[] = Constants.public.Enums.work_type;
 const VALID_SENIORITIES: readonly string[] = Constants.public.Enums.seniority_level;
 
-/**
- * Interim safety net for Recommended/External/Saved (docs/jobs-feed-pagination.md,
- * "Step 2"). Real match_scores-backed pagination isn't safely achievable yet
- * — coverage against production is 0-100% per user, so an ORDER BY score
- * LIMIT would either drop every unscored posting or silently reorder to
- * "already-scored first, everything else undefined", neither of which is
- * "best match". That's separate, larger work.
- *
- * This is not that. It's a hard ceiling applied AFTER scoreJobs and AFTER
- * every sort (the tab's own ranking, then the promoted reorder) — changing
- * nothing about which job ranks where, only stopping the rendered (and
- * after()-persisted) set from growing without bound as the board does.
- * Applying it any earlier would make it exactly the "arbitrary wrong
- * subset" bug this whole investigation exists to avoid: scoreJobs and the
- * sort need the FULL filtered board to mean anything.
- *
- * 2,000 is pure headroom today, not a behavior change: the largest possible
- * filtered board (673 open postings, measured 2026-09-08) is already under
- * it, so this cap is a genuine no-op until the catalog outgrows it — which
- * is the whole point.
+/*
+ * The interim ceiling on a ranked window (RECOMMENDED_HARD_CAP, docs/jobs-feed-pagination.md) now lives with the ranking in src/lib/jobs/feed-window.ts: it is
+ * applied after scoring and ranking there, and only there.
  */
-const RECOMMENDED_HARD_CAP = 2000;
 
 export default async function JobsPage({ searchParams }: { searchParams: SearchParams }) {
   /*
@@ -197,6 +190,13 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    * today's behaviour (the full ranked RPC result, unbounded) unchanged.
    */
   const isPaginatedRecent = tab === "recent" && !q;
+  /*
+   * RANKED TABS (Recommended, External, and any tab that is not Recent or Saved) read their whole filtered window as NARROW rows, rank it in memory, and load full
+   * cards only for the 24 of the requested page (src/lib/jobs/feed-window.ts). With a search term the RPC's own unbounded result stands, as it always did, so a
+   * search is not paged.
+   */
+  const usesRankWindow = tab !== "recent" && tab !== "saved";
+  const isRankedPaged = usesRankWindow && !q;
   const page = isPaginatedRecent ? Math.max(1, Number(params.page ?? "1") || 1) : 1;
   const recentFrom = (page - 1) * RECENT_PAGE_SIZE;
   const recentTo = recentFrom + RECENT_PAGE_SIZE - 1;
@@ -324,6 +324,30 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   }
 
   /*
+   * READ A for the ranked tabs: the same discovery filters as postingsQuery above (status, the 30-day floor, unlisted / admin-approved, work type, seniority, the
+   * External tab's source) over the NARROW RANK_COLUMNS, in a fixed order. The order matters: scoring and the sort are stable, so ties keep this order, and a page
+   * boundary is only stable between requests if the database returns the window the same way each time.
+   *
+   * MUST stay filter-identical to postingsQuery's clauses; tests/jobs/feed-window-wiring.test.ts compares the two.
+   */
+  function rankWindowQuery(viewerOrgIds: string[]) {
+    let query = supabase
+      .from("job_postings")
+      .select(RANK_COLUMNS)
+      .eq("status", "open")
+      .gte("posted_at", jobDateFilterSinceISO(posted));
+    query = viewerOrgIds.length
+      ? query.or(
+          `unlisted_at.is.null,organization_id.in.(${viewerOrgIds.join(",")}),admin_review_decision.eq.approved`,
+        )
+      : query.or("unlisted_at.is.null,admin_review_decision.eq.approved");
+    if (tab === "external") query = query.eq("source_type", "external");
+    if (workTypes.length) query = query.in("work_type", workTypes);
+    if (seniorities.length) query = query.in("seniority", seniorities);
+    return query.order("posted_at", { ascending: false }).order("id", { ascending: true });
+  }
+
+  /*
    * Recent tab's board-wide aggregate fetch — same status/freshness/
    * unlisted-org/work-type/seniority filters as postingsQuery above, minus
    * the saved-tab and external-tab branches (both dead here: this only ever
@@ -433,7 +457,9 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    * whole fetch has resolved.
    */
   type JobsFetchResult = {
-    result: Awaited<ReturnType<typeof postingsQuery>>;
+    result: Pick<Awaited<ReturnType<typeof postingsQuery>>, "data">;
+    /** Read A's rows, for the ranked tabs: the whole window, narrow. */
+    rankRows?: RankRow[];
     recentPagination?: {
       boardAggregateRows: BoardAggregateRow[];
       countryApplied: boolean;
@@ -481,6 +507,12 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
       return { result };
     }
     const orgIds = await viewerOrgIds;
+    if (usesRankWindow) {
+      // In chunks of 1000: the API answers at most its Max rows per request, so one read of a larger window silently drops its oldest postings.
+      const { data, error } = await readWindowInChunks((from, to) => rankWindowQuery(orgIds).range(from, to));
+      if (error) console.error("[jobs] could not read the ranked window:", error.message);
+      return { result: { data: null }, rankRows: ((data ?? []) as unknown as RankRowRaw[]).map(toRankRow) };
+    }
     return { result: await postingsQuery(orgIds) };
   })();
 
@@ -529,11 +561,20 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
     { data: applications },
     jobsFetch,
     searchResult,
+    promoted,
   ] = await Promise.all([
     baseResumeQuery,
     applicationsQuery,
     jobsQuery,
     searchQuery ?? Promise.resolve(null),
+    /*
+     * Promoted slots — Recommended only (D4). A user-intent tab (External, Saved, Recent) is not a surface Talentrah orders, so no paid card goes into it.
+     * It needs only the filters and last visit's match_scores, not this render's scoring, so it is fetched WITH the window rather than after it: the ranking
+     * below takes the promoted ids as an input (the reorder is part of the ranking, and a page is sliced from the reordered list).
+     */
+    tab === "recommended"
+      ? fetchPromotedJobs(supabase, { workTypes, seniorities, limit: PROMOTED_SLOTS })
+      : Promise.resolve(null),
   ]);
   const { data: jobsRaw } = jobsFetch.result;
   // undefined for every tab except isPaginatedRecent — see JobsFetchResult above.
@@ -595,6 +636,8 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
     | "apply_link"
   >;
   const matchingFilters: FeedJobPosting[] = jobsRaw ?? [];
+  // Ranked tabs: the whole filtered window as narrow rows (Read A). Every other tab keeps its full rows above.
+  const rankRows: RankRow[] = jobsFetch.rankRows ?? [];
 
   /*
    * Built from `matchingFilters` — the board before the search term — for the
@@ -609,7 +652,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    * from for every other tab, just fetched with a lighter column list.
    */
   const searchIndex = buildSuggestionIndex(
-    recentPagination ? recentPagination.boardAggregateRows : matchingFilters,
+    recentPagination ? recentPagination.boardAggregateRows : usesRankWindow ? rankRows : matchingFilters,
   );
 
   /*
@@ -621,7 +664,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    * silent — see this file's own `after()` block for why silent failure is
    * the one thing this codebase treats as worse than a visible one.
    */
-  let jobs: FeedJobPosting[];
+  let jobs: Array<FeedJobPosting | RankRow>;
   /*
    * The Saved tab's non-posting cards (send-496): closed, removed and manual saved entries, rendered by SavedEntryCard,
    * and the size of the whole saved set, which is what tells "nothing saved" from "your filters hide all of it".
@@ -648,7 +691,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
     }
     jobs = (searchResult?.data ?? []) as unknown as FeedJobPosting[];
   } else {
-    jobs = matchingFilters;
+    jobs = usesRankWindow ? rankRows : matchingFilters;
   }
 
   /*
@@ -741,174 +784,78 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   }
 
   /*
-   * SCORING IS SYNCHRONOUS AND THE PERSISTENCE IS NOT AWAITED — see the
-   * `after()` block below.
+   * SCORING IS SYNCHRONOUS AND THE PERSISTENCE IS NOT AWAITED — see the `after()` block below.
    *
-   * `scoreJobs` is pure arithmetic over rows already in memory: it is the
-   * array this page renders, complete, with no database in it. The upsert
-   * that used to run in the same call wrote ~196 rows (production, 30-day
-   * window) that nothing on this page ever reads back. Awaiting it meant
-   * every feed view — including a filter chip click, which re-renders the
-   * whole page — held the response open for a write the reader was not
-   * waiting for.
+   * `rankFeedWindow` (src/lib/jobs/feed-window.ts) is pure arithmetic over rows already in memory: score every row of the window, sort it (the tab's own
+   * ranking, skipped when searching), move the promoted postings to the first slots, then apply the hard cap. All of it runs over the WHOLE filtered window,
+   * so a posting's place, the match-score cache and Auto-Apply's reads cannot depend on which page is showing. The upsert that used to run in the same call
+   * wrote rows nothing on this page reads back, so it is deferred to `after()`.
+   *
+   * `ranked` is the whole window. `pageRanked` is what this response draws: on a ranked tab without a search term, one page of 24 (Read B below loads its full
+   * cards); everywhere else, all of it, as before.
    */
-  const scored = scoreJobs(resume, jobs);
+  const { ranked, promotedPresent } = rankFeedWindow(resume, jobs, {
+    tab,
+    hasSearchTerm: !!q,
+    freshnessWindowDays: JOB_FRESHNESS_WINDOW_DAYS,
+    promotedIds: (promoted ?? []).map((p) => p.jobPostingId),
+  });
+  const feedPage = isRankedPaged ? selectPage(ranked, Number(params.page ?? "1")) : null;
+  const pageRanked = feedPage ? feedPage.items : ranked;
 
   /*
-   * FOUR INDEPENDENT ROUND TRIPS, RUN TOGETHER.
-   *
-   * Applicant counts, the two Auto-Apply reads and the promoted-slot fetch
-   * are independent of each other, so they go out at once rather than in the
-   * order they happened to be written in.
-   *
-   * THE SCAN IS NO LONGER ONE OF THEM. `scanAndQueue` used to run here, with
-   * the pending-queue count sequenced behind it so the count included
-   * anything this visit queued. Both the scan and the score-cache write it
-   * depends on now happen in `after()`, so the count below reports the state
-   * as of the PREVIOUS feed render. That is a real, visible change and it is
-   * called out on the `after()` block; it is not a detail that got lost.
-   *
-   * `promoted_jobs` joins `match_scores` and so reads the previous visit's
-   * scores for the same reason. Checked rather than assumed: the join is a
-   * filter (`score >= 60`) over jobs already on this page, so a stale score
-   * can only change WHICH of two eligible paid cards is promoted, and on a
-   * brand-new account with no scores yet it promotes nothing on the first
-   * render only. Impressions are deduped per user per campaign per day
-   * (`record_ad_event`), so nothing is over- or under-billed by the shift.
+   * WHICH PROMOTED CARDS ARE SHOWN. Only ones actually on this response: a promoted job absent from the window was filtered out upstream, and one on page 2 or
+   * later has already been moved to page 1, so billing an impression for a card that never rendered is the one thing this must not do.
    */
-  // Applicant counts exist only for postings people apply to INSIDE Talentrah: an imported posting is applied for on the employer's own site, so there is no honest count.
-  const internalIds = scored.filter((s) => !isLinkOutPosting(s.job) && s.job.source_type === "internal" && !takesApplicationsOffPlatform(s.job)).map((s) => s.job.id);
-
-  const [, applicantCounts, { data: autoApplySettings }, pendingQueue, promoted] =
-    await Promise.all([
-      // Stage 12 instrumentation — independent of everything else in this
-      // Promise.all, and swallows its own failures (logCountryDefaultEvent),
-      // so it rides along for free rather than adding a fourth sequential
-      // round trip.
-      logCountryDefaultEvent({ userId: user.id, eventType: "feed_view", countryState, tab }),
-      /*
-       * Applicant counts, for the ids on this page only.
-       *
-       * Through 0059's SECURITY DEFINER function, not a join: `applications` is
-       * owner-only under RLS, so joining it here would return this user's own
-       * rows and nothing else — "1 applicant" on every job they had applied to
-       * and "0" everywhere else, which looks like data and is not.
-       *
-       * Failure is swallowed to a null map rather than throwing. A missing
-       * count is a line that says so; it is not worth failing the whole feed
-       * over, and the card distinguishes "no count available" from "zero
-       * applicants".
-       */
-      (async (): Promise<Map<string, number> | null> => {
-        if (internalIds.length === 0) return null;
-        const { data: counts, error: countsError } = await supabase.rpc(
-          "internal_applicant_counts",
-          { p_job_ids: internalIds },
-        );
-        if (countsError) {
-          console.error("[jobs] applicant counts unavailable:", countsError);
-          return null;
-        }
-        return new Map(
-          (counts ?? []).map((row) => [row.job_posting_id, Number(row.applicant_count)]),
-        );
-      })(),
-
-      // Whether the toggle renders as on. Read here rather than taken from
-      // scanAndQueue's own copy of it, because the scan no longer runs on
-      // this path at all.
-      supabase.from("auto_apply_settings").select("enabled").eq("user_id", user.id).maybeSingle(),
-
-      /*
-       * The pending review count, as of the last completed scan.
-       *
-       * No longer sequenced behind `scanAndQueue` — it cannot be, now that
-       * the scan happens after the response. So it is a plain sibling here,
-       * which also means it stops adding its latency on top of the scan's.
-       */
-      // The same rows the /auto-apply page lists, by the same rule (open job, live score >= 80, not thin), so the banner's
-      // number can never disagree with the page it links to. It used to be a raw count of every pending row.
-      fetchListablePending(supabase, user.id),
-
-      /*
-       * Promoted slots — Recommended only (D4).
-       *
-       * External, Saved and Recent are user intents, not discovery surfaces: on
-       * Saved the person is looking at a list they built, and inserting a paid
-       * card into it would be a different product. Recommended is the only tab
-       * whose ordering Talentrah chooses, so it is the only one where selling a
-       * position in that ordering is coherent.
-       *
-       * AFTER scoring, necessarily: promoted_jobs joins match_scores, which the
-       * call above has just written. Same ordering constraint as the Auto-Apply
-       * scan, for the same reason — and, as established above, no constraint
-       * relative to the scan itself.
-       */
-      tab === "recommended"
-        ? fetchPromotedJobs(supabase, { workTypes, seniorities, limit: PROMOTED_SLOTS })
-        : Promise.resolve(null),
-    ]);
+  const shownPromoted = new Set(feedPage && feedPage.page > 1 ? [] : promotedPresent);
+  const visiblePromoted = promoted ? promoted.filter((p) => shownPromoted.has(p.jobPostingId)) : null;
+  const promotedIds = (visiblePromoted ?? []).map((p) => p.jobPostingId);
 
   /*
-   * Stage 12: Recommended gets a freshness-decayed ranking key, not the raw
-   * score — a stale perfect match no longer automatically outranks a recent
-   * good-enough one. Every OTHER non-"recent" tab (External, Saved) keeps the
-   * plain score sort. Zero-screenable-skill postings partition last within
-   * either comparator (docs/zero-skill-scoring.md). NONE of this runs when a
-   * search term is active — `search_job_postings`'s own `rank desc,
-   * posted_at desc` ordering survives untouched on every tab instead. See
-   * `sortFeedResults`'s own header (src/lib/jobs/ranking.ts) for the full
-   * rationale on both, including the real production case ("engineer" search
-   * surfacing an unrelated 99% match ahead of actual engineering roles) that
-   * made the search exemption explicit rather than an accident of Recent's
-   * own branch condition.
+   * Applicant counts exist only for postings people apply to INSIDE Talentrah: an imported posting is applied for on the employer's own site, so there is no honest
+   * count. For the ids on this response only, through 0059's SECURITY DEFINER function (`applications` is owner-only under RLS, so a join would return this user's
+   * own rows and nothing else). A failure is a null map: the card says nothing rather than failing the feed.
    */
-  sortFeedResults(scored, tab, !!q, JOB_FRESHNESS_WINDOW_DAYS);
-
-  /*
-   * The promoted REORDER, applied after the sort above.
-   *
-   * The fetch moved into the Promise.all — it needs only `match_scores` — but
-   * this part must stay here, because it rewrites `scored` and has to run
-   * after `scored.sort` or the sort would undo it. Fetch early, apply late.
-   *
-   * This REORDERS the feed rather than adding to it. A promoted job is an open
-   * posting that already satisfies the tab's filters, so it is already in
-   * `scored` — fetching it separately would risk showing a job the filters
-   * excluded, which is precisely what D1 rules out.
-   */
-  let promotedIds: string[] = [];
-  let visiblePromoted: typeof promoted = null;
-  if (promoted) {
-    const scoredIds = new Set(scored.map((s) => s.job.id));
-    // Only ones actually on the page. A promoted job absent from `scored` was
-    // filtered out upstream, and billing an impression for a card that never
-    // rendered is the one thing this must not do.
-    visiblePromoted = promoted.filter((p) => scoredIds.has(p.jobPostingId));
-    promotedIds = visiblePromoted.map((p) => p.jobPostingId);
-
-    if (promotedIds.length > 0) {
-      const rank = new Map(promotedIds.map((id, i) => [id, i]));
-      scored.sort((a, b) => {
-        const ra = rank.get(a.job.id);
-        const rb = rank.get(b.job.id);
-        if (ra !== undefined && rb !== undefined) return ra - rb;
-        if (ra !== undefined) return -1;
-        if (rb !== undefined) return 1;
-        return 0; // everything else keeps the order it already had
-      });
+  const loadApplicantCounts = async (shown: { job: FeedJobPosting }[]): Promise<Map<string, number> | null> => {
+    const internalIds = shown
+      .filter((s) => !isLinkOutPosting(s.job) && s.job.source_type === "internal" && !takesApplicationsOffPlatform(s.job))
+      .map((s) => s.job.id);
+    if (internalIds.length === 0) return null;
+    const { data: counts, error: countsError } = await supabase.rpc("internal_applicant_counts", { p_job_ids: internalIds });
+    if (countsError) {
+      console.error("[jobs] applicant counts unavailable:", countsError);
+      return null;
     }
-  }
+    return new Map((counts ?? []).map((row) => [row.job_posting_id, Number(row.applicant_count)]));
+  };
+  // Every row of a non-ranked response is already a full card row; a ranked page's full rows are Read B.
+  const unpagedCards = pageRanked as ScoredJob<FeedJobPosting>[];
 
   /*
-   * RECOMMENDED_HARD_CAP, applied here and ONLY here — after scoreJobs, after
-   * the tab's own sort, and after the promoted reorder above. Any promoted
-   * card is already inside the first PROMOTED_SLOTS positions of `scored` by
-   * this point, so this can never cut a paid placement; it can only ever
-   * trim the tail of an already-fully-ranked list. See RECOMMENDED_HARD_CAP's
-   * own comment for why this exists and why 2,000 is a no-op today.
+   * INDEPENDENT ROUND TRIPS, RUN TOGETHER: the Stage 12 instrumentation (swallows its own failures), the two Auto-Apply reads and, on a ranked page, READ B.
+   *
+   * READ B: the full card rows for the page's ids (plus a promoted card shown, which is among them already). `in (...)` comes back in no particular order and
+   * a posting that closed since Read A is simply missing: attachFullRows restores the ranked order and drops it. A non-ranked response has no Read B and loads its
+   * applicant counts here, in parallel, as it always did.
+   *
+   * THE SCAN IS NOT ONE OF THEM: `scanAndQueue` and the score-cache write happen in `after()`, so the pending count reports the state as of the PREVIOUS feed render.
    */
-  scored.length = Math.min(scored.length, RECOMMENDED_HARD_CAP);
+  const readBIds = feedPage ? pageReadIds(pageRanked.map((s) => s.job.id), promotedIds) : [];
+  const [, { data: autoApplySettings }, pendingQueue, readB, unpagedCounts] = await Promise.all([
+    logCountryDefaultEvent({ userId: user.id, eventType: "feed_view", countryState, tab }),
+    // Whether the toggle renders as on. Read here rather than taken from scanAndQueue's own copy, because the scan no longer runs on this path at all.
+    supabase.from("auto_apply_settings").select("enabled").eq("user_id", user.id).maybeSingle(),
+    // The same rows the /auto-apply page lists, by the same rule (open job, live score >= 80, not thin), so the banner's number can never disagree with the page it links to.
+    fetchListablePending(supabase, user.id),
+    feedPage && readBIds.length > 0
+      ? supabase.from("job_postings").select(FEED_COLUMNS).in("id", readBIds).eq("status", "open")
+      : Promise.resolve(null),
+    feedPage ? Promise.resolve(null) : loadApplicantCounts(unpagedCards),
+  ]);
+  if (readB?.error) console.error("[jobs] could not read the page's cards:", readB.error.message);
+
+  const cards: ScoredJob<FeedJobPosting>[] = feedPage ? attachFullRows(pageRanked, (readB?.data ?? []) as FeedJobPosting[]) : unpagedCards;
+  const applicantCounts = feedPage ? await loadApplicantCounts(cards) : unpagedCounts;
 
   const promotedSet = new Set(promotedIds);
   // job posting id -> campaign id, for the click-tracking wrapper (0128) —
@@ -925,8 +872,9 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    * isPaginatedRecent is false whenever `q` is set, so this control never
    * renders on a search result in the first place.
    */
-  const buildRecentPageHref = (target: number) => {
-    return recentPageHref({ workTypes, seniorities, posted, country, target });
+  // One builder for both: Most Recent's links, and the ranked tabs' own Previous / Next (same filters, same shape, on the tab the reader is on).
+  const buildRecentPageHref = (target: number, onTab?: string) => {
+    return recentPageHref({ workTypes, seniorities, posted, country, target, tab: onTab });
   };
 
   /*
@@ -976,7 +924,8 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
     await Promise.all([
       (async () => {
         try {
-          await persistMatchScores(user.id, scored);
+          // The WHOLE ranked window, never the page: Auto-Apply's scan and the promoted join read these rows for every posting in it.
+          await persistMatchScores(user.id, ranked);
           await scanAndQueue(user.id);
         } catch (err) {
           console.error("[jobs] deferred scoring/auto-apply scan failed:", err);
@@ -1161,7 +1110,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
         </p>
       )}
 
-      {scored.length === 0 && savedEntries.length === 0 ? (
+      {cards.length === 0 && savedEntries.length === 0 ? (
         <p className="py-12 text-center text-[14.5px] text-ink-soft">
           {tab === "saved"
             ? savedEmptyState({ savedTotal, shown: 0 }) === "filtered"
@@ -1171,7 +1120,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
         </p>
       ) : (
         <div className="flex flex-col gap-4">
-          {scored.map(({ job, score, explanation }) => (
+          {cards.map(({ job, score, explanation }) => (
             <JobCard
               key={job.id}
               job={job}
@@ -1210,6 +1159,33 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
               .
             </p>
           )}
+        </div>
+      )}
+
+      {feedPage && feedPage.totalPages > 1 && (
+        <div className="flex items-center justify-between border-t border-line pt-3 text-[13px]">
+          <span className="text-ink-soft">
+            Page {feedPage.page} of {feedPage.totalPages} · {feedPage.total} job
+            {feedPage.total === 1 ? "" : "s"}
+          </span>
+          <div className="flex items-center gap-4">
+            {feedPage.page > 1 && (
+              <a
+                href={buildRecentPageHref(feedPage.page - 1, tab)}
+                className="font-semibold underline underline-offset-2 hover:text-rust"
+              >
+                Previous
+              </a>
+            )}
+            {feedPage.page < feedPage.totalPages && (
+              <a
+                href={buildRecentPageHref(feedPage.page + 1, tab)}
+                className="font-semibold underline underline-offset-2 hover:text-rust"
+              >
+                Next {FEED_PAGE_SIZE} jobs
+              </a>
+            )}
+          </div>
         </div>
       )}
 
