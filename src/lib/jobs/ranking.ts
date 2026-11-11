@@ -24,7 +24,7 @@
  * newest", and the two tabs must keep answering different questions.
  */
 import { describeMatchConfidence, getDisplayMatchTier, hasNoScreenableSkills, isThinScreenableTagSet } from "@/lib/match-tier";
-import type { ScoredJob } from "@/lib/matching/compute-and-store";
+import type { ScoredJob, ScoringJob } from "@/lib/matching/compute-and-store";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -81,8 +81,8 @@ export function recommendedRankingKey(
  * existing precedent, and "equally-relevant text matches ordered by resume
  * fit" would be a new design decision this function does not make on its own.
  */
-export function sortFeedResults(
-  scored: ScoredJob[],
+export function sortFeedResults<J extends ScoringJob>(
+  scored: ScoredJob<J>[],
   tab: string,
   hasSearchTerm: boolean,
   freshnessWindowDays: number,
@@ -116,7 +116,7 @@ interface RankFacts {
   display: number;
 }
 
-function rankFacts(s: ScoredJob): RankFacts {
+function rankFacts(s: ScoredJob<ScoringJob>): RankFacts {
   const tags = s.explanation.matchedSkills.length + s.explanation.missingSkills.length;
   const display = describeMatchConfidence(s.score, s.explanation).displayScore;
   const tier = getDisplayMatchTier(display);
@@ -124,12 +124,12 @@ function rankFacts(s: ScoredJob): RankFacts {
   return { band, thin: isThinScreenableTagSet(tags), tags, display };
 }
 
-function compareByBandThenEvidence(a: ScoredJob, b: ScoredJob, freshnessWindowDays: number | null): number {
+function compareByBandThenEvidence(a: ScoredJob<ScoringJob>, b: ScoredJob<ScoringJob>, freshnessWindowDays: number | null): number {
   const fa = rankFacts(a);
   const fb = rankFacts(b);
   if (fa.band !== fb.band) return fa.band - fb.band;
   if (fa.thin !== fb.thin) return fa.thin ? 1 : -1;
-  const keyOf = (f: RankFacts, s: ScoredJob) =>
+  const keyOf = (f: RankFacts, s: ScoredJob<ScoringJob>) =>
     freshnessWindowDays === null ? f.display : recommendedRankingKey(f.display, s.job.posted_at, freshnessWindowDays);
   const byScore = keyOf(fb, b) - keyOf(fa, a);
   if (byScore !== 0) return byScore;

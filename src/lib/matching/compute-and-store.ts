@@ -33,8 +33,14 @@ export interface ScoredJobLike {
   explanation: MatchExplanation;
 }
 
-export interface ScoredJob extends ScoredJobLike {
-  job: JobPosting;
+/**
+ * What scoring and ranking read of a posting, and nothing else: the feed ranks its whole window from narrow rows of exactly these fields
+ * (src/lib/jobs/feed-window.ts) and only loads full cards for the page it shows.
+ */
+export type ScoringJob = Pick<JobPosting, "id" | "title" | "seniority" | "structured_jd" | "posted_at">;
+
+export interface ScoredJob<J extends ScoringJob = JobPosting> extends ScoredJobLike {
+  job: J;
 }
 
 /**
@@ -82,7 +88,7 @@ export async function computeAndStoreMatchScores(
  * from `computeMatchScore` (singular) in ./score, which is the per-job
  * primitive this loops over.
  */
-export function scoreJobs(resume: StructuredResume, jobs: JobPosting[]): ScoredJob[] {
+export function scoreJobs<J extends ScoringJob>(resume: StructuredResume, jobs: J[]): ScoredJob<J>[] {
   return jobs.map((job) => {
     const structuredJd = job.structured_jd as { skills?: string[] } | null;
     const result = computeMatchScore(
