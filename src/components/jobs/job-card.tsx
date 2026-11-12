@@ -249,7 +249,12 @@ export function JobCard({
         {stripMarkdownToPlainText(job.description).slice(0, 280)}
       </p>
 
-      <div className="flex items-center justify-between border-t border-line pt-3.5">
+      {/*
+        Below 760px the footer stacks: the age line on its own line, the action row under it across the card's whole content width. Side by side, the age line took a share of a
+        narrow card and centred itself on the wrapped controls, which then packed into what was left (P3). The row below keeps its 72px reserve for the Farah launcher
+        (data-farah-avoid), so its controls end at the edge the reserve leaves; from 760px up this is the same single line as before.
+      */}
+      <div className="flex items-center justify-between border-t border-line pt-3.5 max-[760px]:flex-col max-[760px]:items-stretch max-[760px]:justify-start max-[760px]:gap-2.5">
         <div className="flex flex-col gap-[3px]">
           {/*
             One line, not two: e2e/feed-chrome.spec.ts pins every card's age
