@@ -657,6 +657,12 @@ jobs:
         uses: ./.github/actions/local-supabase
 
       - name: Build app
+        env:
+          # The operator invite refuses in production unless the site URL is a real, non-localhost address (src/lib/auth/invite-origin.ts), and
+          # e2e/admin-operators-invite-form-rule.spec.ts sends one. NEXT_PUBLIC_ values are inlined at BUILD time, so the Start step below carries it too.
+          # It is the site's own canonical origin, the one src/lib/seo/site.ts already falls back to, so no sitemap, canonical or Open Graph URL changes
+          # (tests/ci/e2e-site-url-workflow.test.ts holds both facts). The invite goes to the local Supabase stack's mail catcher, never to a real address.
+          NEXT_PUBLIC_SITE_URL: https://www.talentrah.com
         run: npm run build
 
       # The admin routes fail closed: with no INGEST_SECRET configured they
@@ -676,6 +682,8 @@ jobs:
           # slow, billable, and flaky on a shared rate limit. The suite
           # asserts this is active and refuses to run otherwise.
           LLM_PROVIDER: stub
+          # Same value as the Build step: see there.
+          NEXT_PUBLIC_SITE_URL: https://www.talentrah.com
         run: npm run start &
 
       - name: Wait for app to respond
