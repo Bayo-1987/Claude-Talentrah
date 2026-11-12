@@ -314,11 +314,21 @@ describe("the click counter", () => {
 describe("the lock: two changes at once on one job are serialised", () => {
   it("both calls finish, the last one wins, and the audit has one row per real change", async () => {
     const id = await makeJob();
-    const [a, b] = await Promise.all([setLink(member.id, id, `https://${DOMAIN}/one`, "company"), setLink(member.id, id, `https://${DOMAIN}/two`, "company")]);
+    const start = (await row(id)).apply_link;
+    const submitted = [`https://${DOMAIN}/one`, `https://${DOMAIN}/two`];
+    const [a, b] = await Promise.all(submitted.map((url) => setLink(member.id, id, url, "company")));
     expect(a.error).toBeNull();
     expect(b.error).toBeNull();
     const events = await linkEvents(id);
     expect(events).toHaveLength(2);
-    expect((await row(id)).apply_link).toBe(events[1].new_url);
+    // Order-independent on purpose: created_at is the transaction's start (now()), not the order the lock was taken, so which event is "second" by created_at can differ from the lock order.
+    // The lock order is the CHAIN: one event starts from the job's starting link, the other starts from where the first ended.
+    const first = events.find((e) => e.old_url === start);
+    expect(first, "one event starts from the job's starting link").toBeDefined();
+    const second = events.find((e) => e !== first);
+    expect(second?.old_url, "the other starts from where the first ended").toBe(first?.new_url);
+    expect([first?.new_url, second?.new_url].sort()).toEqual([...submitted].sort());
+    // The stored link is where the LAST event in the chain ended.
+    expect((await row(id)).apply_link).toBe(second?.new_url);
   });
 });
