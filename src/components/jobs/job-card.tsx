@@ -19,6 +19,7 @@ import { normaliseApplyEmail } from "@/lib/jobs/apply-email";
 import { postingApplyEmail, postingApplyLinkHost } from "@/lib/jobs/posting-apply-email";
 import { ApplyByEmailLink } from "@/components/jobs/apply-by-email";
 import { ApplyOnCompanySite } from "@/components/jobs/apply-on-company-site";
+import { ClosingNotice } from "@/components/jobs/closing-notice";
 
 const WORK_TYPE_LABEL: Record<string, string> = {
   remote: "Remote",
@@ -283,6 +284,7 @@ export function JobCard({
               ? postingAgeLine(job)
               : `${postingAgeLine(job)} · ${applicantCount} ${applicantCount === 1 ? "applicant" : "applicants"}`}
           </span>
+          <ClosingNotice job={job} />
         </div>
         {/*
           WRAPS, because at phone widths it did not fit and nothing gave.

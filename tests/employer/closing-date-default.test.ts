@@ -436,13 +436,14 @@ describe("publishing a draft: the 30 days count from FIRST PUBLISH, and only a '
       const w = resetWrite()!;
       expect(new Date(w.payload.expires_at as string).getTime()).toBeGreaterThan(Date.now() + 29 * DAY);
       expect(w.payload.closing_date_source).toBe("chosen");
+      expect(w.payload.expires_at_source).toBe("stated");
       expect(captured.update!.payload.status).toBe("open");
     });
 
     it("'No expiry' is a choice too: the date AND the source are written as null", async () => {
       captured.draftRow = draft("chosen", -3 * DAY);
       await publishDraftFormAction("job-1", null, pick(""));
-      expect(resetWrite()!.payload).toEqual({ expires_at: null, closing_date_source: null });
+      expect(resetWrite()!.payload).toEqual({ expires_at: null, closing_date_source: null, expires_at_source: null });
       expect(captured.update!.payload.status).toBe("open");
     });
 
@@ -459,5 +460,42 @@ describe("publishing a draft: the 30 days count from FIRST PUBLISH, and only a '
       expect(out).toEqual({ ok: false, kind: "past", error: CLOSING_DATE_PASSED_MESSAGE });
       nothingChanged();
     });
+  });
+});
+
+describe("expires_at_source: written by the service role in the same update as closing_date_source", () => {
+  /** Every write to expires_at_source, with the closing_date_source it travelled with. */
+  const pairs = () => captured.adminUpdates.filter((u) => "expires_at_source" in u.payload).map((u) => [u.payload.closing_date_source, u.payload.expires_at_source]);
+
+  it("never travels in the INSERT or the UPDATE the employer's own session makes (the column is not theirs to write)", async () => {
+    await runAndCatchRedirect(() => postJobAction(null, form({ expiresIn: "7" })));
+    expect("expires_at_source" in captured.insert!).toBe(false);
+    await runAndCatchRedirect(() => updateJobAction("job-1", null, form({ expiresIn: "14" })));
+    expect("expires_at_source" in captured.update!.payload).toBe(false);
+  });
+  it("CREATE with the default applied: default; with another duration: stated; with no expiry: nothing is written", async () => {
+    await runAndCatchRedirect(() => postJobAction(null, form({})));
+    expect(pairs()).toEqual([["default", "default"]]);
+    captured.adminUpdates.length = 0;
+    await runAndCatchRedirect(() => postJobAction(null, form({ expiresIn: "7" })));
+    expect(pairs()).toEqual([["chosen", "stated"]]);
+    captured.adminUpdates.length = 0;
+    await runAndCatchRedirect(() => postJobAction(null, form({ expiresIn: "" })));
+    expect(pairs()).toEqual([]);
+  });
+  it("EDIT that sets a date: stated; edit to 'No expiry': cleared; 'Keep current': untouched", async () => {
+    await runAndCatchRedirect(() => updateJobAction("job-1", null, form({ expiresIn: "30" })));
+    expect(pairs()).toEqual([["chosen", "stated"]]);
+    captured.adminUpdates.length = 0;
+    await runAndCatchRedirect(() => updateJobAction("job-1", null, form({ expiresIn: "" })));
+    expect(pairs()).toEqual([[null, null]]);
+    captured.adminUpdates.length = 0;
+    await runAndCatchRedirect(() => updateJobAction("job-1", null, form({ expiresIn: "keep" })));
+    expect(pairs()).toEqual([]);
+  });
+  it("the write is scoped to the row it describes, as the closing_date_source write is", async () => {
+    await runAndCatchRedirect(() => postJobAction(null, form({ expiresIn: "7" })));
+    const w = captured.adminUpdates.find((u) => "expires_at_source" in u.payload)!;
+    expect(w.filters.map(([op, col]) => `${op}:${col}`)).toContain("eq:id");
   });
 });

@@ -18,6 +18,7 @@ import {
   SHORT_NOTICE_DAYS,
   closesSoonMessage,
   closingDateSourceFor,
+  expiresAtSourceFor,
   readExpiry,
 } from "./expiry-input";
 import { readSalaryForm } from "./salary-input";
@@ -657,12 +658,14 @@ export async function postJobAction(
    * not the employer's to write (a guard trigger refuses a client that carries it in, so it cannot spoof 'default'), so
    * the server records it with the service role AFTER the employer's own insert was authorised by RLS. If this write
    * fails the source stays NULL, which counts as 'chosen', the safe side: publishing never moves such a date.
+   *
+   * expires_at_source (0278, the public side: is this date shown as the posting's deadline?) is written in the SAME update, mapped from it by expiresAtSourceFor, so the two cannot disagree.
    */
   const source = closingDateSourceFor(form, expiry.value, { creating: true });
   if (source) {
     const { error: sourceError } = await createServiceRoleClient()
       .from("job_postings")
-      .update({ closing_date_source: source })
+      .update({ closing_date_source: source, expires_at_source: expiresAtSourceFor(source) })
       .eq("id", created.id);
     if (sourceError) console.error("[employer] created job but could not record closing_date_source", created.id, sourceError.message);
   }
@@ -865,7 +868,7 @@ export async function updateJobAction(
   if (source !== undefined) {
     const { error: sourceError } = await createServiceRoleClient()
       .from("job_postings")
-      .update({ closing_date_source: source })
+      .update({ closing_date_source: source, expires_at_source: expiresAtSourceFor(source) })
       .eq("id", jobId)
       .eq("organization_id", organization.id);
     if (sourceError) console.error("[employer] saved job but could not record closing_date_source", jobId, sourceError.message);
@@ -1071,13 +1074,13 @@ async function publishDraft(
       : null;
 
   /** A write the SERVICE ROLE makes before the status flips (the reset, or the employer's re-pick). */
-  let preWrite: { payload: { expires_at?: string | null; closing_date_source?: string | null }; onlyIfDefault: boolean } | null = null;
+  let preWrite: { payload: { expires_at?: string | null; closing_date_source?: string | null; expires_at_source?: string | null }; onlyIfDefault: boolean } | null = null;
   let keepsChosenDate = false;
 
   if (options.newExpiresIn !== undefined) {
     // The employer answered a refusal.
     if (options.newExpiresIn === "") {
-      preWrite = { payload: { expires_at: null, closing_date_source: null }, onlyIfDefault: false };
+      preWrite = { payload: { expires_at: null, closing_date_source: null, expires_at_source: null }, onlyIfDefault: false };
     } else {
       const days = Number(options.newExpiresIn);
       if (!Number.isFinite(days) || days <= 0 || days > MAX_EXPIRY_DAYS) {
@@ -1086,7 +1089,7 @@ async function publishDraft(
       const closes = new Date(daysFromNow(days));
       const warning = soonWarning(closes.getTime());
       if (warning) return warning;
-      preWrite = { payload: { expires_at: closes.toISOString(), closing_date_source: "chosen" }, onlyIfDefault: false };
+      preWrite = { payload: { expires_at: closes.toISOString(), closing_date_source: "chosen", expires_at_source: "stated" }, onlyIfDefault: false };
     }
   } else if (draft.expires_at) {
     if (draft.closing_date_source === "default") {

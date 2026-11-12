@@ -52,6 +52,8 @@ const base = (over: Partial<Job> = {}): Job =>
     location: "Lagos, Nigeria",
     posted_at: "2026-08-20T09:00:00.000Z",
     expires_at: null,
+    // The fixtures that carry a date carry one a source STATED; the 'default' and unknown cases are in tests/jobs/closing-notice-surfaces.test.tsx (0278).
+    expires_at_source: "stated",
     employment_type: "full_time",
     work_type: null,
     source_type: "internal",

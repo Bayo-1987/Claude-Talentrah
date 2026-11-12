@@ -38,6 +38,8 @@ export interface JobInsert {
   status: "open";
   posted_at: string;
   expires_at: string;
+  /** 'stated' only when the sheet gave a deadline; the 30-day lifetime applied otherwise is 'default' (0278). */
+  expires_at_source: "stated" | "default";
   last_checked_at: string;
   llm_enrichment_attempted_at: string;
   dedup_fingerprint: string;
@@ -156,6 +158,7 @@ export function buildPlan(csvText: string, options: PlanOptions): Plan {
       status: "open",
       posted_at: postedAt.toISOString(),
       expires_at: expiresAt.toISOString(),
+      expires_at_source: c.deadline ? "stated" : "default",
       last_checked_at: now.toISOString(),
       llm_enrichment_attempted_at: now.toISOString(),
       dedup_fingerprint: fp.fingerprint,
