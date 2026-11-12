@@ -66,11 +66,14 @@ describe("a page-2 card for a career-site job (FEED-PERF-1 Read B)", () => {
   it("Read B selects FEED_COLUMNS for the page's ids", () => {
     expect(page.replace(/\s+/g, " ")).toContain('.select(FEED_COLUMNS).in("id", readBIds)');
   });
-  it("renders the /jobs/{id}/go control with 'Opens {host}', and the stored address is nowhere in the card", () => {
+  it("renders the /jobs/{id}/go control with the host in its aria-label only (no visible caption), and the stored address is nowhere in the card", () => {
     const html = pageTwoCard();
+    const text = html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
     expect(html).toContain(`href="/jobs/${JOB}/go"`);
     expect(html).toContain("Apply on company site");
-    expect(html).toContain("Opens careers.acme.test");
+    expect(html).toContain('aria-label="Apply on company site, opens careers.acme.test in a new tab"');
+    expect(text).not.toMatch(/\bOpens\b/i);
+    expect(text).not.toContain("careers.acme.test");
     expect(html).not.toContain(STORED);
     expect(html).not.toContain("secret-path");
     expect(html).not.toMatch(/<button[^>]*>\s*Apply\s*<\/button>/);

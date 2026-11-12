@@ -1,6 +1,6 @@
 /**
  * PR-E4 gate 2, the seeker side of "On our career site": an INTERNAL posting whose apply_link_kind is set offers "Apply on company site" as a plain anchor to /jobs/{id}/go (never to the stored address),
- * with "Opens {host}" beside it, and none of the in-app controls. The stored address is never in the HTML. Rows whose links come from imports (external_url) keep today's raw-href behaviour exactly.
+ * with NO visible caption (the host is in the button's accessible name only), and none of the in-app controls. The stored address is never in the HTML. Rows whose links come from imports (external_url) keep today's raw-href behaviour exactly.
  * The "Apply by email" card control (apply-by-email-card.tsx, UX-QUICK) and the sponsored-click attribute are not touched by it.
  */
 import { describe, expect, it } from "vitest";
@@ -31,18 +31,24 @@ function card(over: Record<string, unknown>, extra: Record<string, unknown> = {}
     />,
   );
 }
+/** What a person can read: text nodes only, so attribute values (the aria-label, the href) are not part of it. */
+const visibleText = (html: string) => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 const anchors = (html: string) => [...html.matchAll(/<a [^>]*>[\s\S]*?<\/a>/g)].map((m) => m[0]);
 
 describe("ApplyOnCompanySite", () => {
-  it("is a plain anchor to the redirect route with the new-tab attributes, an accessible name that says it opens a new tab, and 'Opens {host}' beside it", () => {
+  it("is a plain anchor to the redirect route with the new-tab attributes and an accessible name that carries the host and says it opens a new tab; no caption is printed", () => {
     for (const variant of ["page", "card"] as const) {
       const html = renderToStaticMarkup(<ApplyOnCompanySite jobId={JOB} host="careers.acme.test" variant={variant} />);
       const a = anchors(html).find((x) => x.includes("Apply on company site"))!;
       expect(a, variant).toContain(`href="/jobs/${JOB}/go"`);
       expect(a).toContain('target="_blank"');
       expect(a).toContain('rel="noopener noreferrer nofollow"');
-      expect(a).toContain('aria-label="Apply on company site (opens careers.acme.test in a new tab)"');
-      expect(html).toContain("Opens careers.acme.test");
+      expect(a).toContain('aria-label="Apply on company site, opens careers.acme.test in a new tab"');
+      expect(a).toMatch(/aria-label="[^"]*careers\.acme\.test[^"]*"/);
+      // The visible text is the button text and nothing else: no "Opens", no host.
+      expect(visibleText(html)).toBe("Apply on company site");
+      expect(visibleText(html)).not.toMatch(/\bOpens\b/i);
+      expect(visibleText(html)).not.toContain("careers.acme.test");
       expect(html).not.toMatch(/https?:\/\//);
     }
   });
@@ -57,10 +63,12 @@ describe("ApplyOnCompanySite", () => {
 });
 
 describe("the feed card", () => {
-  it("an internal job with a career-site link shows 'Apply on company site' to /go, 'Opens {host}' and 'Mark as applied', and none of the in-app or email controls", () => {
+  it("an internal job with a career-site link shows 'Apply on company site' to /go and 'Mark as applied' with no caption, host only in the aria-label, and none of the in-app or email controls", () => {
     const html = card({ apply_link_kind: "company", apply_link_host: "careers.acme.test" });
     expect(html).toContain(`href="/jobs/${JOB}/go"`);
-    expect(html).toContain("Opens careers.acme.test");
+    expect(html).toContain('aria-label="Apply on company site, opens careers.acme.test in a new tab"');
+    expect(visibleText(html)).not.toMatch(/\bOpens\b/i);
+    expect(visibleText(html)).not.toContain("careers.acme.test");
     expect(html).toContain("Mark as applied");
     expect(html).not.toMatch(/<button[^>]*>\s*Apply\s*<\/button>|Apply by email|mailto:|Add a resume to apply/);
   });
@@ -69,6 +77,7 @@ describe("the feed card", () => {
     expect(html).not.toContain(STORED);
     expect(html).not.toContain("secret-path");
     expect(html).not.toContain("careers.acme.test/");
+    expect(html).not.toMatch(/https?:\/\/careers/);
   });
   it("still offered when the seeker has no base resume (there is no resume check)", () => {
     const html = card({ apply_link_kind: "ats", apply_link_host: "boards.greenhouse.io" }, { hasBaseResume: false });

@@ -9,7 +9,7 @@ export interface ApplyEmailFields {
   apply_email?: string | null;
   /** PR-E4: 'company' or 'ats' when the employer chose "On our career site"; the kind is what the pages and the guards read (the address itself is readable by no API role). */
   apply_link_kind?: string | null;
-  /** PR-E4: the host of that link, for "Opens {host}". */
+  /** PR-E4: the host of that link, for the button's accessible name only (never printed). */
   apply_link_host?: string | null;
 }
 
@@ -34,7 +34,7 @@ export function takesApplicationsOffPlatform(job: ApplyEmailFields | null | unde
   return takesApplicationsByEmail(job) || takesApplicationsByLink(job);
 }
 
-/** PR-E4: the host to show beside "Apply on company site" ("Opens {host}"), only when there is a link kind AND a plain host; otherwise null. */
+/** PR-E4: the host for the "Apply on company site" button's accessible name (never printed as text), only when there is a link kind AND a plain host; otherwise null. */
 export function postingApplyLinkHost(job: ApplyEmailFields | null | undefined): string | null {
   if (!takesApplicationsByLink(job)) return null;
   const host = job?.apply_link_host;
