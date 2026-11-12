@@ -114,7 +114,7 @@ describe("the job page's wiring (source)", () => {
 describe("the feed's applicant counts", () => {
   const feed = readFileSync(path.join(process.cwd(), "src/app/(app)/jobs/(feed)/page.tsx"), "utf8").replace(/\s+/g, " ");
   it("count only postings people apply to inside Talentrah: an email posting has no count", () => {
-    expect(feed).toContain('!isLinkOutPosting(s.job) && s.job.source_type === "internal" && !takesApplicationsByEmail(s.job)');
-    expect(feed).toContain('job.source_type === "internal" && !takesApplicationsByEmail(job) && applicantCounts');
+    expect(feed).toContain('!isLinkOutPosting(s.job) && s.job.source_type === "internal" && !takesApplicationsOffPlatform(s.job)');
+    expect(feed).toContain('job.source_type === "internal" && !takesApplicationsOffPlatform(job) && applicantCounts');
   });
 });

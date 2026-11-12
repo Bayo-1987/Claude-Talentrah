@@ -6,7 +6,7 @@ import { test, expect, type Page } from "@playwright/test";
  *
  * ── BUG 1: THE RIGHT-HAND GROUP (send-442) ─────────────────────────────────
  *
- * "Looking for work?" only appeared at `min-[900px]`, and that threshold was
+ * "Browse jobs" only appeared at `min-[900px]`, and that threshold was
  * chosen without checking it against the LEFT nav, which was already showing
  * from 640px at the time (see below — that breakpoint has since moved too).
  * Between 900 and roughly 1132px the two competed for space and "Looking for
@@ -75,7 +75,7 @@ if (process.env.CI && !DEMO_PASSWORD) {
 /**
  * Shared by both the left nav and the right-hand group as of send-388 — see
  * this file's own header for why that is a deliberate consolidation, not a
- * coincidence. Below this, the left nav's 5 links AND "Looking for work?"
+ * coincidence. Below this, the left nav's 5 links AND "Browse jobs"
  * are hidden entirely (both live in the hamburger disclosure below 640, and
  * are unreachable in the bar between 640 and this breakpoint — a
  * pre-existing gap neither fix introduced, see employer-masthead.tsx's own
@@ -108,7 +108,7 @@ async function login(page: Page) {
 test.describe("the employer masthead fits where it is shown", () => {
   test.skip(!DEMO_PASSWORD, "DEMO_PASSWORD is not set — see scripts/seed.ts");
 
-  test("\"Looking for work?\" never wraps and the account button stays on screen, across the real danger zone (send-442)", async ({
+  test("\"Browse jobs\" never wraps and the account button stays on screen, across the real danger zone (send-442)", async ({
     page,
   }) => {
     test.setTimeout(120_000);
@@ -129,7 +129,7 @@ test.describe("the employer masthead fits where it is shown", () => {
           return r.getClientRects().length > 1;
         }
         const lookingLink = [...document.querySelectorAll("a")].find(
-          (a) => a.textContent?.trim() === "Looking for work?",
+          (a) => a.textContent?.trim() === "Browse jobs",
         );
         // Sign out used to be a loose button here; it now lives in the account menu behind the avatar. The avatar button has no text to wrap, so the check that
         // replaces "Sign out did not wrap" is that it is still on screen: shown, and inside the viewport.
@@ -143,7 +143,7 @@ test.describe("the employer masthead fits where it is shown", () => {
       });
 
       // The account button carries no breakpoint of its own — it renders at every
-      // width — so it is always checked. "Looking for work?" is gated by a
+      // width — so it is always checked. "Browse jobs" is gated by a
       // reveal breakpoint (see employer-masthead.tsx's own comment): BEFORE
       // this fix that breakpoint was 900, so a width in this sweep could be
       // above the OLD 900px threshold and below this test's own
@@ -159,14 +159,14 @@ test.describe("the employer masthead fits where it is shown", () => {
       if (m.lookingVisible) {
         expect(
           m.lookingWrapped,
-          `"Looking for work?" wrapped onto two lines at ${width}px`,
+          `"Browse jobs" wrapped onto two lines at ${width}px`,
         ).toBe(false);
       }
 
       if (width >= REVEAL_BREAKPOINT) {
         expect(
           m.lookingVisible,
-          `"Looking for work?" should be visible at ${width}px, at or above the ${REVEAL_BREAKPOINT}px reveal breakpoint`,
+          `"Browse jobs" should be visible at ${width}px, at or above the ${REVEAL_BREAKPOINT}px reveal breakpoint`,
         ).toBe(true);
       }
     }

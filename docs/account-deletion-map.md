@@ -60,6 +60,7 @@ handed over.
 | `feedback.triaged_by` | profiles | SET NULL | detach | an admin's triage of someone else's feedback |
 | `feedback.user_id` | profiles | CASCADE | delete | the person's own feedback |
 | `job_posting_apply_email_events.actor_user_id` | profiles | SET NULL | anonymise | who set, changed or cleared the apply-by-email address on an organisation's job (0275): the change stays as the audit record, the link to the person is dropped |
+| `job_posting_apply_link_events.actor_user_id` | profiles | SET NULL | anonymise | who set, changed or cleared the career-site link on an organisation's job (0277): the change stays as the audit record, the link to the person is dropped |
 | `job_posting_assessments.created_by` | profiles | SET NULL | detach | who wrote an organisation's assessment; the assessment stays |
 | `interview_offers.created_by` | profiles | SET NULL | detach | the employer member who offered the times; the offer, and any booking on it, stay with the applicant's application |
 | `job_posting_reports.reporter_id` | profiles | CASCADE | delete | reports the person filed |

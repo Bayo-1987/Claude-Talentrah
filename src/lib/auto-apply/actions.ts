@@ -1,6 +1,6 @@
 "use server";
 
-import { takesApplicationsByEmail } from "@/lib/jobs/posting-apply-email";
+import { takesApplicationsByEmail, takesApplicationsOffPlatform } from "@/lib/jobs/posting-apply-email";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
@@ -102,7 +102,7 @@ export async function confirmAutoApplyAction(queueId: string): Promise<AutoApply
   // PR-E2b: a queue row can predate the employer's switch to email (only an application blocks the switch, a queued match does not). Re-read the job here, before anything is claimed or charged.
   const { data: queued, error: queuedError } = await admin
     .from("auto_apply_queue")
-    .select("job_postings(apply_email)")
+    .select("job_postings(apply_email, apply_link_kind)")
     .eq("id", queueId)
     .eq("user_id", userId)
     .maybeSingle();
@@ -111,8 +111,13 @@ export async function confirmAutoApplyAction(queueId: string): Promise<AutoApply
     console.error(`[confirmAutoApplyAction] could not read the job for user ${userId}, queue ${queueId}:`, queuedError.message);
     return { ok: false, error: "Couldn't confirm. Please try again." };
   }
-  if (takesApplicationsByEmail(queued?.job_postings)) {
-    return { ok: false, error: "This job now takes applications by email, so it can't be confirmed here." };
+  if (takesApplicationsOffPlatform(queued?.job_postings)) {
+    return {
+      ok: false,
+      error: takesApplicationsByEmail(queued?.job_postings)
+        ? "This job now takes applications by email, so it can't be confirmed here."
+        : "This job now takes applications on the company's own site, so it can't be confirmed here.",
+    };
   }
 
   /*

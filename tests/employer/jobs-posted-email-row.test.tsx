@@ -43,14 +43,14 @@ describe("the other employer pages (source)", () => {
 
   it("the applicants page says applications arrive by email instead of listing them, for such a job", () => {
     const src = read("src/app/employer/jobs/[id]/applicants/page.tsx");
-    expect(src).toContain('.select("id, title, apply_email")');
+    expect(src).toContain('.select("id, title, apply_email, apply_link_kind")');
     expect(src).toContain("{takesApplicationsByEmail(job) && (");
     expect(src).toContain("Applications for this job arrive by email, so they are not listed here.");
   });
   it("the edit page prefills the address from a read of its own, so JOB_EDIT_COLUMNS stays free of the column", () => {
     const src = read("src/app/employer/jobs/[id]/edit/page.tsx");
     expect(src).toContain("applyEmail: postingApplyEmail(applyRow)");
-    expect(src).toContain('.select("apply_email")');
+    expect(src).toContain('.select("apply_email, apply_link_kind")');
     expect(read("src/lib/jobs/job-columns.ts")).not.toMatch(/JOB_EDIT_COLUMNS =\s*"[^"]*apply_email/);
   });
   it("Jobs Posted passes a flag to the row, never the address", () => {

@@ -27,3 +27,11 @@ describe("takesApplicationsByEmail", () => {
     expect(takesApplicationsByEmail({})).toBe(false);
   });
 });
+
+// PR-E4 gate 2: the same helper answers for a career-site link. The cases live in tests/jobs/off-platform-guards.test.ts; this one pins that the e-mail answers above are unchanged by it.
+describe("takesApplicationsByEmail is untouched by the link", () => {
+  it("an e-mail address still answers true, and a link kind alone is not an e-mail", () => {
+    expect(takesApplicationsByEmail({ apply_email: "careers@example.test", apply_link_kind: null } as never)).toBe(true);
+    expect(takesApplicationsByEmail({ apply_link_kind: "company" } as never)).toBe(false);
+  });
+});

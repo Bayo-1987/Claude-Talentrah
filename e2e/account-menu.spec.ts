@@ -189,12 +189,12 @@ test.describe("seeker header: the look is as it was", () => {
 });
 
 test.describe("employer header: the menu replaces the loose Sign out link", () => {
-  test("there is no Sign out link or button in the bar, and \"Looking for work?\" stays before the avatar", async ({ page }) => {
+  test("there is no Sign out link or button in the bar, and \"Browse jobs\" stays before the avatar", async ({ page }) => {
     await mount(page, "employer", EMPLOYER);
     await expect(page.getByRole("button", { name: "Sign out" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Sign out" })).toHaveCount(0);
     await expect(page.getByText("Sign out")).toHaveCount(0);
-    const looking = page.getByRole("link", { name: "Looking for work?" });
+    const looking = page.getByRole("link", { name: "Browse jobs" });
     await expect(looking).toBeVisible();
     expect((await looking.boundingBox())!.x).toBeLessThan((await trigger(page).boundingBox())!.x);
     await expect(trigger(page)).toContainText("ST");

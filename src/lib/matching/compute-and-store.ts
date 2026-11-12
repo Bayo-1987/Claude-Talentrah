@@ -10,7 +10,7 @@ import type { MatchExplanation } from "./score";
 // See skill-facet.ts's identical alias for why this is Omit, not the full row.
 // closed_at (0102) omitted too — the feed query these callers all consume
 // filters to status = 'open' and never selects it.
-type JobPosting = Omit<Tables<"job_postings">, "description_preview" | "search_vector" | "closing_date_source" | "closed_at" | "unlisted_at" | "superseded_by" | "superseded_at" | "banner_path" | "admin_review_decision" | "admin_review_note" | "admin_review_requested_at" | "admin_reviewed_at" | "admin_reviewed_by" | "claimed_by_organization_id" | "claimed_at" | "llm_enrichment_attempted_at" | "import_key" | "employer_closed_at">;
+type JobPosting = Omit<Tables<"job_postings">, "description_preview" | "search_vector" | "closing_date_source" | "closed_at" | "unlisted_at" | "superseded_by" | "superseded_at" | "banner_path" | "admin_review_decision" | "admin_review_note" | "admin_review_requested_at" | "admin_reviewed_at" | "admin_reviewed_by" | "claimed_by_organization_id" | "claimed_at" | "llm_enrichment_attempted_at" | "import_key" | "employer_closed_at" | "apply_link" | "apply_link_kind" | "apply_link_host">; // 0277: the career-site columns are never selected for scoring (type-only)
 
 /**
  * What persistMatchScores actually needs to write one row — `job` only ever
@@ -33,8 +33,14 @@ export interface ScoredJobLike {
   explanation: MatchExplanation;
 }
 
-export interface ScoredJob extends ScoredJobLike {
-  job: JobPosting;
+/**
+ * What scoring and ranking read of a posting, and nothing else: the feed ranks its whole window from narrow rows of exactly these fields
+ * (src/lib/jobs/feed-window.ts) and only loads full cards for the page it shows.
+ */
+export type ScoringJob = Pick<JobPosting, "id" | "title" | "seniority" | "structured_jd" | "posted_at">;
+
+export interface ScoredJob<J extends ScoringJob = JobPosting> extends ScoredJobLike {
+  job: J;
 }
 
 /**
@@ -82,7 +88,7 @@ export async function computeAndStoreMatchScores(
  * from `computeMatchScore` (singular) in ./score, which is the per-job
  * primitive this loops over.
  */
-export function scoreJobs(resume: StructuredResume, jobs: JobPosting[]): ScoredJob[] {
+export function scoreJobs<J extends ScoringJob>(resume: StructuredResume, jobs: J[]): ScoredJob<J>[] {
   return jobs.map((job) => {
     const structuredJd = job.structured_jd as { skills?: string[] } | null;
     const result = computeMatchScore(

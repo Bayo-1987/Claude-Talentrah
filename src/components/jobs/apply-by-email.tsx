@@ -1,6 +1,7 @@
 import { buttonClasses } from "@/lib/button-classes";
 import { applyEmailHref } from "@/lib/jobs/apply-email";
 import { CopyAddressButton } from "@/components/jobs/copy-address-button";
+import { ApplyByEmailCardControl } from "@/components/jobs/apply-by-email-card";
 
 /**
  * "Apply by email" for a posting that has an address and (maybe) no company link: the one shared piece the job page and the feed card both render.
@@ -37,9 +38,13 @@ export function ApplyByEmailLink({ address, title, variant, secondary = false, s
 
   if (variant === "card") {
     return (
-      <a href={href} data-ad-click={adClick} className={secondary ? CARD_SECONDARY_LINK_CLASS : CARD_PRIMARY_LINK_CLASS}>
-        {label}
-      </a>
+      <ApplyByEmailCardControl
+        href={href}
+        address={address}
+        label={label}
+        adClick={adClick}
+        className={secondary ? CARD_SECONDARY_LINK_CLASS : CARD_PRIMARY_LINK_CLASS}
+      />
     );
   }
   return (

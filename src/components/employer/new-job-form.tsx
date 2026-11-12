@@ -61,6 +61,9 @@ export function NewJobForm({
   secondaryPendingLabel,
   defaultSalaryCurrency,
   assessmentCreateContext,
+  companyDomain,
+  companyVerified,
+  companyName,
 }: {
   action: (state: EmployerActionState, form: FormData) => Promise<EmployerActionState>;
   submitLabel: string;
@@ -72,6 +75,10 @@ export function NewJobForm({
   /** EMP-1 — passed straight through to JobPostingForm; see its own props. */
   defaultSalaryCurrency?: SalaryCurrency;
   assessmentCreateContext?: { userId: string };
+  /** PR-E4 — the company as it is now, for the "On our career site" hint; passed straight through. */
+  companyDomain?: string | null;
+  companyVerified?: boolean;
+  companyName?: string | null;
 }) {
   const [initial, setInitial] = useState<JobFormValues | undefined>(undefined);
   const [formKey, setFormKey] = useState(0);
@@ -96,6 +103,9 @@ export function NewJobForm({
         secondaryPendingLabel={secondaryPendingLabel}
         defaultSalaryCurrency={defaultSalaryCurrency}
         assessmentCreateContext={assessmentCreateContext}
+        companyDomain={companyDomain}
+        companyVerified={companyVerified}
+        companyName={companyName}
       />
     </div>
   );
