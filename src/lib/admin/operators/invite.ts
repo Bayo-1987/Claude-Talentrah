@@ -6,6 +6,7 @@ import { recordAdminAction } from "@/lib/admin/audit";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import type { OperatorActionState } from "./state";
 import { submittedValues } from "@/lib/forms/keep-input";
+import { resolveInviteOrigin } from "@/lib/auth/invite-origin";
 
 /**
  * Invite a new operator by email.
@@ -57,17 +58,22 @@ export async function inviteOperatorAction(
     return { status: "error", message: "Pick a role.", targetId: "invite", values: typed };
   }
 
-  const supabase = createServiceRoleClient();
-
   /*
    * The origin is taken from the environment rather than a form field: a
    * redirect target that arrived with the request is a redirect target an
    * attacker can choose, and this one is baked into an email that grants a
-   * session.
+   * session. In production it must be configured: an unset or localhost value
+   * is refused here, before anything is sent or written (src/lib/auth/invite-origin.ts),
+   * instead of falling back to a link nobody can open.
    */
-  const origin = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const target = resolveInviteOrigin();
+  if (!target.ok) {
+    return { status: "error", message: target.message, targetId: "invite", values: typed };
+  }
+
+  const supabase = createServiceRoleClient();
   const { data: invited, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${origin}/auth/callback?next=/reset-password`,
+    redirectTo: `${target.origin}/auth/callback?next=/reset-password`,
   });
 
   if (inviteError || !invited?.user) {
