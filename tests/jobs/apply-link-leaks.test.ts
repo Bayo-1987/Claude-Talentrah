@@ -69,3 +69,20 @@ describe("surfaces that must never carry the address or the redirect", () => {
     expect(BARE.test(page.replace(/\/\/.*$/gm, ""))).toBe(false);
   });
 });
+
+describe("the host is never printed (CAPTION-1): it lives in the button's aria-label and nowhere a person reads", () => {
+  const strip = (code: string) => code.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const comp = strip(readFileSync(path.join(ROOT, "src/components/jobs/apply-on-company-site.tsx"), "utf8"));
+  it("the component uses the host only inside a template string (the aria-label), never as rendered text", () => {
+    const uses = [...comp.matchAll(/[^$]\{host\}|\$\{host\}/g)].map((m) => m[0]);
+    expect(uses.length).toBeGreaterThan(0);
+    expect(uses.every((u) => u.startsWith("${"))).toBe(true);
+    expect(comp).toMatch(/aria-label=\{`[^`]*\$\{host\}[^`]*`\}/);
+  });
+  it("the word 'Opens' as a capitalised caption appears in no source file under src/ except as part of a sentence in a comment", () => {
+    const hits = sourceFiles(path.join(ROOT, "src"))
+      .filter((f) => /\bOpens \{|>Opens |"Opens |`Opens /.test(strip(readFileSync(f, "utf8"))))
+      .map((f) => path.relative(ROOT, f));
+    expect(hits).toEqual([]);
+  });
+});
