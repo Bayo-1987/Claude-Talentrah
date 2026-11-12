@@ -35,8 +35,9 @@ import { logCountryDefaultEvent, type CountryState } from "@/lib/jobs/country-ev
 import { bannerIsEligibleToRender, bannerPublicUrl } from "@/lib/employer/banner";
 import { isLinkOutPosting, provenanceLabel } from "@/lib/jobs/link-out";
 import { normaliseApplyEmail } from "@/lib/jobs/apply-email";
-import { postingApplyEmail } from "@/lib/jobs/posting-apply-email";
+import { postingApplyEmail, postingApplyLinkHost } from "@/lib/jobs/posting-apply-email";
 import { ApplyByEmailLink, ApplyByEmailNote } from "@/components/jobs/apply-by-email";
+import { ApplyOnCompanySite } from "@/components/jobs/apply-on-company-site";
 
 const WORK_TYPE_LABEL: Record<string, string> = {
   remote: "Remote",
@@ -183,8 +184,10 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
  * and `notFound()` is the right answer for both "no such job" and "not yours
  * to see" — distinguishing them would itself leak.
  */
-export default async function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function JobDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ applyLink?: string }> }) {
   const { id } = await params;
+  // PR-E4: the redirect behind "Apply on company site" lands here with ?applyLink=recheck-failed when it could not re-check the link; the page then says so in plain words instead of a bare 404.
+  const { applyLink } = await searchParams;
   /*
    * OPTIONAL user — this page is public, and that is the whole point.
    *
@@ -329,6 +332,8 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
   const applyEmail = isExternal ? normaliseApplyEmail(job.apply_email) : null;
   // An employer's own posting that takes applications by email (PR-E2b): no company link by construction, so it is its own branch below, ahead of the link-out one, and never offers the in-app Apply, the screening form or the resume check.
   const internalApplyEmail = isExternal ? null : postingApplyEmail(job);
+  // An employer's own posting that sends applications to their career site (PR-E4): read as a KIND and a HOST only (the address is selectable by no API role); the button goes to /jobs/{id}/go, which re-checks the link.
+  const internalApplyLink = isExternal ? null : postingApplyLinkHost(job);
   // Mirrors the feed's own `hasBaseResume` shape exactly (jobs/(feed)/page.tsx)
   // so the two surfaces can never disagree about whether this signed-in user
   // has a resume to apply with. `null` only for a signed-out reader, who
@@ -566,6 +571,11 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
         )}
       </div>
 
+      {applyLink === "recheck-failed" && (
+        <p role="status" className="text-[13px] font-semibold text-amber">
+          {"That company's careers link isn't available right now."} Try again later, or ask the company how to apply.
+        </p>
+      )}
       <div data-farah-avoid="true" className="flex flex-wrap items-center gap-3 max-[760px]:pr-[72px]">
         {!user ? (
           <>
@@ -663,6 +673,15 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
               </button>
             </form>
             <ApplyByEmailNote />
+          </>
+        ) : internalApplyLink ? (
+          <>
+            <ApplyOnCompanySite jobId={job.id} host={internalApplyLink} variant="page" />
+            <form action={markAppliedExternallyAction.bind(null, job.id, detailCountryState)}>
+              <button type="submit" className={buttonClasses("text", "sm")}>
+                Mark as applied
+              </button>
+            </form>
           </>
         ) : !hasBaseResume ? (
           /*

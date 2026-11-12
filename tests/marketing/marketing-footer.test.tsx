@@ -127,9 +127,13 @@ describe("the footer's Scholarships link (send-474, revised by send-480)", () =>
   const disallowed: string[] = (Array.isArray(rules) ? rules : [rules]).flatMap((r) =>
     Array.isArray(r.disallow) ? r.disallow : r.disallow ? [r.disallow] : [],
   );
-  // robots patterns here are prefixes, or `$`-anchored exact paths.
+  // robots patterns here are prefixes, `$`-anchored exact paths, or (PR-E4, "/jobs/*/go") prefixes in which `*` stands for any run of characters.
   const isDisallowed = (path: string) =>
-    disallowed.some((rule) => (rule.endsWith("$") ? path === rule.slice(0, -1) : path.startsWith(rule)));
+    disallowed.some((rule) => {
+      if (rule.endsWith("$")) return path === rule.slice(0, -1);
+      if (rule.includes("*")) return new RegExp("^" + rule.split("*").map((part) => part.replace(/[.+?^${}()|[\]\\]/g, "\\$&")).join(".*")).test(path);
+      return path.startsWith(rule);
+    });
 
   it("links to /scholarships, the public landing page", () => {
     expect(match, "no Scholarships anchor found in the footer").not.toBeNull();
@@ -153,11 +157,16 @@ describe("the footer's Scholarships link (send-474, revised by send-480)", () =>
     expect(isDisallowed(match![1]), `robots.ts disallows ${match![1]}`).toBe(false);
   });
 
-  it("relies on a matcher that is exact for THIS robots.ts: no disallow rule contains a wildcard", () => {
-    // isDisallowed above understands prefixes and `$`-anchored paths only. A rule such as
+  it("relies on a matcher that is exact for THIS robots.ts: the only wildcard it understands is a plain `*`, and the one rule that uses it is /jobs/*/go", () => {
+    // isDisallowed above understands prefixes, `$`-anchored paths and a plain `*`. A rule such as
     // "/*?ref=" would be misjudged silently, so adding one must fail here, on purpose,
-    // until the matcher is taught about it (follow-up from send-474).
-    expect(disallowed.filter((rule) => rule.includes("*")), "wildcard disallow rule(s)").toEqual([]);
+    // until the matcher is taught about it (follow-up from send-474). PR-E4 taught it `*` for /jobs/*/go.
+    expect(disallowed.filter((rule) => rule.includes("*")), "wildcard disallow rule(s)").toEqual(["/jobs/*/go"]);
+    expect(disallowed.filter((rule) => /[*].*[?\[\]]|[?\[\]]/.test(rule) && rule.includes("*")), "a wildcard rule with other special characters").toEqual([]);
+    // Controls: the wildcard rule blocks the redirect and nothing around it.
+    expect(isDisallowed("/jobs/11111111-1111-4111-8111-111111111111/go")).toBe(true);
+    expect(isDisallowed("/jobs/11111111-1111-4111-8111-111111111111")).toBe(false);
+    expect(isDisallowed("/jobs/remote")).toBe(false);
   });
 });
 

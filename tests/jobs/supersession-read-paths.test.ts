@@ -15,6 +15,7 @@ import { describe, expect, it } from "vitest";
 
 const MUST_FILTER = [
   "src/lib/auto-apply/queue.ts",
+  "src/app/(app)/jobs/[id]/go/route.ts",
   "src/lib/digest/send.ts",
   "src/lib/jobs/enrich-thin.ts",
   "src/lib/matching/refresh-job.ts",

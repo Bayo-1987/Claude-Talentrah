@@ -70,7 +70,7 @@ describe("the scan: filterQueueableJobs", () => {
   });
   it("the scan's job read selects the column and hands it to the filter (source)", () => {
     const src = readFileSync(path.join(process.cwd(), "src/lib/auto-apply/queue.ts"), "utf8").replace(/\s+/g, " ");
-    expect(src).toContain('.select("id, source_type, status, organization_id, import_feed_id, apply_email")');
+    expect(src).toContain('.select("id, source_type, status, organization_id, import_feed_id, apply_email, apply_link_kind")');
     expect(src).toContain("applyEmail: j.apply_email");
   });
 });
@@ -83,7 +83,7 @@ describe("the review list and the /jobs banner: isListableQueueRow", () => {
   });
   it("the list read selects the column through the job embed (source)", () => {
     const src = readFileSync(path.join(process.cwd(), "src/lib/auto-apply/listable-pending.ts"), "utf8");
-    expect(src).toContain("job_postings(title, company_name, location, status, apply_email)");
+    expect(src).toContain("job_postings(title, company_name, location, status, apply_email, apply_link_kind)");
   });
 });
 

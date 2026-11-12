@@ -19,7 +19,7 @@ import { parseMultiSelect } from "@/lib/jobs/multi-select";
 import { buildSuggestionIndex } from "@/lib/jobs/search-suggestions";
 import { searchJobs } from "@/lib/jobs/search";
 import { isLinkOutPosting } from "@/lib/jobs/link-out";
-import { takesApplicationsByEmail } from "@/lib/jobs/posting-apply-email";
+import { takesApplicationsOffPlatform } from "@/lib/jobs/posting-apply-email";
 import { withImportMarkers } from "@/lib/jobs/import-markers";
 import { SavedEntryCard } from "@/components/jobs/saved-entry-card";
 import {
@@ -251,7 +251,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   // here). One literal keeps the aliased `description` typechecking as
   // `Tables<"job_postings">`.
   const FEED_COLUMNS =
-    "id, source_type, organization_id, title, company_name, company_logo_url, location, work_type, employment_type, seniority, years_experience_min, description:description_preview, structured_jd, external_url, external_source, status, posted_at, last_checked_at, dedup_fingerprint, created_at, expires_at, removed_at, removal_reason, removed_by, salary_min, salary_max, salary_currency, salary_unit, import_feed_id, apply_email";
+    "id, source_type, organization_id, title, company_name, company_logo_url, location, work_type, employment_type, seniority, years_experience_min, description:description_preview, structured_jd, external_url, external_source, status, posted_at, last_checked_at, dedup_fingerprint, created_at, expires_at, removed_at, removal_reason, removed_by, salary_min, salary_max, salary_currency, salary_unit, import_feed_id, apply_email, apply_link_kind, apply_link_host";
 
   /*
    * The Recent tab's own board-WIDE columns — for aggregate reads only
@@ -632,6 +632,8 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
     // 0246: the import sync's own bookkeeping, never selected (import_feed_id IS selected: the card treats an imported posting as link-out).
     | "import_key"
     | "employer_closed_at"
+    // 0277: apply_link is withheld from every API role and never selected here; the kind and host ARE (PR-E4), for the card's "Apply on company site". Type-only.
+    | "apply_link"
   >;
   const matchingFilters: FeedJobPosting[] = jobsRaw ?? [];
   // Ranked tabs: the whole filtered window as narrow rows (Read A). Every other tab keeps its full rows above.
@@ -816,7 +818,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    */
   const loadApplicantCounts = async (shown: { job: FeedJobPosting }[]): Promise<Map<string, number> | null> => {
     const internalIds = shown
-      .filter((s) => !isLinkOutPosting(s.job) && s.job.source_type === "internal" && !takesApplicationsByEmail(s.job))
+      .filter((s) => !isLinkOutPosting(s.job) && s.job.source_type === "internal" && !takesApplicationsOffPlatform(s.job))
       .map((s) => s.job.id);
     if (internalIds.length === 0) return null;
     const { data: counts, error: countsError } = await supabase.rpc("internal_applicant_counts", { p_job_ids: internalIds });
@@ -1138,7 +1140,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
               posting being external.
             */
             applicantCount={
-              job.source_type === "internal" && !takesApplicationsByEmail(job) && applicantCounts
+              job.source_type === "internal" && !takesApplicationsOffPlatform(job) && applicantCounts
                 ? (applicantCounts.get(job.id) ?? 0)
                 : null
             }

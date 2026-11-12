@@ -10,7 +10,7 @@ const src = readFileSync(path.join(process.cwd(), "src/app/api/employer/job-asse
 
 describe("job-assessment-exercise route", () => {
   it("the upload handler reads the column and refuses an email job with 409 and a plain sentence", () => {
-    expect(src).toContain('.select("id, organization_id, source_type, import_feed_id, apply_email")');
+    expect(src).toContain('.select("id, organization_id, source_type, import_feed_id, apply_email, apply_link_kind")');
     expect(src).toContain('if (takesApplicationsByEmail(job)) { return NextResponse.json({ error: "This job takes applications by email, so it can\'t have an assessment." }, { status: 409 }); }');
   });
   it("only the upload handler refuses: deleting an existing file stays possible", () => {

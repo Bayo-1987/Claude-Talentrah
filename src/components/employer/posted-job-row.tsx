@@ -19,6 +19,8 @@ export interface PostedJob {
   newApplicantCount?: number;
   /** PR-E2b: applications for this job arrive by email, so there is no applicant list and no count. A flag only: the address itself never reaches this component. */
   appliesByEmail?: boolean;
+  /** PR-E4: applications for this job go to the employer's career site. Same rule as appliesByEmail; a flag only, never the address. */
+  appliesByLink?: boolean;
   workType: string | null;
   employmentType: string | null;
   /** Non-null once a private link has been minted for this posting (0107). */
@@ -173,6 +175,8 @@ export function PostedJobRow({
           */}
           {job.appliesByEmail ? (
             <span className="font-semibold text-ink">Applications arrive by email</span>
+          ) : job.appliesByLink ? (
+            <span className="font-semibold text-ink">Applications go to your career site</span>
           ) : job.applicationCount > 0 ? (
             <>
               <Link

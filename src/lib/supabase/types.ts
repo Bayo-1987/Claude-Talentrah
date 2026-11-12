@@ -862,6 +862,32 @@ export type Database = {
           },
         ]
       }
+      apply_link_clicks: {
+        Row: {
+          clicks: number
+          day: string
+          job_posting_id: string
+        }
+        Insert: {
+          clicks?: number
+          day: string
+          job_posting_id: string
+        }
+        Update: {
+          clicks?: number
+          day?: string
+          job_posting_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "apply_link_clicks_job_posting_id_fkey"
+            columns: ["job_posting_id"]
+            isOneToOne: false
+            referencedRelation: "job_postings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       application_assessment_response_files: {
         Row: {
           application_assessment_submission_id: string
@@ -2125,6 +2151,66 @@ export type Database = {
           },
         ]
       }
+      job_posting_apply_link_events: {
+        Row: {
+          actor_user_id: string | null
+          ats_confirmed: boolean
+          created_at: string
+          id: string
+          job_posting_id: string
+          new_kind: string | null
+          new_url: string | null
+          old_kind: string | null
+          old_url: string | null
+          organization_id: string
+          replaced_by_email: boolean
+          replaced_email: string | null
+        }
+        Insert: {
+          actor_user_id?: string | null
+          ats_confirmed?: boolean
+          created_at?: string
+          id?: string
+          job_posting_id: string
+          new_kind?: string | null
+          new_url?: string | null
+          old_kind?: string | null
+          old_url?: string | null
+          organization_id: string
+          replaced_by_email?: boolean
+          replaced_email?: string | null
+        }
+        Update: {
+          actor_user_id?: string | null
+          ats_confirmed?: boolean
+          created_at?: string
+          id?: string
+          job_posting_id?: string
+          new_kind?: string | null
+          new_url?: string | null
+          old_kind?: string | null
+          old_url?: string | null
+          organization_id?: string
+          replaced_by_email?: boolean
+          replaced_email?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_posting_apply_link_events_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_posting_apply_link_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_posting_assessment_files: {
         Row: {
           byte_size: number
@@ -2328,6 +2414,9 @@ export type Database = {
           admin_reviewed_at: string | null
           admin_reviewed_by: string | null
           apply_email: string | null
+          apply_link: string | null
+          apply_link_host: string | null
+          apply_link_kind: string | null
           banner_path: string | null
           claimed_at: string | null
           claimed_by_organization_id: string | null
@@ -2378,6 +2467,9 @@ export type Database = {
           admin_reviewed_at?: string | null
           admin_reviewed_by?: string | null
           apply_email?: string | null
+          apply_link?: string | null
+          apply_link_host?: string | null
+          apply_link_kind?: string | null
           banner_path?: string | null
           claimed_at?: string | null
           claimed_by_organization_id?: string | null
@@ -2430,6 +2522,9 @@ export type Database = {
           admin_reviewed_at?: string | null
           admin_reviewed_by?: string | null
           apply_email?: string | null
+          apply_link?: string | null
+          apply_link_host?: string | null
+          apply_link_kind?: string | null
           banner_path?: string | null
           claimed_at?: string | null
           claimed_by_organization_id?: string | null
@@ -5363,6 +5458,7 @@ export type Database = {
         }[]
       }
       generate_referral_code: { Args: never; Returns: string }
+      get_job_apply_link: { Args: { p_job_id: string }; Returns: string }
       grant_credits_atomic: {
         Args: {
           p_amount: number
@@ -5548,6 +5644,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      record_apply_link_click: { Args: { p_job_id: string }; Returns: undefined }
       record_admin_message_test: {
         Args: { p_actor: string; p_message: string }
         Returns: undefined
@@ -5766,6 +5863,10 @@ export type Database = {
           p_reviewer_id: string
         }
         Returns: Database["public"]["Enums"]["ad_campaign_status"]
+      }
+      set_job_apply_link: {
+        Args: { p_actor: string; p_ats_confirmed: boolean; p_job_id: string; p_kind: string; p_url: string }
+        Returns: undefined
       }
       set_job_apply_email: {
         Args: { p_address: string; p_job_id: string }

@@ -125,6 +125,8 @@ export default function robots(): MetadataRoute.Robots {
           "/extend-posting/",
           // Internal.
           "/dev/",
+          // "Apply on company site" redirect (PR-E4): /jobs/{id}/go answers every request with a redirect and is no-store/noindex; crawlers have no business following it.
+          "/jobs/*/go",
         ],
       },
     ],

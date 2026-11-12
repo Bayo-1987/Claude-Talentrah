@@ -234,7 +234,8 @@ describe("src/lib/jobs/job-columns.ts", () => {
     const mod = await import("@/lib/jobs/job-columns");
     const left = realColumns.filter((c) => !split(mod.JOB_DETAIL_COLUMNS).includes(c)).sort();
     // 0246: import_key and employer_closed_at are the import sync's own bookkeeping, unreadable by anon and authenticated (tests/rls/job-postings-column-grants.test.ts); import_feed_id IS in the list.
-    expect(left).toEqual([NOTE, "search_vector", "import_key", "employer_closed_at"].sort());
+    // 0277: apply_link is withheld from every API role on purpose (the redirect route reads it with the service role). apply_link_kind and apply_link_host ARE in the detail list now (PR-E4 gate 2): the page says "Opens {host}".
+    expect(left).toEqual([NOTE, "search_vector", "import_key", "employer_closed_at", "apply_link"].sort());
   });
 });
 
