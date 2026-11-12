@@ -10,11 +10,10 @@
  *
  * Pure: the clock is a parameter.
  */
+import { formatDate, timeZoneOffsetMs } from "@/lib/format/datetime";
 
 export const CLOSING_SOON_DAYS = 7;
 const LAGOS = "Africa/Lagos";
-/** Spelt here, not taken from the locale's data: some ICU versions spell September "Sept" for en-GB. */
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
 
 export interface ClosingFacts {
   expires_at?: string | null;
@@ -28,12 +27,9 @@ export function statedClosesAt(job: ClosingFacts): Date | null {
   return Number.isNaN(at.getTime()) ? null : at;
 }
 
-const dayFormat = new Intl.DateTimeFormat("en-CA", { timeZone: LAGOS, year: "numeric", month: "numeric", day: "numeric" });
-
-/** The Lagos calendar day of an instant, as a number of whole days since the epoch (so two of them subtract to a day count). */
-function lagosDay(at: Date): { dayNumber: number; day: number; month: number; year: number } {
-  const parts = Object.fromEntries(dayFormat.formatToParts(at).map((p) => [p.type, Number(p.value)]));
-  return { dayNumber: Date.UTC(parts.year, parts.month - 1, parts.day) / 86_400_000, day: parts.day, month: parts.month, year: parts.year };
+/** The Lagos calendar day of an instant, as a whole number of days since the epoch (so two of them subtract to a day count). Built on the formatter's zone rules, not on a formatter of its own. */
+function lagosDayNumber(at: Date): number {
+  return Math.floor((at.getTime() + timeZoneOffsetMs(LAGOS, at.getTime())) / 86_400_000);
 }
 
 export interface ClosingNotice {
@@ -47,8 +43,8 @@ export interface ClosingNotice {
 export function closingNotice(job: ClosingFacts, now: Date = new Date()): ClosingNotice | null {
   const at = statedClosesAt(job);
   if (!at) return null;
-  const closes = lagosDay(at);
-  const daysLeft = closes.dayNumber - lagosDay(now).dayNumber;
+  const daysLeft = lagosDayNumber(at) - lagosDayNumber(now);
   if (daysLeft < 0) return null;
-  return { label: `Closes ${closes.day} ${MONTHS[closes.month - 1]} ${closes.year}`, soon: daysLeft <= CLOSING_SOON_DAYS };
+  // The date itself is the app's one formatter's ("10 Nov 2026": day, short month, year; the month names are written out there, not asked of Intl).
+  return { label: `Closes ${formatDate(at, { timeZone: LAGOS })}`, soon: daysLeft <= CLOSING_SOON_DAYS };
 }
