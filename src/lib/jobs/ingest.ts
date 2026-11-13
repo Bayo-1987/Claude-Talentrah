@@ -137,6 +137,8 @@ export async function ingestAllSources(): Promise<IngestSourceResult[]> {
         // where a conditionally-omitted key on some rows of one bulk upsert
         // forced NULL onto the same column for every other row in the batch.
         expires_at: job.expiresAt ?? null,
+        // Stated when the source gave a validThrough; with no date there is nothing to state. Same key on every row of the batch, like expires_at above.
+        expires_at_source: job.expiresAt ? "stated" : null,
         salary_min: job.salaryMin ?? null,
         salary_max: job.salaryMax ?? null,
         salary_currency: job.salaryCurrency ?? null,

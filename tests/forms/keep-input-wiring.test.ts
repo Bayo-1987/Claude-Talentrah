@@ -30,7 +30,8 @@ describe("invite-operator form", () => {
   const form = read("src/components/admin/invite-operator-form.tsx");
   it("every invite error hands the typed email, display name and role back; a sent invitation hands none", () => {
     expect(invite).toContain('const typed = submittedValues(formData, ["email", "displayName", "roleId"]);');
-    expect(count(invite, "values: typed")).toBe(5);
+    // Six error returns: the email, the role, the site URL not configured (P6), the mailer, the database, a refusal.
+    expect(count(invite, "values: typed")).toBe(6);
     const success = invite.slice(invite.indexOf('status: "success"'));
     expect(success).not.toContain("values:");
   });

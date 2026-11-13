@@ -251,7 +251,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   // here). One literal keeps the aliased `description` typechecking as
   // `Tables<"job_postings">`.
   const FEED_COLUMNS =
-    "id, source_type, organization_id, title, company_name, company_logo_url, location, work_type, employment_type, seniority, years_experience_min, description:description_preview, structured_jd, external_url, external_source, status, posted_at, last_checked_at, dedup_fingerprint, created_at, expires_at, removed_at, removal_reason, removed_by, salary_min, salary_max, salary_currency, salary_unit, import_feed_id, apply_email, apply_link_kind, apply_link_host";
+    "id, source_type, organization_id, title, company_name, company_logo_url, location, work_type, employment_type, seniority, years_experience_min, description:description_preview, structured_jd, external_url, external_source, status, posted_at, last_checked_at, dedup_fingerprint, created_at, expires_at, expires_at_source, removed_at, removal_reason, removed_by, salary_min, salary_max, salary_currency, salary_unit, import_feed_id, apply_email, apply_link_kind, apply_link_host";
 
   /*
    * The Recent tab's own board-WIDE columns — for aggregate reads only

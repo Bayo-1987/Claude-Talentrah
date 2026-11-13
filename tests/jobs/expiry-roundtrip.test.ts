@@ -40,6 +40,8 @@ const base = (over: Partial<Job> = {}): Job =>
     location: "Lagos, Nigeria",
     posted_at: "2026-08-20T09:00:00.000Z",
     expires_at: null,
+    // An employer's own date is stated (0278): the date these tests send through the structured data is the one they chose.
+    expires_at_source: "stated",
     employment_type: "full_time",
     work_type: null,
     source_type: "internal",

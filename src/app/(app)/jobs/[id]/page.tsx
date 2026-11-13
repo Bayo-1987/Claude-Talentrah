@@ -18,6 +18,7 @@ import { renderJobDescriptionMarkdown } from "@/lib/farah/render-markdown";
 import { assessmentExerciseFileUrl } from "@/lib/employer/assessment-document";
 import { getCompanyInitials } from "@/lib/jobs/company-initials";
 import { postingAgeLine } from "@/lib/jobs/freshness";
+import { ClosingNotice } from "@/components/jobs/closing-notice";
 import { formatSalary } from "@/lib/jobs/format-salary";
 import { relevantJobLandingLinks } from "@/lib/seo/landing-page-links";
 import { skillsOf } from "@/lib/jobs/skill-facet";
@@ -552,6 +553,7 @@ export default async function JobDetailPage({ params, searchParams }: { params: 
           {postingAgeLine(job)}
           {provenance && ` · ${provenance}`}
         </span>
+        <ClosingNotice job={job} />
         {/*
           send-447 — "no longer open" is false for a draft an org member is
           previewing through their own RLS access: it was never open to

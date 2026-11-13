@@ -51,6 +51,19 @@ export function closesSoonMessage(msLeft: number): string {
 /** Where a closing date came from; stored as job_postings.closing_date_source (migration 0207). */
 export type ClosingDateSource = "default" | "chosen";
 
+/** Where a closing date came from, for the public side: job_postings.expires_at_source (migration 0278). */
+export type ExpiresAtSource = "stated" | "default";
+
+/**
+ * The expires_at_source that goes with a closing_date_source write: an employer's own pick ('chosen') is stated, the default we applied stays 'default', and no date clears it. `undefined` stays
+ * `undefined` ("do not touch it"). The two columns are written in the same update, so they cannot disagree.
+ */
+export function expiresAtSourceFor(source: ClosingDateSource | null | undefined): ExpiresAtSource | null | undefined {
+  if (source === undefined) return undefined;
+  if (source === null) return null;
+  return source === "chosen" ? "stated" : "default";
+}
+
 /**
  * What `closing_date_source` should become after a write of the closing date, or `undefined` for "do not touch it".
  *

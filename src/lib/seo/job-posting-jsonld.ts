@@ -336,7 +336,8 @@ export function buildJobPostingJsonLd(job: JobPosting): Record<string, unknown> 
   if (employmentType) jsonLd.employmentType = employmentType;
 
   // Only when a source actually stated one — see the header.
-  if (job.expires_at) jsonLd.validThrough = new Date(job.expires_at).toISOString();
+  // And only when it was STATED (expires_at_source, 0278): the 30-day lifetime we apply when nobody gave a date is not the posting's own deadline, and an unknown source (NULL) is not a claim either.
+  if (job.expires_at && job.expires_at_source === "stated") jsonLd.validThrough = new Date(job.expires_at).toISOString();
 
   // Only when a currency AND at least one bound are on the row — see the
   // header's baseSalary paragraph for why a bound with no currency does not
