@@ -53,7 +53,7 @@ export default function InstallStrip() {
     const measure = () => {
       const height = Math.ceil(el.getBoundingClientRect().height);
       setReserve(height);
-      // The Farah launcher (fixed, bottom right, phones) stands above the strip by this much; removed the moment the strip goes.
+      // The Farah launcher (fixed, bottom left, phones) stands above the strip by this much; removed the moment the strip goes.
       root.style.setProperty("--farah-strip-h", `${height}px`);
     };
     measure();

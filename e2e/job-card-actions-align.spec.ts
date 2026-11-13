@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { buildJobCardHarnessHtml } from "./support/job-card-harness/build";
+import { JOB_CARD_LEFT_CLEARANCE_PX, LAUNCHER_RESERVE_PX } from "../src/lib/farah/launcher-geometry";
 
 /**
  * P3 (JOBS-POLISH-1): the feed card's action row on a phone. The page is the REAL JobCard with the app's real compiled stylesheet (support/job-card-harness), in the shell's own wrapper
@@ -8,11 +9,13 @@ import { buildJobCardHarnessHtml } from "./support/job-card-harness/build";
  * WHAT WAS WRONG. Below 760px the footer put the age line ("Posted 2 days ago") BESIDE the action row, centred on it, and squeezed the wrapped controls into whatever width was left, so the rows read
  * as a ragged block floating mid-card. The controls themselves already ended at one right edge; the card around them did not hold that edge as a column.
  *
- * WHAT IT MUST BE. The Farah launcher's reserve STAYS (the right-hand 72px of the action row, data-farah-avoid, e2e/farah-launcher.spec.ts "never covering Apply"): the edge the reserve leaves is the
- * edge the controls align to. Below 760px the age line takes its own line and the action row takes the card's whole content width, every control ending at that edge; from 760px up, nothing moves.
+ * WHAT IT MUST BE (PHONE-ACTIONS-EDGE-1, option C). The Farah launcher now stands BOTTOM LEFT, so the card's action row needs no reserve: every control ends at the card's content edge, exactly as on a desktop.
+ * Below 760px the age line still has its own line and the row takes the card's whole content width. The row keeps data-farah-avoid (it is still a row the launcher must never cover; the launcher
+ * spec sweeps it), and no control may come within 8px of the launcher's column on the left. From 760px up, nothing moves.
  */
 const ORIGIN = "http://harness.test";
-const RESERVE = 72;
+/** The launcher stands bottom left: it occupies x from its inset to this (56 + 16). */
+const LAUNCHER_RIGHT_EDGE = LAUNCHER_RESERVE_PX;
 let html = "";
 test.beforeAll(async () => {
   html = await buildJobCardHarnessHtml();
@@ -28,9 +31,10 @@ async function open(page: Page, width: number) {
 
 type Geometry = {
   cardContent: { left: number; right: number };
-  actions: { left: number; right: number; top: number; bottom: number; paddingRight: number; avoid: string | null };
+  actions: { left: number; right: number; top: number; bottom: number; paddingRight: number; paddingLeft: number; avoid: string | null };
   age: { top: number; bottom: number };
   controls: { name: string; right: number; centre: number }[];
+  leftmost: number;
 };
 
 /** Everything measured in the page, for one of the three cards ("internal", "external", "applied"). */
@@ -45,9 +49,10 @@ async function geometry(page: Page, kind: string): Promise<Geometry> {
     const age = [...wrap.querySelectorAll("span")].find((s) => /^Posted /.test(s.textContent ?? ""))!.getBoundingClientRect();
     return {
       cardContent: { left: cr.left + parseFloat(cs.borderLeftWidth) + parseFloat(cs.paddingLeft), right: cr.right - parseFloat(cs.borderRightWidth) - parseFloat(cs.paddingRight) },
-      actions: { left: ar.left, right: ar.right, top: ar.top, bottom: ar.bottom, paddingRight: parseFloat(getComputedStyle(act).paddingRight), avoid: act.getAttribute("data-farah-avoid") },
+      actions: { left: ar.left, right: ar.right, top: ar.top, bottom: ar.bottom, paddingRight: parseFloat(getComputedStyle(act).paddingRight), paddingLeft: parseFloat(getComputedStyle(act).paddingLeft), avoid: act.getAttribute("data-farah-avoid") },
       age: { top: age.top, bottom: age.bottom },
       // The row's direct children: each is one control or one control with its form (Save, Share, Report, Ask Farah, Mark as applied, Apply, or the "Applied" label).
+      leftmost: Math.min(...[...act.children].map((c) => c.getBoundingClientRect().left)),
       controls: [...act.children].map((c) => {
         const r = c.getBoundingClientRect();
         return { name: (c.getAttribute("aria-label") ?? c.textContent ?? "").trim(), right: r.right, centre: r.top + r.height / 2 };
@@ -60,20 +65,29 @@ const near = (a: number, b: number) => Math.abs(a - b) <= 1;
 
 for (const width of [360, 390, 412]) {
   test.describe(`${width}px`, () => {
-    test(`the reserve for the Farah launcher is still there: ${RESERVE}px on the right of the action row, marked data-farah-avoid`, async ({ page }) => {
+    test("the right-hand reserve is GONE (the launcher moved to the left) and the row is still marked data-farah-avoid", async ({ page }) => {
       await open(page, width);
       for (const k of KINDS) {
         const g = await geometry(page, k);
-        expect(g.actions.paddingRight, k).toBe(RESERVE);
+        expect(g.actions.paddingRight, k).toBe(0);
+        expect(g.actions.paddingLeft, `${k}: the small clearance on the left`).toBe(JOB_CARD_LEFT_CLEARANCE_PX);
         expect(g.actions.avoid, k).toBe("true");
       }
     });
 
-    test("every control ends at the edge the reserve leaves (the card's content edge minus the reserve), the last one included, whatever row it wrapped onto", async ({ page }) => {
+    test(`no control comes within 8px of the launcher's column on the left (it occupies x up to ${LAUNCHER_RIGHT_EDGE})`, async ({ page }) => {
       await open(page, width);
       for (const k of KINDS) {
         const g = await geometry(page, k);
-        const edge = g.cardContent.right - RESERVE;
+        expect(g.leftmost, `${k}: the leftmost control starts at ${g.leftmost}`).toBeGreaterThanOrEqual(LAUNCHER_RIGHT_EDGE + 8);
+      }
+    });
+
+    test("every control ends at the card's content edge, the last one included, whatever row it wrapped onto", async ({ page }) => {
+      await open(page, width);
+      for (const k of KINDS) {
+        const g = await geometry(page, k);
+        const edge = g.cardContent.right;
         // The last control of each wrapped row: the one furthest right on its row. Rows are told apart by their vertical centre (the controls are centred on the row, so a text button and an icon share one).
         const rows = new Map<number, number>();
         for (const c of g.controls) rows.set(Math.round(c.centre / 12), Math.max(rows.get(Math.round(c.centre / 12)) ?? -Infinity, c.right));
@@ -101,6 +115,7 @@ for (const width of [768, 1024, 1280]) {
     for (const k of KINDS) {
       const g = await geometry(page, k);
       expect(g.actions.paddingRight, k).toBe(0);
+      expect(g.actions.paddingLeft, k).toBe(0);
       expect(new Set(g.controls.map((c) => Math.round(c.centre / 12))).size, `${k}: one line`).toBe(1);
       // Beside, not above: the two share a line.
       expect(g.age.top, k).toBeLessThan(g.actions.bottom);

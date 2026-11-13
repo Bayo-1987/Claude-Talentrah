@@ -19,6 +19,7 @@ import { assessmentExerciseFileUrl } from "@/lib/employer/assessment-document";
 import { getCompanyInitials } from "@/lib/jobs/company-initials";
 import { postingAgeLine } from "@/lib/jobs/freshness";
 import { ClosingNotice } from "@/components/jobs/closing-notice";
+import { JOB_PAGE_ACTIONS_CLASS } from "@/lib/jobs/action-row-classes";
 import { formatSalary } from "@/lib/jobs/format-salary";
 import { relevantJobLandingLinks } from "@/lib/seo/landing-page-links";
 import { skillsOf } from "@/lib/jobs/skill-facet";
@@ -578,7 +579,7 @@ export default async function JobDetailPage({ params, searchParams }: { params: 
           {"That company's careers link isn't available right now."} Try again later, or ask the company how to apply.
         </p>
       )}
-      <div data-farah-avoid="true" className="flex flex-wrap items-center gap-3 max-[760px]:pr-[72px]">
+      <div data-farah-avoid="true" className={JOB_PAGE_ACTIONS_CLASS}>
         {!user ? (
           <>
         {/*

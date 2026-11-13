@@ -20,6 +20,7 @@ import { postingApplyEmail, postingApplyLinkHost } from "@/lib/jobs/posting-appl
 import { ApplyByEmailLink } from "@/components/jobs/apply-by-email";
 import { ApplyOnCompanySite } from "@/components/jobs/apply-on-company-site";
 import { ClosingNotice } from "@/components/jobs/closing-notice";
+import { JOB_CARD_ACTIONS_CLASS } from "@/lib/jobs/action-row-classes";
 
 const WORK_TYPE_LABEL: Record<string, string> = {
   remote: "Remote",
@@ -252,8 +253,9 @@ export function JobCard({
 
       {/*
         Below 760px the footer stacks: the age line on its own line, the action row under it across the card's whole content width. Side by side, the age line took a share of a
-        narrow card and centred itself on the wrapped controls, which then packed into what was left (P3). The row below keeps its 72px reserve for the Farah launcher
-        (data-farah-avoid), so its controls end at the edge the reserve leaves; from 760px up this is the same single line as before.
+        narrow card and centred itself on the wrapped controls, which then packed into what was left (P3). The Farah launcher stands bottom LEFT, so the row below
+        needs no reserve: its controls end at the card's right edge (JOB_CARD_ACTIONS_CLASS) and it keeps data-farah-avoid so the launcher spec still sweeps it. From 760px up this is the
+        same single line as before.
       */}
       <div className="flex items-center justify-between border-t border-line pt-3.5 max-[760px]:flex-col max-[760px]:items-stretch max-[760px]:justify-start max-[760px]:gap-2.5">
         <div className="flex flex-col gap-[3px]">
@@ -316,7 +318,7 @@ export function JobCard({
         <div
           data-testid="job-card-actions"
           data-farah-avoid="true"
-          className="relative flex flex-wrap items-center justify-end gap-2.5 max-[760px]:pr-[72px] min-[760px]:flex-nowrap"
+          className={JOB_CARD_ACTIONS_CLASS}
         >
           <form action={toggleSaveAction.bind(null, job.id)}>
             {/*

@@ -7,6 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { FarahLauncherView } from "@/components/app-shell/farah-launcher-view";
+import { LAUNCHER_INSET_PX } from "@/lib/farah/launcher-geometry";
 
 const render = (props: Partial<React.ComponentProps<typeof FarahLauncherView>> = {}) =>
   renderToStaticMarkup(<FarahLauncherView expanded={false} concealed={false} open={false} {...props} />);
@@ -30,6 +31,17 @@ describe("the collapsed launcher", () => {
     expect(html).toContain("h-14");
     expect(html).toContain("w-14");
     expect(html).toContain("rounded-full");
+  });
+
+  it("stands BOTTOM LEFT, at the one inset constant, so the page's action rows (which end at the right edge) never meet it", () => {
+    expect(html).toContain(`left:${LAUNCHER_INSET_PX}px`);
+    expect(html).not.toContain("right-4");
+    expect(html).not.toContain("right:");
+  });
+
+  it("keeps its 'AI' tag on the side facing the page, so no part of the button is closer to the left edge than the inset", () => {
+    expect(html).toContain("-bottom-1 -right-1");
+    expect(html).not.toContain("-left-1");
   });
 
   it("keeps clear of the home indicator and of the install strip through the safe area and the strip's own height variable", () => {

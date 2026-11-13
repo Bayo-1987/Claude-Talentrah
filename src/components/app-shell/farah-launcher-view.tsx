@@ -1,5 +1,6 @@
 import type { Ref } from "react";
 import { FarahMark } from "@/components/ui/farah-mark";
+import { LAUNCHER_INSET_PX } from "@/lib/farah/launcher-geometry";
 
 /**
  * The Farah launcher's markup: the round button that stands where the bottom bar used to, below 760px only. No behaviour here, so it can be rendered and checked on the server
@@ -18,8 +19,9 @@ import { FarahMark } from "@/components/ui/farah-mark";
  *
  * ── POSITION ────────────────────────────────────────────────────────────────
  *
- * Fixed, bottom right, 16px in, above the home indicator (`env(safe-area-inset-bottom)`) and above the install strip when that is showing (the strip publishes its height as
- * `--farah-strip-h`). z-18: over the feed, under the masthead (20) and the sheet (40). It reserves the right-hand 72px column (56 + 16) of the pages' action rows, see `data-farah-avoid`.
+ * Fixed, bottom LEFT, 16px in (LAUNCHER_INSET_PX), above the home indicator (`env(safe-area-inset-bottom)`) and above the install strip when that is showing (the strip publishes its height as
+ * `--farah-strip-h`). z-18: over the feed, under the masthead (20) and the sheet (40). It stands on the left so the pages' action rows, which end at the right edge, never meet it; the one
+ * row that is left-aligned (the job page's) reserves the launcher's 72px column on its left, see `data-farah-avoid` and src/lib/jobs/action-row-classes.ts.
  */
 export interface FarahLauncherViewProps {
   /** The first-visit pill ("Ask Farah · AI assistant") instead of the round button. */
@@ -46,9 +48,9 @@ export function FarahLauncherView({ expanded, concealed, open, hasUnreadNotifica
       aria-controls="farah-sheet"
       inert={open}
       onClick={onClick}
-      style={{ bottom: "calc(16px + env(safe-area-inset-bottom) + var(--farah-strip-h, 0px))" }}
+      style={{ left: `${LAUNCHER_INSET_PX}px`, bottom: `calc(${LAUNCHER_INSET_PX}px + env(safe-area-inset-bottom) + var(--farah-strip-h, 0px))` }}
       className={[
-        "fixed right-4 z-[18] inline-flex h-14 items-center justify-center rounded-full border-[2.5px] border-ink bg-paper text-ink",
+        "fixed z-[18] inline-flex h-14 items-center justify-center rounded-full border-[2.5px] border-ink bg-paper text-ink",
         "transition-[width,padding] duration-200 hover:border-rust hover:text-rust motion-reduce:transition-none",
         "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rust",
         "min-[760px]:hidden print:hidden",
@@ -60,7 +62,7 @@ export function FarahLauncherView({ expanded, concealed, open, hasUnreadNotifica
       {expanded ? (
         <span>Ask Farah · AI assistant</span>
       ) : (
-        <span aria-hidden="true" className="absolute -bottom-1 -left-1 bg-ink px-1 font-body text-[10px] leading-4 font-bold tracking-[0.06em] text-paper">
+        <span aria-hidden="true" className="absolute -bottom-1 -right-1 bg-ink px-1 font-body text-[10px] leading-4 font-bold tracking-[0.06em] text-paper">
           AI
         </span>
       )}
