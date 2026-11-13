@@ -44,7 +44,7 @@ jobs:
 
       - run: npm ci
 
-      - uses: supabase/setup-cli@v3
+      - uses: supabase/setup-cli@v3.2.0
         with:
           version: latest
 
