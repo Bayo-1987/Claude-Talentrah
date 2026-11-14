@@ -24,7 +24,7 @@ function chain(): object {
 }
 vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => ({ from: (t: string) => (calls.push(["from", t]), chain()) }) }));
 
-const { hasUnreadNotification } = await import("@/lib/notifications/unread");
+const { hasUnreadNotification, unreadNotificationCount } = await import("@/lib/notifications/unread");
 
 beforeEach(() => {
   calls.length = 0;
@@ -56,5 +56,20 @@ describe("hasUnreadNotification", () => {
     const logged = (console.error as unknown as { mock: { calls: unknown[][] } }).mock.calls.map((c) => c.join(" ")).join("\n");
     expect(logged).toContain("u-7");
     expect(logged).toContain("boom");
+  });
+});
+
+describe("unreadNotificationCount (PR-B: unread.ts also exposes the count)", () => {
+  const session = { from: (t: string) => (calls.push(["session-from", t]), chain()) } as never;
+  it("is a number counted through the client it is GIVEN (the session's), not the service role", async () => {
+    result.count = 12;
+    expect(await unreadNotificationCount(session, "u-9")).toBe(12);
+    expect(calls).toContainEqual(["session-from", "user_notifications"]);
+    expect(calls).toContainEqual(["eq", "user_id", "u-9"]);
+    expect(calls.some((c) => c[0] === "from")).toBe(false); // the service-role fake was never asked
+  });
+  it("is null on a database error, never 0", async () => {
+    result.error = { message: "boom" };
+    expect(await unreadNotificationCount(session, "u-9")).toBeNull();
   });
 });

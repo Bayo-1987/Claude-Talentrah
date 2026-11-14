@@ -43,3 +43,9 @@ export async function hasUnreadNotification(userId: string): Promise<boolean> {
   }
   return (count ?? 0) > 0;
 }
+
+/**
+ * The unread COUNT (PR-B), for the bell and the app badge. Unlike hasUnreadNotification above it takes the signed-in user's own SESSION client and never the service role: the table is owner-readable, and the
+ * count RPC is service-role only and is not used. Null when the count could not be read.
+ */
+export { countUnread as unreadNotificationCount } from "@/lib/notifications/inbox/service";

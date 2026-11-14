@@ -79,50 +79,19 @@ export async function GET() {
   }
 
   /*
-   * The Farah-visibility design review's notification dot — wired to the
-   * REAL "something new" signal 0131 already built for the proactive match
-   * alert (user_notifications, owner-readable RLS, read_at owner-writable),
-   * not a proxy invented for this. This route is the one round trip the
-   * panel already makes on mount, so this rides along rather than adding a
-   * second fetch.
+   * The Farah-visibility design review's notification dot — wired to the REAL "something new" signal 0131 already built for the proactive match alert (user_notifications, owner-readable RLS), not a proxy
+   * invented for this. This route is the one round trip the panel already makes on mount, so this rides along rather than adding a second fetch.
    *
-   * Marked read here, not left for a separate action: `read_at` exists
-   * specifically for "the owner has seen this" (0131's own header — "only
-   * read_at is owner-writable"), and this route runs exactly when that
-   * becomes true — the panel carrying the mark is on screen. The RESPONSE
-   * below still reports the pre-mark state, so the dot shows for this load;
-   * the row is cleared for the next.
+   * READ ONLY (NOTIF-FARAH-HISTORY-1). Opening the Farah panel used to mark every unread notification read, which meant a person who never opened the bell lost their unread items by asking Farah a question. The
+   * bell owns read state now (src/lib/notifications/inbox/service.ts is the only writer of read_at): this route only reports whether something is unread, and says the same on the next call.
    */
-  const { data: unread, error: unreadError } = await supabase
-    .from("user_notifications")
-    .select("id")
-    .eq("user_id", user.id)
-    .is("read_at", null);
-  // Logged, not thrown: a rejected Supabase call resolves with an `error`
-  // rather than throwing (CLAUDE.md's own standing rule, documented for
-  // deletes but the same client behaviour applies here), so this is the
-  // difference between a silent failure and a visible one. Low-severity
-  // either way — a failed read just leaves the dot off this load, same as
-  // genuinely having nothing unread — but silent is still wrong.
+  const { data: unread, error: unreadError } = await supabase.from("user_notifications").select("id").eq("user_id", user.id).is("read_at", null).limit(1);
+  // Logged, not thrown: a rejected Supabase call resolves with an `error` rather than throwing (CLAUDE.md's standing rule), so this is the difference between a silent failure and a visible one. Low-severity
+  // either way — a failed read just leaves the dot off this load, same as genuinely having nothing unread — but silent is still wrong.
   if (unreadError) {
     console.error(`[farah-history] could not check unread notifications for ${user.id}: ${unreadError.message}`);
   }
   const hasUnreadNotification = (unread?.length ?? 0) > 0;
-  if (hasUnreadNotification) {
-    const { error: markReadError } = await supabase
-      .from("user_notifications")
-      .update({ read_at: new Date().toISOString() })
-      .eq("user_id", user.id)
-      .is("read_at", null);
-    // Same reasoning as above, and lower-stakes than it looks: an unlogged
-    // failure here would just mean the row stays unread and the same check
-    // (and the same attempt to mark it read) runs again next page load —
-    // not silent data loss, but still worth knowing about rather than
-    // guessing at from a dot that never clears.
-    if (markReadError) {
-      console.error(`[farah-history] could not mark notifications read for ${user.id}: ${markReadError.message}`);
-    }
-  }
 
   // Newest-first out of the query (so the LIMIT takes the most recent turns),
   // oldest-first for the panel (so it reads top to bottom). Same two-step the

@@ -1,7 +1,6 @@
 /**
- * NOTIF-FARAH-HISTORY-1, characterisation (written FIRST, green on unchanged code): GET /api/farah/history reports the unread state as it was BEFORE marking, then marks every unread row read
- * through the session's own client. No existing test pinned this (tests/farah/history-restore, history-writers-scan and e2e/farah-history-restore do not). The U1 commit turns these into their
- * deliberate successors: the route never writes user_notifications, and reports unread on every call while unread rows exist.
+ * NOTIF-FARAH-HISTORY-1. The first commit of this branch pinned the OLD behaviour (the route reported the unread state and then marked every unread row read; green on unchanged code). This file now holds the
+ * deliberate successors, which fail against the old route and pass against the new one: the route never writes user_notifications, and reports unread on every call while unread rows exist.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -9,6 +8,8 @@ const getUser = vi.fn();
 const hasActivePass = vi.fn();
 const farahChatFreeMessagesRemaining = vi.fn();
 const farahChatNextFreeMessageAt = vi.fn();
+const checkFarahChatAllowance = vi.fn();
+const commitFarahChatAllowance = vi.fn();
 const writes: Array<{ table: string; values: Record<string, unknown> }> = [];
 const state = { unread: [] as Array<{ id: string }> };
 const serviceRoleCalls: string[] = [];
@@ -54,7 +55,7 @@ vi.mock("@/lib/supabase/service-role", () => ({
   },
 }));
 vi.mock("@/lib/passes/entitlement", () => ({ hasActivePass }));
-vi.mock("@/lib/farah/chat-gate", async () => (await import("./support/route-mocks")).safeChatGate({ farahChatFreeMessagesRemaining, farahChatNextFreeMessageAt }));
+vi.mock("@/lib/farah/chat-gate", async () => (await import("./support/route-mocks")).safeChatGate({ checkFarahChatAllowance, commitFarahChatAllowance, farahChatFreeMessagesRemaining, farahChatNextFreeMessageAt }));
 
 const { GET } = await import("@/app/api/farah/history/route");
 
@@ -68,28 +69,24 @@ beforeEach(() => {
   farahChatNextFreeMessageAt.mockReset().mockResolvedValue(null);
 });
 
-describe("GET /api/farah/history and the notification read state (current behaviour)", () => {
-  it("reports the unread state as it was before marking, then marks every unread row read through the session's client", async () => {
+describe("GET /api/farah/history and the notification read state (NOTIF-FARAH-HISTORY-1: the bell owns read state)", () => {
+  it("GET /api/farah/history never writes user_notifications", async () => {
     state.unread = [{ id: "n1" }, { id: "n2" }];
-    const body = await (await GET()).json();
-    expect(body.hasUnreadNotification).toBe(true);
-    const marks = writes.filter((w) => w.table === "user_notifications");
-    expect(marks).toHaveLength(1);
-    expect(typeof marks[0].values.read_at).toBe("string");
-    expect(Number.isNaN(Date.parse(marks[0].values.read_at as string))).toBe(false);
-    expect(Object.keys(marks[0].values)).toEqual(["read_at"]);
+    await GET();
+    expect(writes).toEqual([]);
   });
 
-  it("the dot shows for the load that marks, and is gone on the next call", async () => {
+  it("reports hasUnreadNotification true while unread rows exist, and the same on the next call (reading does not clear it)", async () => {
     state.unread = [{ id: "n1" }];
     expect((await (await GET()).json()).hasUnreadNotification).toBe(true);
-    expect((await (await GET()).json()).hasUnreadNotification).toBe(false);
+    expect((await (await GET()).json()).hasUnreadNotification).toBe(true);
+    expect(state.unread).toEqual([{ id: "n1" }]);
   });
 
   it("nothing unread: false, and nothing is written to user_notifications", async () => {
     const body = await (await GET()).json();
     expect(body.hasUnreadNotification).toBe(false);
-    expect(writes.filter((w) => w.table === "user_notifications")).toHaveLength(0);
+    expect(writes).toEqual([]);
   });
 
   it("never reaches for the service role", async () => {
