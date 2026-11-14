@@ -1,0 +1,106 @@
+{
+  "digest": [
+    {
+      "from": "Farah at Talentrah <farah@talentrah.com>",
+      "headers": {
+        "List-Unsubscribe": "<<ORIGIN>/unsubscribe?token=tok-ada>",
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"
+      },
+      "html": {
+        "sha256_16": "f08f7c4b49b9f2b3",
+        "length": 3267
+      },
+      "subject": "4 new jobs worth a look this week",
+      "text": "Hi Ada,\n\nI went through this week's new postings against your resume. 4 are worth your time:\n\n  79% Good — thin match — Role job-1, Verified Co · Lagos\n  79% Good — thin match — Role job-1, Verified Co · Lagos\n  79% Good — thin match — Role job-2, Verified Co · Lagos\n  79% Good — thin match — Role job-2, Verified Co · Lagos\n\nSee them on your feed: <ORIGIN>/jobs\n\n— Farah\n\nDon't want these? Unsubscribe: <ORIGIN>/unsubscribe?token=tok-ada",
+      "to": "ada@example.test"
+    },
+    {
+      "from": "Farah at Talentrah <farah@talentrah.com>",
+      "headers": {
+        "List-Unsubscribe": "<<ORIGIN>/unsubscribe?token=tok-bola>",
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"
+      },
+      "html": {
+        "sha256_16": "949d2b855a1e1332",
+        "length": 3269
+      },
+      "subject": "4 new jobs worth a look this week",
+      "text": "Hi Bola,\n\nI went through this week's new postings against your resume. 4 are worth your time:\n\n  79% Good — thin match — Role job-1, Verified Co · Lagos\n  79% Good — thin match — Role job-1, Verified Co · Lagos\n  79% Good — thin match — Role job-2, Verified Co · Lagos\n  79% Good — thin match — Role job-2, Verified Co · Lagos\n\nSee them on your feed: <ORIGIN>/jobs\n\n— Farah\n\nDon't want these? Unsubscribe: <ORIGIN>/unsubscribe?token=tok-bola",
+      "to": "bola@example.test"
+    }
+  ],
+  "winBack": [
+    {
+      "from": "Farah at Talentrah <farah@talentrah.com>",
+      "headers": {
+        "List-Unsubscribe": "<<ORIGIN>/unsubscribe?token=tok-cy&pref=win_back_email>",
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"
+      },
+      "html": {
+        "sha256_16": "1be71ce0ec6740b6",
+        "length": 2053
+      },
+      "subject": "2 new matches while you were away",
+      "text": "Hi Cy,\n\nI noticed you've been away for a bit — no worries, life happens. Here's what you missed: 2 new matches since your last visit.\n\n• Role job-9 at Verified Co · Lagos — 79% match\n• Role job-9 at Verified Co · Lagos — 79% match\n\nTake a look: <ORIGIN>/jobs\n\n— Farah\n\nDon't want these? Unsubscribe: <ORIGIN>/unsubscribe?token=tok-cy&pref=win_back_email",
+      "to": "cy@example.test"
+    },
+    {
+      "from": "Farah at Talentrah <farah@talentrah.com>",
+      "headers": {
+        "List-Unsubscribe": "<<ORIGIN>/unsubscribe?token=tok-dee&pref=win_back_email>",
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"
+      },
+      "html": {
+        "sha256_16": "91fb46ddc795aeb0",
+        "length": 2055
+      },
+      "subject": "2 new matches while you were away",
+      "text": "Hi Dee,\n\nI noticed you've been away for a bit — no worries, life happens. Here's what you missed: 2 new matches since your last visit.\n\n• Role job-9 at Verified Co · Lagos — 79% match\n• Role job-9 at Verified Co · Lagos — 79% match\n\nTake a look: <ORIGIN>/jobs\n\n— Farah\n\nDon't want these? Unsubscribe: <ORIGIN>/unsubscribe?token=tok-dee&pref=win_back_email",
+      "to": "dee@example.test"
+    }
+  ],
+  "receipts": [
+    {
+      "from": "Talentrah <billing@talentrah.com>",
+      "html": {
+        "sha256_16": "94669e8d70d0652d",
+        "length": 1996
+      },
+      "subject": "Your Talentrah purchase — Starter pack",
+      "text": "Hi Hi eve,,\n\nThanks — your payment went through.\n\nWhat you bought: Starter pack\nAmount: ₦2,500\nReceipt number: CP-REFEVE\nPayment reference: ref-eve\n\nQuote the receipt number if you ever need to ask us about this payment. You can see all your purchases on your Billing page.\n\n— Talentrah",
+      "to": "eve@example.test"
+    },
+    {
+      "from": "Talentrah <billing@talentrah.com>",
+      "html": {
+        "sha256_16": "a22ce0be609aeadd",
+        "length": 1996
+      },
+      "subject": "Your Talentrah purchase — Starter pack",
+      "text": "Hi Hi fay,,\n\nThanks — your payment went through.\n\nWhat you bought: Starter pack\nAmount: ₦2,501\nReceipt number: CP-REFFAY\nPayment reference: ref-fay\n\nQuote the receipt number if you ever need to ask us about this payment. You can see all your purchases on your Billing page.\n\n— Talentrah",
+      "to": "fay@example.test"
+    }
+  ],
+  "renewals": [
+    {
+      "from": "Talentrah <billing@talentrah.com>",
+      "html": {
+        "sha256_16": "49427a20b6894210",
+        "length": 935
+      },
+      "subject": "Your 30-Day Pass renews soon",
+      "text": "Hi Gus,\n\nYour 30-Day Pass will auto-renew on <RENEWAL_DATE> for ₦13,500, charged to the card on file. You can cancel auto-renewal anytime from your Billing page — this won't affect your current access either way.\n\n— Talentrah",
+      "to": "gus@example.test"
+    },
+    {
+      "from": "Talentrah <billing@talentrah.com>",
+      "html": {
+        "sha256_16": "ec7acf765a5d0e02",
+        "length": 935
+      },
+      "subject": "Your 30-Day Pass renews soon",
+      "text": "Hi Hal,\n\nYour 30-Day Pass will auto-renew on <RENEWAL_DATE> for ₦13,500, charged to the card on file. You can cancel auto-renewal anytime from your Billing page — this won't affect your current access either way.\n\n— Talentrah",
+      "to": "hal@example.test"
+    }
+  ]
+}
