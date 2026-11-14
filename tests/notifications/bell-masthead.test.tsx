@@ -32,10 +32,11 @@ describe("the masthead and the bell", () => {
     expect(src.match(/<NotificationBell/g)).toHaveLength(1);
     expect(src).toContain("{showNotificationBell && <NotificationBell />}");
   });
-  it("the layout reads the master flag through the request-memoised reader, inside the existing Promise.all, and passes the result", () => {
+  it("the layout starts the master-flag read (request-memoised reader) alongside its existing lookups, awaits it after them, and passes the result", () => {
     const src = read("src/components/app-shell/app-shell.tsx");
     expect(src).toContain('import { inboxEnabled } from "@/lib/notifications/inbox/enabled"');
-    expect(src).toMatch(/Promise\.all\(\[[^\]]*inboxEnabled\(\)/);
+    expect(src).toMatch(/const bellOnPending = inboxEnabled\(\); const \[activePass, hasUnread, isMember\] = await Promise\.all\(\[/);
+    expect(src).toContain("const bellOn = await bellOnPending;");
     expect(src).toContain("showNotificationBell={bellOn}");
   });
 });

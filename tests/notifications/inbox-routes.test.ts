@@ -22,7 +22,7 @@ function builder(table: string): object {
   });
   return b;
 }
-vi.mock("@/lib/flags/read", () => ({ isFeatureEnabled: flag }));
+vi.mock("@/lib/flags/read", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/flags/read")>()), isFeatureEnabled: flag }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ auth: { getUser }, from: (t: string) => builder(t) }) }));
 vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => { throw new Error("the inbox must not use the service role"); } }));
 

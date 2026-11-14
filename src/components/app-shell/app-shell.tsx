@@ -149,14 +149,16 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
    * this does not add a second sequential round trip to a layout that
    * already fought to remove one.
    */
-  const [activePass, hasUnread, isMember, bellOn] = await Promise.all([
+  // PR-B: the inbox bell exists only while notifications_master is on. Started HERE and awaited after the lookups below, so it runs alongside them (no extra round trip). The existing server flag reader, request-memoised
+  // (one read per render, none cached across requests); it fails closed, so a missing row or a read error means no bell.
+  const bellOnPending = inboxEnabled();
+  const [activePass, hasUnread, isMember] = await Promise.all([
     getActivePass(session.user.id),
     hasUnreadNotification(session.user.id),
     // One indexed lookup, in the same round trip: whether the account menu offers "Switch to Employer".
     isOrganisationMember(session.user.id),
-    // PR-B: the inbox bell exists only while notifications_master is on. The existing server flag reader, request-memoised (one read per render, none cached across requests), in the same round trip; it fails closed.
-    inboxEnabled(),
   ]);
+  const bellOn = await bellOnPending;
 
   return (
     <CreditsBalanceProvider serverBalance={profile.credits_balance}>

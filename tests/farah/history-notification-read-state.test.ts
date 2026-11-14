@@ -54,7 +54,7 @@ vi.mock("@/lib/supabase/service-role", () => ({
     return fakeSupabase();
   },
 }));
-vi.mock("@/lib/passes/entitlement", () => ({ hasActivePass }));
+vi.mock("@/lib/passes/entitlement", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/passes/entitlement")>()), hasActivePass }));
 vi.mock("@/lib/farah/chat-gate", async () => (await import("./support/route-mocks")).safeChatGate({ checkFarahChatAllowance, commitFarahChatAllowance, farahChatFreeMessagesRemaining, farahChatNextFreeMessageAt }));
 
 const { GET } = await import("@/app/api/farah/history/route");

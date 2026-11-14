@@ -19,7 +19,7 @@ vi.mock("react", async (importOriginal) => ({
     };
   },
 }));
-vi.mock("@/lib/flags/read", () => ({ isFeatureEnabled: flag }));
+vi.mock("@/lib/flags/read", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/flags/read")>()), isFeatureEnabled: flag }));
 
 const { inboxEnabled } = await import("@/lib/notifications/inbox/enabled");
 
