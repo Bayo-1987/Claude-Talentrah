@@ -111,8 +111,11 @@ test.describe("admin: edit a scholarship listing", () => {
     await page.getByRole("button", { name: SAVE_EDIT_BUTTON }).click();
     await expect.poll(async () => (await row(id))?.moderation_status, { timeout: 30_000 }).toBe("pending");
     expect((await row(id))?.host_institution).toBe("Edited host e2");
-    const { data: audits } = await db!.from("admin_audit_log").select("admin_user_id, admin_email, action").eq("target_id", id);
-    expect(audits?.some((a) => a.admin_email === op.email || a.admin_user_id === op.id), "an audit row names the operator").toBe(true);
+    // The action writes the row first and records the audit row after it (admin-edit-action.ts), so the status flipping does not mean the audit row exists yet: wait for it.
+    await expect.poll(async () => {
+      const { data: audits } = await db!.from("admin_audit_log").select("admin_user_id, admin_email, action").eq("target_id", id);
+      return audits?.some((a) => a.admin_email === op.email || a.admin_user_id === op.id);
+    }, { message: "an audit row names the operator", timeout: 15_000 }).toBe(true);
   });
 
   test("E3 a deadline note on a listing with no verified deadline is refused AT SAVE with the approval message", async ({ page }) => {
