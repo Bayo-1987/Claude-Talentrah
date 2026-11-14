@@ -30,6 +30,38 @@ export interface Worker {
   fetchEvent(init: FetchInit): FetchResult;
   runInstall(): Promise<void>;
   runActivate(): Promise<void>;
+  /** Added for push (U3): everything the push and notificationclick handlers did, and a way to dispatch those events. */
+  shown: { title: string; options: Record<string, unknown> }[];
+  opened: string[];
+  focused: string[];
+  closedNotifications: number;
+  badge: { set: number[]; cleared: number };
+  /** Ordered record of subscription and registration calls, for "unsubscribe before unregister". */
+  log: string[];
+  pushEvent(init?: PushInit): Promise<void>;
+  clickEvent(init: ClickInit): Promise<void>;
+}
+
+export interface PushInit {
+  /** A string is the raw body (json() parses it); an object is JSON.stringify'd; "none" is an event with no data; "throw" is data whose json() throws. */
+  data?: string | object | "none" | "throw";
+}
+
+export interface ClickInit {
+  /** The notification's own data.path, as the push handler stored it (or anything a hostile payload put there). */
+  path?: unknown;
+  /** The whole notification.data, when a test needs something other than { path }. */
+  data?: unknown;
+}
+
+export interface WorkerOptions {
+  cachedOffline?: boolean;
+  /** Open window clients that matchAll() answers with; omitted keeps the original single client with only navigate(). */
+  windows?: { url: string }[];
+  /** false: the Badging API is missing on the worker's navigator. "set-only": setAppBadge exists, clearAppBadge does not. "throws": both exist and both reject. */
+  badging?: boolean | "set-only" | "throws";
+  /** When present the registration has a pushManager, with or without a current subscription. */
+  pushManager?: { subscribed: boolean; getSubscriptionRejects?: boolean };
 }
 
 export interface FetchInit {
@@ -48,11 +80,17 @@ export interface FetchResult {
   response: Promise<Response> | undefined;
 }
 
-export function loadWorker(source: string, opts: { cachedOffline?: boolean } = {}): Worker {
+export function loadWorker(source: string, opts: WorkerOptions = {}): Worker {
   const cacheStore: FakeCacheStore = { opened: [], stored: {}, writes: [], deleted: [], names: new Set(), responses: new Map() };
   const calls = { skipWaiting: 0, claim: 0, unregister: 0, preloadEnable: 0, navigate: 0 };
   const listeners: Record<string, (event: unknown) => void> = {};
   const fetched: Request[] = [];
+  const shown: Worker["shown"] = [];
+  const opened: string[] = [];
+  const focused: string[] = [];
+  const badge = { set: [] as number[], cleared: 0 };
+  const log: string[] = [];
+  const state = { closedNotifications: 0 };
   const fetchImpl = { current: (async () => new Response("net", { status: 200 })) as (req: Request) => Promise<Response> };
 
   const openCache = async (name: string) => {
@@ -94,10 +132,68 @@ export function loadWorker(source: string, opts: { cachedOffline?: boolean } = {
       claim: async () => {
         calls.claim++;
       },
-      matchAll: async () => [{ navigate: async () => calls.navigate++ }],
+      matchAll: async () =>
+        opts.windows
+          ? opts.windows.map((w) => ({
+              url: w.url,
+              focus: async () => {
+                focused.push(w.url);
+              },
+            }))
+          : [{ navigate: async () => calls.navigate++ }],
+      openWindow: async (url: string) => {
+        opened.push(url);
+        return null;
+      },
+    },
+    navigator: {
+      ...(opts.badging === false
+        ? {}
+        : opts.badging === "throws"
+          ? {
+              setAppBadge: async () => {
+                throw new Error("badge refused");
+              },
+              clearAppBadge: async () => {
+                throw new Error("badge refused");
+              },
+            }
+          : {
+            setAppBadge: async (n: number) => {
+              badge.set.push(n);
+            },
+            ...(opts.badging === "set-only"
+              ? {}
+              : {
+                  clearAppBadge: async () => {
+                    badge.cleared++;
+                  },
+                }),
+          }),
     },
     registration: {
+      showNotification: async (title: string, options: Record<string, unknown>) => {
+        shown.push({ title, options });
+      },
+      ...(opts.pushManager
+        ? {
+            pushManager: {
+              getSubscription: async () =>
+                opts.pushManager!.getSubscriptionRejects
+                  ? Promise.reject(new Error("getSubscription refused"))
+                  : opts.pushManager!.subscribed
+                  ? {
+                      unsubscribe: async () => {
+                        log.push("unsubscribe");
+                        return true;
+                      },
+                    }
+                  : null,
+            },
+          }
+        : {}),
       unregister: async () => {
+        log.push("unregister");
         calls.unregister++;
         return true;
       },
@@ -145,8 +241,45 @@ export function loadWorker(source: string, opts: { cachedOffline?: boolean } = {
     await Promise.all(waits);
   };
 
+  const dispatch = async (type: string, event: Record<string, unknown>) => {
+    const waits: Promise<unknown>[] = [];
+    listeners[type]?.({ ...event, waitUntil: (p: Promise<unknown>) => waits.push(Promise.resolve(p)) });
+    await Promise.all(waits);
+  };
+
   return {
     listeners,
+    shown,
+    opened,
+    focused,
+    badge,
+    log,
+    get closedNotifications() {
+      return state.closedNotifications;
+    },
+    pushEvent: (init = {}) => {
+      const d = init.data;
+      const data =
+        d === "none" || d === undefined
+          ? null
+          : {
+              json: () => {
+                if (d === "throw") throw new SyntaxError("Unexpected token");
+                return typeof d === "string" ? JSON.parse(d) : d;
+              },
+              text: () => (typeof d === "string" ? d : JSON.stringify(d)),
+            };
+      return dispatch("push", { data });
+    },
+    clickEvent: (init) =>
+      dispatch("notificationclick", {
+        notification: {
+          data: init.data !== undefined ? init.data : { path: init.path },
+          close: () => {
+            state.closedNotifications++;
+          },
+        },
+      }),
     caches: cacheStore,
     calls,
     fetchImpl,
