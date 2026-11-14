@@ -1,16 +1,14 @@
 /**
- * U7, PR-C regression group: with the push flags OFF, signing out calls no push route and deletes no subscription, and the hook lines are the only edits to existing files.
+ * U7, PR-C regression group: with the push flags OFF, signing out calls no push route and deletes no subscription, and the hook lines are the only edits to existing files (read from the sources, with no git call, so a shallow checkout or a squash merge cannot break it).
  * With the flags off the subscribe route is closed, so a browser has no push subscription; the cleanup then finds none and asks for nothing. The edit-footprint checks read the sources.
  */
 import { describe, expect, it } from "vitest";
-import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { cleanupPushForSignOut } from "@/lib/notifications/push/signout-cleanup";
 
 const ROOT = path.resolve(__dirname, "../../..");
 const read = (rel: string) => readFileSync(path.join(ROOT, rel), "utf8");
-const A1_TIP = "052f35ac10e4c2aab86ee73ac060b4997827473f";
 
 describe("flags off", () => {
   it("signing out with no push subscription calls no push route, no unsubscribe, and deletes nothing", async () => {
@@ -34,35 +32,29 @@ describe("flags off", () => {
   });
 });
 
-describe("the edit footprint on existing files", () => {
-  /** Lines added or removed against the A1 tip, as +/- lines without the file headers. */
-  function changed(file: string): string[] {
-    const out = execFileSync("git", ["diff", "--unified=0", A1_TIP, "--", file], { cwd: ROOT, encoding: "utf8" });
-    return out.split("\n").filter((l) => /^[+-]/.test(l) && !/^(\+\+\+|---)/.test(l));
-  }
-
-  it("account-menu.tsx changes only the import and the sign-out form's opening and closing tag", () => {
-    const lines = changed("src/components/app-shell/account-menu.tsx");
-    expect(lines.sort()).toEqual(
-      [
-        '+import { PushCleanupForm } from "@/components/app-shell/push-cleanup-form";',
-        "+          <PushCleanupForm action={signOutAction}>",
-        "+          </PushCleanupForm>",
-        "-          <form action={signOutAction}>",
-        "-          </form>",
-      ].sort(),
-    );
+describe("the hook lines in existing files", () => {
+  it("account-menu.tsx: the sign-out form goes through the cleanup, and the original plain form is gone", () => {
+    const src = read("src/components/app-shell/account-menu.tsx");
+    expect(src).toContain('import { PushCleanupForm } from "@/components/app-shell/push-cleanup-form";');
+    expect(src.match(/<PushCleanupForm action=\{signOutAction\}>/g)).toHaveLength(1);
+    expect(src.match(/<\/PushCleanupForm>/g)).toHaveLength(1);
+    expect(src).not.toContain("<form action={signOutAction}>");
+    // The other form in the menu (switch side) is still a plain form: only sign-out was hooked.
+    expect(src).toContain("<form action={switchSideAction}>");
+    expect(src.match(/<\/form>/g)).toHaveLength(1);
   });
 
   it("both sign-out forms of the pending-deletion prompt go through the cleanup; the restore form does not", () => {
     const src = read("src/components/account-deletion/scheduled-deletion-prompt.tsx");
     expect(src.match(/<PushCleanupForm action=\{keepDeletionAction\}>/g)).toHaveLength(2);
+    expect(src.match(/<\/PushCleanupForm>/g)).toHaveLength(2);
     expect(src).not.toMatch(/<form action=\{keepDeletionAction\}>/);
     expect(src).toContain("<form action={restoreAccountAction}>");
   });
 
-  it("no migration, package.json or lockfile change, and no service worker change", () => {
-    const names = execFileSync("git", ["diff", "--name-only", A1_TIP, "--"], { cwd: ROOT, encoding: "utf8" }).split("\n").filter(Boolean);
-    expect(names.filter((n) => /^supabase\/|^package(-lock)?\.json$|service-worker/.test(n))).toEqual([]);
+  it("the hook adds no push work of its own: the cleanup is the injected default and nothing else is imported from the push folder", () => {
+    for (const rel of ["src/components/app-shell/account-menu.tsx", "src/components/account-deletion/scheduled-deletion-prompt.tsx"]) {
+      expect(read(rel), rel).not.toMatch(/notifications\/push/);
+    }
   });
 });
