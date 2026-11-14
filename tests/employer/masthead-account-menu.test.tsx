@@ -81,7 +81,7 @@ describe("one menu component, two headers", () => {
     const files = walk("src").filter((f) => /^src\/(components|app)\//.test(f));
     const withName = files.filter((f) => code(f).includes('aria-label="Account menu"'));
     expect(withName).toEqual(["src/components/app-shell/account-menu.tsx"]);
-    const withForm = files.filter((f) => /<form action=\{signOutAction\}/.test(code(f)));
+    const withForm = files.filter((f) => /<PushCleanupForm action=\{signOutAction\}/.test(code(f)));
     expect(withForm).toEqual(["src/components/app-shell/account-menu.tsx"]);
   });
 

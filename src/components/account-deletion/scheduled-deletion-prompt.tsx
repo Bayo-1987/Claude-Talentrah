@@ -2,6 +2,7 @@ import { keepDeletionAction, restoreAccountAction } from "@/lib/account-deletion
 import { RESTORE_LIMITS, creditsPhrase } from "@/lib/account-deletion/copy";
 import { formatDate } from "@/lib/format/datetime";
 import { Button } from "@/components/ui";
+import { PushCleanupForm } from "@/components/app-shell/push-cleanup-form";
 
 /**
  * What a person sees on signing in while their account is scheduled for deletion (ACCT-1 PR 1). It asks; it never restores silently, because
@@ -46,20 +47,20 @@ export function ScheduledDeletionPrompt({
                 Restore my account
               </Button>
             </form>
-            <form action={keepDeletionAction}>
+            <PushCleanupForm action={keepDeletionAction}>
               <Button type="submit" variant="secondary">
                 Keep the deletion
               </Button>
-            </form>
+            </PushCleanupForm>
           </div>
         </>
       )}
       {windowClosed && (
-        <form action={keepDeletionAction}>
+        <PushCleanupForm action={keepDeletionAction}>
           <Button type="submit" variant="secondary">
             Sign out
           </Button>
-        </form>
+        </PushCleanupForm>
       )}
     </div>
   );

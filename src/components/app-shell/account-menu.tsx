@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { signOutAction } from "@/lib/auth/actions";
 import { switchSideAction } from "@/lib/auth/switch-side";
+import { PushCleanupForm } from "@/components/app-shell/push-cleanup-form";
 import type { Side } from "@/lib/auth/side-preference";
 
 /**
@@ -131,11 +132,11 @@ export function AccountMenu({ initials, email, displayName, settingsHref = "/set
 
           <div className="border-t border-line" />
 
-          <form action={signOutAction}>
+          <PushCleanupForm action={signOutAction}>
             <button type="submit" role="menuitem" className={`flex ${sizes.item} w-full items-center px-4 text-left text-[13px] font-semibold text-ink-soft hover:text-rust`}>
               Sign out
             </button>
-          </form>
+          </PushCleanupForm>
         </div>
       )}
     </div>

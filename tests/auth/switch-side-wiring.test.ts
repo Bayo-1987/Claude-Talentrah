@@ -79,6 +79,6 @@ describe("the two headers", () => {
     expect(menu).toContain('import { switchSideAction } from "@/lib/auth/switch-side"');
     expect(menu).toContain('<form action={switchSideAction}> <input type="hidden" name="side" value={switchSide.to} />');
     expect(menu.indexOf("Settings </Link>")).toBeLessThan(menu.indexOf("switchSide &&"));
-    expect(menu.indexOf("switchSide &&")).toBeLessThan(menu.indexOf("<form action={signOutAction}>"));
+    expect(menu.indexOf("switchSide &&")).toBeLessThan(menu.indexOf("<PushCleanupForm action={signOutAction}>"));
   });
 });
