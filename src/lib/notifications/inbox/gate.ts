@@ -1,7 +1,6 @@
 import "server-only";
 import { NextResponse } from "next/server";
-import { isFeatureEnabled } from "@/lib/flags/read";
-import { NOTIFICATION_FLAGS } from "@/lib/notifications/contract";
+import { inboxEnabled } from "@/lib/notifications/inbox/enabled";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -11,7 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 export type InboxGate = { ok: false; response: NextResponse } | { ok: true; supabase: Awaited<ReturnType<typeof createClient>>; user: { id: string } };
 
 export async function inboxGate(): Promise<InboxGate> {
-  if (!(await isFeatureEnabled(NOTIFICATION_FLAGS.master))) {
+  if (!(await inboxEnabled())) {
     return { ok: false, response: NextResponse.json({ error: "Not found." }, { status: 404 }) };
   }
   const supabase = await createClient();

@@ -10,8 +10,7 @@ import { visibleName, fullVisibleName, nameInitials } from "@/lib/profile/name";
 import { getActivePass } from "@/lib/passes/entitlement";
 import { isOrganisationMember } from "@/lib/auth/organization-member";
 import { hasUnreadNotification } from "@/lib/notifications/unread";
-import { isFeatureEnabled } from "@/lib/flags/read";
-import { NOTIFICATION_FLAGS } from "@/lib/notifications/contract";
+import { inboxEnabled } from "@/lib/notifications/inbox/enabled";
 import { CreditsBalanceProvider } from "@/components/app-shell/credits-balance";
 import { InstallStripLazy } from "@/components/pwa/install-strip-lazy";
 
@@ -155,8 +154,8 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     hasUnreadNotification(session.user.id),
     // One indexed lookup, in the same round trip: whether the account menu offers "Switch to Employer".
     isOrganisationMember(session.user.id),
-    // PR-B: the inbox bell exists only while notifications_master is on. The existing server flag reader, in the same round trip; it fails closed, so a missing row or a read error means no bell.
-    isFeatureEnabled(NOTIFICATION_FLAGS.master),
+    // PR-B: the inbox bell exists only while notifications_master is on. The existing server flag reader, request-memoised (one read per render, none cached across requests), in the same round trip; it fails closed.
+    inboxEnabled(),
   ]);
 
   return (
