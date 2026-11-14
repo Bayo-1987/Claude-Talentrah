@@ -31,10 +31,14 @@ describe("every writer of user_notifications.read_at (NOTIF-BADGE-CALLERS-1)", (
   const writers = walk("src")
     .filter((f) => f !== "src/lib/supabase/types.ts")
     .filter((f) => /\.update\(\s*\{[^}]*\bread_at\b/.test(code(f)) || /\.from\("user_notifications"\)[\s\S]{0,200}\.update\(/.test(code(f)));
-  it("is exactly the inbox service", () => {
-    expect(writers).toEqual(["src/lib/notifications/inbox/service.ts"]);
+  it("is exactly the inbox service and the Farah history route's flag-OFF branch", () => {
+    expect(writers).toEqual(["src/app/api/farah/history/route.ts", "src/lib/notifications/inbox/service.ts"]);
   });
-  it("the Farah history route is not one of them", () => {
-    expect(code("src/app/api/farah/history/route.ts")).not.toMatch(/\.update\(|read_at:/);
+  it("the history route writes only when the bell does NOT own read state (flag OFF), and decides that through inboxEnabled", () => {
+    const c = code("src/app/api/farah/history/route.ts").replace(/\s+/g, " ");
+    expect(c).toContain("const bellOwnsReadState = await inboxEnabled();");
+    expect(c).toContain("if (hasUnreadNotification && !bellOwnsReadState) {");
+    expect(c.match(/\.update\(/g)).toHaveLength(1);
+    expect(c.indexOf("!bellOwnsReadState")).toBeLessThan(c.indexOf(".update("));
   });
 });

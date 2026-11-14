@@ -6,7 +6,7 @@ import { safeInternalPath } from "@/lib/notifications/inbox/links";
  * The inbox over `user_notifications`, through the SIGNED-IN USER's own client (RLS: owner-readable, and read_at is the only column the owner may write). Never the service role, never the unread-count RPC
  * (service-role only): the count is a plain count of the user's unread rows. Every query names the user id as well, belt and braces on top of RLS.
  *
- * This file is the ONLY writer of read_at in src/ (tests/notifications/inbox-scan.test.ts keeps it so). Each writer returns the unread count AFTER the write, so the bell and the app badge (NOTIF-BADGE-CALLERS-1)
+ * While the inbox is ON this file is the ONLY writer of read_at in src/. The one other writer is the Farah history route's flag-OFF branch (no bell exists then); tests/notifications/inbox-scan.test.ts pins both. Each writer returns the unread count AFTER the write, so the bell and the app badge (NOTIF-BADGE-CALLERS-1)
  * can show one number.
  */
 type Db = Pick<SupabaseClient<Database>, "from">;
