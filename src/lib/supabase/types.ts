@@ -2317,6 +2317,36 @@ export type Database = {
           },
         ]
       }
+      job_posting_lifecycle_runs: {
+        Row: {
+          counts: Json
+          finished_at: string | null
+          id: string
+          mode: string
+          note: string | null
+          started_at: string
+          wave: string
+        }
+        Insert: {
+          counts?: Json
+          finished_at?: string | null
+          id?: string
+          mode: string
+          note?: string | null
+          started_at?: string
+          wave: string
+        }
+        Update: {
+          counts?: Json
+          finished_at?: string | null
+          id?: string
+          mode?: string
+          note?: string | null
+          started_at?: string
+          wave?: string
+        }
+        Relationships: []
+      }
       job_posting_reports: {
         Row: {
           created_at: string
@@ -2402,6 +2432,50 @@ export type Database = {
             columns: ["job_posting_id"]
             isOneToOne: false
             referencedRelation: "job_postings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_posting_tombstones: {
+        Row: {
+          closed_at: string | null
+          company_name: string
+          dedup_fingerprint: string | null
+          deleted_at: string
+          external_source: string | null
+          job_id: string
+          row_snapshot: Json
+          run_id: string | null
+          title: string
+        }
+        Insert: {
+          closed_at?: string | null
+          company_name: string
+          dedup_fingerprint?: string | null
+          deleted_at?: string
+          external_source?: string | null
+          job_id: string
+          row_snapshot: Json
+          run_id?: string | null
+          title: string
+        }
+        Update: {
+          closed_at?: string | null
+          company_name?: string
+          dedup_fingerprint?: string | null
+          deleted_at?: string
+          external_source?: string | null
+          job_id?: string
+          row_snapshot?: Json
+          run_id?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_posting_tombstones_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "job_posting_lifecycle_runs"
             referencedColumns: ["id"]
           },
         ]
@@ -5350,6 +5424,14 @@ export type Database = {
         }[]
       }
       job_expiry_function_definition: { Args: { p_name: string }; Returns: string }
+      job_posting_delete_unreferenced: {
+        Args: { p_closed_before: string; p_ids: string[]; p_run_id?: string }
+        Returns: { deleted_banner_path: string; deleted_job_id: string }[]
+      }
+      job_posting_reference_report: {
+        Args: never
+        Returns: { checked: boolean; on_delete: string; referencing_column: string; referencing_table: string }[]
+      }
       expiry_reminder_window_ok: {
         Args: { p_closes_at: string; p_now: string }
         Returns: boolean
