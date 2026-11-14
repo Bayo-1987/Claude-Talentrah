@@ -19,10 +19,15 @@
 --   rows eligible here have been closed for a long time and the tables that matter (campaigns, reports, assessments, interviews) are not written for a closed job, so the window is a matter of
 --   milliseconds on a row nobody is writing to; it is named here rather than claimed away.
 --
--- ── THE LIST OF REFERENCES ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
--- 20 foreign keys point at job_postings: 19 on other tables and the self-link superseded_by (0202). ALL are checked, including tables that hold only derived data (match_scores) or telemetry
--- (country_default_events, apply_link_clicks): "referenced by anything" is the rule the Reviewer set, and a derived table is a decision for the Reviewer to make explicitly, not one this file makes by omission.
--- The list is not hand-maintained only: job_posting_reference_report() re-derives it from pg_constraint, and the self-check below refuses to apply if any foreign key is not checked by the function.
+-- ── THE LIST OF REFERENCES, AND WHAT IS EXEMPT ────────────────────────────────────────────────────────────────────────────────────────────────
+-- 20 foreign keys point at job_postings: 19 on other tables and the self-link superseded_by (0202). Each one is classified, explicitly, in job_posting_reference_report():
+--   BLOCKING (15)  the delete function checks them with a NOT EXISTS, so a closed job that any of them references is kept: applications (this is how a saved job is kept), resumes,
+--                  job_tailoring_requests, applicant_messages, the assessments, submissions and screening questions, interview offers and bookings, ad campaigns and events, reports,
+--                  auto_apply_queue, employer_applicant_notifications and the superseded_by self-link.
+--   EXEMPT (5)     match_scores, country_default_events, apply_link_clicks, proactive_match_alerts, job_expiry_reminders. These hold derived data or telemetry; they go with the job (four cascade,
+--                  country_default_events is set null). The function does NOT check them: a job whose only references are these is deleted, and its rows in them go with it.
+-- THE CLASSIFICATION CANNOT GO STALE QUIETLY: the report derives the foreign keys from pg_constraint, the self-check below refuses to apply unless every one is checked OR exempt (and none is both), and
+-- tests/rls/job-posting-lifecycle-delete.test.ts fails on any foreign key that is neither, so a table added later forces a decision.
 --
 -- ── GRANTS ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 -- Postgres grants EXECUTE on a new function to PUBLIC, and revoking from anon and authenticated alone does not remove that. Each function is revoked from public, anon and authenticated and granted to
@@ -89,20 +94,15 @@ as $$
       and not exists (select 1 from public.applicant_messages r where r.job_posting_id = j.id)
       and not exists (select 1 from public.application_assessment_submissions r where r.job_posting_id = j.id)
       and not exists (select 1 from public.applications r where r.job_posting_id = j.id)
-      and not exists (select 1 from public.apply_link_clicks r where r.job_posting_id = j.id)
       and not exists (select 1 from public.auto_apply_queue r where r.job_posting_id = j.id)
-      and not exists (select 1 from public.country_default_events r where r.job_posting_id = j.id)
       and not exists (select 1 from public.employer_applicant_notifications r where r.job_posting_id = j.id)
       and not exists (select 1 from public.interview_bookings r where r.job_posting_id = j.id)
       and not exists (select 1 from public.interview_offers r where r.job_posting_id = j.id)
-      and not exists (select 1 from public.job_expiry_reminders r where r.job_posting_id = j.id)
       and not exists (select 1 from public.job_posting_assessments r where r.job_posting_id = j.id)
       and not exists (select 1 from public.job_posting_reports r where r.job_posting_id = j.id)
       and not exists (select 1 from public.job_posting_screening_questions r where r.job_posting_id = j.id)
       and not exists (select 1 from public.job_postings r where r.superseded_by = j.id)
       and not exists (select 1 from public.job_tailoring_requests r where r.source_job_posting_id = j.id)
-      and not exists (select 1 from public.match_scores r where r.job_posting_id = j.id)
-      and not exists (select 1 from public.proactive_match_alerts r where r.job_posting_id = j.id)
       and not exists (select 1 from public.resumes r where r.tailored_for_job_id = j.id)
     for update of j
   ),
@@ -136,7 +136,7 @@ revoke all on function public.job_posting_delete_unreferenced(uuid[], timestampt
 grant execute on function public.job_posting_delete_unreferenced(uuid[], timestamptz, uuid) to service_role;
 
 create or replace function public.job_posting_reference_report()
-returns table (referencing_table text, referencing_column text, on_delete text, checked boolean)
+returns table (referencing_table text, referencing_column text, on_delete text, checked boolean, exempt boolean)
 language sql
 stable
 security definer
@@ -148,7 +148,8 @@ as $$
   select cl.relname::text,
          a.attname::text,
          case c.confdeltype when 'a' then 'NO ACTION' when 'r' then 'RESTRICT' when 'c' then 'CASCADE' when 'n' then 'SET NULL' when 'd' then 'SET DEFAULT' end,
-         pg_catalog.strpos(def.body, 'not exists (select 1 from public.' || cl.relname || ' r where r.' || a.attname || ' = j.id)') > 0
+         pg_catalog.strpos(def.body, 'not exists (select 1 from public.' || cl.relname || ' r where r.' || a.attname || ' = j.id)') > 0,
+         cl.relname::text = any (array['match_scores', 'country_default_events', 'apply_link_clicks', 'proactive_match_alerts', 'job_expiry_reminders'])
   from def,
        pg_catalog.pg_constraint c
        join pg_catalog.pg_class cl on cl.oid = c.conrelid
@@ -177,9 +178,14 @@ declare
   v_missing text;
 begin
   select string_agg(referencing_table || '.' || referencing_column, ', ') into v_missing
-  from public.job_posting_reference_report() where not checked;
+  from public.job_posting_reference_report() where not checked and not exempt;
   if v_missing is not null then
-    raise exception '0279: job_posting_delete_unreferenced does not check: %', v_missing;
+    raise exception '0279: foreign keys into job_postings that are neither checked by job_posting_delete_unreferenced nor exempt: %', v_missing;
+  end if;
+  select string_agg(referencing_table || '.' || referencing_column, ', ') into v_missing
+  from public.job_posting_reference_report() where checked and exempt;
+  if v_missing is not null then
+    raise exception '0279: exempt tables must not be checked by job_posting_delete_unreferenced: %', v_missing;
   end if;
   if not exists (select 1 from public.job_posting_reference_report()) then
     raise exception '0279: the reference report found no foreign key into job_postings';

@@ -8,8 +8,10 @@
 --
 -- WHAT IT PROVES
 --   1. POSITIVE CONTROL: a closed row nothing references is deleted and its tombstone is written (id, fingerprint, title, company, closed_at, snapshot), and the banner path comes back.
---   2. ONE CASE PER FOREIGN KEY, generated from pg_constraint (NOT from a list in this file): a closed row referenced through each is NOT deleted and writes no tombstone. A table added later is
---      covered the moment it exists; one this harness cannot build a row for FAILS, naming the table.
+--   2. ONE CASE PER FOREIGN KEY, generated from pg_constraint (NOT from a list of tables to cover): a closed row referenced through a BLOCKING table is NOT deleted and writes no tombstone; a row whose
+--      only reference is one of the five EXEMPT tables (v_exempt below: match_scores, country_default_events, apply_link_clicks, proactive_match_alerts, job_expiry_reminders) IS deleted, with its
+--      tombstone, and each exempt foreign key cascades or nulls with the job. A table added later is covered as blocking the moment it exists; one this harness cannot build a row for FAILS, naming it.
+--      2c proves the CASCADE for real (foreign-key triggers ON): a job with only a match_scores row is deleted and that row goes with it.
 --   3. Not eligible: an open row, a closed row with no closed_at and a closed row newer than the cutoff are untouched; a second call deletes nothing and writes no second tombstone; an id that is not
 --      in p_ids is untouched; a deleted job can be restored from its snapshot.
 begin;
@@ -88,6 +90,11 @@ declare
   v_ids uuid[];
   v_other uuid;
   v_cols text;
+  -- The Reviewer's exempt list (14 Nov 2026): derived data and telemetry that goes with the job. Everything else blocks.
+  v_exempt constant text[] := array['match_scores', 'country_default_events', 'apply_link_clicks', 'proactive_match_alerts', 'job_expiry_reminders'];
+  v_on_delete "char";
+  v_blocking int := 0;
+  v_exempt_cases int := 0;
 begin
   -- 1. POSITIVE CONTROL
   v_job := pg_temp.mk_job('closed', now() - interval '2 days', null);
@@ -131,14 +138,27 @@ begin
       perform pg_temp.mk_child(v_fk.rel, v_fk.col, v_job);
     end if;
     select count(*) into v_n from public.job_posting_delete_unreferenced(array[v_job], now(), null);
-    if v_n <> 0 then raise exception 'FAIL 2: a closed row referenced through %.% was DELETED', v_fk.rel, v_fk.col; end if;
-    if not exists (select 1 from public.job_postings where id = v_job) then raise exception 'FAIL 2: the row referenced through %.% is gone', v_fk.rel, v_fk.col; end if;
-    if exists (select 1 from public.job_posting_tombstones where job_id = v_job) then raise exception 'FAIL 2: a tombstone was written for a row referenced through %.%', v_fk.rel, v_fk.col; end if;
+    if v_fk.rel = any (v_exempt) then
+      -- EXEMPT: the job goes (with its tombstone); the foreign key must cascade or null so the row goes with it
+      if v_n <> 1 then raise exception 'FAIL 2: a closed row whose only reference is the EXEMPT table %.% was NOT deleted', v_fk.rel, v_fk.col; end if;
+      if exists (select 1 from public.job_postings where id = v_job) then raise exception 'FAIL 2: the row referenced through the exempt %.% is still there', v_fk.rel, v_fk.col; end if;
+      if not exists (select 1 from public.job_posting_tombstones where job_id = v_job) then raise exception 'FAIL 2: no tombstone for the row referenced through the exempt %.%', v_fk.rel, v_fk.col; end if;
+      select c.confdeltype into v_on_delete from pg_constraint c join pg_class cl on cl.oid = c.conrelid where cl.relname = v_fk.rel and c.contype = 'f' and c.confrelid = 'public.job_postings'::regclass and v_fk.col = (select attname from pg_attribute where attrelid = c.conrelid and attnum = c.conkey[1]);
+      if v_on_delete not in ('c', 'n') then raise exception 'FAIL 2: the exempt %.% neither cascades nor nulls with the job (confdeltype %)', v_fk.rel, v_fk.col, v_on_delete; end if;
+      v_exempt_cases := v_exempt_cases + 1;
+      raise notice 'PASS 2: exempt, deleted (row goes with the job): %.%', v_fk.rel, v_fk.col;
+    else
+      if v_n <> 0 then raise exception 'FAIL 2: a closed row referenced through %.% was DELETED', v_fk.rel, v_fk.col; end if;
+      if not exists (select 1 from public.job_postings where id = v_job) then raise exception 'FAIL 2: the row referenced through %.% is gone', v_fk.rel, v_fk.col; end if;
+      if exists (select 1 from public.job_posting_tombstones where job_id = v_job) then raise exception 'FAIL 2: a tombstone was written for a row referenced through %.%', v_fk.rel, v_fk.col; end if;
+      v_blocking := v_blocking + 1;
+      raise notice 'PASS 2: blocking, kept, no tombstone: %.%', v_fk.rel, v_fk.col;
+    end if;
     v_cases := v_cases + 1;
-    raise notice 'PASS 2: kept, no tombstone: %.%', v_fk.rel, v_fk.col;
   end loop;
   if v_cases = 0 then raise exception 'FAIL 2: the catalog returned no foreign key into job_postings'; end if;
-  raise notice 'PASS 2: % foreign keys, one case each', v_cases;
+  if v_exempt_cases <> 5 then raise exception 'FAIL 2: expected 5 exempt foreign keys in the catalog, saw %', v_exempt_cases; end if;
+  raise notice 'PASS 2: % foreign keys, one case each (% blocking, % exempt)', v_cases, v_blocking, v_exempt_cases;
 
   -- applications, by name: an applied one and a saved one both keep the job (the generic case above used the first enum label)
   v_job := pg_temp.mk_job('closed');
@@ -173,6 +193,24 @@ begin
   execute format('insert into public.job_postings (%1$s) select %1$s from jsonb_populate_record(null::public.job_postings, (select row_snapshot from public.job_posting_tombstones where job_id = %2$L))', v_cols, v_job);
   if not exists (select 1 from public.job_postings where id = v_job and title = 'Harness job' and status = 'closed') then raise exception 'FAIL 4: the snapshot did not restore the row'; end if;
   raise notice 'PASS 4: a deleted row restores from its snapshot with the same id';
+end $$;
+
+-- 2c. the CASCADE for real: foreign-key triggers ON (the switch is a top-level statement: a function may not change it), a real user, a job with only a match_scores row is deleted and that row
+-- goes with it.
+set local session_replication_role = origin;
+do $$
+declare
+  v_user uuid := gen_random_uuid();
+  v_job uuid;
+  v_n int;
+begin
+  insert into auth.users (id, email) values (v_user, 'harness-' || v_user || '@example.test');
+  v_job := pg_temp.mk_job('closed');
+  insert into public.match_scores (user_id, job_posting_id, score, tier, explanation) values (v_user, v_job, 80, 'excellent', '{}'::jsonb);
+  select count(*) into v_n from public.job_posting_delete_unreferenced(array[v_job], now(), null);
+  if v_n <> 1 then raise exception 'FAIL 2c: a job with only a match_scores row was not deleted'; end if;
+  if exists (select 1 from public.match_scores where job_posting_id = v_job) then raise exception 'FAIL 2c: the match_scores row did not go with the job'; end if;
+  raise notice 'PASS 2c: a job with only a match_scores row is deleted and the row goes with it (real cascade)';
 end $$;
 
 rollback;

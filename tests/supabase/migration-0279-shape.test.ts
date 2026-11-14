@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { JOB_POSTING_REFERENCES as REFERENCES } from "../support/job-posting-references";
+import { JOB_POSTING_BLOCKING as BLOCKING, JOB_POSTING_EXEMPT_TABLES as EXEMPT, JOB_POSTING_REFERENCES as REFERENCES } from "../support/job-posting-references";
 
 const sql = readFileSync(path.join(process.cwd(), "supabase/migrations/0279_job_posting_lifecycle.sql"), "utf8");
 const rollback = readFileSync(path.join(process.cwd(), "supabase/rollbacks/0279_job_posting_lifecycle.rollback.sql"), "utf8");
@@ -65,10 +65,17 @@ describe("0279_job_posting_lifecycle.sql: the delete function", () => {
     expect(f).toContain("j.closed_at < p_closed_before");
     expect(f).toContain("j.id = any (p_ids)");
   });
-  it("checks EVERY table that references job_postings: one NOT EXISTS each, in the form the database report looks for", () => {
+  it("checks every BLOCKING reference (15): one NOT EXISTS each, in the form the database report looks for", () => {
     const f = deleteBody().replace(/\s+/g, " ");
-    for (const [table, column] of REFERENCES) expect(f, `${table}.${column}`).toContain(`not exists (select 1 from public.${table} r where r.${column} = j.id)`);
-    expect(f.match(/not exists \(select 1 from public\./g), "no more, no fewer than the catalog list").toHaveLength(REFERENCES.length);
+    expect(BLOCKING).toHaveLength(15);
+    for (const [table, column] of BLOCKING) expect(f, `${table}.${column}`).toContain(`not exists (select 1 from public.${table} r where r.${column} = j.id)`);
+    expect(f.match(/not exists \(select 1 from public\./g), "no more, no fewer than the blocking list").toHaveLength(BLOCKING.length);
+  });
+  it("does NOT check the five exempt tables (their rows go with the job): a job whose only references are these is deleted", () => {
+    const f = deleteBody().replace(/\s+/g, " ");
+    expect(EXEMPT).toHaveLength(5);
+    expect(REFERENCES.length).toBe(BLOCKING.length + EXEMPT.length);
+    for (const table of EXEMPT) expect(f, table).not.toContain(`public.${table} `);
   });
   it("writes the tombstone from the deleted row itself (so the snapshot is exactly what was deleted) and returns the banner path for the caller", () => {
     const f = deleteBody().replace(/\s+/g, " ");
@@ -85,9 +92,10 @@ describe("0279_job_posting_lifecycle.sql: the delete function", () => {
 
 describe("0279_job_posting_lifecycle.sql: the report that keeps the list honest", () => {
   const f = flat(sql);
-  it("job_posting_reference_report() reads the catalog for every foreign key into job_postings and says whether the delete function checks it", () => {
+  it("job_posting_reference_report() reads the catalog for every foreign key into job_postings and says whether the delete function checks it, and whether it is EXEMPT", () => {
     expect(f).toContain("create or replace function public.job_posting_reference_report()");
     expect(f).toContain("c.confrelid = 'public.job_postings'::regclass");
+    expect(f).toContain("returns table (referencing_table text, referencing_column text, on_delete text, checked boolean, exempt boolean)");
     expect(f).toContain("pg_catalog.pg_get_functiondef('public.job_posting_delete_unreferenced(uuid[], timestamptz, uuid)'::regprocedure)");
     expect(f).toContain("not exists (select 1 from public.' || ");
   });
@@ -95,8 +103,12 @@ describe("0279_job_posting_lifecycle.sql: the report that keeps the list honest"
     expect(f).toContain("revoke all on function public.job_posting_reference_report() from public, anon, authenticated;");
     expect(f).toContain("grant execute on function public.job_posting_reference_report() to service_role;");
   });
-  it("the migration refuses to apply if its own function misses a table (the self-check uses the report)", () => {
-    expect(f).toContain("from public.job_posting_reference_report() where not checked");
+  it("the exempt list is an explicit constant inside the report, the five names the Reviewer ruled", () => {
+    expect(f).toContain(`cl.relname::text = any (array[${EXEMPT.map((t) => `'${t}'`).join(", ")}])`);
+  });
+  it("the migration refuses to apply unless every foreign key is checked OR exempt, and none is both (a future table forces a decision)", () => {
+    expect(f).toContain("from public.job_posting_reference_report() where not checked and not exempt;");
+    expect(f).toContain("from public.job_posting_reference_report() where checked and exempt;");
     expect(f).toContain("raise exception");
   });
 });
@@ -127,8 +139,9 @@ describe("0279_job_posting_lifecycle.sql: the flags and the rest", () => {
 });
 
 describe("0279_job_posting_lifecycle.rollback.sql", () => {
-  it("removes exactly what 0279 added, idempotently: both functions, both tables, the two flag rows", () => {
+  it("removes exactly what 0279 added, idempotently: both functions, both tables, the two flag rows, and says it is safe only before the first deletion", () => {
     const f = flat(rollback);
+    expect(rollback).toContain("SAFE ONLY BEFORE THE FIRST DELETION; afterwards it drops the tombstones (the undo data).");
     expect(f).toContain("drop function if exists public.job_posting_reference_report();");
     expect(f).toContain("drop function if exists public.job_posting_delete_unreferenced(uuid[], timestamptz, uuid);");
     expect(f).toContain("drop table if exists public.job_posting_tombstones;");

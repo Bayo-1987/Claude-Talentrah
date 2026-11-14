@@ -5430,7 +5430,7 @@ export type Database = {
       }
       job_posting_reference_report: {
         Args: never
-        Returns: { checked: boolean; on_delete: string; referencing_column: string; referencing_table: string }[]
+        Returns: { checked: boolean; exempt: boolean; on_delete: string; referencing_column: string; referencing_table: string }[]
       }
       expiry_reminder_window_ok: {
         Args: { p_closes_at: string; p_now: string }

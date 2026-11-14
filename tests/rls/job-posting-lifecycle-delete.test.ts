@@ -14,7 +14,7 @@ import { randomUUID } from "node:crypto";
 import type { Database } from "../../src/lib/supabase/types";
 import { admin, createAuthedTestUser, deleteTestUsers } from "../support/auth";
 import { deletePostingsCascade } from "../support/delete-orgs";
-import { JOB_POSTING_REFERENCES } from "../support/job-posting-references";
+import { JOB_POSTING_EXEMPT_TABLES, JOB_POSTING_REFERENCES } from "../support/job-posting-references";
 
 type Authed = Awaited<ReturnType<typeof createAuthedTestUser>>;
 let seeker: Authed;
@@ -64,11 +64,21 @@ describe("the list of references is the catalog's, and the function checks every
     expect((data ?? []).length).toBeGreaterThan(0);
   });
 
-  it("every foreign key into job_postings is CHECKED by job_posting_delete_unreferenced (a table that is not fails here, by name)", async () => {
+  it("every foreign key into job_postings is CHECKED by job_posting_delete_unreferenced or EXEMPT, and none is both (an unclassified one fails here, by name: a new table forces a decision)", async () => {
     const { data, error } = await admin.rpc("job_posting_reference_report");
     expect(error).toBeNull();
-    const unchecked = (data ?? []).filter((r) => !r.checked).map((r) => `${r.referencing_table}.${r.referencing_column}`);
-    expect(unchecked, "the delete function does not look at these tables").toEqual([]);
+    const rows = data ?? [];
+    const unclassified = rows.filter((r) => !r.checked && !r.exempt).map((r) => `${r.referencing_table}.${r.referencing_column}`);
+    expect(unclassified, "neither checked by the delete function nor exempt").toEqual([]);
+    const both = rows.filter((r) => r.checked && r.exempt).map((r) => `${r.referencing_table}.${r.referencing_column}`);
+    expect(both, "exempt tables must not be checked").toEqual([]);
+  });
+
+  it("the exempt tables are exactly the five the Reviewer ruled, and each cascades or nulls with the job", async () => {
+    const { data } = await admin.rpc("job_posting_reference_report");
+    const exempt = (data ?? []).filter((r) => r.exempt);
+    expect(exempt.map((r) => r.referencing_table).sort()).toEqual([...JOB_POSTING_EXEMPT_TABLES].sort());
+    for (const r of exempt) expect(["CASCADE", "SET NULL"], `${r.referencing_table}`).toContain(r.on_delete);
   });
 
   it("the live catalog equals the list in tests/support/job-posting-references.ts, both ways (a new referencing table must be added there, and to the function, on purpose)", async () => {
@@ -94,6 +104,20 @@ describe("what is deleted, and what is kept", () => {
     expect((rows[0].row_snapshot as Record<string, unknown>).id).toBe(id);
     expect(rows[0].dedup_fingerprint).toMatch(/^b0279-/);
     expect(rows[0].closed_at).not.toBeNull();
+  });
+
+  it("a job whose only reference is a match_scores row IS deleted, and that row goes with it", async () => {
+    const id = await makeJob();
+    const ins = await admin.from("match_scores").insert({ user_id: seeker.id, job_posting_id: id, score: 80, tier: "excellent", explanation: {} } as never);
+    expect(ins.error, "fixture match score").toBeNull();
+    const { data, error } = await del([id]);
+    expect(error).toBeNull();
+    expect((data ?? []).map((r) => r.deleted_job_id)).toEqual([id]);
+    expect(await jobExists(id)).toBe(false);
+    expect(await tombstones(id)).toHaveLength(1);
+    const left = await admin.from("match_scores").select("job_posting_id").eq("job_posting_id", id);
+    expect(left.error).toBeNull();
+    expect(left.data ?? [], "the score went with the job").toEqual([]);
   });
 
   it("an application keeps the job, applied or saved, and no tombstone is written", async () => {

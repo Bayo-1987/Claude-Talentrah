@@ -25,3 +25,12 @@ export const JOB_POSTING_REFERENCES: Array<[table: string, column: string]> = [
   ["proactive_match_alerts", "job_posting_id"],
   ["resumes", "tailored_for_job_id"],
 ];
+
+/**
+ * The foreign keys the delete function deliberately does NOT check (the Reviewer's ruling, 14 Nov 2026): derived data and telemetry that goes with the job (four cascade, country_default_events is set
+ * null). Everything else in JOB_POSTING_REFERENCES BLOCKS deletion. job_posting_reference_report() carries the same five names as an explicit constant; the database spec holds the two equal.
+ */
+export const JOB_POSTING_EXEMPT_TABLES = ["match_scores", "country_default_events", "apply_link_clicks", "proactive_match_alerts", "job_expiry_reminders"] as const;
+
+/** The 15 that block: every reference that is not exempt. */
+export const JOB_POSTING_BLOCKING: Array<[table: string, column: string]> = JOB_POSTING_REFERENCES.filter(([t]) => !(JOB_POSTING_EXEMPT_TABLES as readonly string[]).includes(t));
