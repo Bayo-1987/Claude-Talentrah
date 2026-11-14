@@ -58,9 +58,8 @@ describe("the batch path never imports or calls getResendClient's guarded send",
     expect(runner).toMatch(/adminEmailEligibleRecipients/);
   });
 
-  it("nothing outside the admin-messages wiring imports the mass-send modules", () => {
+  it("nothing outside the admin-messages wiring imports the mass-send modules, except the operator's own test send", () => {
     const outsiders = files.filter((f) => !MASS.includes(f) && /from\s+["']@\/lib\/email\/mass-send[^"']*["']/.test(code(f))).map(rel);
-    // the A3 page and its actions may import the provider-free pieces later; today only the tests and the wiring do.
-    expect(outsiders).toEqual([]);
+    expect(outsiders).toEqual(["app/admin/(protected)/messages/test-send.ts"]);
   });
 });
