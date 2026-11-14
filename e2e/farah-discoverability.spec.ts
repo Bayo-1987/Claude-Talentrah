@@ -88,7 +88,7 @@ test.describe("reaching Farah on a phone", () => {
           radius: cs.borderTopLeftRadius,
           width: Math.round(r.width),
           height: Math.round(r.height),
-          rightGap: Math.round(document.documentElement.clientWidth - r.right),
+          leftGap: Math.round(r.left),
           bottomGap: Math.round(window.innerHeight - r.bottom),
         };
       });
@@ -96,7 +96,7 @@ test.describe("reaching Farah on a phone", () => {
       expect(m.position, "a sticky button would scroll away with its parent").toBe("fixed");
       expect(m.width).toBe(56);
       expect(m.height).toBe(56);
-      expect(m.rightGap).toBe(16);
+      expect(m.leftGap, "bottom LEFT, 16px in").toBe(16);
       expect(m.bottomGap, "above the bottom edge (and above the install strip if it is showing)").toBeGreaterThanOrEqual(16);
       expect(m.radius, "the one round shape in the app, a written exception").not.toBe("0px");
       // Above the job cards' menus (z-[15]), below the masthead band (z-20) so a masthead dropdown that grows long on a short viewport still wins.

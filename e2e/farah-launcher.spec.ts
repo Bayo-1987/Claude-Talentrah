@@ -49,12 +49,13 @@ test.describe("below 760px: the launcher replaces the bottom bar", () => {
     });
   }
 
-  test("geometry: 56px, a 16px margin on the right, above the bottom edge, a target of at least 44px; the style carries the safe-area inset", async ({ page }) => {
+  test("geometry: 56px, a 16px margin on the LEFT, above the bottom edge, a target of at least 44px; the style carries the safe-area inset", async ({ page }) => {
     await open(page, 390);
     const b = await box(page, "farah-launcher");
     expect(Math.round(b.width)).toBe(56);
     expect(Math.round(b.height)).toBe(56);
-    expect(Math.round(390 - (b.x + b.width))).toBe(16);
+    expect(Math.round(b.x)).toBe(16);
+    expect(Math.round(390 - (b.x + b.width)), "not the right edge any more").toBeGreaterThan(16);
     expect(Math.round(800 - (b.y + b.height))).toBe(16);
     expect(await launcher(page).evaluate((el) => el.getAttribute("style"))).toContain("env(safe-area-inset-bottom)");
     expect(await launcher(page).evaluate((el) => getComputedStyle(el).borderRadius)).not.toBe("0px");
@@ -116,6 +117,28 @@ test.describe("from 760px: nothing changes", () => {
     await expect(sheet(page)).not.toHaveAttribute("aria-hidden", /.*/);
     await expect(page.getByRole("textbox", { name: "Message Farah" })).toHaveCount(1);
   });
+});
+
+test.describe("from 760px: the action rows are what they always were", () => {
+  for (const width of [768, 1024, 1280]) {
+    test(`${width}: no reserve on either row, the job page's row is left-aligned, and there is no launcher to avoid`, async ({ page }) => {
+      await open(page, width);
+      await expect(launcher(page)).toBeHidden();
+      const rows = await page.evaluate(() =>
+        [...document.querySelectorAll("[data-farah-avoid]")].map((r) => {
+          const cs = getComputedStyle(r);
+          return { id: (r as HTMLElement).dataset.testid, pl: cs.paddingLeft, pr: cs.paddingRight, justify: cs.justifyContent };
+        }),
+      );
+      for (const r of rows) {
+        expect(r.pl, r.id).toBe("0px");
+        expect(r.pr, r.id).toBe("0px");
+        if (r.id === "job-page-actions") expect(["normal", "flex-start"], "left-aligned, as always").toContain(r.justify);
+        if (r.id === "job-card-actions") expect(r.justify).toBe("flex-end");
+      }
+      expect(rows.map((r) => r.id)).toContain("job-page-actions");
+    });
+  }
 });
 
 test.describe("opening and closing the sheet", () => {
@@ -225,6 +248,7 @@ test.describe("the first visit", () => {
     await open(page, 390, { seen: false });
     await expect(launcher(page)).toHaveAttribute("data-launcher", "pill");
     await expect(launcher(page)).toContainText("Ask Farah · AI assistant");
+    expect(Math.round((await box(page, "farah-launcher")).x), "the pill is anchored on the left too").toBe(16);
     await expect(page.getByRole("button", { name: "Ask Farah · AI assistant" })).toHaveCount(1);
     await launcher(page).click();
     await page.keyboard.press("Escape");
@@ -264,6 +288,15 @@ test.describe("never covering Apply", () => {
       const floating = await box(page, "farah-launcher");
       expect(floating.y + floating.height).toBeLessThanOrEqual(800);
       expect(floating.y).toBeGreaterThan(0);
+      // BY CONSTRUCTION, whatever the scroll position: every control of every protected row (the job card's and the job page's) starts at least 8px right of the launcher's column.
+      const clearances = await page.evaluate(() => {
+        const l = document.querySelector('[data-testid="farah-launcher"]')!.getBoundingClientRect();
+        return [...document.querySelectorAll("[data-farah-avoid]")].flatMap((row) =>
+          [...row.querySelectorAll("a, button")].map((c) => ({ row: (row as HTMLElement).dataset.testid ?? "", name: (c.textContent ?? "").trim(), gap: c.getBoundingClientRect().left - l.right })),
+        );
+      });
+      expect(new Set(clearances.map((c) => c.row)), "both kinds of row are in the page").toEqual(new Set(["job-card-actions", "job-page-actions"]));
+      for (const c of clearances) expect(c.gap, `${c.row} / ${c.name}`).toBeGreaterThanOrEqual(8);
       const total = await page.evaluate(() => document.documentElement.scrollHeight);
       for (let y = 0; y <= total; y += 90) {
         await page.evaluate((top) => window.scrollTo(0, top), y);

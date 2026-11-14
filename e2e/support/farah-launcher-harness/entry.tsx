@@ -10,6 +10,8 @@ import { Masthead } from "@/components/app-shell/masthead";
 import { FarahSheetHost } from "@/components/app-shell/farah-sheet-host";
 import { FarahPanel } from "@/components/app-shell/farah-panel";
 import { FarahJobMenu } from "@/components/jobs/farah-job-menu";
+import { buttonClasses } from "@/components/ui";
+import { JOB_CARD_ACTIONS_CLASS, JOB_PAGE_ACTIONS_CLASS } from "@/lib/jobs/action-row-classes";
 import { FarahFirstVisitHint } from "@/components/app-shell/farah-first-visit-hint";
 import InstallStrip from "@/components/pwa/install-strip";
 import { onFarahJobSeed, type FarahJobSeed } from "@/lib/farah/job-seed";
@@ -89,7 +91,7 @@ function Page({ options }: { options: Options }) {
             <div key={i} className="mb-6 flex flex-col gap-3.5 border-[1.5px] border-ink bg-card p-5">
               <p className="font-display text-[19px]">Job number {i + 1}</p>
               <p className="text-[14px] text-ink-soft">A short description that fills out the card a little so that the page is tall enough to scroll.</p>
-              <div data-testid="job-card-actions" data-farah-avoid="true" className="relative flex flex-wrap items-center justify-end gap-2.5 max-[760px]:pr-[72px] min-[760px]:flex-nowrap">
+              <div data-testid="job-card-actions" data-farah-avoid="true" className={JOB_CARD_ACTIONS_CLASS}>
                 <button type="button" className="h-10 w-10 border border-ink">S</button>
                 <FarahJobMenu jobId={`job-${i + 1}`} jobTitle={`Job number ${i + 1}`} companyName="Acme" />
                 <a href="#apply" data-testid={`apply-${i + 1}`} className="inline-flex min-h-10 items-center border-none bg-ink px-[18px] py-[10px] font-body text-[13.5px] font-semibold text-paper">
@@ -98,6 +100,14 @@ function Page({ options }: { options: Options }) {
               </div>
             </div>
           ))}
+          {/* The job page's action row (jobs/[id]/page.tsx): the shipped class string, with the page's own buttons. */}
+          <div data-testid="job-page-actions" data-farah-avoid="true" className={JOB_PAGE_ACTIONS_CLASS}>
+            <button type="button" className={buttonClasses("secondary", "sm")}>Save</button>
+            <a href="#apply-page" className={buttonClasses("primary", "sm", "no-underline")}>Apply on company site</a>
+            <button type="button" className={buttonClasses("text", "sm")}>Mark as applied</button>
+            <a href="#tailor" className={buttonClasses("text", "sm", "no-underline")}>Tailor my resume for this</a>
+            <FarahJobMenu jobId="job-page" jobTitle="Job page" companyName="Acme" />
+          </div>
         </div>
         <FarahSheetHost hasUnreadNotification={!!options.unread}>
           <StubPanel />

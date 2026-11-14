@@ -112,11 +112,32 @@ describe("the written exceptions", () => {
 });
 
 describe("Apply is never under the launcher", () => {
-  it("the job card's action row and the detail page's action row reserve the launcher's column below 760px and say so", () => {
-    for (const rel of ["src/components/jobs/job-card.tsx", "src/app/(app)/jobs/[id]/page.tsx"]) {
-      const text = read(rel);
-      expect(text, rel).toContain("data-farah-avoid");
-      expect(text, rel).toContain("max-[760px]:pr-[72px]");
-    }
+  // The rows that hold Apply are marked, and the set is held EXACTLY: a new row that holds Apply has to be added here on purpose, and a row that stops carrying the mark fails.
+  const MARKED = ["src/components/jobs/job-card.tsx", "src/app/(app)/jobs/[id]/page.tsx"];
+  it("exactly these files mark an action row data-farah-avoid", () => {
+    const holders: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
+        const rel = `${dir}/${e.name}`;
+        if (e.isDirectory()) walk(rel);
+        else if (/\.tsx$/.test(e.name) && /data-farah-avoid="true"/.test(read(rel))) holders.push(rel);
+      }
+    };
+    walk("src");
+    expect(holders.sort()).toEqual([...MARKED].sort());
+  });
+
+  it("the job card's row ends at the card's edge (the launcher is bottom LEFT): marked, built from the shared class, and with no reserve of its own", () => {
+    const text = read("src/components/jobs/job-card.tsx");
+    expect(text).toContain('data-farah-avoid="true"');
+    expect(text).toContain("className={JOB_CARD_ACTIONS_CLASS}");
+    expect(text).not.toContain("max-[760px]:pr-[72px]");
+  });
+
+  it("the job page's row reserves the launcher's column on the LEFT: marked and built from the shared class", () => {
+    const text = read("src/app/(app)/jobs/[id]/page.tsx");
+    expect(text).toContain('data-farah-avoid="true"');
+    expect(text).toContain("className={JOB_PAGE_ACTIONS_CLASS}");
+    expect(text).not.toContain("max-[760px]:pr-[72px]");
   });
 });
