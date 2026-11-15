@@ -49,6 +49,10 @@ import { chunkInList } from "@/lib/supabase/in-list";
 
 export const CLOSED_STALE_AFTER_DAYS = 30;
 
+/** The eligible read's page size (the API's default Max rows) and its ceiling in pages: 10,000 rows, the same as the lifecycle dry run. */
+const ELIGIBLE_PAGE_SIZE = 1000;
+const ELIGIBLE_MAX_PAGES = 10;
+
 /**
  * Removes one or more banner files from Storage after their `job_postings`
  * row(s) are already gone. Factored out of the batch sweep below so
@@ -212,28 +216,35 @@ export async function deleteStaleClosedPostings(
    * unknown-age row as 30-days-stale by a NULL sorting incorrectly. See
    * closeExpiredInternalPostings for the same defensive pattern.
    */
-  const { data: eligibleRows, error: selectError } = await supabase
-    .from("job_postings")
-    /*
-     * `banner_path` alongside `id` (0115). A banner is a Storage object, not a
-     * foreign key, so it is invisible to the cascade/set-null reasoning this
-     * file's header works through — nothing in the database would ever remove
-     * it, and every deleted posting that had one would leave a permanently
-     * orphaned file quietly consuming the same free-tier quota the ops page
-     * now reports.
-     *
-     * Read here rather than at delete time because the DELETE's own
-     * `.select()` returns rows that are already gone; the path has to be
-     * captured while the row still exists.
-     */
-    .select("id")
-    .eq("status", "closed")
-    .not("closed_at", "is", null)
-    .lt("closed_at", cutoff.toISOString());
+  /*
+   * ── THE ELIGIBLE SET IS READ IN PAGES (JOBS-LIFECYCLE-1, 2b) ──────────────────────────────────────
+   *
+   * The API answers at most its Max rows (1,000 by default) per request, silently. One read therefore saw only the first 1,000 eligible rows, and since W-1 a row the guard KEPT stays
+   * eligible every night: after 1,000 kept rows no deletable row would ever be reached. So the set is read page after page, in a fixed order (id), until a page comes back short, up to
+   * ELIGIBLE_MAX_PAGES pages (10,000 rows, the same ceiling as the lifecycle dry run). At the ceiling the run says so and works with what it has; the rest waits for a later night. Only
+   * what the guard (below) deletes is ever deleted; reading more rows deletes nothing by itself.
+   */
+  const eligibleRows: Array<{ id: string }> = [];
+  for (let page = 0; page < ELIGIBLE_MAX_PAGES; page += 1) {
+    const { data, error: selectError } = await supabase
+      .from("job_postings")
+      .select("id")
+      .eq("status", "closed")
+      .not("closed_at", "is", null)
+      .lt("closed_at", cutoff.toISOString())
+      .order("id", { ascending: true })
+      .range(page * ELIGIBLE_PAGE_SIZE, page * ELIGIBLE_PAGE_SIZE + ELIGIBLE_PAGE_SIZE - 1);
 
-  if (selectError) {
-    console.error("[job-deletion] could not read the eligible set, deleting nothing:", selectError);
-    return { eligible: 0, deleted: 0, ids: [], error: selectError.message };
+    if (selectError) {
+      console.error("[job-deletion] could not read the eligible set, deleting nothing:", selectError);
+      return { eligible: 0, deleted: 0, ids: [], error: selectError.message };
+    }
+    const rows = data ?? [];
+    eligibleRows.push(...rows);
+    if (rows.length < ELIGIBLE_PAGE_SIZE) break;
+    if (page === ELIGIBLE_MAX_PAGES - 1) {
+      console.warn(`[job-deletion] the eligible set reached ${ELIGIBLE_MAX_PAGES * ELIGIBLE_PAGE_SIZE} rows; the rest waits for a later run`);
+    }
   }
 
   const eligibleIds = (eligibleRows ?? []).map((row) => row.id);

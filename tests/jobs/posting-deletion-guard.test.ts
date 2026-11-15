@@ -10,14 +10,23 @@ const rec = vi.hoisted(() => ({
   calls: [] as Array<{ op: string; args?: unknown }>,
   eligible: [] as Array<{ id: string }>,
   rpcResults: [] as Array<{ data: unknown; error: { message: string } | null } | Error>,
+  /** When set, the fake rpc behaves like the real guard: it deletes only the ids in this set and keeps the rest. */
+  deletable: null as Set<string> | null,
+  /** When set, the eligible read fails on the page that starts at this row. */
+  selectErrorAt: null as number | null,
   removed: [] as string[][],
 }));
 
 vi.mock("@/lib/supabase/service-role", () => {
   const select = () => {
     const q: Record<string, unknown> = {};
-    for (const m of ["eq", "not", "lt", "in"]) q[m] = (...args: unknown[]) => { rec.calls.push({ op: `select.${m}`, args }); return q; };
-    q.then = (resolve: (v: unknown) => unknown) => resolve({ data: rec.eligible, error: null });
+    let range: [number, number] | null = null;
+    for (const m of ["eq", "not", "lt", "in", "order"]) q[m] = (...args: unknown[]) => { rec.calls.push({ op: `select.${m}`, args }); return q; };
+    q.range = (a: number, b: number) => { rec.calls.push({ op: "select.range", args: [a, b] }); range = [a, b]; return q; };
+    q.then = (resolve: (v: unknown) => unknown) => {
+      if (range && rec.selectErrorAt !== null && range[0] === rec.selectErrorAt) return resolve({ data: null, error: { message: "read failed" } });
+      return resolve({ data: range ? rec.eligible.slice(range[0], range[1] + 1) : rec.eligible, error: null });
+    };
     return q;
   };
   return {
@@ -31,7 +40,9 @@ vi.mock("@/lib/supabase/service-role", () => {
         rec.calls.push({ op: "rpc", args: [name, args] });
         const next = rec.rpcResults.shift();
         if (next instanceof Error) throw next;
-        return next ?? { data: [], error: null };
+        if (next) return next;
+        if (rec.deletable) return { data: (args as { p_ids: string[] }).p_ids.filter((id) => rec.deletable!.has(id)).map((id) => ({ deleted_job_id: id, deleted_banner_path: null })), error: null };
+        return { data: [], error: null };
       },
       storage: { from: () => ({ remove: async (paths: string[]) => { rec.removed.push(paths); return { data: paths.map((name) => ({ name })), error: null }; } }) },
     }),
@@ -49,6 +60,8 @@ beforeEach(() => {
   rec.calls.length = 0;
   rec.eligible = [];
   rec.rpcResults.length = 0;
+  rec.deletable = null;
+  rec.selectErrorAt = null;
   rec.removed.length = 0;
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.spyOn(console, "log").mockImplementation(() => {});
@@ -131,5 +144,57 @@ describe("the source has no unguarded delete of job_postings left in the nightly
     const body = src.slice(src.indexOf("export async function deleteStaleClosedPostings")).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
     expect(body).not.toMatch(/\.delete\(\)/);
     expect(body).toContain('rpc("job_posting_delete_unreferenced"');
+  });
+});
+
+describe("2b: the eligible set is read in pages, so kept rows can never starve a deletable one", () => {
+  const many = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `row-${String(i).padStart(5, "0")}` }));
+  const ranges = () => calls("select.range").map((c) => c.args);
+
+  it("1,001 kept rows plus 1 deletable row: the deletable row is deleted (a single page of 1,000 would never reach it)", async () => {
+    rec.eligible = many(1002); // sorted by id; the deletable row is the LAST one, beyond the first 1,000
+    rec.deletable = new Set(["row-01001"]);
+    const result = await deleteStaleClosedPostings(NOW);
+    expect(result.error).toBeUndefined();
+    expect(result.ids).toEqual(["row-01001"]);
+    expect(result).toMatchObject({ eligible: 1002, deleted: 1, kept: 1001 });
+    expect(ranges()).toEqual([[0, 999], [1000, 1999]]);
+    expect(calls("UNGUARDED_DELETE")).toEqual([]);
+  });
+
+  it("reads in a fixed order (id), page after page, until a page comes back short", async () => {
+    rec.eligible = many(2500);
+    rec.deletable = new Set();
+    await deleteStaleClosedPostings(NOW);
+    expect(ranges()).toEqual([[0, 999], [1000, 1999], [2000, 2999]]);
+    expect(calls("select.order").length).toBeGreaterThanOrEqual(3);
+    expect(calls("select.order")[0].args).toEqual(["id", { ascending: true }]);
+  });
+
+  it("exactly 1,000 eligible rows: a full page is not the end, one more is asked for and comes back empty", async () => {
+    rec.eligible = many(1000);
+    rec.deletable = new Set();
+    await deleteStaleClosedPostings(NOW);
+    expect(ranges()).toEqual([[0, 999], [1000, 1999]]);
+  });
+
+  it("stops at 10 pages (10,000 rows, the same ceiling as the dry run) and says so, rather than reading without end", async () => {
+    rec.eligible = many(10_500);
+    rec.deletable = new Set(["row-09999", "row-10000"]); // the second is beyond the ceiling and is not reached tonight
+    const result = await deleteStaleClosedPostings(NOW);
+    expect(ranges()).toHaveLength(10);
+    expect(result.ids).toEqual(["row-09999"]);
+    expect(result.eligible).toBe(10_000);
+    expect(console.warn).toHaveBeenCalled();
+  });
+
+  it("a read error on any page stops the run before anything is deleted, and says so", async () => {
+    rec.eligible = many(2500);
+    rec.deletable = new Set(["row-00001"]);
+    rec.selectErrorAt = 1000;
+    const result = await deleteStaleClosedPostings(NOW);
+    expect(result).toMatchObject({ eligible: 0, deleted: 0, error: "read failed" });
+    expect(calls("rpc"), "nothing was sent to the guard").toEqual([]);
+    expect(calls("UNGUARDED_DELETE")).toEqual([]);
   });
 });

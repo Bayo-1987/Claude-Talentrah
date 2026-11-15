@@ -617,6 +617,35 @@ describe("W-1: the nightly run keeps a closed posting that anything blocking ref
     await mustDelete("job_tailoring_requests", admin.from("job_tailoring_requests").delete().eq("id", request.data.id));
   });
 
+  it("2b: with 1,001 kept rows ahead of it, a deletable row is still reached and deleted (the eligible set is read in pages, not capped at 1,000)", async () => {
+    const userId = await fixtureUser("posting-del-w1-paging");
+    const keptIds = Array.from({ length: 1001 }, (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`);
+    const deletableId = "ffffffff-ffff-4fff-8fff-ffffffffffff"; // sorts after every kept id
+    const base = { source_type: "external" as const, company_name: "POSTING-DELETION-TEST Co", description: "Fixture.", structured_jd: {}, status: "closed" as const, posted_at: new Date().toISOString(), last_checked_at: new Date().toISOString(), closed_at: stale(), external_source: "posting-deletion-test" };
+    for (let i = 0; i < keptIds.length; i += 250) {
+      const rows = keptIds.slice(i, i + 250).map((id) => ({ ...base, id, title: `POSTING-DELETION-TEST Kept ${id.slice(-4)}`, dedup_fingerprint: randomUUID(), external_url: `https://example.test/${id}` }));
+      const { error } = await admin.from("job_postings").insert(rows);
+      if (error) throw new Error(`fixture kept postings: ${error.message}`);
+      const apps = rows.map((r) => ({ user_id: userId, job_posting_id: r.id, stage: "saved" as const, source: "manual" as const }));
+      const { error: appError } = await admin.from("applications").insert(apps);
+      if (appError) throw new Error(`fixture saved applications: ${appError.message}`);
+    }
+    createdPostings.push(...keptIds);
+    const { error: delError } = await admin.from("job_postings").insert({ ...base, id: deletableId, title: "POSTING-DELETION-TEST Deletable", dedup_fingerprint: randomUUID(), external_url: `https://example.test/${deletableId}` });
+    if (delError) throw new Error(`fixture deletable posting: ${delError.message}`);
+    createdPostings.push(deletableId);
+
+    const result = await deleteStaleClosedPostings();
+    expect(result.error).toBeUndefined();
+    expect(result.ids, "the deletable row was reached and deleted").toContain(deletableId);
+    createdPostings.splice(createdPostings.indexOf(deletableId), 1);
+    expect(await readPosting(deletableId)).toBeNull();
+    const { count, error } = await admin.from("job_postings").select("id", { count: "exact", head: true }).in("id", keptIds.slice(0, 200));
+    expect(error).toBeNull();
+    expect(count, "the kept rows are still there").toBe(200);
+    await mustDelete("applications", admin.from("applications").delete().eq("user_id", userId));
+  }, 120_000);
+
   it("the run reports what it kept, and a second run is a no-op (idempotent)", async () => {
     const userId = await fixtureUser("posting-del-w1-idempotent");
     const id = await makeClosedPosting(stale());
