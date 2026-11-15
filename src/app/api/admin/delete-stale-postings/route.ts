@@ -52,7 +52,7 @@ async function runAndRespond(trigger: "cron" | "manual") {
   // which is exactly the class of bug CLAUDE.md's own history section is full
   // of (a call that resolves without throwing, whose result nobody checked).
   console.log(
-    `[job-deletion] ${trigger} run: eligible=${result.eligible} deleted=${result.deleted}` +
+    `[job-deletion] ${trigger} run: eligible=${result.eligible} deleted=${result.deleted} kept=${result.kept ?? 0}` +
       (result.error ? ` (FAILED: ${result.error})` : ""),
   );
 
