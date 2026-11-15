@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { computeMatchScore } from "./score";
+import { prepareResumeSkills } from "./resume-skills";
 import { getMatchTier } from "@/lib/match-tier";
 import type { Database, Tables } from "@/lib/supabase/types";
 import type { StructuredResume } from "@/lib/resume/types";
@@ -89,6 +90,7 @@ export async function computeAndStoreMatchScores(
  * primitive this loops over.
  */
 export function scoreJobs<J extends ScoringJob>(resume: StructuredResume, jobs: J[]): ScoredJob<J>[] {
+  const prepared = prepareResumeSkills(resume); // once per window, here, never stored
   return jobs.map((job) => {
     const structuredJd = job.structured_jd as { skills?: string[] } | null;
     const result = computeMatchScore(
@@ -96,6 +98,7 @@ export function scoreJobs<J extends ScoringJob>(resume: StructuredResume, jobs: 
       structuredJd?.skills ?? [],
       job.seniority ?? undefined,
       job.title,
+      prepared,
     );
     return {
       job,

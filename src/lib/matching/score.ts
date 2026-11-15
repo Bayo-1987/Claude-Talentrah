@@ -1,7 +1,7 @@
 import { inferSeniority, NON_SCREENABLE_SKILLS } from "@/lib/jobs/extract-jd";
 import type { SeniorityLevel } from "@/lib/jobs/types";
 import type { StructuredResume } from "@/lib/resume/types";
-import { expandResumeSkills } from "./resume-skills";
+import { expandResumeSkills, type PreparedResumeSkills } from "./resume-skills";
 import { classifyRoleFamilies } from "./role-family";
 import { capForRoleFit, isBaselineTagScreenable, resumeRoleFamilies, roleFit, type RoleFit } from "./role-fit";
 
@@ -57,6 +57,11 @@ export function computeMatchScore(
    * exactly what it was before A2 (the pure skill-and-seniority number).
    */
   jobTitle?: string,
+  /**
+   * The resume's expanded skills, when the caller scores many jobs against this one resume (see prepareResumeSkills). Optional and last, so every other call is unchanged. Ignored unless it was
+   * built from this very resume's skills array: a set prepared from another resume can only cost speed, never change a score.
+   */
+  prepared?: PreparedResumeSkills,
 ): MatchResult {
   const jobFamilies = jobTitle === undefined ? undefined : classifyRoleFamilies(jobTitle);
   /*
@@ -65,7 +70,7 @@ export function computeMatchScore(
    * "Cloud (AWS, Azure)" never met `agile`, `aws` or `azure` — see
    * resume-skills.ts. The comparison itself stays exact.
    */
-  const resumeSkills = expandResumeSkills(resume.skills);
+  const resumeSkills: ReadonlySet<string> = prepared && prepared.source === resume.skills ? prepared.skills : expandResumeSkills(resume.skills);
 
   /*
    * Only the requirements a resume can actually be screened against.

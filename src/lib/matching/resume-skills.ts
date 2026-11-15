@@ -103,3 +103,18 @@ export function expandResumeSkills(skills: string[]): Set<string> {
 
   return out;
 }
+
+/**
+ * A resume's expanded skills, built ONCE for a run of jobs scored against the same resume (the feed window, a user's refresh, the alert loop). The expansion depends on the resume alone, yet
+ * computeMatchScore used to redo it for every job (about 300 us each, nearly all of the scoring time). Create it inside the same call as the loop and never keep it at module or request level:
+ * `source` is the very array the set was built from, and computeMatchScore trusts the set only while `resume.skills` is still that same array (it cannot see an in-place edit of it, which is
+ * why nothing stores this). The set is read-only: callers only ever ask `.has`.
+ */
+export interface PreparedResumeSkills {
+  readonly source: unknown;
+  readonly skills: ReadonlySet<string>;
+}
+
+export function prepareResumeSkills(resume: { skills: string[] }): PreparedResumeSkills {
+  return { source: resume.skills, skills: expandResumeSkills(resume.skills) };
+}

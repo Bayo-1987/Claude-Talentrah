@@ -1,4 +1,5 @@
 import { computeMatchScore } from "./score";
+import { prepareResumeSkills } from "./resume-skills";
 import { getMatchTier } from "@/lib/match-tier";
 import type { ScoredJobLike } from "./compute-and-store";
 import type { StructuredResume } from "@/lib/resume/types";
@@ -89,9 +90,10 @@ export async function refreshUsers(
 
       // Same three-line body as scoreJobs (compute-and-store.ts), not a call to it: this job only has the lightweight id/structured_jd/
       // seniority columns, not a full JobPosting row. computeMatchScore itself, the shared pure primitive, is untouched.
+      const prepared = prepareResumeSkills(resume); // once for this user's run of jobs
       const scored: ScoredJobLike[] = missing.map((job) => {
         const structuredJd = job.structuredJd as { skills?: string[] } | null;
-        const score = computeMatchScore(resume, structuredJd?.skills ?? [], job.seniority ?? undefined, job.title);
+        const score = computeMatchScore(resume, structuredJd?.skills ?? [], job.seniority ?? undefined, job.title, prepared);
         return { job: { id: job.id }, score: score.score, tier: getMatchTier(score.score), explanation: score.explanation };
       });
 

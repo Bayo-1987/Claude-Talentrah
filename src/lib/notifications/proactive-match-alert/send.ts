@@ -3,6 +3,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getResendClient } from "@/lib/resend/client";
 import { isFeatureEnabled } from "@/lib/flags/read";
 import { computeMatchScore } from "@/lib/matching/score";
+import { prepareResumeSkills } from "@/lib/matching/resume-skills";
 import { filterListablePostings, type RawScoredPosting } from "@/lib/digest/send";
 import { buildProactiveAlertEmail, buildProactiveAlertInApp } from "./template";
 import {
@@ -107,9 +108,10 @@ export async function sendProactiveMatchAlerts(
       const resume = await loadBaseResume(supabase, candidate.userId);
       if (!resume) continue; // hasBaseResume said yes but the row vanished mid-run; skip rather than crash the loop
 
+      const prepared = prepareResumeSkills(resume); // once for this candidate's postings
       const scored: ScoredNewJob[] = newPostings.map((p) => {
         const structuredJd = p.structuredJd as { skills?: string[] } | null;
-        const result = computeMatchScore(resume, structuredJd?.skills ?? [], p.seniority ?? undefined, p.title);
+        const result = computeMatchScore(resume, structuredJd?.skills ?? [], p.seniority ?? undefined, p.title, prepared);
         return {
           jobId: p.jobId,
           title: p.title,
