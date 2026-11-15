@@ -13,12 +13,14 @@ import type { UnsubscribablePreference } from "./preference";
  * channel they had chosen to keep — so the same token that switched it off
  * switches it on again.
  */
-const CONFIRMATION_COPY: Record<UnsubscribablePreference, string> = {
+export const CONFIRMATION_COPY: Record<UnsubscribablePreference, string> = {
   job_match_digest: "You're subscribed again — the weekly job-match email will keep coming.",
   proactive_match_alert:
     "You're subscribed again — you'll hear from Farah if an exceptional match turns up.",
   scholarship_deadline_alert:
     "You're subscribed again — we'll remind you when a saved scholarship's deadline is approaching.",
+  announcements: "You're subscribed again — you'll get announcements from Talentrah by email.",
+  promotions: "You're subscribed again — you'll get offers and promotions from Talentrah by email.",
   win_back_email:
     "You're subscribed again — Farah will let you know what's new if you go quiet for a while.",
 };

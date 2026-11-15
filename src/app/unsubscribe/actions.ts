@@ -1,7 +1,8 @@
 "use server";
 
+import { NOTIFICATION_RPCS } from "@/lib/notifications/contract-db";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import type { UnsubscribablePreference } from "./preference";
+import { streamOf, type UnsubscribablePreference } from "./preference";
 
 /**
  * Re-subscribe using the same token the unsubscribe link carried.
@@ -26,8 +27,11 @@ export async function resubscribeAction(
   if (!token) return false;
   const supabase = createServiceRoleClient();
 
+  const stream = streamOf(preference);
   const { data, error } =
-    preference === "proactive_match_alert"
+    stream !== null
+      ? await supabase.rpc(NOTIFICATION_RPCS.emailUnsubscribeStream, { p_token: token, p_stream: stream, p_subscribed: true })
+      : preference === "proactive_match_alert"
       ? await supabase.rpc("proactive_match_alert_set_preference", { p_token: token, p_enabled: true })
       : preference === "scholarship_deadline_alert"
         ? await supabase.rpc("scholarship_deadline_alert_set_preference", { p_token: token, p_enabled: true })
