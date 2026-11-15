@@ -10,6 +10,7 @@ import { computeAndStoreApplicationMatchScore } from "@/lib/matching/compute-and
 import { captureEvent } from "@/lib/analytics/posthog";
 import { runFarahScreeningReview } from "@/lib/screening/farah-review";
 import { notifyFirstApplicant } from "@/lib/employer/new-applicants/instant";
+import { notifyNewApplicant } from "@/lib/notifications/new-applicant/notify";
 import { takesApplicationsByEmail, takesApplicationsOffPlatform } from "@/lib/jobs/posting-apply-email";
 import { defaultInstantDeps } from "@/lib/employer/new-applicants/deps";
 
@@ -202,6 +203,7 @@ async function performInAppApply(
   after(async () => {
     try {
       await notifyFirstApplicant(applicationId, defaultInstantDeps());
+      await notifyNewApplicant(applicationId);
     } catch (err) {
       console.error("[new-applicant-instant] could not notify:", err instanceof Error ? err.message : "unknown error");
     }

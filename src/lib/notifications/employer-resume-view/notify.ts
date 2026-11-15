@@ -3,6 +3,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getResendClient } from "@/lib/resend/client";
 import { absoluteUrl } from "@/lib/seo/site";
 import { emailButton, emailParagraph, escEmail, renderBrandedEmail } from "@/lib/email/layout";
+import { pushIfAllowed, realPushGateDeps } from "@/lib/notifications/new-applicant/push-gates";
 
 type ServiceClient = ReturnType<typeof createServiceRoleClient>;
 
@@ -58,6 +59,9 @@ export async function notifySeekerResumeViewed({
       body: `${company} opened your resume for ${title}. See it in your Job Tracker.`,
       link: "/tracker",
     });
+
+    // The push channel (U5). Independent of the email below: it has its own flags and its own switch (push_application_viewed, default off), never throws, and carries generic text only.
+    await pushIfAllowed(realPushGateDeps(supabase), { userId: seekerId, kind: "application_viewed", subject: applicationId, url: "/tracker" });
 
     const resend = getResendClient();
     if (!resend) {
