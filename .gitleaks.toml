@@ -237,6 +237,15 @@ regexes = [
   # with the word secret. The line is absent from the PR's tip, but the scan reads commits and history is not rewritten (ruling N1-R35), so the value is allowlisted instead. ANCHORED to exactly
   # that value (^ and $, no wildcard); a value that differs by one character is still reported, and it does NOT relax the rule for anything else. The same test file holds this.
   '''^secret-endpoint-value$''',
+
+  # src/app/admin/(protected)/messages/test-send.ts, commit f42d020c4c2787c09b4b8006d4d994f833764b3a, the A3 commit of PR #1022 (NOTIF PR-D) — one exact placeholder value: the unsubscribe
+  # token the operator's own test email used to carry, a fixed made-up word with no relation to any account's real token. A human-readable placeholder, not a credential: it protects nothing,
+  # cannot be rotated and opens nothing (the unsubscribe page looks the token up and finds no row). It matched this rule only because the property is named unsubscribeToken. The source now
+  # takes a fresh randomUUID() on every call, but the scan reads the whole PR range origin/main..HEAD and history is not rewritten, so the value is allowlisted instead. ANCHORED with ^ and $
+  # to exactly that value: no wildcard, no path, no broader pattern; a value that differs by one character is still reported, and it does NOT relax the rule for anything else.
+  # The narrower form (this value AND this file path, [[allowlists]] with condition = "AND") was not used: gitleaks is not installed where this was written, and the repo's own reader of this
+  # file (tests/support/credential-shaped-scan.ts) does not model [[allowlists]], so it could not be shown to work. tests/ci/gitleaks-pr-d-test-send-allowlist.test.ts holds this entry.
+  '''^test-copy$''',
 ]
 
 paths = [
