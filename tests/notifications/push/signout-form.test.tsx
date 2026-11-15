@@ -2,7 +2,7 @@
  * U7: the sign-out form runs the push cleanup FIRST and submits only after it has finished or timed out, because the route needs the live session. Driven through the real component with
  * the minimal hook harness of tests/pwa/employer-install-strip-behaviour.test.tsx (no DOM library here); the cleanup is injected, so nothing under src/ is mocked.
  */
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => ({ cur: null as null | { useRef: (i: unknown) => unknown } }));
 vi.mock("react", async (orig) => {
@@ -31,6 +31,15 @@ class Inst {
 }
 const event = (log: string[]) => ({ preventDefault: () => log.push("preventDefault"), currentTarget: { requestSubmit: () => log.push("submit") } });
 
+/** Stands in for the browser: the cleanup only runs where push is already granted and a service worker exists. */
+function stubPush(permission: "default" | "denied" | "granted" | "absent", serviceWorker = true) {
+  if (permission === "absent") vi.stubGlobal("Notification", undefined);
+  else vi.stubGlobal("Notification", { permission });
+  vi.stubGlobal("navigator", serviceWorker ? { serviceWorker: {} } : {});
+}
+
+afterEach(() => vi.unstubAllGlobals());
+
 describe("PushCleanupForm", () => {
   it("renders a form that keeps the server action and its children", () => {
     const action = () => undefined;
@@ -42,6 +51,7 @@ describe("PushCleanupForm", () => {
   });
 
   it("the cleanup finishes BEFORE the form submits, and the first submit event is held back", async () => {
+    stubPush("granted");
     const log: string[] = [];
     let release!: () => void;
     const cleanup = () => new Promise<void>((r) => { release = () => { log.push("cleanup done"); r(); }; });
@@ -56,6 +66,7 @@ describe("PushCleanupForm", () => {
   });
 
   it("the submit it triggers itself is let through (not prevented, no second cleanup)", async () => {
+    stubPush("granted");
     const log: string[] = [];
     const cleanup = vi.fn(async () => undefined);
     const inst = new Inst();
@@ -69,6 +80,7 @@ describe("PushCleanupForm", () => {
   });
 
   it("a double click while the cleanup runs does not start a second one and does not submit early", async () => {
+    stubPush("granted");
     const log: string[] = [];
     let release!: () => void;
     const cleanup = vi.fn(() => new Promise<void>((r) => { release = r; }));
@@ -84,11 +96,59 @@ describe("PushCleanupForm", () => {
   });
 
   it("a cleanup that throws still lets the sign-out go ahead", async () => {
+    stubPush("granted");
     const log: string[] = [];
     const inst = new Inst();
     const onSubmit = inst.render({ action: () => undefined, cleanup: async () => { throw new Error("x"); } }).props.onSubmit as (e: unknown) => void;
     onSubmit(event(log));
     await new Promise((r) => setTimeout(r, 0));
     expect(log).toContain("submit");
+  });
+
+  describe("where there is nothing to clean up, the form is a plain form (nothing held back)", () => {
+    for (const [name, setup] of [
+      ["Notification is undefined", () => stubPush("absent")],
+      ['permission is "default"', () => stubPush("default")],
+      ['permission is "denied"', () => stubPush("denied")],
+      ["no service worker", () => stubPush("granted", false)],
+    ] as const) {
+      it(`${name}: the submit is not default-prevented and the cleanup is never called`, async () => {
+        setup();
+        const log: string[] = [];
+        const cleanup = vi.fn(async () => undefined);
+        const onSubmit = new Inst().render({ action: () => undefined, cleanup }).props.onSubmit as (e: unknown) => void;
+        onSubmit(event(log));
+        await new Promise((r) => setTimeout(r, 0));
+        expect(log).toEqual([]);
+        expect(cleanup).not.toHaveBeenCalled();
+      });
+    }
+  });
+
+  it('permission "granted" with a service worker: prevented, cleanup once, then exactly one requestSubmit', async () => {
+    stubPush("granted");
+    const log: string[] = [];
+    const cleanup = vi.fn(async () => { log.push("cleanup"); });
+    const onSubmit = new Inst().render({ action: () => undefined, cleanup }).props.onSubmit as (e: unknown) => void;
+    onSubmit(event(log));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(log).toEqual(["preventDefault", "cleanup", "submit"]);
+    expect(cleanup).toHaveBeenCalledTimes(1);
+  });
+
+  it("a second click while cleaning does nothing (granted): no second cleanup, no early or double submit", async () => {
+    stubPush("granted");
+    const log: string[] = [];
+    let release!: () => void;
+    const cleanup = vi.fn(() => new Promise<void>((r) => { release = r; }));
+    const onSubmit = new Inst().render({ action: () => undefined, cleanup }).props.onSubmit as (e: unknown) => void;
+    onSubmit(event(log));
+    const before = log.length;
+    onSubmit(event(log));
+    expect(log.slice(before)).toEqual(["preventDefault"]);
+    expect(cleanup).toHaveBeenCalledTimes(1);
+    release();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(log.filter((l) => l === "submit")).toHaveLength(1);
   });
 });
