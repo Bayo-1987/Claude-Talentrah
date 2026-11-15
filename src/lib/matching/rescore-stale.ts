@@ -1,4 +1,5 @@
 import { computeMatchScore } from "./score";
+import { prepareResumeSkills, type PreparedResumeSkills } from "./resume-skills";
 import { describeMatchConfidence, getMatchTier } from "@/lib/match-tier";
 import type { ScoredJobLike } from "./compute-and-store";
 import type { StructuredResume } from "@/lib/resume/types";
@@ -168,9 +169,9 @@ function recordShape(shape: RescoreShape, old: StaleRow, next: ScoredJobLike) {
   }
 }
 
-function scoreRow(resume: StructuredResume, p: PostingForScoring): ScoredJobLike {
+function scoreRow(resume: StructuredResume, p: PostingForScoring, prepared?: PreparedResumeSkills): ScoredJobLike {
   const jd = p.structuredJd as { skills?: string[] } | null;
-  const result = computeMatchScore(resume, jd?.skills ?? [], (p.seniority ?? undefined) as SeniorityLevel | undefined, p.title);
+  const result = computeMatchScore(resume, jd?.skills ?? [], (p.seniority ?? undefined) as SeniorityLevel | undefined, p.title, prepared);
   return { job: { id: p.id }, score: result.score, tier: getMatchTier(result.score), explanation: result.explanation };
 }
 
@@ -243,7 +244,8 @@ export async function rescoreStale(deps: RescoreDeps, opts: RescoreOptions): Pro
       const scorable = userRows.filter((r) => open.has(r.jobId) && !carriesStubSkill(open.get(r.jobId)!.structuredJd));
       summary.skippedPostingGone += userRows.length - scorable.length - stubbed.length;
 
-      const scored = scorable.map((row) => ({ row, next: scoreRow(resume, open.get(row.jobId)!) }));
+      const prepared = prepareResumeSkills(resume); // once for this user's rows
+      const scored = scorable.map((row) => ({ row, next: scoreRow(resume, open.get(row.jobId)!, prepared) }));
       if (opts.dryRun) {
         for (const s of scored) recordShape(summary.shape, s.row, s.next);
         if (scored.length > 0) perUserRows.push(scored.length);

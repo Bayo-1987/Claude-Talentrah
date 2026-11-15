@@ -1,0 +1,7067 @@
+{
+ "prose entries": [
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "above",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 55,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "match",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 100,
+   "explanation": {
+    "matchedSkills": [
+     "customer service"
+    ],
+    "missingSkills": [],
+    "seniorityAlignment": "below",
+    "roleFit": "adjacent"
+   }
+  },
+  {
+   "score": 59,
+   "explanation": {
+    "matchedSkills": [
+     "aws",
+     "agile",
+     "sql"
+    ],
+    "missingSkills": [],
+    "seniorityAlignment": "below",
+    "roleFit": "different",
+    "scoreBeforeRoleFit": 85
+   }
+  },
+  {
+   "score": 35,
+   "explanation": {
+    "matchedSkills": [
+     "sql"
+    ],
+    "missingSkills": [
+     "python"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 59,
+   "explanation": {
+    "matchedSkills": [
+     "customer service"
+    ],
+    "missingSkills": [],
+    "seniorityAlignment": "match",
+    "roleFit": "different",
+    "scoreBeforeRoleFit": 100
+   }
+  },
+  {
+   "score": 59,
+   "explanation": {
+    "matchedSkills": [
+     "aws",
+     "sql"
+    ],
+    "missingSkills": [],
+    "seniorityAlignment": "below",
+    "roleFit": "different",
+    "scoreBeforeRoleFit": 100
+   }
+  },
+  {
+   "score": 35,
+   "explanation": {
+    "matchedSkills": [
+     "sql"
+    ],
+    "missingSkills": [
+     "python"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "financial modeling",
+     "accounting",
+     "compliance",
+     "risk management"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "risk management",
+     "recruiting",
+     "hr",
+     "payroll",
+     "supply chain"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "payroll",
+     "supply chain",
+     "logistics"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation",
+     "power bi"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation",
+     "power bi",
+     "tableau",
+     "pos",
+     "crm",
+     "quality assurance"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "power bi",
+     "tableau",
+     "pos",
+     "crm",
+     "quality assurance",
+     "agriculture",
+     "procurement",
+     "reconciliation",
+     "google sheets"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "crm",
+     "quality assurance"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "procurement",
+     "reconciliation",
+     "google sheets"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "credit risk",
+     "sabre",
+     "budgeting"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "budgeting",
+     "powerpoint",
+     "haccp",
+     "fraud detection",
+     "food safety"
+    ],
+    "seniorityAlignment": "match"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "fraud detection",
+     "food safety",
+     "kyc",
+     "aml",
+     "agronomy",
+     "amadeus"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aml",
+     "agronomy",
+     "amadeus",
+     "travelport",
+     "vendor management",
+     "fleet management",
+     "javascript"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [
+     "sql"
+    ],
+    "missingSkills": [
+     "travelport",
+     "vendor management",
+     "fleet management",
+     "javascript",
+     "typescript",
+     "python",
+     "java"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "adjacent"
+   }
+  },
+  {
+   "score": 44,
+   "explanation": {
+    "matchedSkills": [
+     "sql",
+     "react",
+     "node.js",
+     "aws"
+    ],
+    "missingSkills": [
+     "javascript",
+     "typescript",
+     "python",
+     "java",
+     "next.js"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [
+     "sql"
+    ],
+    "missingSkills": [
+     "java"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 59,
+   "explanation": {
+    "matchedSkills": [
+     "node.js",
+     "aws"
+    ],
+    "missingSkills": [
+     "next.js"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different",
+    "scoreBeforeRoleFit": 72
+   }
+  },
+  {
+   "score": 25,
+   "explanation": {
+    "matchedSkills": [
+     "azure"
+    ],
+    "missingSkills": [
+     "gcp",
+     "kubernetes",
+     "docker"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "docker",
+     "graphql",
+     "rest api",
+     "product management"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "product management",
+     "data analysis",
+     "figma"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 17,
+   "explanation": {
+    "matchedSkills": [
+     "ui/ux"
+    ],
+    "missingSkills": [
+     "data analysis",
+     "figma",
+     "sales",
+     "business development",
+     "customer success"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 13,
+   "explanation": {
+    "matchedSkills": [
+     "ui/ux"
+    ],
+    "missingSkills": [
+     "sales",
+     "business development",
+     "customer success",
+     "salesforce",
+     "hubspot",
+     "digital marketing",
+     "seo"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "customer success",
+     "salesforce",
+     "hubspot",
+     "digital marketing",
+     "seo",
+     "content marketing",
+     "financial modeling",
+     "accounting",
+     "compliance"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "digital marketing",
+     "seo"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "financial modeling",
+     "accounting",
+     "compliance"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "risk management",
+     "recruiting",
+     "hr",
+     "payroll"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "payroll",
+     "supply chain",
+     "logistics"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation",
+     "power bi",
+     "tableau",
+     "pos",
+     "crm"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "power bi",
+     "tableau",
+     "pos",
+     "crm",
+     "quality assurance",
+     "agriculture",
+     "procurement",
+     "reconciliation"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "crm",
+     "quality assurance",
+     "agriculture",
+     "procurement",
+     "reconciliation",
+     "google sheets",
+     "microsoft office",
+     "credit risk",
+     "sabre"
+    ],
+    "seniorityAlignment": "below"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "procurement",
+     "reconciliation"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "credit risk",
+     "sabre"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "budgeting",
+     "powerpoint",
+     "haccp",
+     "fraud detection"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "adjacent"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "fraud detection",
+     "food safety",
+     "kyc",
+     "aml",
+     "agronomy"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aml",
+     "agronomy",
+     "amadeus",
+     "travelport",
+     "vendor management",
+     "fleet management"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "travelport",
+     "vendor management",
+     "fleet management",
+     "javascript",
+     "typescript",
+     "python",
+     "java"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 23,
+   "explanation": {
+    "matchedSkills": [
+     "sql",
+     "react",
+     "node.js"
+    ],
+    "missingSkills": [
+     "javascript",
+     "typescript",
+     "python",
+     "java",
+     "next.js"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 56,
+   "explanation": {
+    "matchedSkills": [
+     "sql",
+     "react",
+     "node.js",
+     "aws",
+     "azure"
+    ],
+    "missingSkills": [
+     "java",
+     "next.js",
+     "gcp",
+     "kubernetes"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [
+     "node.js"
+    ],
+    "missingSkills": [
+     "next.js"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 38,
+   "explanation": {
+    "matchedSkills": [
+     "azure"
+    ],
+    "missingSkills": [
+     "gcp",
+     "kubernetes"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  }
+ ],
+ "skills key missing": [
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "above",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 55,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "match",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "customer service"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "adjacent"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aws",
+     "agile",
+     "sql"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "python",
+     "sql"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "customer service"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aws",
+     "sql"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "python",
+     "sql"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "financial modeling",
+     "accounting",
+     "compliance",
+     "risk management"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "risk management",
+     "recruiting",
+     "hr",
+     "payroll",
+     "supply chain"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "payroll",
+     "supply chain",
+     "logistics"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation",
+     "power bi"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation",
+     "power bi",
+     "tableau",
+     "pos",
+     "crm",
+     "quality assurance"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "power bi",
+     "tableau",
+     "pos",
+     "crm",
+     "quality assurance",
+     "agriculture",
+     "procurement",
+     "reconciliation",
+     "google sheets"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "crm",
+     "quality assurance"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "procurement",
+     "reconciliation",
+     "google sheets"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "credit risk",
+     "sabre",
+     "budgeting"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "budgeting",
+     "powerpoint",
+     "haccp",
+     "fraud detection",
+     "food safety"
+    ],
+    "seniorityAlignment": "match"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "fraud detection",
+     "food safety",
+     "kyc",
+     "aml",
+     "agronomy",
+     "amadeus"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aml",
+     "agronomy",
+     "amadeus",
+     "travelport",
+     "vendor management",
+     "fleet management",
+     "javascript"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "travelport",
+     "vendor management",
+     "fleet management",
+     "javascript",
+     "typescript",
+     "python",
+     "java",
+     "sql"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "adjacent"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "javascript",
+     "typescript",
+     "python",
+     "java",
+     "sql",
+     "react",
+     "node.js",
+     "next.js",
+     "aws"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "java",
+     "sql"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "node.js",
+     "next.js",
+     "aws"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "gcp",
+     "azure",
+     "kubernetes",
+     "docker"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "docker",
+     "graphql",
+     "rest api",
+     "product management"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "product management",
+     "data analysis",
+     "figma"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "data analysis",
+     "figma",
+     "ui/ux",
+     "sales",
+     "business development",
+     "customer success"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "ui/ux",
+     "sales",
+     "business development",
+     "customer success",
+     "salesforce",
+     "hubspot",
+     "digital marketing",
+     "seo"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "customer success",
+     "salesforce",
+     "hubspot",
+     "digital marketing",
+     "seo",
+     "content marketing",
+     "financial modeling",
+     "accounting",
+     "compliance"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "digital marketing",
+     "seo"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "financial modeling",
+     "accounting",
+     "compliance"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "risk management",
+     "recruiting",
+     "hr",
+     "payroll"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "payroll",
+     "supply chain",
+     "logistics"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation",
+     "power bi",
+     "tableau",
+     "pos",
+     "crm"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "power bi",
+     "tableau",
+     "pos",
+     "crm",
+     "quality assurance",
+     "agriculture",
+     "procurement",
+     "reconciliation"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "crm",
+     "quality assurance",
+     "agriculture",
+     "procurement",
+     "reconciliation",
+     "google sheets",
+     "microsoft office",
+     "credit risk",
+     "sabre"
+    ],
+    "seniorityAlignment": "below"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "procurement",
+     "reconciliation"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "credit risk",
+     "sabre"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "budgeting",
+     "powerpoint",
+     "haccp",
+     "fraud detection"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "adjacent"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "fraud detection",
+     "food safety",
+     "kyc",
+     "aml",
+     "agronomy"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aml",
+     "agronomy",
+     "amadeus",
+     "travelport",
+     "vendor management",
+     "fleet management"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "travelport",
+     "vendor management",
+     "fleet management",
+     "javascript",
+     "typescript",
+     "python",
+     "java"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "javascript",
+     "typescript",
+     "python",
+     "java",
+     "sql",
+     "react",
+     "node.js",
+     "next.js"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "java",
+     "sql",
+     "react",
+     "node.js",
+     "next.js",
+     "aws",
+     "gcp",
+     "azure",
+     "kubernetes"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "node.js",
+     "next.js"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "gcp",
+     "azure",
+     "kubernetes"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  }
+ ],
+ "skills null": [
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "above",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 55,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "match",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "customer service"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "adjacent"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aws",
+     "agile",
+     "sql"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "python",
+     "sql"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "customer service"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aws",
+     "sql"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "python",
+     "sql"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "financial modeling",
+     "accounting",
+     "compliance",
+     "risk management"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "risk management",
+     "recruiting",
+     "hr",
+     "payroll",
+     "supply chain"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "payroll",
+     "supply chain",
+     "logistics"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation",
+     "power bi"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation",
+     "power bi",
+     "tableau",
+     "pos",
+     "crm",
+     "quality assurance"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "power bi",
+     "tableau",
+     "pos",
+     "crm",
+     "quality assurance",
+     "agriculture",
+     "procurement",
+     "reconciliation",
+     "google sheets"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "crm",
+     "quality assurance"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "procurement",
+     "reconciliation",
+     "google sheets"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "credit risk",
+     "sabre",
+     "budgeting"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "budgeting",
+     "powerpoint",
+     "haccp",
+     "fraud detection",
+     "food safety"
+    ],
+    "seniorityAlignment": "match"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "fraud detection",
+     "food safety",
+     "kyc",
+     "aml",
+     "agronomy",
+     "amadeus"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aml",
+     "agronomy",
+     "amadeus",
+     "travelport",
+     "vendor management",
+     "fleet management",
+     "javascript"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "travelport",
+     "vendor management",
+     "fleet management",
+     "javascript",
+     "typescript",
+     "python",
+     "java",
+     "sql"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "adjacent"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "javascript",
+     "typescript",
+     "python",
+     "java",
+     "sql",
+     "react",
+     "node.js",
+     "next.js",
+     "aws"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "java",
+     "sql"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "node.js",
+     "next.js",
+     "aws"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "gcp",
+     "azure",
+     "kubernetes",
+     "docker"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "docker",
+     "graphql",
+     "rest api",
+     "product management"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "product management",
+     "data analysis",
+     "figma"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "data analysis",
+     "figma",
+     "ui/ux",
+     "sales",
+     "business development",
+     "customer success"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "ui/ux",
+     "sales",
+     "business development",
+     "customer success",
+     "salesforce",
+     "hubspot",
+     "digital marketing",
+     "seo"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "customer success",
+     "salesforce",
+     "hubspot",
+     "digital marketing",
+     "seo",
+     "content marketing",
+     "financial modeling",
+     "accounting",
+     "compliance"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "digital marketing",
+     "seo"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "financial modeling",
+     "accounting",
+     "compliance"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "risk management",
+     "recruiting",
+     "hr",
+     "payroll"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "payroll",
+     "supply chain",
+     "logistics"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation",
+     "power bi",
+     "tableau",
+     "pos",
+     "crm"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "power bi",
+     "tableau",
+     "pos",
+     "crm",
+     "quality assurance",
+     "agriculture",
+     "procurement",
+     "reconciliation"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "crm",
+     "quality assurance",
+     "agriculture",
+     "procurement",
+     "reconciliation",
+     "google sheets",
+     "microsoft office",
+     "credit risk",
+     "sabre"
+    ],
+    "seniorityAlignment": "below"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "procurement",
+     "reconciliation"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "credit risk",
+     "sabre"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "budgeting",
+     "powerpoint",
+     "haccp",
+     "fraud detection"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "adjacent"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "fraud detection",
+     "food safety",
+     "kyc",
+     "aml",
+     "agronomy"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aml",
+     "agronomy",
+     "amadeus",
+     "travelport",
+     "vendor management",
+     "fleet management"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "travelport",
+     "vendor management",
+     "fleet management",
+     "javascript",
+     "typescript",
+     "python",
+     "java"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "javascript",
+     "typescript",
+     "python",
+     "java",
+     "sql",
+     "react",
+     "node.js",
+     "next.js"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "java",
+     "sql",
+     "react",
+     "node.js",
+     "next.js",
+     "aws",
+     "gcp",
+     "azure",
+     "kubernetes"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "node.js",
+     "next.js"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "gcp",
+     "azure",
+     "kubernetes"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  }
+ ],
+ "empty skills": [
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "above",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 55,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "match",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "customer service"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "adjacent"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aws",
+     "agile",
+     "sql"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "python",
+     "sql"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "customer service"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aws",
+     "sql"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "python",
+     "sql"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "financial modeling",
+     "accounting",
+     "compliance",
+     "risk management"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "risk management",
+     "recruiting",
+     "hr",
+     "payroll",
+     "supply chain"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "payroll",
+     "supply chain",
+     "logistics"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation",
+     "power bi"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation",
+     "power bi",
+     "tableau",
+     "pos",
+     "crm",
+     "quality assurance"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "power bi",
+     "tableau",
+     "pos",
+     "crm",
+     "quality assurance",
+     "agriculture",
+     "procurement",
+     "reconciliation",
+     "google sheets"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "crm",
+     "quality assurance"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "procurement",
+     "reconciliation",
+     "google sheets"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "credit risk",
+     "sabre",
+     "budgeting"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "budgeting",
+     "powerpoint",
+     "haccp",
+     "fraud detection",
+     "food safety"
+    ],
+    "seniorityAlignment": "match"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "fraud detection",
+     "food safety",
+     "kyc",
+     "aml",
+     "agronomy",
+     "amadeus"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aml",
+     "agronomy",
+     "amadeus",
+     "travelport",
+     "vendor management",
+     "fleet management",
+     "javascript"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "travelport",
+     "vendor management",
+     "fleet management",
+     "javascript",
+     "typescript",
+     "python",
+     "java",
+     "sql"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "adjacent"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "javascript",
+     "typescript",
+     "python",
+     "java",
+     "sql",
+     "react",
+     "node.js",
+     "next.js",
+     "aws"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "java",
+     "sql"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "node.js",
+     "next.js",
+     "aws"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "gcp",
+     "azure",
+     "kubernetes",
+     "docker"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "docker",
+     "graphql",
+     "rest api",
+     "product management"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "product management",
+     "data analysis",
+     "figma"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "data analysis",
+     "figma",
+     "ui/ux",
+     "sales",
+     "business development",
+     "customer success"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "ui/ux",
+     "sales",
+     "business development",
+     "customer success",
+     "salesforce",
+     "hubspot",
+     "digital marketing",
+     "seo"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "customer success",
+     "salesforce",
+     "hubspot",
+     "digital marketing",
+     "seo",
+     "content marketing",
+     "financial modeling",
+     "accounting",
+     "compliance"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "digital marketing",
+     "seo"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "financial modeling",
+     "accounting",
+     "compliance"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "risk management",
+     "recruiting",
+     "hr",
+     "payroll"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "payroll",
+     "supply chain",
+     "logistics"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation",
+     "power bi",
+     "tableau",
+     "pos",
+     "crm"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "power bi",
+     "tableau",
+     "pos",
+     "crm",
+     "quality assurance",
+     "agriculture",
+     "procurement",
+     "reconciliation"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "crm",
+     "quality assurance",
+     "agriculture",
+     "procurement",
+     "reconciliation",
+     "google sheets",
+     "microsoft office",
+     "credit risk",
+     "sabre"
+    ],
+    "seniorityAlignment": "below"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "procurement",
+     "reconciliation"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "credit risk",
+     "sabre"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "budgeting",
+     "powerpoint",
+     "haccp",
+     "fraud detection"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "adjacent"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "fraud detection",
+     "food safety",
+     "kyc",
+     "aml",
+     "agronomy"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aml",
+     "agronomy",
+     "amadeus",
+     "travelport",
+     "vendor management",
+     "fleet management"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "travelport",
+     "vendor management",
+     "fleet management",
+     "javascript",
+     "typescript",
+     "python",
+     "java"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "javascript",
+     "typescript",
+     "python",
+     "java",
+     "sql",
+     "react",
+     "node.js",
+     "next.js"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "java",
+     "sql",
+     "react",
+     "node.js",
+     "next.js",
+     "aws",
+     "gcp",
+     "azure",
+     "kubernetes"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "node.js",
+     "next.js"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "gcp",
+     "azure",
+     "kubernetes"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  }
+ ],
+ "duplicate and mixed-case skills": [
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "above",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 55,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "match",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "customer service"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "adjacent"
+   }
+  },
+  {
+   "score": 18,
+   "explanation": {
+    "matchedSkills": [
+     "sql"
+    ],
+    "missingSkills": [
+     "aws",
+     "agile"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 59,
+   "explanation": {
+    "matchedSkills": [
+     "python",
+     "sql"
+    ],
+    "missingSkills": [],
+    "seniorityAlignment": "below",
+    "roleFit": "different",
+    "scoreBeforeRoleFit": 85
+   }
+  },
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "customer service"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [
+     "sql"
+    ],
+    "missingSkills": [
+     "aws"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 59,
+   "explanation": {
+    "matchedSkills": [
+     "python",
+     "sql"
+    ],
+    "missingSkills": [],
+    "seniorityAlignment": "below",
+    "roleFit": "different",
+    "scoreBeforeRoleFit": 85
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "financial modeling",
+     "accounting",
+     "compliance",
+     "risk management"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "risk management",
+     "recruiting",
+     "hr",
+     "payroll",
+     "supply chain"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "payroll",
+     "supply chain",
+     "logistics"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation",
+     "power bi"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation",
+     "power bi",
+     "tableau",
+     "pos",
+     "crm",
+     "quality assurance"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "power bi",
+     "tableau",
+     "pos",
+     "crm",
+     "quality assurance",
+     "agriculture",
+     "procurement",
+     "reconciliation",
+     "google sheets"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "crm",
+     "quality assurance"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "procurement",
+     "reconciliation",
+     "google sheets"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "credit risk",
+     "sabre",
+     "budgeting"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "budgeting",
+     "powerpoint",
+     "haccp",
+     "fraud detection",
+     "food safety"
+    ],
+    "seniorityAlignment": "match"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "fraud detection",
+     "food safety",
+     "kyc",
+     "aml",
+     "agronomy",
+     "amadeus"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aml",
+     "agronomy",
+     "amadeus",
+     "travelport",
+     "vendor management",
+     "fleet management",
+     "javascript"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 10,
+   "explanation": {
+    "matchedSkills": [
+     "python",
+     "sql"
+    ],
+    "missingSkills": [
+     "travelport",
+     "vendor management",
+     "fleet management",
+     "javascript",
+     "typescript",
+     "java"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "adjacent"
+   }
+  },
+  {
+   "score": 22,
+   "explanation": {
+    "matchedSkills": [
+     "python",
+     "sql"
+    ],
+    "missingSkills": [
+     "javascript",
+     "typescript",
+     "java",
+     "react",
+     "node.js",
+     "next.js",
+     "aws"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [
+     "sql"
+    ],
+    "missingSkills": [
+     "java"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "node.js",
+     "next.js",
+     "aws"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "gcp",
+     "azure",
+     "kubernetes",
+     "docker"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "docker",
+     "graphql",
+     "rest api",
+     "product management"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "product management",
+     "data analysis",
+     "figma"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "data analysis",
+     "figma",
+     "ui/ux",
+     "sales",
+     "business development",
+     "customer success"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "ui/ux",
+     "sales",
+     "business development",
+     "customer success",
+     "salesforce",
+     "hubspot",
+     "digital marketing",
+     "seo"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "customer success",
+     "salesforce",
+     "hubspot",
+     "digital marketing",
+     "seo",
+     "content marketing",
+     "financial modeling",
+     "accounting",
+     "compliance"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "digital marketing",
+     "seo"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "financial modeling",
+     "accounting",
+     "compliance"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "risk management",
+     "recruiting",
+     "hr",
+     "payroll"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "payroll",
+     "supply chain",
+     "logistics"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation",
+     "power bi",
+     "tableau",
+     "pos",
+     "crm"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "power bi",
+     "tableau",
+     "pos",
+     "crm",
+     "quality assurance",
+     "agriculture",
+     "procurement",
+     "reconciliation"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "crm",
+     "quality assurance",
+     "agriculture",
+     "procurement",
+     "reconciliation",
+     "google sheets",
+     "microsoft office",
+     "credit risk",
+     "sabre"
+    ],
+    "seniorityAlignment": "below"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "procurement",
+     "reconciliation"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "credit risk",
+     "sabre"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "budgeting",
+     "powerpoint",
+     "haccp",
+     "fraud detection"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "adjacent"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "fraud detection",
+     "food safety",
+     "kyc",
+     "aml",
+     "agronomy"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aml",
+     "agronomy",
+     "amadeus",
+     "travelport",
+     "vendor management",
+     "fleet management"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [
+     "python"
+    ],
+    "missingSkills": [
+     "travelport",
+     "vendor management",
+     "fleet management",
+     "javascript",
+     "typescript",
+     "java"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 10,
+   "explanation": {
+    "matchedSkills": [
+     "python",
+     "sql"
+    ],
+    "missingSkills": [
+     "javascript",
+     "typescript",
+     "java",
+     "react",
+     "node.js",
+     "next.js"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 11,
+   "explanation": {
+    "matchedSkills": [
+     "sql"
+    ],
+    "missingSkills": [
+     "java",
+     "react",
+     "node.js",
+     "next.js",
+     "aws",
+     "gcp",
+     "azure",
+     "kubernetes"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "node.js",
+     "next.js"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "gcp",
+     "azure",
+     "kubernetes"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  }
+ ],
+ "non-string entries": [
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "above",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 55,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "match",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "customer service"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "adjacent"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aws",
+     "agile",
+     "sql"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "python",
+     "sql"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "customer service"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aws",
+     "sql"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "python",
+     "sql"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "financial modeling",
+     "accounting",
+     "compliance",
+     "risk management"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "risk management",
+     "recruiting",
+     "hr",
+     "payroll",
+     "supply chain"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "payroll",
+     "supply chain",
+     "logistics"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation",
+     "power bi"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation",
+     "power bi",
+     "tableau",
+     "pos",
+     "crm",
+     "quality assurance"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "power bi",
+     "tableau",
+     "pos",
+     "crm",
+     "quality assurance",
+     "agriculture",
+     "procurement",
+     "reconciliation",
+     "google sheets"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "crm",
+     "quality assurance"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "procurement",
+     "reconciliation",
+     "google sheets"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "credit risk",
+     "sabre",
+     "budgeting"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "budgeting",
+     "powerpoint",
+     "haccp",
+     "fraud detection",
+     "food safety"
+    ],
+    "seniorityAlignment": "match"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "fraud detection",
+     "food safety",
+     "kyc",
+     "aml",
+     "agronomy",
+     "amadeus"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aml",
+     "agronomy",
+     "amadeus",
+     "travelport",
+     "vendor management",
+     "fleet management",
+     "javascript"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [
+     "java"
+    ],
+    "missingSkills": [
+     "travelport",
+     "vendor management",
+     "fleet management",
+     "javascript",
+     "typescript",
+     "python",
+     "sql"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "adjacent"
+   }
+  },
+  {
+   "score": 11,
+   "explanation": {
+    "matchedSkills": [
+     "java"
+    ],
+    "missingSkills": [
+     "javascript",
+     "typescript",
+     "python",
+     "sql",
+     "react",
+     "node.js",
+     "next.js",
+     "aws"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [
+     "java"
+    ],
+    "missingSkills": [
+     "sql"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "node.js",
+     "next.js",
+     "aws"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 25,
+   "explanation": {
+    "matchedSkills": [
+     "docker"
+    ],
+    "missingSkills": [
+     "gcp",
+     "azure",
+     "kubernetes"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 10,
+   "explanation": {
+    "matchedSkills": [
+     "docker"
+    ],
+    "missingSkills": [
+     "graphql",
+     "rest api",
+     "product management"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "product management",
+     "data analysis",
+     "figma"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "data analysis",
+     "figma",
+     "ui/ux",
+     "sales",
+     "business development",
+     "customer success"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "ui/ux",
+     "sales",
+     "business development",
+     "customer success",
+     "salesforce",
+     "hubspot",
+     "digital marketing",
+     "seo"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "customer success",
+     "salesforce",
+     "hubspot",
+     "digital marketing",
+     "seo",
+     "content marketing",
+     "financial modeling",
+     "accounting",
+     "compliance"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "digital marketing",
+     "seo"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "financial modeling",
+     "accounting",
+     "compliance"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "risk management",
+     "recruiting",
+     "hr",
+     "payroll"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "payroll",
+     "supply chain",
+     "logistics"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation",
+     "power bi",
+     "tableau",
+     "pos",
+     "crm"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "power bi",
+     "tableau",
+     "pos",
+     "crm",
+     "quality assurance",
+     "agriculture",
+     "procurement",
+     "reconciliation"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "crm",
+     "quality assurance",
+     "agriculture",
+     "procurement",
+     "reconciliation",
+     "google sheets",
+     "microsoft office",
+     "credit risk",
+     "sabre"
+    ],
+    "seniorityAlignment": "below"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "procurement",
+     "reconciliation"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "credit risk",
+     "sabre"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "budgeting",
+     "powerpoint",
+     "haccp",
+     "fraud detection"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "adjacent"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "fraud detection",
+     "food safety",
+     "kyc",
+     "aml",
+     "agronomy"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aml",
+     "agronomy",
+     "amadeus",
+     "travelport",
+     "vendor management",
+     "fleet management"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [
+     "java"
+    ],
+    "missingSkills": [
+     "travelport",
+     "vendor management",
+     "fleet management",
+     "javascript",
+     "typescript",
+     "python"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [
+     "java"
+    ],
+    "missingSkills": [
+     "javascript",
+     "typescript",
+     "python",
+     "sql",
+     "react",
+     "node.js",
+     "next.js"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 11,
+   "explanation": {
+    "matchedSkills": [
+     "java"
+    ],
+    "missingSkills": [
+     "sql",
+     "react",
+     "node.js",
+     "next.js",
+     "aws",
+     "gcp",
+     "azure",
+     "kubernetes"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "node.js",
+     "next.js"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "gcp",
+     "azure",
+     "kubernetes"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  }
+ ],
+ "separators": [
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "above",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 55,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "match",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "customer service"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "adjacent"
+   }
+  },
+  {
+   "score": 18,
+   "explanation": {
+    "matchedSkills": [
+     "aws"
+    ],
+    "missingSkills": [
+     "agile",
+     "sql"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 35,
+   "explanation": {
+    "matchedSkills": [
+     "python"
+    ],
+    "missingSkills": [
+     "sql"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "customer service"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [
+     "aws"
+    ],
+    "missingSkills": [
+     "sql"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 35,
+   "explanation": {
+    "matchedSkills": [
+     "python"
+    ],
+    "missingSkills": [
+     "sql"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "financial modeling",
+     "accounting",
+     "compliance",
+     "risk management"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "risk management",
+     "recruiting",
+     "hr",
+     "payroll",
+     "supply chain"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "payroll",
+     "supply chain",
+     "logistics"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation",
+     "power bi"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation",
+     "power bi",
+     "tableau",
+     "pos",
+     "crm",
+     "quality assurance"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "power bi",
+     "tableau",
+     "pos",
+     "crm",
+     "quality assurance",
+     "agriculture",
+     "procurement",
+     "reconciliation",
+     "google sheets"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "crm",
+     "quality assurance"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "procurement",
+     "reconciliation",
+     "google sheets"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "credit risk",
+     "sabre",
+     "budgeting"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "budgeting",
+     "powerpoint",
+     "haccp",
+     "fraud detection",
+     "food safety"
+    ],
+    "seniorityAlignment": "match"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "fraud detection",
+     "food safety",
+     "kyc",
+     "aml",
+     "agronomy",
+     "amadeus"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [
+     "javascript"
+    ],
+    "missingSkills": [
+     "aml",
+     "agronomy",
+     "amadeus",
+     "travelport",
+     "vendor management",
+     "fleet management"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 10,
+   "explanation": {
+    "matchedSkills": [
+     "javascript",
+     "python"
+    ],
+    "missingSkills": [
+     "travelport",
+     "vendor management",
+     "fleet management",
+     "typescript",
+     "java",
+     "sql"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "adjacent"
+   }
+  },
+  {
+   "score": 33,
+   "explanation": {
+    "matchedSkills": [
+     "javascript",
+     "python",
+     "aws"
+    ],
+    "missingSkills": [
+     "typescript",
+     "java",
+     "sql",
+     "react",
+     "node.js",
+     "next.js"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "java",
+     "sql"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 38,
+   "explanation": {
+    "matchedSkills": [
+     "aws"
+    ],
+    "missingSkills": [
+     "node.js",
+     "next.js"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [
+     "gcp",
+     "azure"
+    ],
+    "missingSkills": [
+     "kubernetes",
+     "docker"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "docker",
+     "graphql",
+     "rest api",
+     "product management"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "product management",
+     "data analysis",
+     "figma"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "data analysis",
+     "figma",
+     "ui/ux",
+     "sales",
+     "business development",
+     "customer success"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "ui/ux",
+     "sales",
+     "business development",
+     "customer success",
+     "salesforce",
+     "hubspot",
+     "digital marketing",
+     "seo"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "customer success",
+     "salesforce",
+     "hubspot",
+     "digital marketing",
+     "seo",
+     "content marketing",
+     "financial modeling",
+     "accounting",
+     "compliance"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "digital marketing",
+     "seo"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "financial modeling",
+     "accounting",
+     "compliance"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "risk management",
+     "recruiting",
+     "hr",
+     "payroll"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "payroll",
+     "supply chain",
+     "logistics"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation",
+     "power bi",
+     "tableau",
+     "pos",
+     "crm"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "power bi",
+     "tableau",
+     "pos",
+     "crm",
+     "quality assurance",
+     "agriculture",
+     "procurement",
+     "reconciliation"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "crm",
+     "quality assurance",
+     "agriculture",
+     "procurement",
+     "reconciliation",
+     "google sheets",
+     "microsoft office",
+     "credit risk",
+     "sabre"
+    ],
+    "seniorityAlignment": "below"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "procurement",
+     "reconciliation"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "credit risk",
+     "sabre"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "budgeting",
+     "powerpoint",
+     "haccp",
+     "fraud detection"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "adjacent"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "fraud detection",
+     "food safety",
+     "kyc",
+     "aml",
+     "agronomy"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aml",
+     "agronomy",
+     "amadeus",
+     "travelport",
+     "vendor management",
+     "fleet management"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 14,
+   "explanation": {
+    "matchedSkills": [
+     "javascript",
+     "python"
+    ],
+    "missingSkills": [
+     "travelport",
+     "vendor management",
+     "fleet management",
+     "typescript",
+     "java"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 10,
+   "explanation": {
+    "matchedSkills": [
+     "javascript",
+     "python"
+    ],
+    "missingSkills": [
+     "typescript",
+     "java",
+     "sql",
+     "react",
+     "node.js",
+     "next.js"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 33,
+   "explanation": {
+    "matchedSkills": [
+     "aws",
+     "gcp",
+     "azure"
+    ],
+    "missingSkills": [
+     "java",
+     "sql",
+     "react",
+     "node.js",
+     "next.js",
+     "kubernetes"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "node.js",
+     "next.js"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 59,
+   "explanation": {
+    "matchedSkills": [
+     "gcp",
+     "azure"
+    ],
+    "missingSkills": [
+     "kubernetes"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different",
+    "scoreBeforeRoleFit": 72
+   }
+  }
+ ],
+ "blank entries": [
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "above",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 55,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "match",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "customer service"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "adjacent"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aws",
+     "agile",
+     "sql"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "python",
+     "sql"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "customer service"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aws",
+     "sql"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "python",
+     "sql"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "financial modeling",
+     "accounting",
+     "compliance",
+     "risk management"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "risk management",
+     "recruiting",
+     "hr",
+     "payroll",
+     "supply chain"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "payroll",
+     "supply chain",
+     "logistics"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation",
+     "power bi"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation",
+     "power bi",
+     "tableau",
+     "pos",
+     "crm",
+     "quality assurance"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "power bi",
+     "tableau",
+     "pos",
+     "crm",
+     "quality assurance",
+     "agriculture",
+     "procurement",
+     "reconciliation",
+     "google sheets"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "crm",
+     "quality assurance"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "procurement",
+     "reconciliation",
+     "google sheets"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "credit risk",
+     "sabre",
+     "budgeting"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "budgeting",
+     "powerpoint",
+     "haccp",
+     "fraud detection",
+     "food safety"
+    ],
+    "seniorityAlignment": "match"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "fraud detection",
+     "food safety",
+     "kyc",
+     "aml",
+     "agronomy",
+     "amadeus"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aml",
+     "agronomy",
+     "amadeus",
+     "travelport",
+     "vendor management",
+     "fleet management",
+     "javascript"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "travelport",
+     "vendor management",
+     "fleet management",
+     "javascript",
+     "typescript",
+     "python",
+     "java",
+     "sql"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "adjacent"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "javascript",
+     "typescript",
+     "python",
+     "java",
+     "sql",
+     "react",
+     "node.js",
+     "next.js",
+     "aws"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "java",
+     "sql"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "node.js",
+     "next.js",
+     "aws"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "gcp",
+     "azure",
+     "kubernetes",
+     "docker"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "docker",
+     "graphql",
+     "rest api",
+     "product management"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "product management",
+     "data analysis",
+     "figma"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 17,
+   "explanation": {
+    "matchedSkills": [
+     "sales"
+    ],
+    "missingSkills": [
+     "data analysis",
+     "figma",
+     "ui/ux",
+     "business development",
+     "customer success"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 13,
+   "explanation": {
+    "matchedSkills": [
+     "sales"
+    ],
+    "missingSkills": [
+     "ui/ux",
+     "business development",
+     "customer success",
+     "salesforce",
+     "hubspot",
+     "digital marketing",
+     "seo"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "customer success",
+     "salesforce",
+     "hubspot",
+     "digital marketing",
+     "seo",
+     "content marketing",
+     "financial modeling",
+     "accounting",
+     "compliance"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "digital marketing",
+     "seo"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "financial modeling",
+     "accounting",
+     "compliance"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "risk management",
+     "recruiting",
+     "hr",
+     "payroll"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "payroll",
+     "supply chain",
+     "logistics"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation",
+     "power bi",
+     "tableau",
+     "pos",
+     "crm"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "power bi",
+     "tableau",
+     "pos",
+     "crm",
+     "quality assurance",
+     "agriculture",
+     "procurement",
+     "reconciliation"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "crm",
+     "quality assurance",
+     "agriculture",
+     "procurement",
+     "reconciliation",
+     "google sheets",
+     "microsoft office",
+     "credit risk",
+     "sabre"
+    ],
+    "seniorityAlignment": "below"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "procurement",
+     "reconciliation"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "credit risk",
+     "sabre"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "same"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "budgeting",
+     "powerpoint",
+     "haccp",
+     "fraud detection"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "adjacent"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "fraud detection",
+     "food safety",
+     "kyc",
+     "aml",
+     "agronomy"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aml",
+     "agronomy",
+     "amadeus",
+     "travelport",
+     "vendor management",
+     "fleet management"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "travelport",
+     "vendor management",
+     "fleet management",
+     "javascript",
+     "typescript",
+     "python",
+     "java"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "javascript",
+     "typescript",
+     "python",
+     "java",
+     "sql",
+     "react",
+     "node.js",
+     "next.js"
+    ],
+    "seniorityAlignment": "below",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "java",
+     "sql",
+     "react",
+     "node.js",
+     "next.js",
+     "aws",
+     "gcp",
+     "azure",
+     "kubernetes"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "node.js",
+     "next.js"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "different"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "gcp",
+     "azure",
+     "kubernetes"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "different"
+   }
+  }
+ ],
+ "no experience": [
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "customer service"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aws",
+     "agile",
+     "sql"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "python",
+     "sql"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "customer service"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aws",
+     "sql"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "python",
+     "sql"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 25,
+   "explanation": {
+    "matchedSkills": [
+     "accounting"
+    ],
+    "missingSkills": [
+     "financial modeling",
+     "compliance",
+     "risk management"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "risk management",
+     "recruiting",
+     "hr",
+     "payroll",
+     "supply chain"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "payroll",
+     "supply chain",
+     "logistics"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation",
+     "power bi"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation",
+     "power bi",
+     "tableau",
+     "pos",
+     "crm",
+     "quality assurance"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "power bi",
+     "tableau",
+     "pos",
+     "crm",
+     "quality assurance",
+     "agriculture",
+     "procurement",
+     "reconciliation",
+     "google sheets"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "crm",
+     "quality assurance"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "procurement",
+     "reconciliation",
+     "google sheets"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "credit risk",
+     "sabre",
+     "budgeting"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "budgeting",
+     "powerpoint",
+     "haccp",
+     "fraud detection",
+     "food safety"
+    ],
+    "seniorityAlignment": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "fraud detection",
+     "food safety",
+     "kyc",
+     "aml",
+     "agronomy",
+     "amadeus"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aml",
+     "agronomy",
+     "amadeus",
+     "travelport",
+     "vendor management",
+     "fleet management",
+     "javascript"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "travelport",
+     "vendor management",
+     "fleet management",
+     "javascript",
+     "typescript",
+     "python",
+     "java",
+     "sql"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "javascript",
+     "typescript",
+     "python",
+     "java",
+     "sql",
+     "react",
+     "node.js",
+     "next.js",
+     "aws"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "java",
+     "sql"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "node.js",
+     "next.js",
+     "aws"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "gcp",
+     "azure",
+     "kubernetes",
+     "docker"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "docker",
+     "graphql",
+     "rest api",
+     "product management"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "product management",
+     "data analysis",
+     "figma"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "data analysis",
+     "figma",
+     "ui/ux",
+     "sales",
+     "business development",
+     "customer success"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "ui/ux",
+     "sales",
+     "business development",
+     "customer success",
+     "salesforce",
+     "hubspot",
+     "digital marketing",
+     "seo"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 11,
+   "explanation": {
+    "matchedSkills": [
+     "accounting"
+    ],
+    "missingSkills": [
+     "customer success",
+     "salesforce",
+     "hubspot",
+     "digital marketing",
+     "seo",
+     "content marketing",
+     "financial modeling",
+     "compliance"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "digital marketing",
+     "seo"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 33,
+   "explanation": {
+    "matchedSkills": [
+     "accounting"
+    ],
+    "missingSkills": [
+     "financial modeling",
+     "compliance"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "risk management",
+     "recruiting",
+     "hr",
+     "payroll"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "payroll",
+     "supply chain",
+     "logistics"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation",
+     "power bi",
+     "tableau",
+     "pos",
+     "crm"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "power bi",
+     "tableau",
+     "pos",
+     "crm",
+     "quality assurance",
+     "agriculture",
+     "procurement",
+     "reconciliation"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "crm",
+     "quality assurance",
+     "agriculture",
+     "procurement",
+     "reconciliation",
+     "google sheets",
+     "microsoft office",
+     "credit risk",
+     "sabre"
+    ],
+    "seniorityAlignment": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "procurement",
+     "reconciliation"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "credit risk",
+     "sabre"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "budgeting",
+     "powerpoint",
+     "haccp",
+     "fraud detection"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "fraud detection",
+     "food safety",
+     "kyc",
+     "aml",
+     "agronomy"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aml",
+     "agronomy",
+     "amadeus",
+     "travelport",
+     "vendor management",
+     "fleet management"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "travelport",
+     "vendor management",
+     "fleet management",
+     "javascript",
+     "typescript",
+     "python",
+     "java"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "javascript",
+     "typescript",
+     "python",
+     "java",
+     "sql",
+     "react",
+     "node.js",
+     "next.js"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "java",
+     "sql",
+     "react",
+     "node.js",
+     "next.js",
+     "aws",
+     "gcp",
+     "azure",
+     "kubernetes"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "node.js",
+     "next.js"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "gcp",
+     "azure",
+     "kubernetes"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  }
+ ],
+ "executive title": [
+  {
+   "score": 35,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 35,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "customer service"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 33,
+   "explanation": {
+    "matchedSkills": [
+     "agile"
+    ],
+    "missingSkills": [
+     "aws",
+     "sql"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "python",
+     "sql"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 50,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 35,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "customer service"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aws",
+     "sql"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "python",
+     "sql"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "financial modeling",
+     "accounting",
+     "compliance",
+     "risk management"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "risk management",
+     "recruiting",
+     "hr",
+     "payroll",
+     "supply chain"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "payroll",
+     "supply chain",
+     "logistics"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation",
+     "power bi"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation",
+     "power bi",
+     "tableau",
+     "pos",
+     "crm",
+     "quality assurance"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "power bi",
+     "tableau",
+     "pos",
+     "crm",
+     "quality assurance",
+     "agriculture",
+     "procurement",
+     "reconciliation",
+     "google sheets"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "crm",
+     "quality assurance"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "procurement",
+     "reconciliation",
+     "google sheets"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "credit risk",
+     "sabre",
+     "budgeting"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "budgeting",
+     "powerpoint",
+     "haccp",
+     "fraud detection",
+     "food safety"
+    ],
+    "seniorityAlignment": "above"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "fraud detection",
+     "food safety",
+     "kyc",
+     "aml",
+     "agronomy",
+     "amadeus"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aml",
+     "agronomy",
+     "amadeus",
+     "travelport",
+     "vendor management",
+     "fleet management",
+     "javascript"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "travelport",
+     "vendor management",
+     "fleet management",
+     "javascript",
+     "typescript",
+     "python",
+     "java",
+     "sql"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "javascript",
+     "typescript",
+     "python",
+     "java",
+     "sql",
+     "react",
+     "node.js",
+     "next.js",
+     "aws"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "java",
+     "sql"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "node.js",
+     "next.js",
+     "aws"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "gcp",
+     "azure",
+     "kubernetes",
+     "docker"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "docker",
+     "graphql",
+     "rest api",
+     "product management"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "product management",
+     "data analysis",
+     "figma"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "data analysis",
+     "figma",
+     "ui/ux",
+     "sales",
+     "business development",
+     "customer success"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "ui/ux",
+     "sales",
+     "business development",
+     "customer success",
+     "salesforce",
+     "hubspot",
+     "digital marketing",
+     "seo"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "customer success",
+     "salesforce",
+     "hubspot",
+     "digital marketing",
+     "seo",
+     "content marketing",
+     "financial modeling",
+     "accounting",
+     "compliance"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "digital marketing",
+     "seo"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "financial modeling",
+     "accounting",
+     "compliance"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "risk management",
+     "recruiting",
+     "hr",
+     "payroll"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "payroll",
+     "supply chain",
+     "logistics"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "negotiation",
+     "power bi",
+     "tableau",
+     "pos",
+     "crm"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "power bi",
+     "tableau",
+     "pos",
+     "crm",
+     "quality assurance",
+     "agriculture",
+     "procurement",
+     "reconciliation"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "crm",
+     "quality assurance",
+     "agriculture",
+     "procurement",
+     "reconciliation",
+     "google sheets",
+     "microsoft office",
+     "credit risk",
+     "sabre"
+    ],
+    "seniorityAlignment": "above"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "procurement",
+     "reconciliation"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "credit risk",
+     "sabre"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "budgeting",
+     "powerpoint",
+     "haccp",
+     "fraud detection"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "fraud detection",
+     "food safety",
+     "kyc",
+     "aml",
+     "agronomy"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "aml",
+     "agronomy",
+     "amadeus",
+     "travelport",
+     "vendor management",
+     "fleet management"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "travelport",
+     "vendor management",
+     "fleet management",
+     "javascript",
+     "typescript",
+     "python",
+     "java"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 5,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "javascript",
+     "typescript",
+     "python",
+     "java",
+     "sql",
+     "react",
+     "node.js",
+     "next.js"
+    ],
+    "seniorityAlignment": "match",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "java",
+     "sql",
+     "react",
+     "node.js",
+     "next.js",
+     "aws",
+     "gcp",
+     "azure",
+     "kubernetes"
+    ],
+    "seniorityAlignment": "unknown",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "node.js",
+     "next.js"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  },
+  {
+   "score": 0,
+   "explanation": {
+    "matchedSkills": [],
+    "missingSkills": [
+     "gcp",
+     "azure",
+     "kubernetes"
+    ],
+    "seniorityAlignment": "above",
+    "roleFit": "unknown"
+   }
+  }
+ ]
+}
