@@ -135,12 +135,11 @@ describe("the decision table: which requests the worker answers", () => {
     expect(w.caches.opened).toHaveLength(0);
   });
 
-  it("the worker registers exactly install, activate, fetch, push and notificationclick, and nothing else", () => {
-    expect(Object.keys(worker().listeners).sort()).toEqual(["activate", "fetch", "install", "notificationclick", "push"]);
+  it("the worker registers exactly install, activate, fetch, message, push and notificationclick, and nothing else", () => {
+    expect(Object.keys(worker().listeners).sort()).toEqual(["activate", "fetch", "install", "message", "notificationclick", "push"]);
   });
 
-  it("an unlisted event type does nothing: there is no handler for message or sync", () => {
-    expect(worker().listeners.message).toBeUndefined();
+  it("an unlisted event type does nothing: there is no handler for sync (the one message handler is pinned in tests/pwa/push-client-worker-version.test.ts)", () => {
     expect(worker().listeners.sync).toBeUndefined();
   });
 });

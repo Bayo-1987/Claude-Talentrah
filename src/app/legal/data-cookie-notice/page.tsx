@@ -94,6 +94,12 @@ export default function DataCookieNoticePage() {
           screen, so we don&apos;t ask again for a while.
         </li>
         <li>
+          <strong>talentrah-push-reconciled</strong> — for people who turned on
+          notifications on this device: when the device last confirmed its
+          notification settings with Talentrah, so it does so at most once a
+          day.
+        </li>
+        <li>
           <strong>talentrah:pending-job-banner</strong> and{" "}
           <strong>talentrah-pending-job-assessment-files</strong> — for
           employers posting a job: the banner picture and any exercise files

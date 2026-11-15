@@ -1,3 +1,4 @@
+import { PUSH_WORKER_VERSION, WORKER_VERSION_REQUEST } from "@/lib/pwa/push/worker-version";
 /**
  * The two scripts /sw.js can serve, as plain JavaScript text. Kept as strings (not a build step, not a dependency) so the route can answer with
  * them and tests/pwa/service-worker.test.ts can run the REAL text in a fake worker scope.
@@ -169,6 +170,15 @@ self.addEventListener("notificationclick", function (event) {
       return self.clients.openWindow(target);
     })
   );
+});
+
+var PUSH_WORKER_VERSION = ${JSON.stringify(PUSH_WORKER_VERSION)};
+
+self.addEventListener("message", function (event) {
+  var data = event && event.data;
+  if (!data || typeof data !== "object" || data.type !== ${JSON.stringify(WORKER_VERSION_REQUEST)}) return;
+  var port = event.ports && event.ports[0];
+  if (port && typeof port.postMessage === "function") port.postMessage(PUSH_WORKER_VERSION);
 });
 
 self.addEventListener("install", function (event) {
