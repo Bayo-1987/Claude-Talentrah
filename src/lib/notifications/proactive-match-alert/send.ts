@@ -6,6 +6,7 @@ import { computeMatchScore } from "@/lib/matching/score";
 import { prepareResumeSkills } from "@/lib/matching/resume-skills";
 import { filterListablePostings, type RawScoredPosting } from "@/lib/digest/send";
 import { buildProactiveAlertEmail, buildProactiveAlertInApp } from "./template";
+import { pushIfAllowed, realPushGateDeps } from "../new-applicant/push-gates";
 import {
   candidateIsEligible,
   pickBestJobForCandidate,
@@ -170,6 +171,10 @@ export async function sendProactiveMatchAlerts(
         text: email.text,
         html: email.html,
       });
+
+      // The push channel (U5). Only `best` gets here: the one Excellent, sufficiently screenable match the selection returned. Gated and generic (no score, no digit), and a push that cannot go never
+      // turns a sent alert into a failed one.
+      await pushIfAllowed(realPushGateDeps(supabase), { userId: candidate.userId, kind: "match_alert", subject: best.jobId, url: "/jobs" });
 
       summary.sent++;
     } catch (err) {
