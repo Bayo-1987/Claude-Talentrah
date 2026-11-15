@@ -841,8 +841,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    * THE SCAN IS NOT ONE OF THEM: `scanAndQueue` and the score-cache write happen in `after()`, so the pending count reports the state as of the PREVIOUS feed render.
    */
   const readBIds = feedPage ? pageReadIds(pageRanked.map((s) => s.job.id), promotedIds) : [];
-  const [, { data: autoApplySettings }, pendingQueue, readB, unpagedCounts] = await Promise.all([
-    logCountryDefaultEvent({ userId: user.id, eventType: "feed_view", countryState, tab }),
+  const [{ data: autoApplySettings }, pendingQueue, readB, unpagedCounts] = await Promise.all([
     // Whether the toggle renders as on. Read here rather than taken from scanAndQueue's own copy, because the scan no longer runs on this path at all.
     supabase.from("auto_apply_settings").select("enabled").eq("user_id", user.id).maybeSingle(),
     // The same rows the /auto-apply page lists, by the same rule (open job, live score >= 80, not thin), so the banner's number can never disagree with the page it links to.
@@ -922,6 +921,9 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    */
   after(async () => {
     await Promise.all([
+      // The feed_view analytics row (FEED-PERF-2 F1). It used to be awaited on the response path with the page's reads, though nothing on this page reads it back. It writes with the service-role
+      // client and the user id taken above, so it needs neither the request's cookies nor its session, and logCountryDefaultEvent catches and logs its own failures: it cannot throw here.
+      logCountryDefaultEvent({ userId: user.id, eventType: "feed_view", countryState, tab }),
       (async () => {
         try {
           // The WHOLE ranked window, never the page: Auto-Apply's scan and the promoted join read these rows for every posting in it.
