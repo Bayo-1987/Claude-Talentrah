@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
+import { NOTIFICATION_RPCS } from "@/lib/notifications/contract-db";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { MarketingMasthead } from "@/components/marketing/marketing-masthead";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Container, EyebrowLabel } from "@/components/ui";
 import { pageMetadata } from "@/lib/seo/site";
 import { ResubscribeButton } from "./resubscribe-button";
-import { parsePreference } from "./preference";
+import { parsePreference, streamOf } from "./preference";
 
 /**
  * Unsubscribe, reached from a link in the digest, send-138's proactive match
@@ -68,6 +69,18 @@ const COPY = {
       body: "We won't send you a reminder when a saved scholarship's deadline is approaching. This doesn't affect your account, your saved scholarships, or anything else Talentrah sends.",
     },
   },
+  announcements: {
+    unsubscribed: {
+      heading: "You're unsubscribed.",
+      body: "We won't email you announcements from Talentrah again. This doesn't affect your account, offers and promotions (if you chose them), or anything else Talentrah sends, like receipts and password resets.",
+    },
+  },
+  promotions: {
+    unsubscribed: {
+      heading: "You're unsubscribed.",
+      body: "We won't email you offers and promotions from Talentrah again. This doesn't affect your account, announcements, or anything else Talentrah sends, like receipts and password resets.",
+    },
+  },
   win_back_email: {
     unsubscribed: {
       heading: "You're unsubscribed.",
@@ -87,8 +100,11 @@ export default async function UnsubscribePage({
   let matched = false;
   if (token) {
     const supabase = createServiceRoleClient();
+    const stream = streamOf(preference);
     const { data, error } =
-      preference === "proactive_match_alert"
+      stream !== null
+        ? await supabase.rpc(NOTIFICATION_RPCS.emailUnsubscribeStream, { p_token: token, p_stream: stream, p_subscribed: false })
+        : preference === "proactive_match_alert"
         ? await supabase.rpc("proactive_match_alert_set_preference", { p_token: token, p_enabled: false })
         : preference === "scholarship_deadline_alert"
           ? await supabase.rpc("scholarship_deadline_alert_set_preference", { p_token: token, p_enabled: false })

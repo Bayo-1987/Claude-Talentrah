@@ -6,6 +6,7 @@ import { billingRegionLabel } from "@/lib/billing/region";
 import { DeleteAccountSection } from "@/components/account-deletion/delete-account-section";
 import { getDeletionBlockers } from "@/lib/account-deletion/queries";
 import { SignOutEverywhere } from "./sign-out-everywhere";
+import { NotificationSettingsLink, readNotificationsLinkFlag } from "@/components/settings/notification-settings-link";
 
 export const metadata = { title: "Settings — Talentrah" };
 
@@ -35,6 +36,7 @@ export const metadata = { title: "Settings — Talentrah" };
 export default async function SettingsPage() {
   const { user, profile } = await requireUser();
   const deletionBlockers = await getDeletionBlockers(user.id);
+  const showNotifications = await readNotificationsLinkFlag();
 
   const readOnly = [
     {
@@ -81,6 +83,8 @@ export default async function SettingsPage() {
           </div>
         ))}
       </div>
+
+      <NotificationSettingsLink show={showNotifications} />
 
       <SignOutEverywhere />
       <DeleteAccountSection creditsBalance={Math.max(profile.credits_balance, 0)} blockers={deletionBlockers} />
