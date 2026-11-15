@@ -181,6 +181,11 @@ export type PostingDeletionResult = {
   /** How many were actually removed — see the idempotency note below for why this can be less than `eligible`. */
   deleted: number;
   ids: string[];
+  /**
+   * Eligible rows the run did NOT delete: something still references them (JOBS-LIFECYCLE-1 W-1, see job_posting_delete_unreferenced, 0279), or they changed state since the read. A
+   * kept row stays closed and is looked at again on the next run.
+   */
+  kept?: number;
   error?: string;
 };
 
@@ -221,7 +226,7 @@ export async function deleteStaleClosedPostings(
      * `.select()` returns rows that are already gone; the path has to be
      * captured while the row still exists.
      */
-    .select("id, banner_path")
+    .select("id")
     .eq("status", "closed")
     .not("closed_at", "is", null)
     .lt("closed_at", cutoff.toISOString());
@@ -232,16 +237,6 @@ export async function deleteStaleClosedPostings(
   }
 
   const eligibleIds = (eligibleRows ?? []).map((row) => row.id);
-  /*
-   * Only the rows that actually have one. Keyed by posting id so a batch can
-   * look up exactly what it deleted rather than re-deriving it.
-   */
-  const bannerPathById = new Map<string, string>(
-    (eligibleRows ?? [])
-      .filter((row): row is { id: string; banner_path: string } => !!row.banner_path)
-      .map((row) => [row.id, row.banner_path]),
-  );
-
   if (eligibleIds.length === 0) {
     return { eligible: 0, deleted: 0, ids: [] };
   }
@@ -270,61 +265,60 @@ export async function deleteStaleClosedPostings(
   const deletedIds: string[] = [];
 
   for (const batch of chunkInList(eligibleIds)) {
-    const { data: deletedRows, error: deleteError } = await supabase
-      .from("job_postings")
-      .delete()
-      .in("id", batch)
-      .eq("status", "closed")
-      .not("closed_at", "is", null)
-      .lt("closed_at", cutoff.toISOString())
-      .select("id");
+    /*
+     * ── W-1 (JOBS-LIFECYCLE-1): THE DELETE IS GUARDED BY THE DATABASE, AND THERE IS NO OTHER ───────────
+     *
+     * This used to be `.delete().in("id", batch)` with the status and age re-asserted. It deleted every closed posting 30 days after it closed whatever referenced it, so a closed employer job with a
+     * campaign, a report, an applicant, an interview or an assessment took those with it (the CASCADE tables) or had them orphaned (the SET NULL ones, which hides an applicant from the employer).
+     *
+     * Now the row goes only through job_posting_delete_unreferenced (0279): ONE statement that re-asserts closed + closed_at < cutoff, refuses any row a blocking table references (applications, so a
+     * saved job too; resumes; tailoring requests; messages; assessments; interviews; ads; reports; the auto-apply queue; the superseded_by self-link), deletes the rest, and writes each tombstone.
+     * Derived data (match scores, country events, apply-link clicks, proactive alerts, expiry reminders) is exempt and goes with the job, as it always did.
+     *
+     * IF THE FUNCTION IS MISSING OR ERRORS, THIS RUN DELETES NOTHING MORE AND SAYS SO. It must never fall back to the old unguarded delete: that fallback is the data loss this replaces, and "the guard
+     * was not applied yet" is exactly when an unguarded delete would do its damage. The nightly run is idempotent, so the cost of stopping is one more night of closed rows. A rejected call
+     * resolves with `error`; it does not throw, and it is checked.
+     *
+     * The rule is otherwise today's: the same 30 days, the same closed_at, the same eligible set. W4 (a later stage) retires the 30-day blanket; this stage only narrows what it may remove.
+     */
+    const { data: deletedRows, error: deleteError } = await supabase.rpc("job_posting_delete_unreferenced", {
+      p_ids: batch,
+      p_closed_before: cutoff.toISOString(),
+    });
 
-    // A rejected delete resolves with `error`, it does not throw — checked,
-    // per this repo's standing rule, because the alternative is a run that
-    // logs "deleted" over a batch that was actually refused.
     if (deleteError) {
       console.error(
-        `[job-deletion] batch delete FAILED after removing ${deletedCount}/${eligibleIds.length}:`,
+        `[job-deletion] the guarded delete FAILED after removing ${deletedCount}/${eligibleIds.length}; deleting nothing more, and NOT falling back to an unguarded delete:`,
         deleteError,
       );
       return {
         eligible: eligibleIds.length,
         deleted: deletedCount,
         ids: deletedIds,
+        kept: eligibleIds.length - deletedCount,
         error: deleteError.message,
       };
     }
 
-    const batchIds = (deletedRows ?? []).map((row) => row.id);
+    const batchIds = (deletedRows ?? []).map((row) => row.deleted_job_id);
     deletedCount += batchIds.length;
     deletedIds.push(...batchIds);
 
     /*
      * ── THE BANNER FILES FOR THE ROWS THIS BATCH ACTUALLY DELETED ─────────
      *
-     * AFTER the delete, and keyed off `batchIds` rather than off the eligible
-     * set, so a posting that was reopened between the SELECT and the DELETE
-     * keeps its banner — it still has a row, and the whole point of deleting
-     * at 30 days rather than at close time is that a closed posting can come
-     * back. Removing artwork from a listing that is alive again would be the
-     * regression this timing exists to avoid.
+     * Keyed off what the guarded delete RETURNED (it hands back each deleted row's banner path from the row itself), so a posting that was reopened or is still referenced between the
+     * SELECT and the delete keeps its banner: it still has a row. Removing artwork from a listing that is alive again would be the regression this timing exists to avoid.
      *
-     * LOG AND CONTINUE, NOT BLOCK — a deliberate choice. This function's own
-     * contract is "the batch reports how far it got, and a re-run is
-     * idempotent", and the DB deletion is the part that actually matters:
-     * blocking a row's permanent removal on a Storage hiccup would hold up
-     * real cleanup indefinitely for the less important half. The failure mode
-     * of continuing is a rare orphaned file, which the ops page's storage
-     * panel now makes visible — and which a re-run does NOT fix, since the row
-     * is gone, so it is reported loudly rather than left to be inferred from a
-     * byte count drifting upward.
+     * LOG AND CONTINUE, NOT BLOCK, as before: the database deletion is the part that matters, and blocking it on a Storage hiccup would hold up real cleanup. The failure mode is a rare orphaned
+     * file, reported loudly by removeBannerFiles.
      */
-    const bannerPaths = batchIds
-      .map((id) => bannerPathById.get(id))
+    const bannerPaths = (deletedRows ?? [])
+      .map((row) => row.deleted_banner_path)
       .filter((path): path is string => !!path);
 
     await removeBannerFiles(supabase, bannerPaths);
   }
 
-  return { eligible: eligibleIds.length, deleted: deletedCount, ids: deletedIds };
+  return { eligible: eligibleIds.length, deleted: deletedCount, ids: deletedIds, kept: eligibleIds.length - deletedCount };
 }
