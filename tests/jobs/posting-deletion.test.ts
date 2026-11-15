@@ -40,6 +40,7 @@ import { admin, createTestUser, deleteTestUsers } from "../support/auth";
 import { deleteTestOrgs } from "../support/cleanup";
 import { BANNER_BUCKET } from "@/lib/employer/banner";
 import { runCleanups, mustDelete } from "../support/teardown";
+import { chunkInList } from "@/lib/supabase/in-list";
 
 const createdPostings: string[] = [];
 const createdOrgs: string[] = [];
@@ -95,17 +96,41 @@ async function readPosting(id: string) {
   return data;
 }
 
+/**
+ * A long `.in()` list becomes the request URL, and the gateway refuses one past a few KB ("URI too long"): 1,001 ids is about 40 KB. Every `.in()` over a list that can grow goes through these two (the repo's own chunkInList,
+ * src/lib/supabase/in-list.ts), 100 ids (about 3.9 KB) per request.
+ */
+const IN_CHUNK = 100;
+const chunks = (items: readonly string[]) => chunkInList(items, IN_CHUNK);
+/** Deletes the postings in requests of at most IN_CHUNK ids. Every chunk is tried; one that fails is reported with the rest, not instead of them. */
+async function deletePostingsInChunks(ids: readonly string[]) {
+  const failures: string[] = [];
+  for (const part of chunks(ids)) {
+    try {
+      await mustDelete("job_postings", admin.from("job_postings").delete().in("id", part));
+    } catch (err) {
+      failures.push(err instanceof Error ? err.message : String(err));
+    }
+  }
+  if (failures.length > 0) throw new Error(`${failures.length} of ${chunks(ids).length} delete request(s) failed: ${failures.join("; ")}`);
+}
+/** How many of these postings exist, counted in requests of at most IN_CHUNK ids. */
+async function countPostings(ids: readonly string[]) {
+  let total = 0;
+  for (const part of chunks(ids)) {
+    const { count, error } = await admin.from("job_postings").select("id", { count: "exact", head: true }).in("id", part);
+    expect(error, "counting postings").toBeNull();
+    total += count ?? 0;
+  }
+  return total;
+}
+
 afterAll(async () => {
   await runCleanups(
     [
       "postings still standing",
       async () => {
-        if (createdPostings.length) {
-          await mustDelete(
-            "job_postings",
-            admin.from("job_postings").delete().in("id", createdPostings.splice(0)),
-          );
-        }
+        if (createdPostings.length) await deletePostingsInChunks(createdPostings.splice(0));
       },
     ],
     [
@@ -640,9 +665,7 @@ describe("W-1: the nightly run keeps a closed posting that anything blocking ref
     expect(result.ids, "the deletable row was reached and deleted").toContain(deletableId);
     createdPostings.splice(createdPostings.indexOf(deletableId), 1);
     expect(await readPosting(deletableId)).toBeNull();
-    const { count, error } = await admin.from("job_postings").select("id", { count: "exact", head: true }).in("id", keptIds.slice(0, 200));
-    expect(error).toBeNull();
-    expect(count, "the kept rows are still there").toBe(200);
+    expect(await countPostings(keptIds.slice(0, 200)), "the kept rows are still there").toBe(200);
     await mustDelete("applications", admin.from("applications").delete().eq("user_id", userId));
   }, 120_000);
 
