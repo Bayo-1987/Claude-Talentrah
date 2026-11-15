@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { farahChatFreeMessagesRemaining, farahChatNextFreeMessageAt } from "@/lib/farah/chat-gate";
 import { hasActivePass } from "@/lib/passes/entitlement";
+import { inboxEnabled } from "@/lib/notifications/inbox/enabled";
 
 /**
  * Farah's recent conversation, fetched by the panel itself.
@@ -79,46 +80,31 @@ export async function GET() {
   }
 
   /*
-   * The Farah-visibility design review's notification dot — wired to the
-   * REAL "something new" signal 0131 already built for the proactive match
-   * alert (user_notifications, owner-readable RLS, read_at owner-writable),
-   * not a proxy invented for this. This route is the one round trip the
-   * panel already makes on mount, so this rides along rather than adding a
-   * second fetch.
+   * The Farah-visibility design review's notification dot — wired to the REAL "something new" signal 0131 already built for the proactive match alert (user_notifications, owner-readable RLS), not a proxy
+   * invented for this. This route is the one round trip the panel already makes on mount, so this rides along rather than adding a second fetch.
    *
-   * Marked read here, not left for a separate action: `read_at` exists
-   * specifically for "the owner has seen this" (0131's own header — "only
-   * read_at is owner-writable"), and this route runs exactly when that
-   * becomes true — the panel carrying the mark is on screen. The RESPONSE
-   * below still reports the pre-mark state, so the dot shows for this load;
-   * the row is cleared for the next.
+   * WHO CLEARS THE DOT depends on the inbox flag (NOTIF-FARAH-HISTORY-1):
+   *  - notifications_master OFF (no bell exists): this route is the only place an unread notification is seen, so it marks them read here, as it always did — `read_at` exists for "the owner has seen this", and this
+   *    route runs exactly when that becomes true. The RESPONSE reports the pre-mark state, so the dot shows for this load and the rows are cleared for the next. Without this the dot would never clear.
+   *  - notifications_master ON: the bell owns read state (src/lib/notifications/inbox/service.ts). Opening Farah must not clear the unread items of a person who never opened the bell, so this route only reports
+   *    whether something is unread, and says the same on the next call.
+   * The flag read fails closed (OFF), which keeps the old behaviour: a broken flag read can never leave the dot stuck.
    */
-  const { data: unread, error: unreadError } = await supabase
-    .from("user_notifications")
-    .select("id")
-    .eq("user_id", user.id)
-    .is("read_at", null);
-  // Logged, not thrown: a rejected Supabase call resolves with an `error`
-  // rather than throwing (CLAUDE.md's own standing rule, documented for
-  // deletes but the same client behaviour applies here), so this is the
-  // difference between a silent failure and a visible one. Low-severity
-  // either way — a failed read just leaves the dot off this load, same as
-  // genuinely having nothing unread — but silent is still wrong.
+  const bellOwnsReadState = await inboxEnabled();
+  const { data: unread, error: unreadError } = await supabase.from("user_notifications").select("id").eq("user_id", user.id).is("read_at", null).limit(1);
+  // Logged, not thrown: a rejected Supabase call resolves with an `error` rather than throwing (CLAUDE.md's standing rule), so this is the difference between a silent failure and a visible one. Low-severity
+  // either way — a failed read just leaves the dot off this load, same as genuinely having nothing unread — but silent is still wrong.
   if (unreadError) {
     console.error(`[farah-history] could not check unread notifications for ${user.id}: ${unreadError.message}`);
   }
   const hasUnreadNotification = (unread?.length ?? 0) > 0;
-  if (hasUnreadNotification) {
+  if (hasUnreadNotification && !bellOwnsReadState) {
     const { error: markReadError } = await supabase
       .from("user_notifications")
       .update({ read_at: new Date().toISOString() })
       .eq("user_id", user.id)
       .is("read_at", null);
-    // Same reasoning as above, and lower-stakes than it looks: an unlogged
-    // failure here would just mean the row stays unread and the same check
-    // (and the same attempt to mark it read) runs again next page load —
-    // not silent data loss, but still worth knowing about rather than
-    // guessing at from a dot that never clears.
+    // An unlogged failure here would just mean the row stays unread and the same check (and the same attempt) runs again next page load — not silent data loss, but still worth knowing about.
     if (markReadError) {
       console.error(`[farah-history] could not mark notifications read for ${user.id}: ${markReadError.message}`);
     }

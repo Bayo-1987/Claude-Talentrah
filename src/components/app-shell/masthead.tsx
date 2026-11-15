@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { AccountMenu } from "@/components/app-shell/account-menu";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { FarahMark } from "@/components/ui/farah-mark";
 import { scrollToFarahPanel } from "@/lib/farah/scroll-to-panel";
 import { useDisplayedCreditsBalance } from "@/components/app-shell/credits-balance";
@@ -116,6 +117,8 @@ export interface MastheadProps {
   displayName: string;
   /** True for an account that belongs to an organisation: the account menu then offers "Switch to Employer". */
   isOrganisationMember?: boolean;
+  /** PR-B: the layout sets this only when notifications_master is on. Absent or false renders the masthead exactly as before, with no bell and no request. */
+  showNotificationBell?: boolean;
 }
 
 export function Masthead({
@@ -125,6 +128,7 @@ export function Masthead({
   email,
   displayName,
   isOrganisationMember,
+  showNotificationBell,
 }: MastheadProps) {
   const pathname = usePathname();
   // The prop is what the server rendered at page load; this is that, updated for any credit a Farah
@@ -805,6 +809,7 @@ export function Masthead({
               ? `${activePass.name} · ${activePass.daysRemaining}d left`
               : `${shownCreditsBalance} credits · Top up`}
           </Link>
+          {showNotificationBell && <NotificationBell />}
           {/*
             The avatar is the account control, and Sign out lives inside it: the menu is src/components/app-shell/account-menu.tsx, shared with the employer header.
           */}
