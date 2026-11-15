@@ -223,3 +223,10 @@ wrong file for it to have touched. The fix here was not "don't leak it" —
 nothing left this machine — it was "stop, verify, revert, flag, and rotate
 if there is any doubt," the same order this file's own two real leaks above
 were handled in.
+
+## PR #1022 (NOTIF PR-D): one placeholder value allowlisted, 2026-11-15
+
+The CI Secret scan reads the whole range `origin/main..HEAD`. In the A3 commit `f42d020c4c2787c09b4b8006d4d994f833764b3a`, `src/app/admin/(protected)/messages/test-send.ts` passed a fixed
+made-up word as the unsubscribe token of the operator's own test email. It is not a credential (it belongs to no account, and the unsubscribe page finds no row for it), but the
+property name matched `talentrah-hardcoded-credential`. The source now takes a fresh `randomUUID()` per call; the old commit stays in history, so `.gitleaks.toml` carries ONE
+anchored entry for that exact value (`^value$`, no wildcard, no path). Held by `tests/ci/gitleaks-pr-d-test-send-allowlist.test.ts`. Nothing to rotate.
