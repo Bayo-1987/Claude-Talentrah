@@ -5,7 +5,7 @@ import { CACHE_PREFIX } from "@/lib/pwa/service-worker-source";
  *
  *  1. NEVER run where it must not: inside a frame (`self !== top`) or on /embed/*, it returns before doing anything. No registration, no
  *     listener, no unregister. The embed route is its own standalone HTML today and the layout does not render there; this is defence in depth.
- *  2. Kill switch (`enabled === false`): ONLY unregister what exists and delete this app's caches. NEVER call register. A page that kept
+ *  2. Kill switch (`enabled === false`): ONLY unsubscribe from push and unregister what exists, and delete this app's caches. NEVER call register. A page that kept
  *     registering would reinstall the self-destruct worker on every load, which is the reload loop an earlier design had.
  *  3. Enabled: capture `beforeinstallprompt` immediately, and register /sw.js after `load` and idle time so it cannot touch LCP.
  *
@@ -28,6 +28,15 @@ export type PwaWindow = Pick<Window, "location" | "document" | "navigator" | "ad
   setTimeout: (cb: () => void, ms?: number) => unknown;
 };
 
+async function unsubscribePush(reg: ServiceWorkerRegistration): Promise<void> {
+  try {
+    const sub = await reg.pushManager?.getSubscription?.();
+    if (sub) await sub.unsubscribe();
+  } catch {
+    // Not subscribed, not supported, or refused: the unregister that follows is what matters.
+  }
+}
+
 export function startPwa(win: PwaWindow, enabled: boolean): void {
   if (win.self !== win.top) return;
   if (win.location.pathname.startsWith("/embed/")) return;
@@ -35,7 +44,10 @@ export function startPwa(win: PwaWindow, enabled: boolean): void {
   if (!sw) return;
 
   if (!enabled) {
-    sw.getRegistrations().then((regs) => Promise.all(regs.map((r) => r.unregister()))).catch(() => undefined);
+    // Each registration's push subscription goes first (guarded: no push manager, no subscription or a refusal never stops the unregister).
+    sw.getRegistrations()
+      .then((regs) => Promise.all(regs.map((r) => unsubscribePush(r).then(() => r.unregister()))))
+      .catch(() => undefined);
     win.caches
       ?.keys()
       .then((names) => Promise.all(names.filter((n) => n.startsWith(CACHE_PREFIX)).map((n) => win.caches!.delete(n))))

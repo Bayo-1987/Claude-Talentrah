@@ -135,8 +135,13 @@ describe("the decision table: which requests the worker answers", () => {
     expect(w.caches.opened).toHaveLength(0);
   });
 
-  it("an unlisted event type does nothing: the worker registers exactly install, activate and fetch", () => {
-    expect(Object.keys(worker().listeners).sort()).toEqual(["activate", "fetch", "install"]);
+  it("the worker registers exactly install, activate, fetch, push and notificationclick, and nothing else", () => {
+    expect(Object.keys(worker().listeners).sort()).toEqual(["activate", "fetch", "install", "notificationclick", "push"]);
+  });
+
+  it("an unlisted event type does nothing: there is no handler for message or sync", () => {
+    expect(worker().listeners.message).toBeUndefined();
+    expect(worker().listeners.sync).toBeUndefined();
   });
 });
 
