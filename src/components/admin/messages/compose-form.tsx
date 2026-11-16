@@ -6,7 +6,7 @@ import { TextArea } from "@/components/ui/text-area";
 import { ADMIN_MESSAGE_KINDS, ADMIN_SEGMENT_KEYS, NOTIFICATION_LIMITS } from "@/lib/notifications/contract";
 import { initialMessageActionState } from "./state";
 import type { MessageAction } from "./action-form";
-import { KIND_LABEL, QUIET_HOURS_SENTENCE, switchedOffReason } from "./texts";
+import { CONSENT_LINE_HELP, CONSENT_LINE_SAMPLES, KIND_HELP, KIND_LABEL, QUIET_HOURS_SENTENCE, switchedOffReason } from "./texts";
 
 const SEGMENT_LABEL: Record<string, string> = {
   everyone: "Everyone",
@@ -37,6 +37,11 @@ export function ComposeForm({ action, promotionsOn, emailOn }: { action: Message
           ))}
         </select>
       </label>
+      <ul className="-mt-2 flex list-none flex-col gap-1 p-0 text-[13px] text-ink-soft">
+        {ADMIN_MESSAGE_KINDS.map((k) => (
+          <li key={k}>{KIND_HELP[k]}</li>
+        ))}
+      </ul>
       {!promotionsOn && <p className="text-[13px] text-ink-soft">{switchedOffReason("promotions")}</p>}
       <label className={lab}>
         Title ({NOTIFICATION_LIMITS.titleMaxLength} characters at most)
@@ -68,9 +73,17 @@ export function ComposeForm({ action, promotionsOn, emailOn }: { action: Message
       <label className={lab}>Date (only for “signed up since”)<input name="segmentSince" type="date" className={box} /></label>
       <label className={lab}>Country (only for “one country”)<input name="segmentCountry" className={box} /></label>
       <label className={lab}>
-        Consent line (required for a promotion: why this person is receiving it)
+        Consent line (required for a promotion)
         <input name="consentLine" className={box} />
       </label>
+      <div className="-mt-3 flex flex-col gap-1 text-[13px] text-ink-soft">
+        <p>{CONSENT_LINE_HELP}</p>
+        <ul className="m-0 flex list-none flex-col gap-0.5 p-0 italic">
+          {CONSENT_LINE_SAMPLES.map((sample) => (
+            <li key={sample}>{sample}</li>
+          ))}
+        </ul>
+      </div>
       <div><Button type="submit" disabled={pending}>{pending ? "Saving…" : "Save as a draft"}</Button></div>
       {state.status === "error" && <p role="status" className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust">{state.message}</p>}
     </form>

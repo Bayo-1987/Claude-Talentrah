@@ -52,3 +52,17 @@ export const COUNTS_ONLY_NOTE = "This page shows counts only. It never lists the
 
 export const STALE_CLAIM_EXPLAINER =
   "An email whose result is unknown stays open: the system never sends to that person again on its own, and never releases it on its own. After 30 minutes a person decides: mark it sent if you know it went out, or release it so a later run may try again.";
+
+/** One line each under Kind on the compose screen. */
+export const KIND_HELP: Record<AdminMessageKind, string> = {
+  service_announcement: "Service announcement: a notice about the service itself (changes, outages, policy, security). People receive it by default.",
+  promotion: "Promotion: anything that encourages use or offers something (offers, new-jobs news). Each person can turn it off, it is off by default, and it needs a consent line.",
+};
+
+/** Under the consent line. The samples are hint text only: nothing is prefilled. */
+export const CONSENT_LINE_HELP = "Why this person is receiving it. It must be true for everyone in the audience.";
+export const CONSENT_LINE_SAMPLES = [
+  "You turned on offers and promotions in your Talentrah notification settings.",
+  "You signed up to Talentrah and agreed to receive offers and updates.",
+  "You asked us to tell you about new jobs in Nigeria.",
+] as const;

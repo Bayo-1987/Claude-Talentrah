@@ -1,5 +1,6 @@
 import { requirePermission } from "@/lib/admin/require-admin";
 import { listFeatureFlags } from "@/lib/admin/flags/list";
+import { describeFlag } from "@/lib/admin/flags/descriptions";
 import { FeatureFlagRow } from "@/components/admin/feature-flag-row";
 import { QueueHeader } from "@/components/admin/queue-chrome";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
@@ -52,6 +53,8 @@ export default async function FeatureFlagsPage() {
               <div className="flex flex-col gap-1.5">
                 <EyebrowLabel>{f.enabled ? "On" : "Off"}</EyebrowLabel>
                 <h2 className="font-display text-[20px] font-semibold leading-snug">{f.label}</h2>
+                {/* What the switch does, in one sentence (src/lib/admin/flags/descriptions.ts). */}
+                <p className="text-[14.5px] text-ink">{describeFlag(f.key)}</p>
                 {/* The key, because it is what appears in the code and in a log. */}
                 <p className="font-body text-[13px] text-ink-soft">{f.key}</p>
                 <p className="text-[13.5px] text-ink-soft">
