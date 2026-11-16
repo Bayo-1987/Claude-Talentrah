@@ -1,6 +1,6 @@
 /**
  * NAV-1 (owner request): the seeker menu item that leads to /talent-directory/verify is called "Talent Directory", not "Resume review", and the page opens by
- * explaining that a listing starts with a resume review. The URL does not change. Read from source because the masthead's link list is a module constant and the
+ * explaining that a listing starts with a resume review. The URL does not change. Read from source because the link list is a module constant (src/components/app-shell/nav-model.ts since NAV-DROPDOWN-REALIGN-1; it was inside masthead.tsx) and the
  * page needs a signed-in session to render; the browser half is e2e/masthead-nav-fit.spec.ts.
  */
 import { readFileSync } from "node:fs";
@@ -11,9 +11,9 @@ const ROOT = path.join(__dirname, "../..");
 const read = (rel: string) => readFileSync(path.join(ROOT, rel), "utf8").replace(/\s+/g, " ");
 
 describe("NAV-1: the seeker masthead item", () => {
-  const masthead = read("src/components/app-shell/masthead.tsx");
+  const masthead = read("src/components/app-shell/nav-model.ts");
   it("labels /talent-directory/verify 'Talent Directory' and keeps the URL", () => {
-    expect(masthead).toContain('{ href: "/talent-directory/verify", label: "Talent Directory" }');
+    expect(masthead).toContain('{ href: "/talent-directory/verify", label: "Talent Directory",');
   });
   it("no longer calls it 'Resume review'", () => {
     expect(masthead).not.toContain('label: "Resume review"');

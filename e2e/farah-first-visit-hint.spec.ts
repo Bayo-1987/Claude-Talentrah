@@ -88,7 +88,7 @@ test.describe("the first-visit Farah hint", () => {
 
     /*
      * Expected sentence per width, keyed to the same breakpoints the
-     * affordances use — 760 for the docked panel, 2xl (1536) for the nav item.
+     * affordances use — 760 for the docked panel, 1680 for the nav item (NAV-DROPDOWN-REALIGN-1: the bar button did not fit at 1536).
      * (Below 760 there is no hint: see the test above.)
      * `innerText` returns only VISIBLE text, so finding one variant is also
      * proof the other two are hidden rather than merely present.
@@ -96,7 +96,9 @@ test.describe("the first-visit Farah hint", () => {
     const cases = [
       { width: 1024, expect: "stays there as you scroll", not: ["at the bottom of the screen"] },
       { width: 1280, expect: "stays there as you scroll", not: ["in the menu bar"] },
-      { width: 1536, expect: "in the menu bar", not: ["stays there as you scroll"] },
+      { width: 1536, expect: "stays there as you scroll", not: ["in the menu bar"] },
+      { width: 1679, expect: "stays there as you scroll", not: ["in the menu bar"] },
+      { width: 1680, expect: "in the menu bar", not: ["stays there as you scroll"] },
       { width: 1728, expect: "in the menu bar", not: ["at the bottom of the screen"] },
     ];
 

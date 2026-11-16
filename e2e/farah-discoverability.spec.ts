@@ -147,68 +147,41 @@ test.describe("reaching Farah on a phone", () => {
   }
 });
 
-test.describe("reaching Farah between 760 and 1535px", () => {
+test.describe("reaching Farah between 760 and 1679px", () => {
   test.skip(!DEMO_PASSWORD, "DEMO_PASSWORD is not set — see scripts/seed.ts");
 
   /*
-   * THE GAP THIS DESCRIBE BLOCK CLOSES. Below 760 the mobile tab covers it;
-   * at and above 2xl (1536) the inline masthead item does. Between those two
-   * — which includes every common laptop resolution (1280/1366/1440/1512) —
-   * there was no persistent Farah affordance at all once FarahFirstVisitHint's
-   * one-time nudge is dismissed. The fix is a new "Ask Farah" entry in the
-   * masthead's hamburger disclosure (masthead.tsx), grouped with "Post a job"
-   * — this asserts it is actually there and actually works, at real widths
-   * across the band rather than just one.
+   * NAV-DROPDOWN-REALIGN-1: the "Ask Farah" row is gone from the hamburger menu (owner decision OWNER-DECISION-NAV-DEFAULTS-1). Between 760 and 1535 Farah's entry is the docked panel, which is a
+   * sticky column ON SCREEN at every one of these widths, so this block now proves exactly that: the panel is in view, there is no Ask Farah anywhere in the masthead at these widths, and under 1024
+   * (where the hamburger exists) the menu does not carry one. Below 760 the launcher takes over, covered by farah-launcher.spec.ts.
    */
-  const BAND_WIDTHS = [760, 1024, 1280, 1366, 1440, 1512, 1535];
+  const BAND_WIDTHS = [760, 1023, 1024, 1280, 1366, 1440, 1479, 1480, 1512, 1535, 1536, 1600, 1679];
 
   for (const width of BAND_WIDTHS) {
-    test(`at ${width}px the hamburger menu carries a reachable "Ask Farah" entry`, async ({
-      page,
-    }) => {
+    test(`at ${width}px Farah's docked panel is on screen and the masthead has no Ask Farah entry`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       await login(page);
 
-      // Precondition: the inline masthead item (2xl-gated) must NOT be
-      // rendering here — otherwise this test would pass for the wrong
-      // reason, proving the old affordance rather than the new one.
-      await expect(
-        page.getByTestId("masthead").getByRole("button", { name: "Ask Farah" }),
-      ).toHaveCount(0);
+      await expect(page.getByTestId("masthead").getByRole("button", { name: "Ask Farah" })).toHaveCount(0);
 
-      const trigger = page.getByRole("button", { name: "Main menu" });
-      await expect(trigger).toBeVisible();
-
-      const menu = page.getByRole("menu").first();
-      await expect(async () => {
-        await trigger.click();
-        await expect(menu).toBeVisible({ timeout: 1000 });
-      }).toPass({ timeout: 15_000 });
-
-      const item = menu.getByRole("menuitem", { name: "Ask Farah" });
-      await expect(item).toBeVisible();
-
-      // Every interactive element needs a real hit target (CLAUDE.md) —
-      // pinned the same way the phone tab's own button is pinned above.
-      const box = await item.boundingBox();
-      expect(box!.height).toBeGreaterThanOrEqual(44);
-
-      await item.click();
-
-      // Same contract as every other menuitem in this disclosure: activating
-      // it closes the menu. No special-casing in masthead.tsx for this one —
-      // confirmed here rather than assumed.
-      await expect(menu).toBeHidden();
-
-      // The panel is a sticky column at these widths (farah-panel.tsx), so a
-      // fresh page load often already has it in view — this asserts the
-      // click didn't error and the panel ends up on screen, not that it
-      // necessarily moved.
       const inView = await page.evaluate(() => {
         const p = document.querySelector('[data-testid="farah-panel"]')!.getBoundingClientRect();
-        return p.top < window.innerHeight && p.bottom > 0;
+        return p.top < window.innerHeight && p.bottom > 0 && p.width > 0;
       });
-      expect(inView, "the panel is not on screen after activating the dropdown entry").toBe(true);
+      expect(inView, `the docked panel is not on screen at ${width}px`).toBe(true);
+
+      const trigger = page.getByRole("button", { name: "Main menu" });
+      if (width < 1024) {
+        await expect(trigger).toBeVisible();
+        const menu = page.getByRole("menu").first();
+        await expect(async () => {
+          await trigger.click();
+          await expect(menu).toBeVisible({ timeout: 1000 });
+        }).toPass({ timeout: 15_000 });
+        await expect(menu.getByRole("menuitem", { name: "Ask Farah" })).toHaveCount(0);
+      } else {
+        await expect(trigger).toBeHidden();
+      }
     });
   }
 });
@@ -216,8 +189,8 @@ test.describe("reaching Farah between 760 and 1535px", () => {
 test.describe("reaching Farah on a desktop", () => {
   test.skip(!DEMO_PASSWORD, "DEMO_PASSWORD is not set — see scripts/seed.ts");
 
-  test("at 2xl the masthead carries the item and the launcher is gone", async ({ page }) => {
-    await page.setViewportSize({ width: 1536, height: 900 });
+  test("from 1680 the masthead carries the item and the launcher is gone (NAV-DROPDOWN-REALIGN-1: it did not fit at 1536 beside eight links)", async ({ page }) => {
+    await page.setViewportSize({ width: 1680, height: 900 });
     await login(page);
 
     await expect(page.getByTestId("farah-launcher")).toBeHidden();
@@ -249,7 +222,7 @@ test.describe("reaching Farah on a desktop", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await login(page);
 
-    for (const width of [760, 800, 860, 900, 1024, 1280, 1536, 1728]) {
+    for (const width of [760, 800, 860, 900, 1024, 1280, 1536, 1679, 1680, 1728]) {
       await page.setViewportSize({ width, height: 900 });
       await page.waitForTimeout(200);
 
