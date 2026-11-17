@@ -4,7 +4,8 @@
  *   link only      exactly what main showed (tests/jobs/apply-control-baseline.test.tsx holds the bytes)
  *   address only   "Apply by email" (a mailto link), and on the page the address, a copy button and the note; "Mark as applied" stays
  *   both           the company link stays the primary button, the address is the secondary choice
- *   neither        no apply control at all: no dead "#" anchor, no data-ad-click (the one intended change; "Mark as applied" is the seeker's own record and stays)
+ *   neither        no company-site anchor and no e-mail anchor: no dead "#" anchor, no data-ad-click (the one intended change; "Mark as applied" is the seeker's own record and stays).
+ *                  Since the jobs-feed fix the card also shows a "See how to apply" link to the job page here, so the seeker is not left with a lone "Mark as applied" (tests/jobs/search-apply-controls.test.tsx)
  *
  * The card is rendered whole. The job page is a 750-line async Server Component that no unit test can render, so it is checked two ways: the pieces it renders
  * (ApplyByEmailLink / ApplyByEmailNote, variant "page") are rendered here, and its wiring is read from source. Every address below is invented.
@@ -77,7 +78,8 @@ describe("the feed card", () => {
     expect(classOf(found[0])).toBe(CARD_PRIMARY_LINK_CLASS);
   });
 
-  it("neither: no apply control at all (no anchor, no '#', no data-ad-click), and the seeker's own 'Mark as applied' stays", () => {
+  // Changed deliberately (title only): "no apply control at all" is no longer true, a 'See how to apply' link to the job page now sits beside 'Mark as applied'. Every assertion below still holds as written.
+  it("neither: no company-site or e-mail anchor (no '#', no data-ad-click), and the seeker's own 'Mark as applied' stays", () => {
     for (const html of [card({ external_url: null }), card({ external_url: null, apply_email: null }), card({ external_url: null }, { isSponsored: true, campaignId: "c-1" })]) {
       expect(applyAnchors(html)).toEqual([]);
       expect(html).not.toContain('href="#"');
