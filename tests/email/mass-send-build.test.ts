@@ -52,7 +52,7 @@ describe("promotions", () => {
     const e = buildMassEmail({ ...base, stream: "promotions", unsubscribeToken: "tok-p", consentLine: "You receive this because you opted in to promotions." });
     expect(e.html).toContain("You receive this because you opted in to promotions.");
     expect(e.text).toContain("You receive this because you opted in to promotions.");
-    expect(e.headers["List-Unsubscribe"]).toBe(`<${absoluteUrl("/unsubscribe?token=tok-p&pref=promotions")}>`);
+    expect(e.headers["List-Unsubscribe"]).toBe(`<${absoluteUrl("/api/unsubscribe?token=tok-p&pref=promotions")}>`); // the one-click endpoint; the visible link above stays the confirm page
     expect(e.headers["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
   });
 

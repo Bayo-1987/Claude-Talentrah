@@ -3,7 +3,7 @@
     {
       "from": "Farah at Talentrah <farah@talentrah.com>",
       "headers": {
-        "List-Unsubscribe": "<<ORIGIN>/unsubscribe?token=tok-ada>",
+        "List-Unsubscribe": "<<ORIGIN>/api/unsubscribe?token=tok-ada&pref=job_match_digest>",
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"
       },
       "html": {
@@ -17,7 +17,7 @@
     {
       "from": "Farah at Talentrah <farah@talentrah.com>",
       "headers": {
-        "List-Unsubscribe": "<<ORIGIN>/unsubscribe?token=tok-bola>",
+        "List-Unsubscribe": "<<ORIGIN>/api/unsubscribe?token=tok-bola&pref=job_match_digest>",
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"
       },
       "html": {
@@ -33,7 +33,7 @@
     {
       "from": "Farah at Talentrah <farah@talentrah.com>",
       "headers": {
-        "List-Unsubscribe": "<<ORIGIN>/unsubscribe?token=tok-cy&pref=win_back_email>",
+        "List-Unsubscribe": "<<ORIGIN>/api/unsubscribe?token=tok-cy&pref=win_back_email>",
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"
       },
       "html": {
@@ -47,7 +47,7 @@
     {
       "from": "Farah at Talentrah <farah@talentrah.com>",
       "headers": {
-        "List-Unsubscribe": "<<ORIGIN>/unsubscribe?token=tok-dee&pref=win_back_email>",
+        "List-Unsubscribe": "<<ORIGIN>/api/unsubscribe?token=tok-dee&pref=win_back_email>",
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"
       },
       "html": {

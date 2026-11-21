@@ -8,6 +8,7 @@
  */
 import { absoluteUrl } from "@/lib/seo/site";
 import { escEmail, emailButton, emailParagraph, renderBrandedEmail } from "@/lib/email/layout";
+import { unsubscribeHeaders } from "@/lib/email/unsubscribe";
 import { LOW_RATE_REMAINING, type MassSendIdentity } from "@/lib/email/mass-send-config";
 
 export type MassStream = "announcements" | "promotions";
@@ -61,8 +62,8 @@ function paragraphsOf(body: string): string[] {
 }
 
 /**
- * Builds the email for ONE recipient. Every email carries the unsubscribe footer made from the recipient's own token. A promotion also carries the consent line and the
- * `List-Unsubscribe` header pair that lets a mail client offer one-click unsubscribe; a promotion without a consent line cannot be built.
+ * Builds the email for ONE recipient. Every email carries the unsubscribe footer made from the recipient's own token, and the one-click unsubscribe header pair (see
+ * src/lib/email/unsubscribe.ts) that lets a mail client offer its own Unsubscribe button. A promotion also carries the consent line; a promotion without one cannot be built.
  */
 export function buildMassEmail(input: BuildMassEmailInput): MassEmail {
   if (!input.unsubscribeToken) throw new MassEmailBuildError("a mass email needs the recipient's unsubscribe token");
@@ -103,10 +104,8 @@ export function buildMassEmail(input: BuildMassEmailInput): MassEmail {
     .join("\n")
     .trim();
 
-  const headers: Record<string, string> =
-    input.stream === "promotions"
-      ? { "List-Unsubscribe": `<${unsubscribeUrl}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" }
-      : {};
+  // Both streams carry the one-click pair, pointing at the endpoint that accepts the POST (src/lib/email/unsubscribe.ts); the link in the body stays the confirm page.
+  const headers: Record<string, string> = unsubscribeHeaders(input.unsubscribeToken, input.stream);
 
   return {
     from: input.identity.from,

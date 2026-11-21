@@ -1,6 +1,7 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getResendClient } from "@/lib/resend/client";
+import { unsubscribeHeaders } from "@/lib/email/unsubscribe";
 import { isFeatureEnabled } from "@/lib/flags/read";
 import { computeMatchScore } from "@/lib/matching/score";
 import { prepareResumeSkills } from "@/lib/matching/resume-skills";
@@ -170,6 +171,7 @@ export async function sendProactiveMatchAlerts(
         subject: email.subject,
         text: email.text,
         html: email.html,
+        headers: unsubscribeHeaders(candidate.unsubscribeToken, "proactive_match_alert"),
       });
 
       // The push channel (U5). Only `best` gets here: the one Excellent, sufficiently screenable match the selection returned. Gated and generic (no score, no digit), and a push that cannot go never
