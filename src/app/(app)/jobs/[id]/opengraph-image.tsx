@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { jobForRequest } from "./job-for-request";
+import { isJobId } from "@/lib/jobs/job-id";
 import { OG_CONTENT_TYPE, OG_IMAGE_SIZE, renderOgCard } from "@/lib/seo/og-card";
 import { dedupeMetaParts } from "@/components/jobs/job-card";
 
@@ -23,6 +24,7 @@ export const contentType = OG_CONTENT_TYPE;
 
 export default async function Image({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  if (!isJobId(id)) notFound();
   /*
    * The SAME loader the page and generateMetadata call — one query definition,
    * one freshness floor, one RLS client. A crawler must never be handed a card

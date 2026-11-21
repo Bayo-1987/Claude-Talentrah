@@ -2,6 +2,7 @@ import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { freshnessFloorISO } from "@/lib/jobs/freshness";
 import { JOB_DETAIL_COLUMNS } from "@/lib/jobs/job-columns";
+import { isJobId } from "@/lib/jobs/job-id";
 
 /**
  * ONE loader call per request, not two. Next.js runs generateMetadata and the
@@ -44,6 +45,8 @@ import { JOB_DETAIL_COLUMNS } from "@/lib/jobs/job-columns";
  */
 export const jobForRequest = cache(async (id: string) => {
   const supabase = await createClient();
+  // A segment that is not a UUID cannot name a row, and Postgres refuses it (22P02, answered 400): no query, no row, the page's ordinary 404.
+  if (!isJobId(id)) return { supabase, data: null };
   const { data } = await supabase
     .from("job_postings")
     /*
@@ -71,6 +74,7 @@ export const jobForRequest = cache(async (id: string) => {
  * returns null unless the replacement is itself open and visible — so a dead end is a 404, not a redirect loop.
  */
 export const supersededTargetFor = cache(async (id: string): Promise<string | null> => {
+  if (!isJobId(id)) return null;
   const supabase = await createClient();
   const { data } = await supabase.rpc("superseded_job_target", { p_id: id });
   return typeof data === "string" ? data : null;
@@ -83,13 +87,23 @@ export const supersededTargetFor = cache(async (id: string): Promise<string | nu
  * siblings": the title simply keeps its short place.
  */
 export const siblingPostingsFor = cache(async (id: string, companyName: string) => {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("job_postings")
-    .select("title, company_name, location, work_type")
-    .eq("company_name", companyName)
-    .eq("status", "open")
-    .neq("id", id)
-    .limit(300);
-  return data ?? [];
+  // Fails soft like the rest of the title: any failure, an error answer or a rejected call, is "no siblings", and is logged once (a statement timeout here used to leave no trace).
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("job_postings")
+      .select("title, company_name, location, work_type")
+      .eq("company_name", companyName)
+      .eq("status", "open")
+      .neq("id", id)
+      .limit(300);
+    if (error) {
+      console.error(`[jobs] could not read the company's other postings: ${error.message}`);
+      return [];
+    }
+    return data ?? [];
+  } catch (e) {
+    console.error(`[jobs] could not read the company's other postings: ${e instanceof Error ? e.message : String(e)}`);
+    return [];
+  }
 });
