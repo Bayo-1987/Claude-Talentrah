@@ -1,5 +1,5 @@
 /**
- * The search RPC's rows carry no import marker, and no expires_at_source; withImportMarkers adds both, from ONE small read of two public columns, so an imported posting in search results is still
+ * The search RPC's rows carry no import marker, no expires_at_source and none of the three apply fields; withImportMarkers adds them, from ONE small read of public columns (the apply fields are covered in tests/jobs/search-apply-controls.test.tsx), so an imported posting in search results is still
  * link-out and a stated closing date is still shown (JOBS-POLISH-1 part A: closing dates on search rows).
  */
 import { describe, expect, it, vi } from "vitest";
@@ -22,13 +22,14 @@ describe("withImportMarkers", () => {
     );
     expect(out.map((r) => [r.id, r.expires_at_source])).toEqual([["a", "stated"], ["b", "default"], ["c", null], ["d", null]]);
   });
-  it("asks for both columns in ONE query (no second round trip for the date)", async () => {
+  // Changed deliberately: the one read now also names apply_email, apply_link_kind and apply_link_host (jobs-feed defect: search rows lost the card's apply controls). Still ONE query.
+  it("asks for all its columns in ONE query (no second round trip for the date or the apply fields)", async () => {
     const selects: string[] = [];
     let calls = 0;
     const spy = { from: () => { calls += 1; return { select: (cols: string) => { selects.push(cols); return { in: async () => ({ data: [], error: null }) }; } }; } };
     await withImportMarkers(spy, [{ id: "a" }]);
     expect(calls).toBe(1);
-    expect(selects).toEqual(["id, import_feed_id, expires_at_source"]);
+    expect(selects).toEqual(["id, import_feed_id, expires_at_source, apply_email, apply_link_kind, apply_link_host"]);
   });
   it("makes no query for no rows", async () => {
     expect(await withImportMarkers({ from: () => { throw new Error("must not query"); } }, [])).toEqual([]);
@@ -36,7 +37,8 @@ describe("withImportMarkers", () => {
   it("a failed read leaves the rows unmarked and logs, instead of failing the page", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const out = await withImportMarkers(client(null, { message: "boom" }), [{ id: "a" }]);
-    expect(out).toEqual([{ id: "a", import_feed_id: null, expires_at_source: null }]);
+    // Changed deliberately: the three apply fields are part of the shape, null on a failed read.
+    expect(out).toEqual([{ id: "a", import_feed_id: null, expires_at_source: null, apply_email: null, apply_link_kind: null, apply_link_host: null }]);
     expect(log).toHaveBeenCalledTimes(1);
     log.mockRestore();
   });

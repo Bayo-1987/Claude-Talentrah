@@ -17,7 +17,7 @@ import type { Tables } from "@/lib/supabase/types";
 import { isLinkOutPosting, provenanceLabel } from "@/lib/jobs/link-out";
 import { normaliseApplyEmail } from "@/lib/jobs/apply-email";
 import { postingApplyEmail, postingApplyLinkHost } from "@/lib/jobs/posting-apply-email";
-import { ApplyByEmailLink } from "@/components/jobs/apply-by-email";
+import { ApplyByEmailLink, CARD_PRIMARY_LINK_CLASS } from "@/components/jobs/apply-by-email";
 import { ApplyOnCompanySite } from "@/components/jobs/apply-on-company-site";
 import { ClosingNotice } from "@/components/jobs/closing-notice";
 import { JOB_CARD_ACTIONS_CLASS } from "@/lib/jobs/action-row-classes";
@@ -378,6 +378,12 @@ export function JobCard({
               )}
               {applyEmail && (
                 <ApplyByEmailLink address={applyEmail} title={job.title} variant="card" secondary={!!job.external_url} sponsored={isSponsored} />
+              )}
+              {/* No company link and no usable address: a lone "Mark as applied" would give the seeker no way to apply. The job page has the full posting. Not an ad click. */}
+              {!job.external_url && !applyEmail && (
+                <Link href={`/jobs/${job.id}`} className={CARD_PRIMARY_LINK_CLASS}>
+                  See how to apply
+                </Link>
               )}
             </>
           ) : internalApplyEmail ? (

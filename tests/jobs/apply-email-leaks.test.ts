@@ -67,6 +67,7 @@ describe("where the column is named (source scan)", () => {
     "src/lib/employer/apply-method.ts", // PR-E2b: the employer write path; the only caller of the 0275 function, and it names the function (set_job_apply_email)
     "src/lib/jobs/apply-email.ts", // the helper (named in its header)
     "src/lib/jobs/posting-apply-email.ts", // PR-E2b: the one place that asks "does this posting take applications by email?"; surfaces call it and do not name the column
+    "src/lib/jobs/import-markers.ts", // jobs-feed defect: the search path's one extra read selects the column so a searched card can offer Apply by email like the unsearched feed does (the address is passed on to the card, which puts it only in a mailto href; tests/jobs/search-apply-controls.test.tsx checks it is never printed)
     "src/lib/jobs/job-columns.ts", // JOB_DETAIL_COLUMNS
     "src/lib/jobs/sheet-import/parse.ts", // the sheet reader names the sheet's own apply_email cell (moved from scripts/ so the admin uploader can use it; the address is never copied into the description)
     "src/lib/jobs/sheet-import/plan.ts", // the plan: an e-mail-only row's normalised address goes into the insert's apply_email field; never into the description, a preview line or a count (moved from scripts/)
