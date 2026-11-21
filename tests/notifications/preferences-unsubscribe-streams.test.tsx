@@ -1,7 +1,7 @@
 /**
  * U6 / NOTIF-UNSUB-PREF-GATE-1: /unsubscribe understands `pref=announcements` and `pref=promotions`, the two kinds of mass e-mail the admin messages send (spec 02 section 3). Each link turns off ONLY its own
  * kind through the 0265 stream function (the RPC names of the four existing kinds, the GET, and the token are not touched; preferences-unsubscribe-today.test.tsx pins those).
- * Same method as that file: no hand-written module factory, the page called as a function.
+ * Same method as that file: no hand-written module factory, the page called as a function. (UNSUB-GET-SCANNER-1: the GET now only confirms; each case below moves its RPC assertion to the confirm action.)
  */
 import { NOTIFICATION_RPCS } from "@/lib/notifications/contract-db";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -21,7 +21,8 @@ vi.mock("@/lib/supabase/service-role", async (importOriginal) => ({
 }));
 
 import UnsubscribePage from "@/app/unsubscribe/page";
-import { resubscribeAction } from "@/app/unsubscribe/actions";
+import { confirmUnsubscribeAction, resubscribeAction } from "@/app/unsubscribe/actions";
+import { COPY } from "@/app/unsubscribe/copy";
 import { CONFIRMATION_COPY } from "@/app/unsubscribe/resubscribe-button";
 import { parsePreference, type UnsubscribablePreference } from "@/app/unsubscribe/preference";
 
@@ -51,34 +52,37 @@ function findProps(node: ReactNode, wanted: string): Record<string, unknown> | n
   return findProps(node.props.children, wanted);
 }
 const open = async (query: { token?: string; pref?: string }) => (await UnsubscribePage({ searchParams: Promise.resolve(query) })) as ReactNode;
-const words = (tree: ReactNode) => textOf(tree).replace(/\s+/g, " ");
 
 describe("pref=announcements and pref=promotions turn off only their own kind", () => {
   it.each([
     ["announcements", "announcement"],
     ["promotions", "offers and promotions"],
-  ])("pref=%s calls the stream function for that stream only, and the page says which", async (pref, phrase) => {
+  ])("pref=%s: the GET calls nothing; the confirm action calls the stream function for that stream only, and the page says which", async (pref, phrase) => {
     const tree = await open({ token: "tok", pref });
+    expect(calls).toEqual([]);
+    expect(findProps(tree, "ConfirmUnsubscribe")).toMatchObject({ token: "tok", preference: pref });
+    expect(await confirmUnsubscribeAction("tok", parsePreference(pref))).toBe("done");
     expect(calls).toEqual([{ name: NOTIFICATION_RPCS.emailUnsubscribeStream, args: { p_token: "tok", p_stream: pref, p_subscribed: false } }]);
-    expect(words(tree)).toContain("You're unsubscribed.");
-    expect(words(tree).toLowerCase()).toContain(phrase);
-    expect(words(tree)).not.toContain("weekly job-match email");
-    expect(findProps(tree, "ResubscribeButton")).toMatchObject({ token: "tok", preference: pref });
+    const copy = COPY[pref as "announcements" | "promotions"].unsubscribed;
+    expect(copy.heading).toContain("You're unsubscribed.");
+    expect(copy.body.toLowerCase()).toContain(phrase);
+    expect(copy.body).not.toContain("weekly job-match email");
   });
 
   it("the two pages do not say the same thing (a wrong-kind mix-up would show)", async () => {
-    const a = words(await open({ token: "tok", pref: "announcements" }));
-    const p = words(await open({ token: "tok", pref: "promotions" }));
-    expect(a).not.toBe(p);
+    const a = findProps(await open({ token: "tok", pref: "announcements" }), "ConfirmUnsubscribe");
+    const p = findProps(await open({ token: "tok", pref: "promotions" }), "ConfirmUnsubscribe");
+    expect(a?.preference).not.toBe(p?.preference);
+    expect(COPY.announcements.unsubscribed.body).not.toBe(COPY.promotions.unsubscribed.body);
+    expect(COPY.announcements.confirm.heading).not.toBe(COPY.promotions.confirm.heading);
   });
 
   it("a token nothing matches claims nothing for either kind", async () => {
     result = { data: [{ matched: false }], error: null };
-    for (const pref of ["announcements", "promotions"]) {
-      const tree = await open({ token: "stale", pref });
-      expect(words(tree)).toContain("That link didn't work.");
-      expect(findProps(tree, "ResubscribeButton")).toBeNull();
+    for (const pref of ["announcements", "promotions"] as const) {
+      expect(await confirmUnsubscribeAction("stale", pref)).toBe("unmatched");
     }
+    expect(calls).toHaveLength(2);
   });
 });
 
@@ -100,8 +104,11 @@ describe("an unknown or missing pref still means the weekly digest, exactly as b
   it.each([[undefined], ["bogus"], [""], ["Announcements"], ["PROMOTIONS"], ["announcements "], ["announcement"]])("parsePreference(%j) is the digest", (raw) => {
     expect(parsePreference(raw)).toBe("job_match_digest");
   });
-  it.each([["bogus"], ["Announcements"], ["announcement"]])("the page for pref=%j still calls email_unsubscribe (the digest)", async (pref) => {
-    await open({ token: "tok", pref });
+  it.each([["bogus"], ["Announcements"], ["announcement"]])("the page for pref=%j still means the digest: its confirm action calls email_unsubscribe, its GET calls nothing", async (pref) => {
+    const tree = await open({ token: "tok", pref });
+    expect(calls).toEqual([]);
+    expect(findProps(tree, "ConfirmUnsubscribe")).toMatchObject({ token: "tok", preference: "job_match_digest" });
+    await confirmUnsubscribeAction("tok", parsePreference(pref));
     expect(calls).toEqual([{ name: "email_unsubscribe", args: { p_token: "tok", p_subscribed: false } }]);
   });
   it("the two new values parse to themselves, and the four old ones are unchanged", () => {

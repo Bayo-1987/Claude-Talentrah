@@ -29,6 +29,7 @@ test("each email kind unsubscribes and resubscribes on its own, twice; a bad tok
     for (const kind of KINDS) {
       const url = `/unsubscribe?token=${token}${kind.pref ? `&pref=${kind.pref}` : ""}`;
       await page.goto(url);
+      await page.getByRole("button", { name: "Unsubscribe", exact: true }).click(); // a GET only confirms (UNSUB-GET-SCANNER-1)
       await expect(page.getByRole("heading", { name: "You're unsubscribed." }), `${kind.column} round ${round}`).toBeVisible();
       const after = await flags();
       for (const c of COLUMNS) expect(after[c], `round ${round}: ${kind.column} off, ${c} ${c === kind.column ? "off" : "untouched (on)"}`).toBe(c === kind.column ? false : true);
@@ -41,6 +42,7 @@ test("each email kind unsubscribes and resubscribes on its own, twice; a bad tok
 
   // A bad token changes nothing and claims nothing.
   await page.goto(`/unsubscribe?token=not-a-real-token-${Date.now()}`);
+  await page.getByRole("button", { name: "Unsubscribe", exact: true }).click(); // a GET only confirms (UNSUB-GET-SCANNER-1)
   await expect(page.getByRole("heading", { name: "That link didn't work." })).toBeVisible();
   await expect(page.getByRole("heading", { name: "You're unsubscribed." })).toHaveCount(0);
   expect(Object.values(await flags()).every(Boolean), "a bad token altered nothing").toBe(true);
