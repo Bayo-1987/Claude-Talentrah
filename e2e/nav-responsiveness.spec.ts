@@ -79,8 +79,13 @@ const NAV_LINKS = [
   "Auto-Apply",
   "Resume Builder",
   "Scholarships",
-  "Refer a Friend",
 ] as const;
+
+/**
+ * Refer a Friend left the bar for the account menu (NAV-DROPDOWN-REALIGN-1). It is still a masthead destination with a loading boundary of its own, so it keeps its place in this suite, reached the
+ * way a person now reaches it: avatar, then the menu item.
+ */
+const ACCOUNT_MENU_LINKS = ["Refer a Friend"] as const;
 
 /**
  * The budget, and why the assertion is looser than the target.
@@ -141,8 +146,8 @@ test.describe("a nav click always shows something immediately", () => {
   /*
    * Wide enough to clear the masthead nav's own breakpoint — same fix,
    * same reason as app-chrome.spec.ts and farah-discoverability.spec.ts's
-   * own test.use() calls. masthead.tsx's nav links only render at 2xl
-   * (1536px+); below that they're behind the "Main menu" disclosure, which
+   * own test.use() calls. masthead.tsx's nav links only render from 1024px
+   * (NAV-DROPDOWN-REALIGN-1; Mentorship, Talent Directory and Feedback from 1480 and 1536); below 1024 they're behind the "Main menu" disclosure, which
    * renders no <a> elements at all until clicked. The breakpoint moved up
    * from 1280 (send-139's "Get Verified") after this suite was written and
    * left skipped, so un-skipping it without this fails every case at
@@ -166,7 +171,7 @@ test.describe("a nav click always shows something immediately", () => {
    */
   test.describe.configure({ timeout: 60_000 });
 
-  for (const label of NAV_LINKS) {
+  for (const label of [...NAV_LINKS, ...ACCOUNT_MENU_LINKS]) {
     test(`${label} paints a loading state within ${FEEDBACK_BUDGET_MS}ms`, async ({
       authedPage,
     }) => {
@@ -195,7 +200,12 @@ test.describe("a nav click always shows something immediately", () => {
       await expect(skeleton).toHaveCount(0);
 
       const started = Date.now();
-      await authedPage.getByRole("link", { name: label, exact: true }).first().click();
+      if ((ACCOUNT_MENU_LINKS as readonly string[]).includes(label)) {
+        await authedPage.getByRole("button", { name: "Account menu" }).click();
+        await authedPage.getByRole("menuitem", { name: label, exact: true }).click();
+      } else {
+        await authedPage.getByRole("link", { name: label, exact: true }).first().click();
+      }
 
       // `toBeAttached`, not `toBeVisible`: SkeletonStatus is sr-only, which is
       // clipped to a 1px box and therefore not "visible" to Playwright even

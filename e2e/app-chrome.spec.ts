@@ -42,7 +42,8 @@ if (process.env.CI && !DEMO_PASSWORD) {
 
 /*
  * Wide enough to clear the masthead nav's own breakpoint (masthead.tsx,
- * currently 2xl/1536) so both tests below find the desktop bar's real links
+ * currently 1024, stepped; every link is in the bar from 1536, see
+ * src/components/app-shell/nav-model.ts) so both tests below find the desktop bar's real links
  * rather than the collapsed disclosure, which renders no <a> elements at all
  * until its own trigger is clicked. Was 1280 (the historical hit-target
  * measurement width in this file's own header) until send-139's "Get

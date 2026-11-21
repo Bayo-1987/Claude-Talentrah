@@ -3,7 +3,7 @@ import { test, expect, type Page } from "@playwright/test";
 /**
  * The labelled, two-action nav trigger on the seeker masthead.
  *
- * Below 2xl the whole nav lives behind one control, and that control used to
+ * Below 1024 the whole nav lives behind one control, and that control used to
  * be a bare 40x40 hamburger with no text — operable by every rule, and still
  * routinely not recognised as the way to the rest of the app. It is now a
  * bordered box holding TWO buttons: the icon (the original toggle, unchanged,
@@ -13,8 +13,8 @@ import { test, expect, type Page } from "@playwright/test";
  *
  * Widths: 900 is above the 700px label-collapse breakpoint (see
  * LABEL_BREAKPOINT_CLASS in masthead.tsx for why 700 and not the ~613 where
- * the box merely stops overlapping) and below the 1536 at which the whole
- * disclosure gives way to the inline bar. Same viewport e2e/masthead-nav-focus
+ * the box merely stops overlapping) and below the 1024 at which the whole
+ * disclosure gives way to the stepped inline bar (NAV-DROPDOWN-REALIGN-1; it was 1536). Same viewport e2e/masthead-nav-focus
  * .spec.ts uses, for the same reason.
  *
  * Nothing here asserts the 2.6s cadence itself. Timing assertions against a

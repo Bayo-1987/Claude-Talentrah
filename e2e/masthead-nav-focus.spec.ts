@@ -31,9 +31,9 @@ base.describe("seeker masthead mobile disclosures manage keyboard focus", () => 
   base.skip(!DEMO_PASSWORD, "DEMO_PASSWORD is not set — see scripts/seed.ts");
 
   base.beforeEach(async ({ page }) => {
-    // Below the 2xl (1536px) breakpoint where masthead.tsx puts the nav
-    // behind the disclosure — see masthead-nav-fit.spec.ts's own note on why
-    // it moved there.
+    // Below the 1024px breakpoint where masthead.tsx puts the nav behind the
+    // disclosure (NAV-DROPDOWN-REALIGN-1; it was 1536 before the stepped bar) —
+    // see masthead-nav-fit.spec.ts's own note.
     await page.setViewportSize({ width: 900, height: 900 });
     await page.goto("/login");
     await page.getByLabel("Email").fill("demo@talentrah.dev");
