@@ -10,7 +10,7 @@ import type { InboxItem } from "@/lib/notifications/inbox/service";
 
 /**
  * The bell in the signed-in masthead (PR-B U2). Shown ONLY when the layout says notifications_master is on (the masthead renders it behind that prop); it then asks for its list once on mount and again each time the page
- * becomes visible. The count is a number capped at "9+", never a meter. Opening the list marks nothing read: opening ONE item marks that item, "Mark all read" marks everything.
+ * becomes visible. The count is a number capped at "9+", never a meter. On a phone (below sm) the wrapper is not positioned, so the open panel is placed against the masthead band (a positioned, full-width ancestor): it spans the viewport directly under the header instead of hanging off the bell, which sits left of other controls and cut the panel off the left edge. From sm up the wrapper is positioned again and the panel is the 360px dropdown under the bell. Opening the list marks nothing read: opening ONE item marks that item, "Mark all read" marks everything.
  */
 export function BellView({
   open,
@@ -30,14 +30,14 @@ export function BellView({
   const count = unreadCount ?? 0;
   const label = count > 0 ? `Notifications, ${count} unread` : "Notifications";
   return (
-    <div data-notification-bell className="relative">
+    <div data-notification-bell className="sm:relative">
       <button
         type="button"
         aria-label={label}
         aria-expanded={open}
         aria-haspopup="dialog"
         onClick={onToggle}
-        className="relative inline-flex h-10 min-w-10 items-center justify-center border-none bg-transparent px-2 text-ink hover:text-rust"
+        className="relative inline-flex min-h-11 min-w-11 items-center justify-center border-none bg-transparent px-2 text-ink hover:text-rust"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="square" aria-hidden="true">
           <path d="M6 9a6 6 0 0 1 12 0v5l2 3H4l2-3V9z" />
@@ -50,11 +50,11 @@ export function BellView({
         )}
       </button>
       {open && (
-        <div role="dialog" aria-label="Notifications" className="absolute right-0 top-[calc(100%+8px)] z-30 w-[min(360px,calc(100vw-32px))] border-[1.5px] border-ink bg-card">
+        <div role="dialog" aria-label="Notifications" className="absolute inset-x-0 top-full z-30 border-[1.5px] border-ink bg-card sm:inset-x-auto sm:right-0 sm:top-[calc(100%+8px)] sm:w-[360px]">
           <div className="flex items-center justify-between border-b border-line px-4 py-2">
             <span className="font-display text-[16px] font-medium text-ink">Notifications</span>
             {count > 0 && (
-              <button type="button" onClick={onMarkAll} className="min-h-10 border-none bg-transparent px-1 font-body text-[13px] font-semibold text-rust hover:underline">
+              <button type="button" onClick={onMarkAll} className="min-h-11 border-none bg-transparent px-1 font-body text-[13px] font-semibold text-rust hover:underline">
                 Mark all read
               </button>
             )}
