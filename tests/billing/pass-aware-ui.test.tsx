@@ -15,7 +15,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/jobs" }));
+// useRouter: the account menu mounts a prefetch for Refer a Friend (PrefetchOnMount); the markup it adds is nothing, but the hook is called during render.
+vi.mock("next/navigation", () => ({ usePathname: () => "/jobs", useRouter: () => ({ prefetch: () => undefined }) }));
 
 const { Masthead } = await import("@/components/app-shell/masthead");
 const { FarahActions } = await import("@/components/scholarships/farah-actions");

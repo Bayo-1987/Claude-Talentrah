@@ -5,6 +5,7 @@ import Link from "next/link";
 import { signOutAction } from "@/lib/auth/actions";
 import { switchSideAction } from "@/lib/auth/switch-side";
 import { PushCleanupForm } from "@/components/app-shell/push-cleanup-form";
+import { PrefetchOnMount } from "@/components/app-shell/prefetch-on-mount";
 import type { Side } from "@/lib/auth/side-preference";
 
 /**
@@ -82,6 +83,8 @@ export function AccountMenu({ initials, email, displayName, settingsHref = "/set
 
   return (
     <div ref={ref} className="relative flex items-center">
+      {/* The menu's links are not in the DOM until it opens, so next/link never prefetches them; the bar's links are. Mounting the prefetch here keeps Refer a Friend as quick to answer a click as it was in the bar. */}
+      {referHref && <PrefetchOnMount hrefs={[referHref]} />}
       {/* The circle or badge keeps its design size; the BUTTON around it is the hit target (CLAUDE.md makes the target size a hard rule). */}
       <button
         ref={triggerRef}

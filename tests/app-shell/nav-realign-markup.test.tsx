@@ -13,7 +13,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/jobs" }));
+// useRouter: the account menu mounts a prefetch for Refer a Friend (PrefetchOnMount); the markup it adds is nothing, but the hook is called during render.
+vi.mock("next/navigation", () => ({ usePathname: () => "/jobs", useRouter: () => ({ prefetch: () => undefined }) }));
 const { Masthead } = await import("@/components/app-shell/masthead");
 const { ASK_FARAH_BAR_MIN_PX, NAV_TIGHT_GAP_BAND_PX } = await import("@/components/app-shell/nav-model");
 

@@ -6,12 +6,15 @@
  * No module mocks: the employer layout is an async Server Component, so where it wires the signed-in user's own details into the header is pinned by reading its source, the way
  * tests/pwa/employer-install-strip.test.tsx pins where it mounts the install strip.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { EmployerMasthead } from "@/components/employer/employer-masthead";
 import { Masthead } from "@/components/app-shell/masthead";
+
+// The one mock in this file, added with the Refer a Friend prefetch: the seeker header now calls useRouter() while rendering, which throws outside a mounted app router. Everything else in next/navigation stays real.
+vi.mock("next/navigation", async (orig) => ({ ...(await orig<typeof import("next/navigation")>()), useRouter: () => ({ prefetch: () => undefined }) }));
 
 const ROOT = path.resolve(__dirname, "../..");
 const read = (rel: string) => readFileSync(path.join(ROOT, rel), "utf8");

@@ -87,7 +87,8 @@ for (const kind of ["seeker", "employer"] as const) {
         await page.keyboard.press("Tab");
         await expect(menu(page).getByRole("menuitem", { name })).toBeFocused();
       }
-      for (const name of [...REFER, "Settings"].reverse()) {
+      // Back from Sign out: Refer a Friend (seekers), then Settings. The forward list is [Settings, ...REFER, Sign out], so this is its reverse minus Sign out.
+      for (const name of ["Settings", ...REFER].reverse()) {
         await page.keyboard.press("Shift+Tab");
         await expect(menu(page).getByRole("menuitem", { name })).toBeFocused();
       }
@@ -118,7 +119,7 @@ for (const kind of ["seeker", "employer"] as const) {
     test("with no name the menu shows the email alone; with neither there is no empty identity row", async ({ page }) => {
       await mount(page, kind, { ...props, displayName: "" });
       await trigger(page).click();
-      expect((await menu(page).innerText()).split("\n").map((l) => l.trim()).filter(Boolean)).toEqual([props.email, "Settings", "Sign out"]);
+      expect((await menu(page).innerText()).split("\n").map((l) => l.trim()).filter(Boolean)).toEqual([props.email, "Settings", ...REFER, "Sign out"]);
 
       if (kind === "employer") {
         await mount(page, kind, { ...props, displayName: "", email: "" });
