@@ -74,13 +74,14 @@ describe("closed lists equal the prompt", () => {
     expect([...NOTIFICATION_SETTING_KEYS]).toEqual(["mass_email_cap_24h", "mass_email_ceiling_month"]);
     expect([...NOTIFICATION_PERMISSIONS]).toEqual(["user_messaging", "operators"]);
   });
-  it("the five flags, all spelled by the prompt", () => {
+  it("the six flags, all spelled by the prompt and the 0284 addition", () => {
     expect(NOTIFICATION_FLAGS).toEqual({
       master: "notifications_master",
       pushSender: "push_sender",
       adminMessaging: "admin_messaging",
       adminPromotions: "admin_promotions",
       adminEmail: "admin_email",
+      adminMessagingSelfApprove: "admin_messaging_self_approve",
     });
   });
   it("the numbers the database enforces", () => {

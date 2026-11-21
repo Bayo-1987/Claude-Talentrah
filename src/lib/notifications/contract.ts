@@ -243,6 +243,7 @@ export const NOTIFICATION_FLAGS = {
   adminMessaging: "admin_messaging",
   adminPromotions: "admin_promotions",
   adminEmail: "admin_email",
+  adminMessagingSelfApprove: "admin_messaging_self_approve",
 } as const;
 export type NotificationFlagKey = (typeof NOTIFICATION_FLAGS)[keyof typeof NOTIFICATION_FLAGS];
 
