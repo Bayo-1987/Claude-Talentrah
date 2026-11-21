@@ -3,6 +3,9 @@
 import { useState, useTransition, type ReactNode } from "react";
 import { setNotificationPreferenceAction } from "@/app/(app)/settings/notification-actions";
 import type { NotificationPreferenceColumn, NotificationPreferenceValues } from "./notification-preferences-model";
+import { accountDeviceHint } from "./notification-summary-model";
+import { useDevicePushState } from "./use-device-push-state";
+import type { PushState } from "@/lib/pwa/push/client";
 
 type Row = { column: NotificationPreferenceColumn; label: string; hint: string };
 
@@ -51,6 +54,7 @@ export function NotificationPreferencesView({
   notes,
   error,
   optIn,
+  deviceState,
 }: {
   values: NotificationPreferenceValues;
   onToggle: (column: NotificationPreferenceColumn, next: boolean) => void;
@@ -58,7 +62,10 @@ export function NotificationPreferencesView({
   notes: Partial<Record<string, string>>;
   error: string | null;
   optIn: ReactNode;
+  /** Where push stands on this device, when known. Absent or null: no account-versus-device hint. */
+  deviceState?: PushState | null;
 }) {
+  const deviceHint = deviceState === undefined ? null : accountDeviceHint(values.push_enabled, deviceState);
   const line = (row: Row) => (
     <div key={row.column} className="flex items-start justify-between gap-4 border-b border-line py-3">
       <div className="min-w-0">
@@ -84,6 +91,11 @@ export function NotificationPreferencesView({
           <div className="min-w-0">
             <p className="font-body text-[14px] font-semibold text-ink">Push notifications on this device</p>
             <p className="font-display text-[13px] italic text-ink-soft">The master switch for every push below.</p>
+            {deviceHint && (
+              <p data-testid="push-device-hint" className="mt-1 font-body text-[13px] text-rust">
+                {deviceHint}
+              </p>
+            )}
           </div>
           <Switch label="Push notifications on this device" checked={values.push_enabled} disabled={busy === "push_enabled"} onClick={() => onToggle("push_enabled", !values.push_enabled)} />
         </div>
@@ -98,7 +110,8 @@ export function NotificationPreferencesView({
   );
 }
 
-export function NotificationPreferences({ initial, optIn }: { initial: NotificationPreferenceValues; optIn: ReactNode }) {
+export function NotificationPreferences({ initial, optIn, deviceStateEnabled = false }: { initial: NotificationPreferenceValues; optIn: ReactNode; deviceStateEnabled?: boolean }) {
+  const deviceState = useDevicePushState(deviceStateEnabled);
   const [values, setValues] = useState<NotificationPreferenceValues>(initial);
   const [busy, setBusy] = useState<string | null>(null);
   const [notes, setNotes] = useState<Partial<Record<string, string>>>({});
@@ -127,5 +140,5 @@ export function NotificationPreferences({ initial, optIn }: { initial: Notificat
     });
   }
 
-  return <NotificationPreferencesView values={values} onToggle={onToggle} busy={busy} notes={notes} error={error} optIn={optIn} />;
+  return <NotificationPreferencesView values={values} onToggle={onToggle} busy={busy} notes={notes} error={error} optIn={optIn} deviceState={deviceStateEnabled ? deviceState : undefined} />;
 }

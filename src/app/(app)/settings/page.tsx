@@ -6,7 +6,10 @@ import { billingRegionLabel } from "@/lib/billing/region";
 import { DeleteAccountSection } from "@/components/account-deletion/delete-account-section";
 import { getDeletionBlockers } from "@/lib/account-deletion/queries";
 import { SignOutEverywhere } from "./sign-out-everywhere";
-import { NotificationSettingsLink, readNotificationsLinkFlag } from "@/components/settings/notification-settings-link";
+import { readNotificationsLinkFlag } from "@/components/settings/notification-settings-link";
+import { NotificationSettingsSummary } from "@/components/settings/notification-settings-summary";
+import { realPreferenceDeps } from "./notification-deps";
+import { loadNotificationSummary } from "./notification-summary-core";
 
 export const metadata = { title: "Settings — Talentrah" };
 
@@ -37,6 +40,7 @@ export default async function SettingsPage() {
   const { user, profile } = await requireUser();
   const deletionBlockers = await getDeletionBlockers(user.id);
   const showNotifications = await readNotificationsLinkFlag();
+  const notificationSummary = await loadNotificationSummary(realPreferenceDeps(), user.id, showNotifications);
 
   const readOnly = [
     {
@@ -84,7 +88,7 @@ export default async function SettingsPage() {
         ))}
       </div>
 
-      <NotificationSettingsLink show={showNotifications} />
+      {notificationSummary && <NotificationSettingsSummary values={notificationSummary.values} deviceEnabled={notificationSummary.deviceEnabled} />}
 
       <SignOutEverywhere />
       <DeleteAccountSection creditsBalance={Math.max(profile.credits_balance, 0)} blockers={deletionBlockers} />
