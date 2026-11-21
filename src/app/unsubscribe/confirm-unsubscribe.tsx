@@ -1,20 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState } from "react";
 import { Button } from "@/components/ui";
-import { confirmUnsubscribeAction } from "./actions";
+import { confirmUnsubscribeFormAction, type ConfirmState } from "./actions";
 import { COPY, NOT_WORKING_COPY } from "./copy";
 import type { UnsubscribablePreference } from "./preference";
 import { ResubscribeButton } from "./resubscribe-button";
 
 /**
- * What a person sees when they open an unsubscribe link: the question, and a button. Nothing has changed yet. The button is the POST (a server action); on success the page says so and offers the
- * undo for the same token and kind, because a person can still press it by mistake.
+ * What a person sees when they open an unsubscribe link: the question, and a button. Nothing has changed yet. The button submits a real <form> whose action is the server action (the token and the kind
+ * are hidden fields), so it works with JavaScript off: the server renders the page again with the answer. On success the page says so and offers the undo for the same token and kind, because a person
+ * can still press it by mistake.
  */
 export function ConfirmUnsubscribe({ token, preference }: { token: string; preference: UnsubscribablePreference }) {
-  const [state, setState] = useState<"idle" | "working" | "done" | "didnt_work">("idle");
+  const [state, formAction, pending] = useActionState<ConfirmState, FormData>(confirmUnsubscribeFormAction, { status: "idle" });
 
-  if (state === "done") {
+  if (state.status === "done") {
     const done = COPY[preference].unsubscribed;
     return (
       <>
@@ -24,7 +25,7 @@ export function ConfirmUnsubscribe({ token, preference }: { token: string; prefe
       </>
     );
   }
-  if (state === "didnt_work") {
+  if (state.status === "didnt_work") {
     return (
       <>
         <h1 className="text-[32px] leading-[1.25]">{NOT_WORKING_COPY.heading}</h1>
@@ -38,18 +39,13 @@ export function ConfirmUnsubscribe({ token, preference }: { token: string; prefe
     <>
       <h1 className="text-[32px] leading-[1.25]">{ask.heading}</h1>
       <p className="text-[15.5px] text-ink-soft">{ask.body}</p>
-      <div>
-        <Button
-          type="button"
-          disabled={state === "working"}
-          onClick={async () => {
-            setState("working");
-            setState((await confirmUnsubscribeAction(token, preference)) === "done" ? "done" : "didnt_work");
-          }}
-        >
-          {state === "working" ? "Unsubscribing…" : "Unsubscribe"}
+      <form action={formAction}>
+        <input type="hidden" name="token" value={token} />
+        <input type="hidden" name="pref" value={preference} />
+        <Button type="submit" disabled={pending}>
+          {pending ? "Unsubscribing…" : "Unsubscribe"}
         </Button>
-      </div>
+      </form>
     </>
   );
 }

@@ -7,6 +7,8 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import * as serviceRole from "@/lib/supabase/service-role";
@@ -28,6 +30,8 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 import UnsubscribePage from "@/app/unsubscribe/page";
+import { confirmUnsubscribeFormAction } from "@/app/unsubscribe/actions";
+import { ConfirmUnsubscribe } from "@/app/unsubscribe/confirm-unsubscribe";
 import { COPY } from "@/app/unsubscribe/copy";
 import { handleOneClickUnsubscribe } from "@/app/unsubscribe/one-click";
 import { parsePreference, type UnsubscribablePreference } from "@/app/unsubscribe/preference";
@@ -95,18 +99,45 @@ describe("a GET changes nothing", () => {
   });
 });
 
-describe("the confirm button is a client component that calls the confirm action, then offers the undo", () => {
+describe("the confirm works with JavaScript off: a real <form> whose action is the server action", () => {
   const c = src("src/app/unsubscribe/confirm-unsubscribe.tsx");
-  it("is a client component calling confirmUnsubscribeAction with its token and preference", () => {
-    expect(c).toMatch(/^"use client";/);
-    expect(c).toMatch(/confirmUnsubscribeAction\(\s*token\s*,\s*preference\s*\)/);
+  const html = renderToStaticMarkup(createElement(ConfirmUnsubscribe, { token: "tok-123", preference: "promotions" }));
+
+  it("the server-rendered HTML holds a form with an action, the token and the kind as hidden fields, and a submit button", () => {
+    expect(html).toMatch(/<form[^>]*\saction=/);
+    expect(html).toMatch(/<input[^>]*type="hidden"[^>]*name="token"[^>]*value="tok-123"/);
+    expect(html).toMatch(/<input[^>]*type="hidden"[^>]*name="pref"[^>]*value="promotions"/);
+    expect(html).toMatch(/<button[^>]*type="submit"[^>]*>Unsubscribe<\/button>/);
   });
-  it("the done state shows the 'You're unsubscribed.' copy and the undo for the same token and kind", () => {
+
+  it("the button needs no script: no click handler is how it works (a form submit does)", () => {
+    expect(c).not.toMatch(/onClick/);
+  });
+
+  it("is a client component whose form action comes from useActionState on the server action", () => {
+    expect(c).toMatch(/^"use client";/);
+    expect(c).toMatch(/useActionState(?:<[^>]*>)?\(\s*confirmUnsubscribeFormAction/);
+    expect(c).toMatch(/<form\s+action=\{formAction\}/);
+  });
+
+  it("the done state shows the 'You're unsubscribed.' copy and the undo for the same token and kind; unmatched and failed show the 'didn't work' copy", () => {
     expect(c).toMatch(/<ResubscribeButton\s+token=\{token\}\s+preference=\{preference\}\s*\/>/);
     expect(c).toMatch(/COPY\[preference\]\.unsubscribed/);
-  });
-  it("unmatched and failed both show the 'didn't work' copy", () => {
     expect(c).toMatch(/NOT_WORKING_COPY/);
+  });
+
+  it("the form action reads the token and the kind from the submitted form, and does exactly what the confirm action does", async () => {
+    const form = new FormData();
+    form.set("token", "tok");
+    form.set("pref", "announcements");
+    expect(await confirmUnsubscribeFormAction({ status: "idle" }, form)).toEqual({ status: "done" });
+    expect(calls).toEqual([{ name: NOTIFICATION_RPCS.emailUnsubscribeStream, args: { p_token: "tok", p_stream: "announcements", p_subscribed: false } }]);
+    result = { data: [{ matched: false }], error: null };
+    expect(await confirmUnsubscribeFormAction({ status: "idle" }, form)).toEqual({ status: "didnt_work" });
+    const empty = new FormData();
+    calls.length = 0;
+    expect(await confirmUnsubscribeFormAction({ status: "idle" }, empty)).toEqual({ status: "didnt_work" });
+    expect(calls).toEqual([]);
   });
 });
 

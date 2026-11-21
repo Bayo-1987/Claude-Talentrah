@@ -1,7 +1,9 @@
 "use server";
 
 import { setPreference, type PreferenceResult } from "./apply";
-import type { UnsubscribablePreference } from "./preference";
+import { parsePreference, type UnsubscribablePreference } from "./preference";
+
+export type ConfirmState = { status: "idle" | "done" | "didnt_work" };
 
 /**
  * The two server actions of /unsubscribe. Both take only the token (there is no session here, deliberately) and return a plain value rather than the row, so nothing about who the token belongs to
@@ -14,6 +16,16 @@ import type { UnsubscribablePreference } from "./preference";
  */
 export async function confirmUnsubscribeAction(token: string, preference: UnsubscribablePreference): Promise<PreferenceResult> {
   return setPreference(token, preference, false, "unsubscribe");
+}
+
+/**
+ * The confirm button's form action. A real <form> posts the token and the kind as hidden fields, so it works with JavaScript off (the server renders the page again with the answer); with JavaScript on,
+ * React calls it without a reload. It does exactly what `confirmUnsubscribeAction` does. A missing or empty token answers "didnt_work" and calls nothing.
+ */
+export async function confirmUnsubscribeFormAction(_previous: ConfirmState, formData: FormData): Promise<ConfirmState> {
+  const token = String(formData.get("token") ?? "");
+  const preference = parsePreference(String(formData.get("pref") ?? ""));
+  return { status: (await confirmUnsubscribeAction(token, preference)) === "done" ? "done" : "didnt_work" };
 }
 
 export async function resubscribeAction(token: string, preference: UnsubscribablePreference): Promise<boolean> {
