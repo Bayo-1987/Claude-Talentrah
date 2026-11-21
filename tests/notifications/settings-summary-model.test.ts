@@ -11,9 +11,12 @@ describe("N of M categories on", () => {
     for (const c of SUMMARY_CATEGORY_COLUMNS) expect(NOTIFICATION_PREFERENCE_COLUMNS).toContain(c);
   });
   it("counts the switches that are on", () => {
-    expect(categoriesOn(values())).toEqual({ on: 1, total: 6 }); // today's defaults: only announcements
-    expect(categoriesOn(values({ push_new_applicant: true, push_match_alert: true }))).toEqual({ on: 3, total: 6 });
+    expect(categoriesOn(values({ push_new_applicant: false, push_application_viewed: false, push_match_alert: false }))).toEqual({ on: 1, total: 6 }); // only announcements
+    expect(categoriesOn(values({ push_new_applicant: true, push_application_viewed: false, push_match_alert: true }))).toEqual({ on: 3, total: 6 });
     expect(categoriesOn(values({ push_new_applicant: true, push_application_viewed: true, push_match_alert: true, push_promotions: true, email_promotions: true, email_announcements: true }))).toEqual({ on: 6, total: 6 });
+  });
+  it("the defaults count 4 of 6: the three event categories plus announcements (promotions and the master switch are off)", () => {
+    expect(categoriesOn(values())).toEqual({ on: 4, total: 6 });
   });
   it("the master push switch does not change the count", () => {
     expect(categoriesOn(values({ push_enabled: true }))).toEqual(categoriesOn(values({ push_enabled: false })));

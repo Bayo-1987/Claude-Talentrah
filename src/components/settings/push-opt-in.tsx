@@ -31,9 +31,19 @@ export interface PushOptInProps {
   enabled: boolean;
   /** Loads U3b's client. Absent: nothing renders, nothing loads. */
   loadClient?: LoadPushClient;
+  /** Called once after a tap that turned push on for this device. */
+  onEnabled?: () => void;
 }
 
+/** Fired on the window after a tap turned push on for this device, so the screen can show the account switch on. */
+export const PUSH_ENABLED_EVENT = "talentrah:push-enabled";
+
 export type OptInState = { phase: "loading" } | { phase: "failed" } | { phase: "ready"; push: PushState; message: string | null };
+
+/** A tap counts as an opt-in only when the result is a ready state with push on. */
+export function enabledTransition(next: OptInState): boolean {
+  return next.phase === "ready" && next.push === "on";
+}
 
 export function shouldStartOptIn(props: PushOptInProps): boolean {
   return props.enabled === true && typeof props.loadClient === "function";
@@ -154,6 +164,7 @@ export function PushOptIn(props: PushOptInProps) {
         void ctl.click().then((next) => {
           setState(next);
           setBusy(false);
+          if (enabledTransition(next)) props.onEnabled?.();
         });
       }}
     />

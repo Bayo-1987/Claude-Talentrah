@@ -26,9 +26,10 @@ describe("the switches and their defaults", () => {
     expect(switchOf(html, "Offers and promotions by push")).toBe(false);
     expect(switchOf(html, "Offers and promotions by email")).toBe(false);
   });
-  it("announcements are ON by default, and the master push switch and every event switch are OFF", () => {
+  it("announcements are ON by default, the master push switch is OFF and the three event switches are ON", () => {
     expect(switchOf(html, "Announcements by email")).toBe(true);
-    for (const label of ["Push notifications on this device", "A new applicant on a job you posted", "An employer has viewed your application", "An exceptional job match"]) expect(switchOf(html, label), label).toBe(false);
+    expect(switchOf(html, "Push notifications on this device")).toBe(false);
+    for (const label of ["A new applicant on a job you posted", "An employer has viewed your application", "An exceptional job match"]) expect(switchOf(html, label), label).toBe(true);
   });
   it("shows stored values as stored", () => {
     const stored = render({ ...DEFAULT_NOTIFICATION_PREFERENCES, push_enabled: true, email_promotions: true, email_announcements: false });

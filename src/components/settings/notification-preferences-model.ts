@@ -2,8 +2,9 @@
  * The notification preferences, as plain data (U6). The seven switches are columns of `email_preferences` (0265): a master push switch, one push switch per event, the two kinds of mass e-mail the admin
  * messages send, and push for offers.
  *
- * DEFAULTS, and why they are here: promotions are OFF unless the person turns them on (consent, never a default), announcements are ON (service notices, with unsubscribe), and every push switch is OFF (a person
- * opts in on a device). They mirror the column defaults in migration 0265; tests/notifications/preferences-model.test.ts reads that migration and fails if the two ever disagree. The screen shows the stored
+ * DEFAULTS, and why they are here: promotions are OFF unless the person turns them on (consent, never a default), announcements are ON (service notices, with unsubscribe), the three event switches are ON
+ * (0283; for new accounts only, no stored row is rewritten), and the master push switch is OFF (a person turns it on by a tap on a device, which needs the browser's permission). They mirror the effective column
+ * defaults (migration 0265 plus the later ALTER ... SET DEFAULT in 0283); tests/notifications/preferences-model.test.ts reads those migrations and fails if the two ever disagree. The screen shows the stored
  * row when there is one, and these values when there is not.
  */
 export const NOTIFICATION_PREFERENCE_COLUMNS = [
@@ -21,9 +22,9 @@ export type NotificationPreferenceValues = Record<NotificationPreferenceColumn, 
 
 export const DEFAULT_NOTIFICATION_PREFERENCES: Readonly<NotificationPreferenceValues> = Object.freeze({
   push_enabled: false,
-  push_new_applicant: false,
-  push_application_viewed: false,
-  push_match_alert: false,
+  push_new_applicant: true,
+  push_application_viewed: true,
+  push_match_alert: true,
   push_promotions: false,
   email_promotions: false,
   email_announcements: true,
