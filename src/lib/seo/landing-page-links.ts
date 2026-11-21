@@ -112,7 +112,16 @@ export async function relevantJobLandingLinks(
   supabase: SupabaseServerClient,
   job: Pick<Tables<"job_postings">, "work_type" | "location" | "external_source">,
 ): Promise<LandingLink[]> {
-  const all = await liveJobLandingLinks(supabase);
+  // These links are decoration on a page that is otherwise fine, so ANY failure (an error answer such as a statement timeout, an empty-message error, a rejected call) is "no links" plus one log line,
+  // never a thrown error: this call sits in the job page's Promise.all, and a throw here took the whole page down (production, 18, 19 and 21 Nov). The landing pages call
+  // liveJobLandingLinks directly and keep throwing, because they must not show wrong counts.
+  let all: LandingLinkWithCount[];
+  try {
+    all = await liveJobLandingLinks(supabase);
+  } catch (e) {
+    console.error(`[seo] landing links unavailable: ${e instanceof Error ? e.message : String(e)}`);
+    return [];
+  }
   return all.filter((link) => {
     if (link.href === "/jobs/remote") return job.work_type === "remote";
     const country = TRACKED_COUNTRIES.find(

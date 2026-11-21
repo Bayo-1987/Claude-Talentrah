@@ -7,6 +7,7 @@ import { stripRedundantJobHeader } from "@/lib/seo/job-description-snippet";
 import { stripMarkdownToPlainText } from "@/lib/jobs/extract-jd";
 import { jobPostingStatusMessage } from "@/lib/jobs/posting-status-message";
 import { jobForRequest, siblingPostingsFor, supersededTargetFor } from "./job-for-request";
+import { isJobId } from "@/lib/jobs/job-id";
 import { buildJobPageTitle } from "@/lib/seo/job-page-title";
 import { BorderedCard, Button, EyebrowLabel, MatchTierBadge, buttonClasses } from "@/components/ui";
 import { dedupeMetaParts } from "@/components/jobs/job-card";
@@ -64,6 +65,8 @@ const EMPLOYMENT_LABEL: Record<string, string> = {
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  // Not a UUID: nothing to look up (production, 20 Nov: `<uuid>&quot` made 16 refused database calls from four loads).
+  if (!isJobId(id)) notFound();
   const { data } = await jobForRequest(id);
 
   if (!data) {
@@ -188,6 +191,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
  */
 export default async function JobDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ applyLink?: string }> }) {
   const { id } = await params;
+  // Same guard as generateMetadata, first of all: a bad id is a 404 before the session, the job, the redirect lookup or any other call.
+  if (!isJobId(id)) notFound();
   // PR-E4: the redirect behind "Apply on company site" lands here with ?applyLink=recheck-failed when it could not re-check the link; the page then says so in plain words instead of a bare 404.
   const { applyLink } = await searchParams;
   /*
