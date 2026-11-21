@@ -142,6 +142,7 @@ test.describe("(B) /unsubscribe token link with the worker active", () => {
       await installWorker(page);
       const res = await page.goto(`/unsubscribe?token=${u.token}`);
       expect(res?.status()).toBe(200);
+      await page.getByRole("button", { name: "Unsubscribe", exact: true }).click(); // a GET only confirms (UNSUB-GET-SCANNER-1)
       await expect(page.getByText("That link didn't work.")).toHaveCount(0);
       await expect(page.getByRole("heading", { name: "You are offline." })).toHaveCount(0);
       await expect(page.getByRole("heading", { name: "You're unsubscribed." })).toBeVisible();
@@ -161,6 +162,7 @@ test.describe("(B) /unsubscribe token link with the worker active", () => {
       await page.getByRole("link", { name: "Try again" }).click();
       await page.waitForURL(/\/unsubscribe\?token=/);
       await expect(page.getByRole("heading", { name: "You are offline." })).toHaveCount(0);
+      await page.getByRole("button", { name: "Unsubscribe", exact: true }).click(); // a GET only confirms (UNSUB-GET-SCANNER-1)
       await expect(page.getByRole("heading", { name: "You're unsubscribed." })).toBeVisible();
     } finally {
       await admin.auth.admin.deleteUser(u.id);

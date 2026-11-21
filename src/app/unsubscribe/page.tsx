@@ -1,38 +1,26 @@
 import type { Metadata } from "next";
-import { NOTIFICATION_RPCS } from "@/lib/notifications/contract-db";
-import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { MarketingMasthead } from "@/components/marketing/marketing-masthead";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Container, EyebrowLabel } from "@/components/ui";
 import { pageMetadata } from "@/lib/seo/site";
-import { ResubscribeButton } from "./resubscribe-button";
-import { parsePreference, streamOf } from "./preference";
+import { ConfirmUnsubscribe } from "./confirm-unsubscribe";
+import { NOT_WORKING_COPY } from "./copy";
+import { parsePreference } from "./preference";
 
 /**
- * Unsubscribe, reached from a link in the digest, send-138's proactive match
- * alert, send-466's scholarship deadline alert, or send-467's win-back
- * email — `pref` in the query string picks which (defaulting to the digest,
- * so every digest email already sent before the others existed still points
- * at valid behaviour with no `pref` at all).
+ * Unsubscribe, reached from a link in the digest, send-138's proactive match alert, send-466's scholarship deadline alert, send-467's win-back email, or an admin announcement or promotion — `pref` in
+ * the query string picks which (defaulting to the digest, so every digest email already sent before the others existed still points at valid behaviour with no `pref` at all).
  *
  * ── NO SESSION, BY NECESSITY ──────────────────────────────────────────────
  *
- * The person clicking is in their mail client, quite possibly on a different
- * device from the one they signed in on, and quite possibly annoyed. Making
- * them log in to stop email is the behaviour that gets a sender marked as
- * spam. The token in the link IS the authorisation, which is why it is 32
- * random bytes and why the table it lives in is unreachable from PostgREST —
- * see 0083.
+ * The person clicking is in their mail client, quite possibly on a different device from the one they signed in on, and quite possibly annoyed. Making them log in to stop email is the behaviour that
+ * gets a sender marked as spam. The token in the link IS the authorisation, which is why it is 32 random bytes and why the table it lives in is unreachable from PostgREST — see 0083.
  *
- * ── IT ACTS ON GET, WHICH IS NORMALLY WRONG ───────────────────────────────
+ * ── A GET CHANGES NOTHING (UNSUB-GET-SCANNER-1) ───────────────────────────
  *
- * A GET that changes state is bad practice, and here it is the correct trade:
- * mail clients and their link-scanners do not reliably POST, and an
- * unsubscribe that needs a second click to take effect is one that some people
- * will believe they completed and did not. The state change is
- * self-correcting — the same page offers a one-click resubscribe — so the cost
- * of a prefetcher firing it is a message saying so and a button to undo, which
- * is far cheaper than mail that will not stop.
+ * This page used to unsubscribe on GET. Mail clients and link scanners open every link in a message, so people were unsubscribed who never asked. A GET now only shows a confirm page; the change is a
+ * POST, either this page's button (a server action) or the one-click endpoint POST /api/unsubscribe that a mail client's own "Unsubscribe" button calls. Old links keep landing here. This file therefore
+ * holds no database call: tests/notifications/unsubscribe-confirm-and-post.test.tsx reads it and fails if one appears. The undo (resubscribe) is unchanged.
  */
 export const dynamic = "force-dynamic";
 
@@ -50,45 +38,6 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-const COPY = {
-  job_match_digest: {
-    unsubscribed: {
-      heading: "You're unsubscribed.",
-      body: "We won't send you the weekly job-match email again. This doesn't affect your account, and it doesn't stop messages about things you asked for — password resets, payment receipts, and the like.",
-    },
-  },
-  proactive_match_alert: {
-    unsubscribed: {
-      heading: "You're unsubscribed.",
-      body: "Farah won't send the rare \"exceptional match\" alert to your inbox again. This doesn't affect your account, your weekly digest (if you're subscribed to it), or anything else Talentrah sends.",
-    },
-  },
-  scholarship_deadline_alert: {
-    unsubscribed: {
-      heading: "You're unsubscribed.",
-      body: "We won't send you a reminder when a saved scholarship's deadline is approaching. This doesn't affect your account, your saved scholarships, or anything else Talentrah sends.",
-    },
-  },
-  announcements: {
-    unsubscribed: {
-      heading: "You're unsubscribed.",
-      body: "We won't email you announcements from Talentrah again. This doesn't affect your account, offers and promotions (if you chose them), or anything else Talentrah sends, like receipts and password resets.",
-    },
-  },
-  promotions: {
-    unsubscribed: {
-      heading: "You're unsubscribed.",
-      body: "We won't email you offers and promotions from Talentrah again. This doesn't affect your account, announcements, or anything else Talentrah sends, like receipts and password resets.",
-    },
-  },
-  win_back_email: {
-    unsubscribed: {
-      heading: "You're unsubscribed.",
-      body: "Farah won't email you a \"here's what you missed\" summary if you go quiet for a while. This doesn't affect your account, or anything else Talentrah sends.",
-    },
-  },
-} as const;
-
 export default async function UnsubscribePage({
   searchParams,
 }: {
@@ -97,51 +46,18 @@ export default async function UnsubscribePage({
   const { token, pref } = await searchParams;
   const preference = parsePreference(pref);
 
-  let matched = false;
-  if (token) {
-    const supabase = createServiceRoleClient();
-    const stream = streamOf(preference);
-    const { data, error } =
-      stream !== null
-        ? await supabase.rpc(NOTIFICATION_RPCS.emailUnsubscribeStream, { p_token: token, p_stream: stream, p_subscribed: false })
-        : preference === "proactive_match_alert"
-        ? await supabase.rpc("proactive_match_alert_set_preference", { p_token: token, p_enabled: false })
-        : preference === "scholarship_deadline_alert"
-          ? await supabase.rpc("scholarship_deadline_alert_set_preference", { p_token: token, p_enabled: false })
-          : preference === "win_back_email"
-            ? await supabase.rpc("win_back_email_set_preference", { p_token: token, p_enabled: false })
-            : await supabase.rpc("email_unsubscribe", { p_token: token, p_subscribed: false });
-    if (error) {
-      console.error("[unsubscribe] rpc failed:", error.message);
-    } else {
-      matched = data?.[0]?.matched === true;
-    }
-  }
-
-  const copy = COPY[preference].unsubscribed;
-
   return (
     <>
       <MarketingMasthead />
       <main id="main-content" className="py-24">
         <Container className="flex max-w-[620px] flex-col gap-5">
           <EyebrowLabel>Email preferences</EyebrowLabel>
-          {matched ? (
-            <>
-              <h1 className="text-[32px] leading-[1.25]">{copy.heading}</h1>
-              <p className="text-[15.5px] text-ink-soft">{copy.body}</p>
-              {/* Undo, because a mis-click or a link scanner should not cost
-                  somebody a channel they wanted. */}
-              <ResubscribeButton token={token!} preference={preference} />
-            </>
+          {token ? (
+            <ConfirmUnsubscribe token={token} preference={preference} />
           ) : (
             <>
-              <h1 className="text-[32px] leading-[1.25]">That link didn&apos;t work.</h1>
-              <p className="text-[15.5px] text-ink-soft">
-                It may have already been used, or the address may have been changed since the email
-                went out. Nothing has been altered. If you keep receiving email you don&apos;t want,
-                reply to any of it and we&apos;ll sort it out by hand.
-              </p>
+              <h1 className="text-[32px] leading-[1.25]">{NOT_WORKING_COPY.heading}</h1>
+              <p className="text-[15.5px] text-ink-soft">{NOT_WORKING_COPY.body}</p>
             </>
           )}
         </Container>

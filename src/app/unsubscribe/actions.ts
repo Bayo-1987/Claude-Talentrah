@@ -1,47 +1,33 @@
 "use server";
 
-import { NOTIFICATION_RPCS } from "@/lib/notifications/contract-db";
-import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { streamOf, type UnsubscribablePreference } from "./preference";
+import { setPreference, type PreferenceResult } from "./apply";
+import { parsePreference, type UnsubscribablePreference } from "./preference";
+
+export type ConfirmState = { status: "idle" | "done" | "didnt_work" };
 
 /**
- * Re-subscribe using the same token the unsubscribe link carried.
+ * The two server actions of /unsubscribe. Both take only the token (there is no session here, deliberately) and return a plain value rather than the row, so nothing about who the token belongs to
+ * reaches the browser. The RPC dispatch is in apply.ts, shared with the one-click POST route.
  *
- * Takes only the token — there is no session here, deliberately. Returns a
- * plain boolean rather than the row, so nothing about who the token belongs to
- * reaches the browser.
+ * `confirmUnsubscribeAction` is the unsubscribe itself: a GET on the link only shows a confirm page (UNSUB-GET-SCANNER-1), because mail clients and link scanners open every link in a message, and
+ * the button is a POST. `resubscribeAction` is the undo, with the same token.
  *
- * `preference` picks which of the three independently-flippable columns this
- * resubscribes, and therefore which RPC — the functions take differently
- * named parameters (`p_subscribed` vs `p_enabled`), so this calls each by its
- * own shape rather than forcing one call site to guess a shared signature.
- * See 0128's own header for why send-138's alert has its own column and its
- * own function rather than sharing the digest's, 0197 for send-466's
- * scholarship deadline alert following the same precedent, and 0200's for
- * send-467's win-back email doing the same.
+ * `preference` picks which of the independently-flippable columns this changes, and therefore which RPC; see 0128 (send-138's alert has its own column and function), 0197 (send-466), 0200 (send-467).
  */
-export async function resubscribeAction(
-  token: string,
-  preference: UnsubscribablePreference,
-): Promise<boolean> {
-  if (!token) return false;
-  const supabase = createServiceRoleClient();
+export async function confirmUnsubscribeAction(token: string, preference: UnsubscribablePreference): Promise<PreferenceResult> {
+  return setPreference(token, preference, false, "unsubscribe");
+}
 
-  const stream = streamOf(preference);
-  const { data, error } =
-    stream !== null
-      ? await supabase.rpc(NOTIFICATION_RPCS.emailUnsubscribeStream, { p_token: token, p_stream: stream, p_subscribed: true })
-      : preference === "proactive_match_alert"
-      ? await supabase.rpc("proactive_match_alert_set_preference", { p_token: token, p_enabled: true })
-      : preference === "scholarship_deadline_alert"
-        ? await supabase.rpc("scholarship_deadline_alert_set_preference", { p_token: token, p_enabled: true })
-        : preference === "win_back_email"
-          ? await supabase.rpc("win_back_email_set_preference", { p_token: token, p_enabled: true })
-          : await supabase.rpc("email_unsubscribe", { p_token: token, p_subscribed: true });
+/**
+ * The confirm button's form action. A real <form> posts the token and the kind as hidden fields, so it works with JavaScript off (the server renders the page again with the answer); with JavaScript on,
+ * React calls it without a reload. It does exactly what `confirmUnsubscribeAction` does. A missing or empty token answers "didnt_work" and calls nothing.
+ */
+export async function confirmUnsubscribeFormAction(_previous: ConfirmState, formData: FormData): Promise<ConfirmState> {
+  const token = String(formData.get("token") ?? "");
+  const preference = parsePreference(String(formData.get("pref") ?? ""));
+  return { status: (await confirmUnsubscribeAction(token, preference)) === "done" ? "done" : "didnt_work" };
+}
 
-  if (error) {
-    console.error("[unsubscribe] resubscribe failed:", error.message);
-    return false;
-  }
-  return data?.[0]?.matched === true;
+export async function resubscribeAction(token: string, preference: UnsubscribablePreference): Promise<boolean> {
+  return (await setPreference(token, preference, true, "resubscribe")) === "done";
 }

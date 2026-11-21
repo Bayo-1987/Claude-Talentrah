@@ -1,8 +1,7 @@
 /**
- * CHARACTERISATION of /unsubscribe as it is TODAY (written first, green on unchanged code; NOTIF-UNSUB-PREF-GATE-1).
- *
- * The page is public, acts on GET, needs no session and is live with every flag OFF, so its "flags-off proof" is this file: for every link that exists today, the same RPC with the same arguments, the same
- * words, the same undo. The ONE thing U6 changes is what `pref=announcements` and `pref=promotions` do (they fall through to the weekly digest today); that pair is pinned separately below and replaced by its
+ * CHARACTERISATION of /unsubscribe (written first, green on unchanged code; NOTIF-UNSUB-PREF-GATE-1). UNSUB-GET-SCANNER-1 changed ONE thing: a GET no longer unsubscribes. The link lands on a confirm page and
+ * changes nothing; the unsubscribe is the confirm action (the same RPC, the same arguments, the same words). The page is public, needs no session and is live with every flag OFF, so its "flags-off proof" is
+ * this file: for every link that exists today, the same RPC with the same arguments, the same words, the same undo. The ONE thing U6 changes is what `pref=announcements` and `pref=promotions` do (they fall through to the weekly digest today); that pair is pinned separately below and replaced by its
  * successor when the change is made, with the old assertion shown failing first.
  *
  * No hand-written module factory (TEST-MOCK-1): the service-role module is replaced by a factory that spreads the real module and overrides one export. The page is called as a function and the returned
@@ -25,7 +24,8 @@ vi.mock("@/lib/supabase/service-role", async (importOriginal) => ({
 }));
 
 import UnsubscribePage from "@/app/unsubscribe/page";
-import { resubscribeAction } from "@/app/unsubscribe/actions";
+import { confirmUnsubscribeAction, resubscribeAction } from "@/app/unsubscribe/actions";
+import { COPY, NOT_WORKING_COPY } from "@/app/unsubscribe/copy";
 import { parsePreference } from "@/app/unsubscribe/preference";
 
 beforeEach(() => {
@@ -58,50 +58,54 @@ async function open(query: { token?: string; pref?: string }) {
 }
 const words = (tree: ReactNode) => textOf(tree).replace(/\s+/g, " ");
 
-describe("today: a link with no pref, or an unknown pref, unsubscribes the weekly digest", () => {
-  it.each([[undefined], ["bogus"], [""], ["Announcements-ish"]])("pref=%j calls email_unsubscribe with p_subscribed false and says so", async (pref) => {
+describe("a link with no pref, or an unknown pref, unsubscribes the weekly digest (on the confirm action, never on the GET)", () => {
+  it.each([[undefined], ["bogus"], [""], ["Announcements-ish"]])("pref=%j: the GET calls nothing; the confirm action calls email_unsubscribe with p_subscribed false and the page says so", async (pref) => {
     const tree = await open({ token: "tok", pref });
+    expect(calls).toEqual([]);
+    expect(findProps(tree, "ConfirmUnsubscribe")).toMatchObject({ token: "tok", preference: "job_match_digest" });
+    expect(await confirmUnsubscribeAction("tok", parsePreference(pref))).toBe("done");
     expect(calls).toEqual([{ name: "email_unsubscribe", args: { p_token: "tok", p_subscribed: false } }]);
-    expect(words(tree)).toContain("You're unsubscribed.");
-    expect(words(tree)).toContain("weekly job-match email");
-    expect(findProps(tree, "ResubscribeButton")).toMatchObject({ token: "tok", preference: "job_match_digest" });
+    expect(COPY.job_match_digest.unsubscribed.heading).toContain("You're unsubscribed.");
+    expect(COPY.job_match_digest.unsubscribed.body).toContain("weekly job-match email");
   });
 });
 
-describe("today: the three named kinds each switch off their own column through their own function", () => {
+describe("the three named kinds each switch off their own column through their own function (on the confirm action)", () => {
   it.each([
     ["proactive_match_alert", "proactive_match_alert_set_preference", "exceptional match"],
     ["scholarship_deadline_alert", "scholarship_deadline_alert_set_preference", "saved scholarship's deadline"],
     ["win_back_email", "win_back_email_set_preference", "here's what you missed"],
   ])("pref=%s -> %s(p_enabled false)", async (pref, rpc, phrase) => {
     const tree = await open({ token: "tok", pref });
+    expect(calls).toEqual([]);
+    expect(findProps(tree, "ConfirmUnsubscribe")).toMatchObject({ token: "tok", preference: pref });
+    expect(await confirmUnsubscribeAction("tok", parsePreference(pref))).toBe("done");
     expect(calls).toEqual([{ name: rpc, args: { p_token: "tok", p_enabled: false } }]);
-    expect(words(tree)).toContain("You're unsubscribed.");
-    expect(words(tree)).toContain(phrase);
-    expect(findProps(tree, "ResubscribeButton")).toMatchObject({ token: "tok", preference: pref });
+    const copy = COPY[parsePreference(pref)].unsubscribed;
+    expect(copy.heading).toContain("You're unsubscribed.");
+    expect(copy.body).toContain(phrase);
   });
 });
 
-describe("today: a link that does not work claims nothing", () => {
-  it("no token: no call at all, and the 'didn't work' words", async () => {
+describe("a link that does not work claims nothing", () => {
+  it("no token: no call at all, and the 'didn't work' words, no confirm button", async () => {
     const tree = await open({ pref: "win_back_email" });
     expect(calls).toEqual([]);
     expect(words(tree)).toContain("That link didn't work.");
+    expect(findProps(tree, "ConfirmUnsubscribe")).toBeNull();
     expect(findProps(tree, "ResubscribeButton")).toBeNull();
   });
-  it("a token nothing matches: the call is made, the 'didn't work' words, no undo button", async () => {
+  it("a token nothing matches: the confirm action makes the call and answers 'unmatched'; the words are the 'didn't work' words", async () => {
     result = { data: [{ matched: false }], error: null };
-    const tree = await open({ token: "stale" });
+    expect(await confirmUnsubscribeAction("stale", "job_match_digest")).toBe("unmatched");
     expect(calls).toHaveLength(1);
-    expect(words(tree)).toContain("That link didn't work.");
-    expect(findProps(tree, "ResubscribeButton")).toBeNull();
+    expect(NOT_WORKING_COPY.heading).toBe("That link didn't work.");
   });
-  it("an RPC error: logged, 'didn't work', no undo button", async () => {
+  it("an RPC error: logged, the confirm action answers 'failed' (the 'didn't work' words)", async () => {
     result = { data: null, error: { message: "boom" } };
     const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const tree = await open({ token: "tok" });
-    expect(words(tree)).toContain("That link didn't work.");
-    expect(findProps(tree, "ResubscribeButton")).toBeNull();
+    expect(await confirmUnsubscribeAction("tok", "job_match_digest")).toBe("failed");
+    expect(log).toHaveBeenCalled();
     log.mockRestore();
   });
 });
