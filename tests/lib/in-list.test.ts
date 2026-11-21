@@ -110,7 +110,8 @@ describe("IN_LIST_BATCH_SIZE — the value, and its margin against the evidence"
 });
 
 describe("the callers use the shared constant, not private copies", () => {
-  const callers = ["src/lib/matching/refresh-job.ts", "src/lib/jobs/ingest.ts", "src/lib/jobs/posting-deletion.ts"];
+  // Added deliberately (the import-marker read was the fifth unbounded `.in()` that hit the gateway limit in production, Nov 2026): the list now also pins it to the shared constant.
+  const callers = ["src/lib/matching/refresh-job.ts", "src/lib/jobs/ingest.ts", "src/lib/jobs/posting-deletion.ts", "src/lib/jobs/import-markers.ts"];
 
   it.each(callers)("%s imports from @/lib/supabase/in-list", (file) => {
     expect(readFileSync(file, "utf8")).toMatch(/from "@\/lib\/supabase\/in-list"/);
