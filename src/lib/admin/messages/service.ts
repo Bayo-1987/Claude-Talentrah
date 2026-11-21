@@ -23,6 +23,7 @@ import { requireHolder, type AdminActor } from "./actor";
 import { MessagingError } from "./errors";
 import type { ChannelCounts, EmailLimits, MessagingReads } from "./reads";
 import type { MessagingRpcs } from "./rpcs";
+import { isSelfApproved } from "./self-send";
 
 /**
  * The admin messaging service (A1). It is the only thing the admin page and its Server Actions call, and it has NO bypass:
@@ -126,6 +127,15 @@ export function createMessagingService(deps: MessagingDeps) {
     if (channels.includes("email") && !s.emailOn) throw new MessagingError("switched_off", "admin email is switched off");
   }
 
+  /** admin_messaging_self_approve. Off when absent and when it cannot be read: a flag that cannot be read is off. */
+  async function selfApproveOn(): Promise<boolean> {
+    try {
+      return (await flags(NOTIFICATION_FLAGS.adminMessagingSelfApprove)) === true;
+    } catch {
+      return false;
+    }
+  }
+
   async function messageOrNull(id: string): Promise<AdminMessageRow | null> {
     return reads.getMessage(id);
   }
@@ -141,6 +151,9 @@ export function createMessagingService(deps: MessagingDeps) {
       validateCompose(input);
       const s = await requireSendPath();
       requireSwitchesFor(s, input.kind, input.channels);
+      // One operator may send without a second approver only when the flag is on and the message is not a promotion. With the flag off the create function gets exactly the arguments it always got (and
+      // defaults to needing approval). The database still raises the requirement for an audience over 100 when the audience is frozen.
+      const withoutSecondApprover = input.kind !== "promotion" && (await selfApproveOn());
       return viaDatabase(() =>
         rpcs.createAdminMessage({
           p_actor: actor.adminId,
@@ -152,6 +165,7 @@ export function createMessagingService(deps: MessagingDeps) {
           p_segment_key: input.segmentKey,
           p_segment_params: { ...input.segmentParams },
           p_consent_line: input.consentLine,
+          ...(withoutSecondApprover ? { p_requires_approval: false } : {}),
         }),
       );
     },
@@ -188,6 +202,8 @@ export function createMessagingService(deps: MessagingDeps) {
       const s = await requireSendPath();
       const message = await messageOrNull(messageId);
       if (message) requireSwitchesFor(s, message.kind, message.channels);
+      // A message made without a second approver also needs the flag at the moment of sending: switching it off stops such a message even though the database would let it start.
+      if (message && isSelfApproved(message) && !(await selfApproveOn())) throw new MessagingError("switched_off", "sending without a second approver is switched off");
       return viaDatabase(() => rpcs.startAdminMessageSend({ p_message: messageId, p_actor: actor.adminId }));
     },
 

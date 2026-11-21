@@ -31,8 +31,8 @@ export const FLAG_DESCRIPTIONS = {
   admin_messaging: "Lets staff write, approve and send messages from User messages in the admin area; with it off that page only shows a notice.",
   admin_promotions: "Lets staff send promotions as well as service announcements; with it off only announcements can be written and sent.",
   admin_email: "Lets staff use the email channel for admin messages, within the daily and monthly email limits; with it off no admin email goes out.",
-  // src/lib/admin/messages/service.ts (not wired yet)
-  admin_messaging_self_approve: "Reserved for letting one staff member send an admin announcement to up to 100 people without a second approver; nothing acts on it yet, so switching it on changes nothing today.",
+  // src/lib/admin/messages/service.ts, src/app/admin/(protected)/messages/actions.ts
+  admin_messaging_self_approve: "Lets one staff member send an admin announcement to up to 100 people without a second approver, typing SEND first for more than 50; promotions and larger audiences still need a second approver.",
   // src/lib/jobs/lifecycle.ts: only the read-only dry run exists; the waves that would act on these flags are not built
   job_lifecycle_close_imports:
     "Reserved for closing sheet-imported jobs that state no deadline seven days after import; nothing acts on it yet, so switching it on changes nothing today.",
