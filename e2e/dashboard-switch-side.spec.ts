@@ -98,7 +98,8 @@ test("the account menu switches sides and remembers the choice, in both directio
   await expectPath(page, "/jobs");
 
   await openMenu(page, "Account menu");
-  await expect(page.getByRole("menuitem")).toHaveText(["Settings", "Switch to Employer", "Sign out"]);
+  // NAV-DROPDOWN-REALIGN-1: a seeker's menu carries Refer a Friend after Settings.
+  await expect(page.getByRole("menuitem")).toHaveText(["Settings", "Refer a Friend", "Switch to Employer", "Sign out"]);
   await page.getByRole("menuitem", { name: "Switch to Employer" }).click();
   await expect(page).toHaveURL(/\/employer\/jobs$/);
   expect((await sideCookie(page))?.value).toBe("employer");
@@ -107,7 +108,7 @@ test("the account menu switches sides and remembers the choice, in both directio
 test("the seeker menu of an account with no organisation has no switch item", async ({ authedPage: page }) => {
   await page.goto("/jobs");
   await openMenu(page, "Account menu");
-  await expect(page.getByRole("menuitem")).toHaveText(["Settings", "Sign out"]);
+  await expect(page.getByRole("menuitem")).toHaveText(["Settings", "Refer a Friend", "Sign out"]);
 });
 
 test("a non-member who forces the employer side from the menu is refused: no cookie, no move", async ({ authedPage: page }) => {

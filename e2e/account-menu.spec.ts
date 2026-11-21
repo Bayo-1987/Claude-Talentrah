@@ -29,6 +29,8 @@ const navigated = (page: Page) => page.evaluate(() => window.__navigated);
 
 for (const kind of ["seeker", "employer"] as const) {
   const props = kind === "seeker" ? SEEKER : EMPLOYER;
+  // NAV-DROPDOWN-REALIGN-1: the seeker menu carries "Refer a Friend" between Settings and the rest; the employer menu never does.
+  const REFER = kind === "seeker" ? ["Refer a Friend"] : [];
   // The seeker block is the baseline; the employer block holds the same contract for the new menu. Same assertions, so "the same pattern" is checked, not described.
   test.describe(`${kind} header: the avatar opens the account menu`, () => {
     test("the avatar is one button with an accessible name; aria-haspopup is menu and aria-expanded follows the menu", async ({ page }) => {
@@ -49,8 +51,10 @@ for (const kind of ["seeker", "employer"] as const) {
       await mount(page, kind, props);
       await trigger(page).click();
       const text = (await menu(page).innerText()).split("\n").map((l) => l.trim()).filter(Boolean);
-      expect(text).toEqual([props.displayName, props.email, "Settings", "Sign out"]);
-      await expect(menu(page).getByRole("menuitem")).toHaveText(["Settings", "Sign out"]);
+      expect(text).toEqual([props.displayName, props.email, "Settings", ...REFER, "Sign out"]);
+      await expect(menu(page).getByRole("menuitem")).toHaveText(["Settings", ...REFER, "Sign out"]);
+      if (kind === "seeker") await expect(menu(page).getByRole("menuitem", { name: "Refer a Friend" })).toHaveAttribute("href", "/refer");
+      else await expect(page.getByText("Refer a Friend")).toHaveCount(0);
       await expect(menu(page).getByRole("menuitem", { name: "Settings" })).toHaveAttribute("href", "/settings");
     });
 
@@ -79,10 +83,15 @@ for (const kind of ["seeker", "employer"] as const) {
       await mount(page, kind, props);
       await trigger(page).click();
       await expect(menu(page).getByRole("menuitem", { name: "Settings" })).toBeFocused();
-      await page.keyboard.press("Tab");
-      await expect(menu(page).getByRole("menuitem", { name: "Sign out" })).toBeFocused();
-      await page.keyboard.press("Shift+Tab");
-      await expect(menu(page).getByRole("menuitem", { name: "Settings" })).toBeFocused();
+      for (const name of [...REFER, "Sign out"]) {
+        await page.keyboard.press("Tab");
+        await expect(menu(page).getByRole("menuitem", { name })).toBeFocused();
+      }
+      // Back from Sign out: Refer a Friend (seekers), then Settings. The forward list is [Settings, ...REFER, Sign out], so this is its reverse minus Sign out.
+      for (const name of ["Settings", ...REFER].reverse()) {
+        await page.keyboard.press("Shift+Tab");
+        await expect(menu(page).getByRole("menuitem", { name })).toBeFocused();
+      }
     });
 
     test("a click outside closes it and focus goes back to the avatar button", async ({ page }) => {
@@ -110,7 +119,7 @@ for (const kind of ["seeker", "employer"] as const) {
     test("with no name the menu shows the email alone; with neither there is no empty identity row", async ({ page }) => {
       await mount(page, kind, { ...props, displayName: "" });
       await trigger(page).click();
-      expect((await menu(page).innerText()).split("\n").map((l) => l.trim()).filter(Boolean)).toEqual([props.email, "Settings", "Sign out"]);
+      expect((await menu(page).innerText()).split("\n").map((l) => l.trim()).filter(Boolean)).toEqual([props.email, "Settings", ...REFER, "Sign out"]);
 
       if (kind === "employer") {
         await mount(page, kind, { ...props, displayName: "", email: "" });
@@ -218,27 +227,32 @@ for (const kind of ["seeker", "employer"] as const) {
   const label = kind === "seeker" ? "Switch to Employer" : "Switch to Job seeker";
   const side = kind === "seeker" ? "employer" : "seeker";
   const min = kind === "employer" ? 44 : 40;
+  const REFER = kind === "seeker" ? ["Refer a Friend"] : [];
 
   test.describe(`${kind} header: the side switch item`, () => {
     test("is absent when the account cannot switch", async ({ page }) => {
       await mount(page, kind, without);
       await trigger(page).click();
-      await expect(menu(page).getByRole("menuitem")).toHaveText(["Settings", "Sign out"]);
+      await expect(menu(page).getByRole("menuitem")).toHaveText(["Settings", ...REFER, "Sign out"]);
       await expect(page.getByText(/Switch to/)).toHaveCount(0);
     });
 
     test(`is present as "${label}", between Settings and Sign out`, async ({ page }) => {
       await mount(page, kind, withSwitch);
       await trigger(page).click();
-      await expect(menu(page).getByRole("menuitem")).toHaveText(["Settings", label, "Sign out"]);
+      await expect(menu(page).getByRole("menuitem")).toHaveText(["Settings", ...REFER, label, "Sign out"]);
       const text = (await menu(page).innerText()).split("\n").map((l) => l.trim()).filter(Boolean);
-      expect(text).toEqual([withSwitch.displayName, withSwitch.email, "Settings", label, "Sign out"]);
+      expect(text).toEqual([withSwitch.displayName, withSwitch.email, "Settings", ...REFER, label, "Sign out"]);
     });
 
-    test("Tab goes Settings, then the switch, then Sign out, and Shift+Tab goes back", async ({ page }) => {
+    test("Tab goes Settings, then (seekers) Refer a Friend, then the switch, then Sign out, and Shift+Tab goes back", async ({ page }) => {
       await mount(page, kind, withSwitch);
       await trigger(page).click();
       await expect(menu(page).getByRole("menuitem", { name: "Settings" })).toBeFocused();
+      for (const name of REFER) {
+        await page.keyboard.press("Tab");
+        await expect(menu(page).getByRole("menuitem", { name })).toBeFocused();
+      }
       await page.keyboard.press("Tab");
       await expect(menu(page).getByRole("menuitem", { name: label })).toBeFocused();
       await page.keyboard.press("Tab");

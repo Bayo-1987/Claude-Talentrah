@@ -5,6 +5,7 @@ import Link from "next/link";
 import { signOutAction } from "@/lib/auth/actions";
 import { switchSideAction } from "@/lib/auth/switch-side";
 import { PushCleanupForm } from "@/components/app-shell/push-cleanup-form";
+import { PrefetchOnMount } from "@/components/app-shell/prefetch-on-mount";
 import type { Side } from "@/lib/auth/side-preference";
 
 /**
@@ -37,6 +38,8 @@ export interface AccountMenuProps {
   avatarTitle?: string;
   /** Present only for someone who can use both sides: one extra item between Settings and Sign out that remembers the choice and goes to that side. Absent: no item. */
   switchSide?: { to: Side; label: string };
+  /** Seeker header only: adds "Refer a Friend" to the menu, linking here. Absent (the employer header): no item. */
+  referHref?: string;
 }
 
 const SEEKER_AVATAR = "flex h-[34px] w-[34px] items-center justify-center rounded-full bg-ink font-display text-[12px] font-bold text-paper";
@@ -46,7 +49,7 @@ const SIZES = {
   large: { button: "h-11 w-11", item: "min-h-11" },
 } as const;
 
-export function AccountMenu({ initials, email, displayName, settingsHref = "/settings", size = "default", avatarClassName = SEEKER_AVATAR, avatarTitle, switchSide }: AccountMenuProps) {
+export function AccountMenu({ initials, email, displayName, settingsHref = "/settings", size = "default", avatarClassName = SEEKER_AVATAR, avatarTitle, switchSide, referHref }: AccountMenuProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -80,6 +83,8 @@ export function AccountMenu({ initials, email, displayName, settingsHref = "/set
 
   return (
     <div ref={ref} className="relative flex items-center">
+      {/* The menu's links are not in the DOM until it opens, so next/link never prefetches them; the bar's links are. Mounting the prefetch here keeps Refer a Friend as quick to answer a click as it was in the bar. */}
+      {referHref && <PrefetchOnMount hrefs={[referHref]} />}
       {/* The circle or badge keeps its design size; the BUTTON around it is the hit target (CLAUDE.md makes the target size a hard rule). */}
       <button
         ref={triggerRef}
@@ -97,48 +102,91 @@ export function AccountMenu({ initials, email, displayName, settingsHref = "/set
 
       {open && (
         <div role="menu" className="absolute top-[calc(100%+8px)] right-0 z-20 w-[248px] border-[1.5px] border-ink bg-card">
-          {/*
-            Identity block. The name renders only when there is one (absent is the norm: most profiles have none), the email only when there is one, and the whole block only when there is
-            something in it, so an empty padded row never appears. The email carries `break-all`: an address longer than 248px would otherwise widen the menu or spill past its border.
-          */}
-          {(displayName || email) && (
-            <>
-              <div className="flex flex-col gap-0.5 px-4 py-3">
-                {displayName && <span className="font-display text-[15px] font-semibold text-ink">{displayName}</span>}
-                {email && <span className="text-[12.5px] break-all text-ink-soft">{email}</span>}
-              </div>
-              <div className="border-t border-line" />
-            </>
-          )}
-
-          {/* One item, not two. Notifications and profile both live at /settings today, and two labels pointing at one page is a menu that lies about what it can do. */}
-          <Link
-            href={settingsHref}
-            role="menuitem"
-            onClick={() => setOpen(false)}
-            className={`flex ${sizes.item} items-center px-4 text-[13px] font-semibold text-ink no-underline hover:text-rust`}
-          >
-            Settings
-          </Link>
-
-          {switchSide && (
-            <form action={switchSideAction}>
-              <input type="hidden" name="side" value={switchSide.to} />
-              <button type="submit" role="menuitem" className={`flex ${sizes.item} w-full items-center px-4 text-left text-[13px] font-semibold text-ink hover:text-rust`}>
-                {switchSide.label}
-              </button>
-            </form>
-          )}
-
-          <div className="border-t border-line" />
-
-          <PushCleanupForm action={signOutAction}>
-            <button type="submit" role="menuitem" className={`flex ${sizes.item} w-full items-center px-4 text-left text-[13px] font-semibold text-ink-soft hover:text-rust`}>
-              Sign out
-            </button>
-          </PushCleanupForm>
+          <AccountMenuItems
+            email={email}
+            displayName={displayName}
+            settingsHref={settingsHref}
+            itemClass={sizes.item}
+            onNavigate={() => setOpen(false)}
+            referHref={referHref}
+            switchSide={switchSide}
+          />
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * What is inside the open menu, as its own component so it can be rendered (and tested) without clicking anything open. The panel box, focus handling and open state stay in AccountMenu.
+ * Order: identity, Settings, Refer a Friend (seekers only), the side switch (people with both sides only), then Sign out, which stays wrapped in PushCleanupForm exactly as U7 made it.
+ */
+export function AccountMenuItems({
+  email,
+  displayName,
+  settingsHref,
+  itemClass,
+  onNavigate,
+  referHref,
+  switchSide,
+}: {
+  email: string;
+  displayName: string;
+  settingsHref: string;
+  itemClass: string;
+  onNavigate: () => void;
+  referHref?: string;
+  switchSide?: { to: Side; label: string };
+}) {
+  return (
+    <>
+    {/*
+      Identity block. The name renders only when there is one (absent is the norm: most profiles have none), the email only when there is one, and the whole block only when there is
+      something in it, so an empty padded row never appears. The email carries `break-all`: an address longer than 248px would otherwise widen the menu or spill past its border.
+    */}
+    {(displayName || email) && (
+      <>
+        <div className="flex flex-col gap-0.5 px-4 py-3">
+          {displayName && <span className="font-display text-[15px] font-semibold text-ink">{displayName}</span>}
+          {email && <span className="text-[12.5px] break-all text-ink-soft">{email}</span>}
+        </div>
+        <div className="border-t border-line" />
+      </>
+    )}
+
+    {/* One item, not two. Notifications and profile both live at /settings today, and two labels pointing at one page is a menu that lies about what it can do. */}
+    <Link
+      href={settingsHref}
+      role="menuitem"
+      onClick={onNavigate}
+      className={`flex ${itemClass} items-center px-4 text-[13px] font-semibold text-ink no-underline hover:text-rust`}
+    >
+      Settings
+    </Link>
+
+    {/* Seekers only: the caller passes referHref, the employer header never does. A plain link, never a form, so the sign-out wrapper below is untouched. */}
+    {referHref && (
+      <Link href={referHref} role="menuitem" onClick={onNavigate} className={`flex ${itemClass} items-center px-4 text-[13px] font-semibold text-ink no-underline hover:text-rust`}>
+        Refer a Friend
+      </Link>
+    )}
+
+    {switchSide && (
+      <form action={switchSideAction}>
+        <input type="hidden" name="side" value={switchSide.to} />
+        <button type="submit" role="menuitem" className={`flex ${itemClass} w-full items-center px-4 text-left text-[13px] font-semibold text-ink hover:text-rust`}>
+          {switchSide.label}
+        </button>
+      </form>
+    )}
+
+    <div className="border-t border-line" />
+
+    <PushCleanupForm action={signOutAction}>
+      <button type="submit" role="menuitem" className={`flex ${itemClass} w-full items-center px-4 text-left text-[13px] font-semibold text-ink-soft hover:text-rust`}>
+        Sign out
+      </button>
+    </PushCleanupForm>
+    </>
   );
 }

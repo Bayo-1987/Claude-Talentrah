@@ -9,18 +9,8 @@ import { NotificationBell } from "@/components/notifications/notification-bell";
 import { FarahMark } from "@/components/ui/farah-mark";
 import { scrollToFarahPanel } from "@/lib/farah/scroll-to-panel";
 import { useDisplayedCreditsBalance } from "@/components/app-shell/credits-balance";
-
-const NAV_LINKS = [
-  { href: "/jobs", label: "Jobs" },
-  { href: "/tracker", label: "Job Tracker" },
-  { href: "/auto-apply", label: "Auto-Apply" },
-  { href: "/resume-builder", label: "Resume Builder" },
-  { href: "/scholarships", label: "Scholarships" },
-  { href: "/talent-directory/verify", label: "Talent Directory" },
-  { href: "/refer", label: "Refer a Friend" },
-  { href: "/mentorship", label: "Mentorship" },
-  { href: "/feedback", label: "Feedback" },
-];
+import { NavMore } from "@/components/app-shell/nav-more";
+import { NAV_LINKS, NAV_BAR_MIN_PX, barClassFor } from "@/components/app-shell/nav-model";
 
 /**
  * The idle label-cycling animation on the collapsed nav trigger.
@@ -197,7 +187,7 @@ export function Masthead({
    */
   useEffect(() => {
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const wide = window.matchMedia("(min-width: 1536px)");
+    const wide = window.matchMedia(`(min-width: ${NAV_BAR_MIN_PX}px)`);
     const syncMotion = () => setReducedMotion(motion.matches);
     const syncWide = () => setNavBarVisible(wide.matches);
     syncMotion();
@@ -461,7 +451,7 @@ export function Masthead({
               className="h-6 w-auto flex-shrink-0 min-[480px]:h-8"
             />
           </Link>
-          <nav className="hidden items-center gap-5.5 2xl:flex">
+          <nav className="hidden items-center gap-5.5 min-[1024px]:flex min-[1480px]:max-[1535px]:gap-4">
             {NAV_LINKS.map((link) => {
               const active = pathname?.startsWith(link.href);
               const href = hrefFor(link);
@@ -470,11 +460,13 @@ export function Masthead({
                   key={link.href}
                   href={href}
                   className={cn(
+                    // Hidden until this link's step, then a flex item (nav-model.ts).
+                    barClassFor(link),
                     // min-w-10 as well as min-h-10. Height alone is what let a
                     // 39.1px-wide target through review in #69, and "Jobs"
                     // measured 29.5 x 40 here — the same shape, in the one
                     // component every signed-in page renders.
-                    "flex min-h-10 min-w-10 items-center justify-center border-b-[2.5px] font-body text-[14.5px] font-semibold text-ink no-underline",
+                    "min-h-10 min-w-10 items-center justify-center border-b-[2.5px] font-body text-[14.5px] font-semibold text-ink no-underline",
                     /*
                      * `border-transparent` belongs in the INACTIVE branch, not
                      * the base — and that is a bug fix, not tidying.
@@ -501,6 +493,16 @@ export function Masthead({
               );
             })}
 
+            {/*
+              "More": the links that have not reached the bar yet at this width (nav-model.ts). Hidden from 1536, where the bar holds all eight. Only links with a later step get a row.
+            */}
+            <NavMore
+              items={NAV_LINKS.filter((l) => l.barFrom > NAV_BAR_MIN_PX).map((link) => ({
+                link,
+                href: hrefFor(link),
+                active: !!pathname?.startsWith(link.href),
+              }))}
+            />
             {/*
               "Ask Farah" is NOT in NAV_LINKS, and that is the point rather
               than an oversight. Every entry in that list is a route, and the
@@ -558,7 +560,7 @@ export function Masthead({
             <button
               type="button"
               onClick={() => scrollToFarahPanel()}
-              className="hidden min-h-10 min-w-10 items-center justify-center gap-1.5 border-b-[2.5px] border-transparent font-body text-[14.5px] font-semibold text-ink hover:text-rust-hover 2xl:flex"
+              className="hidden min-h-10 min-w-10 items-center justify-center gap-1.5 border-b-[2.5px] border-transparent font-body text-[14.5px] font-semibold text-ink hover:text-rust-hover min-[1680px]:flex"
             >
               <FarahMark size={18} />
               Ask Farah
@@ -572,7 +574,7 @@ export function Masthead({
           */}
           <div
             ref={navRef}
-            className="relative flex items-center 2xl:hidden"
+            className="relative flex items-center min-[1024px]:hidden"
           >
             {/*
               One bordered box, TWO buttons. The box is a plain div — it is
@@ -745,41 +747,22 @@ export function Masthead({
                 })}
 
                 {/*
-                  "Post a job" is hidden above 900px in the bar and would
-                  otherwise have no home at all on a phone — the one link that
-                  was unreachable rather than merely cramped.
+                  "Post a job" is a bar link from 900 (POST_JOB_BAR_MIN_PX), so this row, and the rule above it, are hidden from 900: it is on screen once at every width. Under 900 the bar link is
+                  hidden and this row is the only way to it, the one link that would otherwise be unreachable on a phone.
                 */}
-                <div className="border-t border-line" />
+                <div className="border-t border-line min-[900px]:hidden" />
                 <Link
                   href="/employer"
                   role="menuitem"
                   onClick={() => setNavOpen(false)}
-                  className="flex min-h-11 items-center px-4 font-body text-[14px] font-semibold text-ink-soft no-underline hover:text-rust"
+                  className="flex min-h-11 items-center px-4 font-body text-[14px] font-semibold text-ink-soft no-underline hover:text-rust min-[900px]:hidden"
                 >
                   Post a job
                 </Link>
-
                 {/*
-                  760-1535px is exactly the band where the inline "Ask Farah"
-                  button above (2xl-gated, see its own comment) doesn't
-                  render — the Farah panel is on screen there (it stacks off
-                  screen only below 760), but with no persistent way to jump
-                  to it once FarahFirstVisitHint's one-time nudge is
-                  dismissed. Same action as the inline button
-                  (scrollToFarahPanel — a DOM scroll, not a route, so this is
-                  a button, not a Link), not a second implementation of it.
+                  No "Ask Farah" row here any more (NAV-DROPDOWN-REALIGN-1). Farah is reached by the launcher under 760, the docked panel from 760, and the bar button from 1536. The owner accepted the one
+                  gap this leaves: on the four pages where the launcher is denied (FARAH_LAUNCHER_DENIED_PATHS) a phone has no Farah entry, and that is by design.
                 */}
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setNavOpen(false);
-                    scrollToFarahPanel();
-                  }}
-                  className="flex min-h-11 w-full items-center px-4 text-left font-body text-[14px] font-semibold text-ink-soft hover:text-rust"
-                >
-                  Ask Farah
-                </button>
               </div>
             )}
           </div>
@@ -813,7 +796,7 @@ export function Masthead({
           {/*
             The avatar is the account control, and Sign out lives inside it: the menu is src/components/app-shell/account-menu.tsx, shared with the employer header.
           */}
-          <AccountMenu initials={initials} email={email} displayName={displayName} switchSide={isOrganisationMember ? { to: "employer", label: "Switch to Employer" } : undefined} />
+          <AccountMenu initials={initials} email={email} displayName={displayName} referHref="/refer" switchSide={isOrganisationMember ? { to: "employer", label: "Switch to Employer" } : undefined} />
         </div>
       </div>
     </header>

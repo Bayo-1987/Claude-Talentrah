@@ -39,16 +39,25 @@ if (process.env.CI && !DEMO_PASSWORD) {
 }
 
 /**
- * Below `2xl` the nav is behind the disclosure; at and above it, it renders.
- * Raised from 1280 (`xl`) after an eighth nav item (send-139's "Get
- * Verified") left zero margin at 1280 on CI's Linux runner — see
- * masthead.tsx's own comment on why the fix is a real breakpoint move, not a
- * shaved margin.
+ * NAV-DROPDOWN-REALIGN-1 (owner decision OWNER-DECISION-NAV-DEFAULTS-1, Option B): the bar is on screen from 1024 and steps with the width; below 1024 the nav is behind the disclosure.
+ * The step table is src/components/app-shell/nav-model.ts, restated here on purpose so a change to the model has to change a test:
+ *
+ *   Ask Farah (the bar button) is in the bar from 1680 only; the docked panel is Farah's entry below that.
+ *   >= 1536   Jobs, Job Tracker, Auto-Apply, Resume Builder, Scholarships, Mentorship, Talent Directory, Feedback; no "More"
+ *   1480-1535 the first seven; "More" holds Feedback
+ *   1280-1479 the first five; "More" holds Mentorship, Talent Directory, Feedback
+ *   1024-1279 the first three; "More" holds the other five
  */
-const NAV_BREAKPOINT = 1536;
+const NAV_BREAKPOINT = 1024;
 
-/** Boundary either side, then the widths a laptop actually reports. */
-const WIDTHS = [760, 800, 845, 900, 1024, 1160, 1280, 1360, 1440, 1535, 1536, 1728];
+const ALL_LINKS = ["Jobs", "Job Tracker", "Auto-Apply", "Resume Builder", "Scholarships", "Mentorship", "Talent Directory", "Feedback"];
+/** width -> how many of ALL_LINKS (in order) are in the bar at that width; the rest are behind More. */
+function barCountAt(width: number): number {
+  return width >= 1536 ? 8 : width >= 1480 ? 7 : width >= 1280 ? 5 : 3;
+}
+
+/** Boundary either side of every step, then the widths a laptop actually reports. */
+const WIDTHS = [760, 800, 845, 900, 1023, 1024, 1160, 1279, 1280, 1360, 1440, 1479, 1480, 1535, 1536, 1679, 1680, 1728];
 
 /** Minimum breathing room between the nav and the right-hand group. */
 const MIN_GAP_PX = 16;
@@ -80,8 +89,12 @@ test.describe("the masthead nav fits where it is shown", () => {
           return { navShown: false as const };
         }
 
-        const links = [...nav.querySelectorAll("a")];
+        // The last thing on screen in the bar: a link, or the "More" button when it is shown. Elements a step has hidden are display:none and have no box.
+        const links = [...nav.querySelectorAll("a, button")].filter((el) => el.getBoundingClientRect().width > 0);
         const last = links[links.length - 1];
+        const visibleLinks = [...nav.querySelectorAll("a")].filter((el) => el.getBoundingClientRect().width > 0).map((el) => el.textContent?.trim() ?? "");
+        const askFarahShown = [...nav.querySelectorAll("button")].some((el) => (el.textContent ?? "").includes("Ask Farah") && el.getBoundingClientRect().width > 0);
+        const moreShown = [...nav.querySelectorAll("button")].some((el) => (el.textContent ?? "").trim() === "More" && el.getBoundingClientRect().width > 0);
 
         /*
          * The PAINTED right edge. `getBoundingClientRect()` on the anchor
@@ -115,6 +128,9 @@ test.describe("the masthead nav fits where it is shown", () => {
         return {
           navShown: true as const,
           lastLabel: last.textContent?.trim() ?? "",
+          visibleLinks,
+          moreShown,
+          askFarahShown,
           textRight: Math.round(textRight),
           rightGroupLeft: firstRight ? Math.round(firstRight.left) : null,
           gap: firstRight ? Math.round(firstRight.left - textRight) : null,
@@ -136,18 +152,20 @@ test.describe("the masthead nav fits where it is shown", () => {
         `"${m.lastLabel}" overlaps or crowds the right-hand group at ${width}px ` +
           `(text ends ${m.textRight}, group starts ${m.rightGroupLeft})`,
       ).toBeGreaterThanOrEqual(MIN_GAP_PX);
+
+      // The step table: exactly these links in the bar, in this order, and "More" only below 1536.
+      expect(m.visibleLinks, `the bar's links at ${width}px`).toEqual(ALL_LINKS.slice(0, barCountAt(width)));
+      expect(m.moreShown, `More at ${width}px`).toBe(width < 1536);
+      expect(m.askFarahShown, `the Ask Farah bar button at ${width}px`).toBe(width >= 1680);
     }
   });
 
   test("every destination survives the collapse below the breakpoint", async ({ page }) => {
     /*
-     * The breakpoint has moved twice now — 760 to 1280, then 1280 to 1536 —
-     * and each move pushed a wider band of viewports behind the disclosure.
-     * That is only acceptable because it stays COMPLETE at every width below
-     * NAV_BREAKPOINT — asserted here rather than assumed, at a width that was
-     * previously served by the horizontal bar.
+     * Below 1024 the nav is behind the disclosure and must stay COMPLETE: the eight links and, under 900, "Post a job". 880 is under both. Refer a Friend is in the account menu (not here) and
+     * there is no Ask Farah row (the launcher or the docked panel is Farah's entry), both asserted absent.
      */
-    await page.setViewportSize({ width: 900, height: 900 });
+    await page.setViewportSize({ width: 880, height: 900 });
     await login(page);
 
     const trigger = page.getByRole("button", { name: "Main menu" });
@@ -159,23 +177,37 @@ test.describe("the masthead nav fits where it is shown", () => {
       await expect(menu).toBeVisible({ timeout: 1000 });
     }).toPass({ timeout: 15_000 });
 
-    for (const label of [
-      "Jobs",
-      "Job Tracker",
-      "Auto-Apply",
-      "Resume Builder",
-      "Scholarships",
-      "Talent Directory",
-      "Refer a Friend",
-      "Mentorship",
-      "Feedback",
-      "Post a job",
-      "Ask Farah",
-    ]) {
+    for (const label of [...ALL_LINKS, "Post a job"]) {
       await expect(
         menu.getByRole("menuitem", { name: label }),
-        `${label} is unreachable at 900px — it is in neither the bar nor the menu`,
+        `${label} is unreachable at 880px — it is in neither the bar nor the menu`,
       ).toBeVisible();
+    }
+    for (const gone of ["Refer a Friend", "Ask Farah"]) {
+      await expect(menu.getByRole("menuitem", { name: gone }), `${gone} must not be in the menu`).toHaveCount(0);
+    }
+  });
+
+  test("Post a job is on screen once at every width", async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await login(page);
+    for (const width of [360, 700, 880, 899, 900, 1023, 1024, 1280, 1536, 1920]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.waitForTimeout(150);
+      // Under 1024 the nav lives in the disclosure, so open it; from 1024 the bar is the whole story.
+      const trigger = page.getByRole("button", { name: "Main menu" });
+      if (await trigger.isVisible()) {
+        const menu = page.getByRole("menu").first();
+        await expect(async () => {
+          if (!(await menu.isVisible())) await trigger.click();
+          await expect(menu).toBeVisible({ timeout: 1000 });
+        }).toPass({ timeout: 15_000 });
+      }
+      const visible = await page.evaluate(() =>
+        [...document.querySelectorAll('[data-testid="masthead"] a')].filter((a) => (a.textContent ?? "").trim() === "Post a job" && a.getBoundingClientRect().width > 0).length,
+      );
+      expect(visible, `"Post a job" visible ${visible} times at ${width}px`).toBe(1);
     }
   });
 

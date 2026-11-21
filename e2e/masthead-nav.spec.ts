@@ -30,7 +30,7 @@ import { test, expect } from "@playwright/test";
  */
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD;
 
-test("masthead nav shows all four links once Job Tracker (M7) and Refer a Friend (M8) have shipped", async ({ page }) => {
+test("masthead nav shows its links, and Refer a Friend is in the account menu", async ({ page }) => {
   test.skip(!DEMO_PASSWORD, "DEMO_PASSWORD is not set — see scripts/seed.ts");
   await page.setViewportSize({ width: 1600, height: 900 });
 
@@ -45,5 +45,8 @@ test("masthead nav shows all four links once Job Tracker (M7) and Refer a Friend
   await expect(nav.getByRole("link", { name: "Jobs" })).toBeVisible();
   await expect(nav.getByRole("link", { name: "Job Tracker" })).toBeVisible();
   await expect(nav.getByRole("link", { name: "Resume Builder" })).toBeVisible();
-  await expect(nav.getByRole("link", { name: "Refer a Friend" })).toBeVisible();
+  // NAV-DROPDOWN-REALIGN-1: Refer a Friend left the bar for the account menu.
+  await expect(nav.getByRole("link", { name: "Refer a Friend" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Account menu" }).click();
+  await expect(page.getByRole("menuitem", { name: "Refer a Friend" })).toHaveAttribute("href", "/refer");
 });

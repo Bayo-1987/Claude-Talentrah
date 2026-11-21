@@ -18,8 +18,8 @@ import { FARAH_FIRST_VISIT_HINT_TEST_ID } from "@/lib/farah/first-visit-hint-id"
  *
  *   below 760   the launcher (a round button, with a one-time "Ask Farah · AI assistant"
  *               pill on a first visit) -> it announces itself, so there is NO hint here
- *   760 to 2xl  the panel itself, a sticky right column  -> hint sits beside it
- *   2xl and up  the masthead's "Ask Farah" item          -> hint sits under it
+ *   760 to 1679 the panel itself, a sticky right column  -> hint sits beside it
+ *   1680 and up the masthead's "Ask Farah" item          -> hint sits under it (the bar button starts at 1680: nav-model.ts ASK_FARAH_BAR_MIN_PX)
  *
  * The phone variant was retired with the bottom bar it pointed at (launcher plan, Q4): two
  * floating overlays over a feed that is mostly buttons was one too many. Below 760px the card
@@ -178,11 +178,11 @@ export function FarahFirstVisitHint() {
             server and the client; only one is ever visible.
           */}
           <p className="mt-1 text-[13px] leading-[1.5] text-ink-soft">
-            <span className="hidden min-[760px]:inline 2xl:hidden">
+            <span className="hidden min-[760px]:inline min-[1680px]:hidden">
               She can tailor your resume or prep you for an interview. She&apos;s in the
               column on the right, and stays there as you scroll.
             </span>
-            <span className="hidden 2xl:inline">
+            <span className="hidden min-[1680px]:inline">
               She can tailor your resume or prep you for an interview. Use{" "}
               <span className="font-semibold text-ink">Ask Farah</span> in the menu bar, or the
               column on the right.
