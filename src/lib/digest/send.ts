@@ -1,7 +1,7 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getResendClient } from "@/lib/resend/client";
-import { absoluteUrl } from "@/lib/seo/site";
+import { unsubscribeHeaders } from "@/lib/email/unsubscribe";
 import { isFeatureEnabled } from "@/lib/flags/read";
 import { buildDigestEmail } from "./template";
 import { DIGEST_WINDOW_DAYS, selectDigestJobs, type DigestCandidate } from "./select";
@@ -117,15 +117,8 @@ export async function sendJobMatchDigest(now: Date = new Date()): Promise<Digest
         subject: email.subject,
         text: email.text,
         html: email.html,
-        headers: {
-          /*
-           * One-click unsubscribe, which Gmail and Yahoo require of bulk
-           * senders. Without it a digest is far likelier to be marked spam
-           * than unsubscribed, and that damages every other email we send.
-           */
-          "List-Unsubscribe": `<${unsubscribeUrlFor(recipient.unsubscribe_token)}>`,
-          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-        },
+        // One-click unsubscribe, which Gmail and Yahoo require of bulk senders. Without it a digest is far likelier to be marked spam than unsubscribed, and that damages every other email we send.
+        headers: unsubscribeHeaders(recipient.unsubscribe_token, "job_match_digest"),
       });
 
       // Stamped only after a successful send, so a failure retries next run
@@ -152,14 +145,6 @@ export async function sendJobMatchDigest(now: Date = new Date()): Promise<Digest
       `skippedNoJobs=${summary.skippedNoJobs} failed=${summary.failed}`,
   );
   return summary;
-}
-
-/**
- * The same URL the email body links to, built the same way, so the
- * List-Unsubscribe header and the visible link can never drift apart.
- */
-function unsubscribeUrlFor(token: string): string {
-  return absoluteUrl(`/unsubscribe?token=${encodeURIComponent(token)}`);
 }
 
 /**

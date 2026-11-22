@@ -1,7 +1,7 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getResendClient } from "@/lib/resend/client";
-import { absoluteUrl } from "@/lib/seo/site";
+import { unsubscribeHeaders } from "@/lib/email/unsubscribe";
 import { isFeatureEnabled } from "@/lib/flags/read";
 import { buildScholarshipDeadlineEmail } from "./template";
 import { selectDeadlineAlertCandidates, SCHOLARSHIP_DEADLINE_REMINDER_DAYS, type DeadlineAlertCandidate } from "./select";
@@ -156,10 +156,7 @@ export async function sendScholarshipDeadlineAlerts(
         subject: email.subject,
         text: email.text,
         html: email.html,
-        headers: {
-          "List-Unsubscribe": `<${unsubscribeUrlFor(pref.unsubscribe_token)}>`,
-          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-        },
+        headers: unsubscribeHeaders(pref.unsubscribe_token, "scholarship_deadline_alert"),
       });
 
       // Stamped only after a successful send, so a failure retries next run
@@ -190,17 +187,6 @@ export async function sendScholarshipDeadlineAlerts(
     `[scholarship-deadline-alerts] considered=${summary.considered} sent=${summary.sent} failed=${summary.failed}`,
   );
   return summary;
-}
-
-/**
- * The same URL the email body links to, built the same way, so the
- * List-Unsubscribe header and the visible link can never drift apart —
- * matches digest/send.ts's own `unsubscribeUrlFor`. `pref=` is required:
- * 0128's multi-preference unsubscribe page defaults to job_match_digest
- * otherwise.
- */
-function unsubscribeUrlFor(token: string): string {
-  return absoluteUrl(`/unsubscribe?token=${encodeURIComponent(token)}&pref=scholarship_deadline_alert`);
 }
 
 /** Re-exported for the admin route's own logging/testing convenience. */

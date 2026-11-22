@@ -1,7 +1,7 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getResendClient } from "@/lib/resend/client";
-import { absoluteUrl } from "@/lib/seo/site";
+import { unsubscribeHeaders } from "@/lib/email/unsubscribe";
 import { isFeatureEnabled } from "@/lib/flags/read";
 import { filterListablePostings, type RawScoredPosting } from "@/lib/digest/send";
 import { MIN_DIGEST_SCORE } from "@/lib/digest/select";
@@ -109,10 +109,7 @@ export async function sendWinbackEmails(now: Date = new Date()): Promise<Winback
         subject: email.subject,
         text: email.text,
         html: email.html,
-        headers: {
-          "List-Unsubscribe": `<${unsubscribeUrlFor(candidate.unsubscribeToken)}>`,
-          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-        },
+        headers: unsubscribeHeaders(candidate.unsubscribeToken, "win_back_email"),
       });
 
       // Stamped only after a successful send — same reasoning as the digest's
@@ -142,13 +139,6 @@ export async function sendWinbackEmails(now: Date = new Date()): Promise<Winback
       `skippedNoPostings=${summary.skippedNoPostings} failed=${summary.failed}`,
   );
   return summary;
-}
-
-/** Mirrors digest/send.ts's own `unsubscribeUrlFor` — the same URL
- * template.ts already builds for the in-body link, built again here only for
- * the List-Unsubscribe HEADER, so the two can never drift apart. */
-function unsubscribeUrlFor(token: string): string {
-  return absoluteUrl(`/unsubscribe?token=${encodeURIComponent(token)}&pref=win_back_email`);
 }
 
 async function loadCandidates(
