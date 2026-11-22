@@ -7,6 +7,8 @@ import { ActionForm, type MessageAction } from "./action-form";
 import { ApprovePanel } from "./approve-panel";
 import { LimitsPanel } from "./limits-panel";
 import { StaleClaimsPanel } from "./stale-claims-panel";
+import { SelfSendNotice } from "./self-send-notice";
+import { isSelfApproved } from "@/lib/admin/messages/self-send";
 import { OUTCOME_LABEL, type OutcomeCounts } from "./outcome-counts";
 import { COUNTS_ONLY_NOTE, KIND_LABEL, QUIET_HOURS_SENTENCE, STATUS_LABEL, SWITCHED_OFF_NOTICE, pausedSentence, switchedOffReason } from "./texts";
 
@@ -137,7 +139,11 @@ export function MessageDetailView(props: {
           )}
           {m.status === "prepared" && m.requires_approval && <ActionForm action={actions.submit} targetId={id} hidden={{ id }} label="Submit for approval" />}
           {m.status === "submitted" && <ApprovePanel messageId={id} kind={m.kind} action={actions.approve} />}
-          {startable && <ActionForm action={actions.send} targetId={id} hidden={{ id }} label="Send" pendingLabel="Sending…" />}
+          {startable && (
+            <ActionForm action={actions.send} targetId={id} hidden={{ id }} label="Send" pendingLabel="Sending…">
+              {isSelfApproved(m) && <SelfSendNotice message={m} />}
+            </ActionForm>
+          )}
           {m.status === "sending" && hasEmail && counts.queuedEmail > 0 && <ActionForm action={actions.continueEmail} targetId={id} hidden={{ id }} label="Continue sending" pendingLabel="Sending…" />}
           {(m.status === "paused_email_cap" || m.status === "paused_email_ceiling") && <ActionForm action={actions.resume} targetId={id} hidden={{ id }} label="Resume" />}
           {CANCELLABLE.has(m.status) && <ActionForm action={actions.cancel} targetId={`${id}-cancel`} hidden={{ id }} label="Cancel this message" variant="ghost" />}

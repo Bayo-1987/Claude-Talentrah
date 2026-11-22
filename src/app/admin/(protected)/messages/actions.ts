@@ -19,6 +19,7 @@ import {
   type StaleClaimResolution,
 } from "@/lib/notifications/contract";
 import { pausedSentence, RAISING_A_LIMIT_NOTE, SWITCHED_OFF_NOTICE } from "@/components/admin/messages/texts";
+import { SELF_SEND_CONFIRM_WORD, needsTypedSend, typedSendSentence } from "@/lib/admin/messages/self-send";
 import { sendTestEmail } from "./test-send";
 import type { MessageActionState } from "@/components/admin/messages/state";
 
@@ -188,6 +189,13 @@ export async function sendAction(_prev: MessageActionState, formData: FormData):
   const id = field(formData, "id");
   try {
     const service = getMessagingService();
+    // A message sent without a second approver to more than 50 people needs the word SEND, typed. This is the guard (the page's input only supplies the word); a message that went through the two-person route is not asked.
+    const pending = await service.get(actor, id);
+    // Fail closed: a message that cannot be read is not sent (without it, a failed read would skip the check below).
+    if (!pending) return { status: "error", message: "That message could not be read, so nothing was sent.", targetId: id };
+    if (needsTypedSend(pending) && field(formData, "confirmSend") !== SELF_SEND_CONFIRM_WORD) {
+      return { status: "error", message: typedSendSentence(pending.audience_count), targetId: id };
+    }
     const started = await service.start(actor, id);
     if (started === null) {
       return { status: "error", message: "Nothing was started. It may already have been sent, or a switch it needs is off.", targetId: id };
