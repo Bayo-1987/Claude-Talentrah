@@ -282,13 +282,14 @@ test.describe("where it does not appear", () => {
 
 test.describe("never covering Apply", () => {
   for (const width of PHONES) {
-    test(`${width}: at every scroll position no Apply control meets the launcher, and nothing is behind it at the end of the page`, async ({ page }) => {
+    test(`${width}: the card row never meets the launcher, the page row scrolls clear of it, and nothing is behind it at the end of the page`, async ({ page }) => {
       await open(page, width);
       // Precondition: the launcher is floating inside the viewport. In the flow it would be far below and every check here would pass for nothing.
       const floating = await box(page, "farah-launcher");
       expect(floating.y + floating.height).toBeLessThanOrEqual(800);
       expect(floating.y).toBeGreaterThan(0);
-      // BY CONSTRUCTION, whatever the scroll position: every control of every protected row (the job card's and the job page's) starts at least 8px right of the launcher's column.
+      // The job CARD's row, BY CONSTRUCTION and at every scroll position: every control starts at least 8px right of the launcher's column (the row ends at the card's right edge and keeps a small clearance on its left).
+      // The job PAGE's row is LEFT-aligned (changed 22 Nov, the owner's call): it starts in the launcher's column, so it cannot clear by construction. It clears by SCROLLING instead, checked below.
       const clearances = await page.evaluate(() => {
         const l = document.querySelector('[data-testid="farah-launcher"]')!.getBoundingClientRect();
         return [...document.querySelectorAll("[data-farah-avoid]")].flatMap((row) =>
@@ -296,24 +297,39 @@ test.describe("never covering Apply", () => {
         );
       });
       expect(new Set(clearances.map((c) => c.row)), "both kinds of row are in the page").toEqual(new Set(["job-card-actions", "job-page-actions"]));
-      for (const c of clearances) expect(c.gap, `${c.row} / ${c.name}`).toBeGreaterThanOrEqual(8);
+      for (const c of clearances.filter((c) => c.row === "job-card-actions")) expect(c.gap, `${c.row} / ${c.name}`).toBeGreaterThanOrEqual(8);
       const total = await page.evaluate(() => document.documentElement.scrollHeight);
+      const hitsAt: Record<number, { row: string; at: string }[]> = {};
       for (let y = 0; y <= total; y += 90) {
         await page.evaluate((top) => window.scrollTo(0, top), y);
-        const hits = await page.evaluate(() => {
+        hitsAt[y] = await page.evaluate(() => {
           const l = document.querySelector('[data-testid="farah-launcher"]')!.getBoundingClientRect();
-          const out: string[] = [];
+          const out: { row: string; at: string }[] = [];
           for (const row of document.querySelectorAll('[data-farah-avoid]')) {
             for (const c of row.querySelectorAll("a, button")) {
               const r = c.getBoundingClientRect();
               if (r.width === 0 || r.height === 0) continue;
-              if (r.left < l.right && r.right > l.left && r.top < l.bottom && r.bottom > l.top) out.push(`${c.textContent?.trim()} @${Math.round(r.left)},${Math.round(r.top)}`);
+              if (r.left < l.right && r.right > l.left && r.top < l.bottom && r.bottom > l.top) out.push({ row: (row as HTMLElement).dataset.testid ?? "", at: `${c.textContent?.trim()} @${Math.round(r.left)},${Math.round(r.top)}` });
             }
           }
           return out;
         });
-        expect(hits, `scrollY ${y}`).toEqual([]);
+        // The card's row never meets the launcher, at any scroll position.
+        expect(hitsAt[y].filter((h) => h.row === "job-card-actions"), `card row, scrollY ${y}`).toEqual([]);
       }
+      // The page's row may pass under the launcher while the page scrolls (it is fixed and the row is left-aligned), but it SCROLLS CLEAR: past the last position where it meets the launcher there is
+      // a position, at or before the end of the page, where it does not, and the very end of the page is clear.
+      const ys = Object.keys(hitsAt).map(Number).sort((a, b) => a - b);
+      const lastEnd = await page.evaluate(() => { window.scrollTo(0, document.documentElement.scrollHeight); return Math.round(window.scrollY); });
+      const pageHitYs = ys.filter((y) => hitsAt[y].some((h) => h.row === "job-page-actions"));
+      expect(pageHitYs.length, "precondition: the page's row does pass under the launcher at some scroll position, or this check proves nothing").toBeGreaterThan(0);
+      expect(Math.max(...pageHitYs), "it scrolls clear: the last overlap is before the end of the page").toBeLessThan(lastEnd);
+      const atEnd = await page.evaluate(() => {
+        const l = document.querySelector('[data-testid="farah-launcher"]')!.getBoundingClientRect();
+        return [...document.querySelectorAll('[data-testid="job-page-actions"] a, [data-testid="job-page-actions"] button, [data-testid="job-page-actions"] p')].map((c) => ({ name: (c.textContent ?? "").trim().slice(0, 30), clear: c.getBoundingClientRect().bottom <= l.top }));
+      });
+      expect(atEnd.length).toBeGreaterThan(4);
+      for (const c of atEnd) expect(c.clear, `at the end of the page: ${c.name}`).toBe(true);
       // End of the page: the reserve sits under the last thing, so the launcher is over the reserve and nothing else.
       await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
       const clear = await page.evaluate(() => {
@@ -322,6 +338,65 @@ test.describe("never covering Apply", () => {
         return lastCard.bottom <= l.top;
       });
       expect(clear).toBe(true);
+    });
+  }
+});
+
+test.describe("the job page's last controls scroll clear of the launcher, with no padding of their own", () => {
+  // The shell keeps a spacer under the last thing on every page below 760px (farah-launcher-spacer, as tall as the launcher's column), and the install strip keeps its own; the launcher floats above
+  // the strip. So the end of the page needs no extra padding from the job page: measured here with and without the strip, on a short phone and a tall one.
+  for (const strip of [false, true]) {
+    for (const height of [640, 844]) {
+      test(`390x${height}${strip ? " with the install strip" : ""}: at the end of the page every control of the job page's row is above the launcher`, async ({ page }) => {
+        await open(page, 390, { strip, height });
+        await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+        const r = await page.evaluate(() => {
+          const l = document.querySelector('[data-testid="farah-launcher"]')!.getBoundingClientRect();
+          const bottoms = [...document.querySelectorAll('[data-testid="job-page-actions"] > *')].map((c) => c.getBoundingClientRect().bottom);
+          return { launcherTop: l.top, lowest: Math.max(...bottoms), n: bottoms.length };
+        });
+        expect(r.n).toBeGreaterThanOrEqual(6);
+        expect(r.lowest, "the lowest control ends above the launcher").toBeLessThanOrEqual(r.launcherTop);
+      });
+    }
+  }
+});
+
+test.describe("the job page's action row is left-aligned on a phone", () => {
+  // Changed 22 Nov (the owner's call): below 760px the row used to be right-aligned with the launcher's 72px column reserved on its left (so on a 390px phone Save, Apply by email, Copy address, Mark as
+  // applied, the dashed note, Tailor my resume and Ask Farah were all pushed away from the left edge). The row now starts at the same left edge as the rest of the page.
+  for (const width of PHONES) {
+    test(`${width}: every control and the note start at the row's left edge, and nothing is spread to the right`, async ({ page }) => {
+      await open(page, width);
+      const row = page.getByTestId("job-page-actions");
+      await expect(row).toBeVisible();
+      for (const name of ["Save", "Apply by email", "Copy address", "Mark as applied", "Tailor my resume for this", "Ask Farah"]) {
+        await expect(row.getByText(name, { exact: false }).first(), name).toBeVisible();
+      }
+      await expect(row.getByText("Use Apply by email to open your mail app", { exact: false })).toBeVisible();
+      const css = await row.evaluate((el) => { const cs = getComputedStyle(el); return { pl: cs.paddingLeft, pr: cs.paddingRight, justify: cs.justifyContent }; });
+      expect(css.pl).toBe("0px");
+      expect(css.pr).toBe("0px");
+      expect(["normal", "flex-start", "start"], "left-aligned").toContain(css.justify);
+      const items = await row.evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        const boxes = [...el.children].map((c) => { const b = c.getBoundingClientRect(); return { name: (c.textContent ?? "").trim().slice(0, 28), left: b.left, right: b.right, top: b.top, w: b.width, h: b.height }; }).filter((b) => b.w > 0 && b.h > 0);
+        return { left: r.left, right: r.right, boxes };
+      });
+      expect(items.boxes.length).toBeGreaterThanOrEqual(6);
+      // Group into visual lines; the first item of EVERY line starts at the row's left edge, and within a line the items follow each other with the row's own 12px gap (nothing spread out to the right).
+      const lines: (typeof items.boxes)[] = [];
+      for (const b of [...items.boxes].sort((a, c) => a.top - c.top || a.left - c.left)) {
+        const line = lines.find((l) => Math.abs(l[0].top - b.top) < 6);
+        if (line) line.push(b); else lines.push([b]);
+      }
+      for (const line of lines) {
+        line.sort((a, c) => a.left - c.left);
+        expect(Math.abs(line[0].left - items.left), `line starting "${line[0].name}": first item at the row's left edge`).toBeLessThanOrEqual(1);
+        for (let i = 1; i < line.length; i++) expect(line[i].left - line[i - 1].right, `${line[i - 1].name} -> ${line[i].name}`).toBeLessThanOrEqual(13);
+      }
+      // The row's own left edge is the page's content edge (24px gutter), not 72px in.
+      expect(Math.round(items.left)).toBe(24);
     });
   }
 });

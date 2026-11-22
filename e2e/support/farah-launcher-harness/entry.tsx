@@ -11,6 +11,7 @@ import { FarahSheetHost } from "@/components/app-shell/farah-sheet-host";
 import { FarahPanel } from "@/components/app-shell/farah-panel";
 import { FarahJobMenu } from "@/components/jobs/farah-job-menu";
 import { buttonClasses } from "@/components/ui";
+import { ApplyByEmailLink, ApplyByEmailNote } from "@/components/jobs/apply-by-email";
 import { JOB_CARD_ACTIONS_CLASS, JOB_PAGE_ACTIONS_CLASS } from "@/lib/jobs/action-row-classes";
 import { FarahFirstVisitHint } from "@/components/app-shell/farah-first-visit-hint";
 import InstallStrip from "@/components/pwa/install-strip";
@@ -100,11 +101,13 @@ function Page({ options }: { options: Options }) {
               </div>
             </div>
           ))}
-          {/* The job page's action row (jobs/[id]/page.tsx): the shipped class string, with the page's own buttons. */}
+          {/* The job page's action row (jobs/[id]/page.tsx), for an external posting that takes applications by email only: the shipped class string, the page's own components (the real
+              "Apply by email" link with its "Copy address" button, and the real dashed note) and its own buttons. */}
           <div data-testid="job-page-actions" data-farah-avoid="true" className={JOB_PAGE_ACTIONS_CLASS}>
             <button type="button" className={buttonClasses("secondary", "sm")}>Save</button>
-            <a href="#apply-page" className={buttonClasses("primary", "sm", "no-underline")}>Apply on company site</a>
+            <ApplyByEmailLink address="careers@example.test" title="Job page" variant="page" />
             <button type="button" className={buttonClasses("text", "sm")}>Mark as applied</button>
+            <ApplyByEmailNote />
             <a href="#tailor" className={buttonClasses("text", "sm", "no-underline")}>Tailor my resume for this</a>
             <FarahJobMenu jobId="job-page" jobTitle="Job page" companyName="Acme" />
           </div>

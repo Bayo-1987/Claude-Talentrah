@@ -20,8 +20,8 @@ import { LAUNCHER_INSET_PX } from "@/lib/farah/launcher-geometry";
  * ── POSITION ────────────────────────────────────────────────────────────────
  *
  * Fixed, bottom LEFT, 16px in (LAUNCHER_INSET_PX), above the home indicator (`env(safe-area-inset-bottom)`) and above the install strip when that is showing (the strip publishes its height as
- * `--farah-strip-h`). z-18: over the feed, under the masthead (20) and the sheet (40). It stands on the left so the pages' action rows, which end at the right edge, never meet it; the one
- * row that is left-aligned (the job page's) reserves the launcher's 72px column on its left, see `data-farah-avoid` and src/lib/jobs/action-row-classes.ts.
+ * `--farah-strip-h`). z-18: over the feed, under the masthead (20) and the sheet (40). It stands on the left so the job cards' action rows, which end at the right edge, never meet it; the job page's
+ * row is left-aligned, passes under it only while the page scrolls, and scrolls clear of it (the end-of-page spacer), see `data-farah-avoid` and src/lib/jobs/action-row-classes.ts.
  */
 export interface FarahLauncherViewProps {
   /** The first-visit pill ("Ask Farah · AI assistant") instead of the round button. */

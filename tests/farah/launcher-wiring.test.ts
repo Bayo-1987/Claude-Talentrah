@@ -134,10 +134,13 @@ describe("Apply is never under the launcher", () => {
     expect(text).not.toContain("max-[760px]:pr-[72px]");
   });
 
-  it("the job page's row reserves the launcher's column on the LEFT: marked and built from the shared class", () => {
+  // Changed deliberately (22 Nov): the page's row no longer reserves the launcher's column on its left; it is left-aligned and scrolls clear. Still marked and still built from the shared class.
+  it("the job page's row is left-aligned at every width: marked, built from the shared class, and with no reserve or right-alignment of its own", () => {
     const text = read("src/app/(app)/jobs/[id]/page.tsx");
     expect(text).toContain('data-farah-avoid="true"');
     expect(text).toContain("className={JOB_PAGE_ACTIONS_CLASS}");
     expect(text).not.toContain("max-[760px]:pr-[72px]");
+    expect(text).not.toContain("max-[760px]:pl-[72px]");
+    expect(text).not.toContain("max-[760px]:justify-end");
   });
 });

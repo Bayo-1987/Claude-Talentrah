@@ -170,8 +170,8 @@ export function FarahSheetHost({ children, hasUnreadNotification = false }: { ch
         <>
           {/*
             THE RESERVE, in flow and at the end of the page, below 760px: the launcher is fixed, so without it the last of the page (the Farah panel used to be the last thing) could sit under it. The
-            launcher stands bottom left, so the action rows that hold Apply end at the right edge; the one left-aligned row (the job page's) reserves the launcher's column on its left
-            (data-farah-avoid, src/lib/jobs/action-row-classes.ts) for the places it can float over mid-page.
+            launcher stands bottom left, so the job card's row (which holds Apply) ends at the right edge; the job page's row is left-aligned and passes under the launcher only while the page is
+            scrolling: this reserve is what lets even the last controls of any page scroll up clear of it (data-farah-avoid, src/lib/jobs/action-row-classes.ts).
           */}
           <div aria-hidden="true" data-testid="farah-launcher-spacer" style={{ height: `calc(${LAUNCHER_RESERVE_PX}px + env(safe-area-inset-bottom))` }} className="min-[760px]:hidden print:hidden" />
           <FarahLauncherView
