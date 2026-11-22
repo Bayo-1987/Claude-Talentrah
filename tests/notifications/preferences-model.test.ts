@@ -1,8 +1,8 @@
 /**
- * The defaults of the notification preferences: promotions OFF, announcements ON, every push switch OFF (U6). Killed mutant: M-promotions-default-on (a promotions default flipped to true).
- * The constant is also checked against the column defaults of migration 0265, so the screen and the database cannot drift apart.
+ * The defaults of the notification preferences: promotions OFF, announcements ON, the master push switch OFF and the three event switches ON (U6, event defaults changed by 0283). Killed mutant: M-promotions-default-on (a promotions default flipped to true).
+ * The constant is also checked against the EFFECTIVE column defaults (migration 0265 plus every later ALTER ... SET DEFAULT), so the screen and the database cannot drift apart.
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -15,23 +15,28 @@ import {
 } from "@/components/settings/notification-preferences-model";
 
 describe("the defaults", () => {
-  it("promotions default OFF (push and e-mail), announcements default ON, every push switch OFF", () => {
+  it("promotions default OFF (push and e-mail), announcements default ON, the master push switch OFF, the three event switches ON", () => {
     expect(DEFAULT_NOTIFICATION_PREFERENCES.push_promotions).toBe(false);
     expect(DEFAULT_NOTIFICATION_PREFERENCES.email_promotions).toBe(false);
     expect(DEFAULT_NOTIFICATION_PREFERENCES.email_announcements).toBe(true);
-    for (const column of ["push_enabled", "push_new_applicant", "push_application_viewed", "push_match_alert"] as const) expect(DEFAULT_NOTIFICATION_PREFERENCES[column], column).toBe(false);
+    expect(DEFAULT_NOTIFICATION_PREFERENCES.push_enabled).toBe(false);
+    for (const column of ["push_new_applicant", "push_application_viewed", "push_match_alert"] as const) expect(DEFAULT_NOTIFICATION_PREFERENCES[column], column).toBe(true);
   });
   it("is exactly the seven columns and cannot be changed at run time", () => {
     expect([...NOTIFICATION_PREFERENCE_COLUMNS].sort()).toEqual(["email_announcements", "email_promotions", "push_application_viewed", "push_enabled", "push_match_alert", "push_new_applicant", "push_promotions"]);
     expect(Object.keys(DEFAULT_NOTIFICATION_PREFERENCES).sort()).toEqual([...NOTIFICATION_PREFERENCE_COLUMNS].sort());
     expect(Object.isFrozen(DEFAULT_NOTIFICATION_PREFERENCES)).toBe(true);
   });
-  it("agrees with the column defaults of migration 0265", () => {
-    const sql = readFileSync(path.resolve(__dirname, "../../supabase/migrations/0265_notifications_and_admin_messaging.sql"), "utf8");
+  it("agrees with the effective column defaults: migration 0265, then every later ALTER ... SET DEFAULT in migration order", () => {
+    const dir = path.resolve(__dirname, "../../supabase/migrations");
+    const sql = readFileSync(path.join(dir, "0265_notifications_and_admin_messaging.sql"), "utf8");
+    const later = readdirSync(dir).filter((f) => /^\d{4}_.*\.sql$/.test(f) && f > "0265_").sort().map((f) => readFileSync(path.join(dir, f), "utf8").replace(/^\s*--.*$/gm, ""));
     for (const column of NOTIFICATION_PREFERENCE_COLUMNS) {
       const m = new RegExp(`add column if not exists ${column} boolean not null default (true|false)`).exec(sql);
       expect(m, `${column} is not declared in 0265`).not.toBeNull();
-      expect(DEFAULT_NOTIFICATION_PREFERENCES[column], `${column}: the screen's default differs from the database's`).toBe(m![1] === "true");
+      let effective = m![1] === "true";
+      for (const file of later) for (const a of file.matchAll(new RegExp(`alter column ${column} set default (true|false)`, "g"))) effective = a[1] === "true";
+      expect(DEFAULT_NOTIFICATION_PREFERENCES[column], `${column}: the screen's default differs from the database's`).toBe(effective);
     }
   });
 });
@@ -46,7 +51,7 @@ describe("withDefaults", () => {
     expect(out.push_enabled).toBe(true);
     expect(out.email_announcements).toBe(false);
     expect(out.email_promotions).toBe(false);
-    expect(out.push_match_alert).toBe(false);
+    expect(out.push_match_alert).toBe(true);
     expect("unrelated" in out).toBe(false);
   });
 });

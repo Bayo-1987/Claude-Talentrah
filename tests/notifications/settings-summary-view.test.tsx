@@ -11,7 +11,7 @@ describe("the Settings summary card", () => {
   it("has the three lines and one button to the detail page", () => {
     const html = render("off");
     expect(html).toMatch(row("Push on this device", "Off"));
-    expect(html).toMatch(/1 of 6 categories on/);
+    expect(html).toMatch(/4 of 6 categories on/);
     expect(html).toMatch(row("Email", "On"));
     const link = /<a [^>]*href="\/settings\/notifications"[^>]*>([^<]*)<\/a>/.exec(html);
     expect(link?.[1]).toBe("Manage notifications");
@@ -29,7 +29,7 @@ describe("the Settings summary card", () => {
     expect(html).toMatch(/Checking/);
   });
   it("counts categories from the saved row and shows email off only when both email switches are off", () => {
-    expect(render("off", { push_new_applicant: true, push_match_alert: true })).toMatch(/3 of 6 categories on/);
+    expect(render("off", { push_new_applicant: true, push_application_viewed: false, push_match_alert: true })).toMatch(/3 of 6 categories on/);
     expect(render("off", { email_announcements: false, email_promotions: false })).toMatch(row("Email", "Off"));
     expect(render("off", { email_announcements: false, email_promotions: true })).toMatch(row("Email", "On"));
   });

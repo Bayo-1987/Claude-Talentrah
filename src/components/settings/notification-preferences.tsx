@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useTransition, type ReactNode } from "react";
+import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { setNotificationPreferenceAction } from "@/app/(app)/settings/notification-actions";
 import type { NotificationPreferenceColumn, NotificationPreferenceValues } from "./notification-preferences-model";
 import { accountDeviceHint } from "./notification-summary-model";
 import { useDevicePushState } from "./use-device-push-state";
 import type { PushState } from "@/lib/pwa/push/client";
+import { PUSH_ENABLED_EVENT } from "./push-opt-in";
 
 type Row = { column: NotificationPreferenceColumn; label: string; hint: string };
 
@@ -117,6 +118,12 @@ export function NotificationPreferences({ initial, optIn, deviceStateEnabled = f
   const [notes, setNotes] = useState<Partial<Record<string, string>>>({});
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+  // A tap on the opt-in button turned push on for this device and saved the account switch: show the toggle on.
+  useEffect(() => {
+    const onEnabled = () => setValues((v) => ({ ...v, push_enabled: true }));
+    window.addEventListener(PUSH_ENABLED_EVENT, onEnabled);
+    return () => window.removeEventListener(PUSH_ENABLED_EVENT, onEnabled);
+  }, []);
 
   function onToggle(column: NotificationPreferenceColumn, next: boolean) {
     const before = values[column];
